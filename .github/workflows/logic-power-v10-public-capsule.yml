@@ -20,124 +20,52 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
-      - name: Unpack hash-bound private source snapshot
+      - name: Reconstruct the hash-bound private source
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p _logic_power_v10
-          base64 -d logic_power_v10_capsule/logic-power-v10-source.tar.gz.b64 \
-            > /tmp/logic-power-v10-source.tar.gz
-          echo 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31  /tmp/logic-power-v10-source.tar.gz' \
-            | sha256sum -c -
+          echo 'fbee850593592f701a39c4f6491c8f9a3bcfb586c1910357bdcd48f48967d5ce  logic_power_v10_capsule/parts/part_00.b64' | sha256sum -c -
+          echo '7303cffc0012f655af430d9125f6258afe3a370c69abf02afacfa8bd93709979  logic_power_v10_capsule/parts/part_01.b64' | sha256sum -c -
+          echo '9c0ebf32b4fa12be52d7c72fe879d76e542bd6f223febcdaf4fda10083a669da  logic_power_v10_capsule/parts/part_02.b64' | sha256sum -c -
+          echo '2b5b23d38a64a4cc98f2bb376a38f20fe7dda9bd36539c2446f822d98ac9296a  logic_power_v10_capsule/parts/part_03.b64' | sha256sum -c -
+          echo 'f83c70b1800617313c14f6241dc1f144f993900c5701f500c48f82485ecc58a5  logic_power_v10_capsule/parts/part_04.b64' | sha256sum -c -
+          echo 'daa34a3446a04edc4608d0278772c8927f89cf38add8b9865135e52510985acc  logic_power_v10_capsule/parts/part_05.b64' | sha256sum -c -
+          cat logic_power_v10_capsule/parts/part_*.b64 > /tmp/logic-power-v10-source.b64
+          echo '9d138ecd964e91e4db86fd5b663bb40d0599443f238d03b58b0a3418bca0dabb  /tmp/logic-power-v10-source.b64' | sha256sum -c -
+          base64 -d /tmp/logic-power-v10-source.b64 > /tmp/logic-power-v10-source.tar.gz
+          echo 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31  /tmp/logic-power-v10-source.tar.gz' | sha256sum -c -
           tar xzf /tmp/logic-power-v10-source.tar.gz -C _logic_power_v10
           cd _logic_power_v10
           sha256sum -c SOURCE_SHA256SUMS
-          test "$(cat PRIVATE_HEAD_SHA.txt)" = \
-            'ba10d0edc7eb20d499d0481fda2537e782b6efb2'
+          test "$(cat PRIVATE_HEAD_SHA.txt)" = 'ba10d0edc7eb20d499d0481fda2537e782b6efb2'
+          test "$(git hash-object ../logic_power_v10_capsule/overlay/logic_power_v10/ci_v10.sh)" = '0042baf4f79f208670a9a5e8cfcf5cb81c15aecb'
+          test "$(git hash-object ../logic_power_v10_capsule/overlay/README_v10.md)" = 'c4e13c32962d79ad8a31d313b7ac034e63af0e43'
+          test "$(git hash-object ../logic_power_v10_capsule/overlay/.github/workflows/logic-power-v10.yml)" = 'e0e2f0e5367923159c72f93c219780e4b97e1697'
+          cp ../logic_power_v10_capsule/overlay/logic_power_v10/ci_v10.sh logic_power_v10/ci_v10.sh
+          cp ../logic_power_v10_capsule/overlay/README_v10.md README_v10.md
+          mkdir -p .github/workflows
+          cp ../logic_power_v10_capsule/overlay/.github/workflows/logic-power-v10.yml .github/workflows/logic-power-v10.yml
+          printf '%s\n' 'leanprover/lean4:v4.33.0-rc1' > lean-toolchain
+          test "$(git hash-object lean-toolchain)" = 'fd85b262bf1c734663aa8292b0101f672168788f'
 
-      - name: Run exact Python and independent Node gates
+      - name: Execute the exact private v10 pipeline
         shell: bash
         working-directory: _logic_power_v10
         run: |
           set -euo pipefail
-          export PYTHONPATH="$PWD"
-          mkdir -p reports certificates
-          python -m compileall -q logic_power_v10
-          python -m unittest discover -s logic_power_v10 -p 'test_*.py' -v \
-            2>&1 | tee reports/python-tests-v10.log
-          python -m logic_power_v10.run_logic_power_v10
-          python -m logic_power_v10.verify_logic_power_v10 \
-            certificates/logic_power_v10_exact.json \
-            | tee reports/python-exact-verifier-v10.log
-          python -m logic_power_v10.verify_logic_power_v10 \
-            certificates/logic_power_v10_impossible.json \
-            | tee reports/python-impossible-verifier-v10.log
-          node logic_power_v10/verify_logic_power_v10.js \
-            certificates/logic_power_v10_exact.json \
-            | tee reports/node-exact-verifier-v10.log
-          node logic_power_v10/verify_logic_power_v10.js \
-            certificates/logic_power_v10_impossible.json \
-            | tee reports/node-impossible-verifier-v10.log
-          if python -m logic_power_v10.verify_logic_power_v10 \
-            certificates/logic_power_v10_tampered.json \
-            > reports/python-tamper-verifier-v10.log 2>&1; then
-            echo 'Python accepted a tampered v10 certificate'
-            exit 1
-          fi
-          if node logic_power_v10/verify_logic_power_v10.js \
-            certificates/logic_power_v10_tampered.json \
-            > reports/node-tamper-verifier-v10.log 2>&1; then
-            echo 'Node accepted a tampered v10 certificate'
-            exit 1
-          fi
-          sha256sum \
-            certificates/logic_power_v10_exact.json \
-            certificates/logic_power_v10_impossible.json \
-            reports/logic_power_v10.canonical.json \
-            > reports/rebuild-before-v10.sha256
-          python -m logic_power_v10.run_logic_power_v10
-          sha256sum \
-            certificates/logic_power_v10_exact.json \
-            certificates/logic_power_v10_impossible.json \
-            reports/logic_power_v10.canonical.json \
-            > reports/rebuild-after-v10.sha256
-          cmp reports/rebuild-before-v10.sha256 \
-            reports/rebuild-after-v10.sha256
-
-      - name: Model-check Exact and Impossible terminal states
-        shell: bash
-        working-directory: _logic_power_v10
-        run: |
-          set -euo pipefail
-          curl -L --fail --retry 4 --retry-all-errors \
-            https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar \
-            -o tla2tools.jar
-          echo 'feffd16994db963ad945628cfd03d154c195a468  tla2tools.jar' \
-            | sha1sum -c -
-          java -cp tla2tools.jar tla2sany.SANY \
-            tla_v10/ActiveDiscovery.tla \
-            2>&1 | tee reports/sany-active-discovery-v10.log
-          if grep -Eq 'Semantic errors|\*\*\* Errors:' \
-            reports/sany-active-discovery-v10.log; then
-            exit 1
-          fi
-          (
-            cd tla_v10
-            java -cp ../tla2tools.jar tlc2.TLC -workers 1 \
-              -config ActiveDiscoveryExact.cfg ActiveDiscovery.tla \
-              | tee ../reports/tlc-active-discovery-exact-v10.log
-            java -cp ../tla2tools.jar tlc2.TLC -workers 1 \
-              -config ActiveDiscoveryImpossible.cfg ActiveDiscovery.tla \
-              | tee ../reports/tlc-active-discovery-impossible-v10.log
-          )
-          grep -q 'Model checking completed. No error has been found.' \
-            reports/tlc-active-discovery-exact-v10.log
-          grep -q 'Model checking completed. No error has been found.' \
-            reports/tlc-active-discovery-impossible-v10.log
-
-      - name: Compile the Lean 4 boundary without Mathlib
-        shell: bash
-        working-directory: _logic_power_v10
-        run: |
-          set -euo pipefail
-          curl -sSf \
-            https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+          curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
             | sh -s -- -y --default-toolchain none
           export PATH="$HOME/.elan/bin:$PATH"
           elan toolchain install leanprover/lean4:v4.33.0-rc1
-          elan run leanprover/lean4:v4.33.0-rc1 \
-            lean ActiveDiscoveryFinite.lean \
-            2>&1 | tee reports/lean-active-discovery-v10.log
-          if grep -q 'sorryAx' reports/lean-active-discovery-v10.log; then
-            echo 'Lean reported sorryAx'
-            exit 1
-          fi
+          bash logic_power_v10/ci_v10.sh
 
-      - name: Build the proof-carrying public receipt
+      - name: Bind the public receipt to both repositories
         shell: bash
         working-directory: _logic_power_v10
         env:
-          PUBLIC_CAPSULE_SHA: ${{ github.sha }}
+          PUBLIC_EVENT_SHA: ${{ github.sha }}
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           python - <<'PY'
@@ -146,60 +74,31 @@ jobs:
           import os
           from pathlib import Path
 
-          def sha256(path: str) -> str:
-              return hashlib.sha256(Path(path).read_bytes()).hexdigest()
-
-          report = json.loads(Path('reports/logic_power_v10.json').read_text())
-          exact_log = Path('reports/tlc-active-discovery-exact-v10.log').read_text()
-          impossible_log = Path('reports/tlc-active-discovery-impossible-v10.log').read_text()
-          lean_log = Path('reports/lean-active-discovery-v10.log').read_text()
+          audit = json.loads(Path('reports/audit_v10.json').read_text())
           receipt = {
+              **audit,
               'schema': 'logic-power-v10/public-verification-receipt/1',
-              'status': 'PASS',
-              'score_within_declared_finite_domain': 1000,
               'private_source_repository': 'cristh99/my_first_repository',
               'private_source_head': Path('PRIVATE_HEAD_SHA.txt').read_text().strip(),
               'public_capsule_repository': 'cristh99/notebooks',
-              'public_capsule_commit': os.environ['PUBLIC_CAPSULE_SHA'],
+              'public_capsule_head': os.environ['PUBLIC_HEAD_SHA'],
+              'public_event_sha': os.environ['PUBLIC_EVENT_SHA'],
               'source_archive_sha256': 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31',
-              'python_tests': 12,
-              'python_verifier': True,
-              'node_verifier': True,
-              'tamper_rejected_by_both': True,
-              'deterministic_rebuild': True,
-              'tla_sany': True,
-              'tlc_exact': 'No error has been found.' in exact_log,
-              'tlc_impossible': 'No error has been found.' in impossible_log,
-              'lean_compiled': True,
-              'lean_sorry_ax': 'sorryAx' in lean_log,
-              'exact_certificate_sha256': report['certificates']['exact_sha256'],
-              'impossible_certificate_sha256': report['certificates']['impossible_sha256'],
-              'source_manifest_sha256': sha256('SOURCE_SHA256SUMS'),
+              'transport_sha256': '9d138ecd964e91e4db86fd5b663bb40d0599443f238d03b58b0a3418bca0dabb',
+              'private_ci_blob_sha': '0042baf4f79f208670a9a5e8cfcf5cb81c15aecb',
+              'private_readme_blob_sha': 'c4e13c32962d79ad8a31d313b7ac034e63af0e43',
+              'private_workflow_blob_sha': 'e0e2f0e5367923159c72f93c219780e4b97e1697',
+              'private_lean_toolchain_blob_sha': 'fd85b262bf1c734663aa8292b0101f672168788f',
           }
-          assert receipt['tlc_exact']
-          assert receipt['tlc_impossible']
-          assert not receipt['lean_sorry_ax']
-          Path('reports/public-verification-receipt-v10.json').write_text(
-              json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          path = Path('reports/public-verification-receipt-v10.json')
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path('reports/public-verification-receipt-v10.sha256').write_text(
+              f'{digest}  public-verification-receipt-v10.json\n'
           )
+          print(path.read_text())
+          print(digest)
           PY
-          find logic_power_v10 -type d -name '__pycache__' \
-            -prune -exec rm -rf {} +
-          tar --sort=name --mtime='UTC 1970-01-01' \
-            --owner=0 --group=0 --numeric-owner \
-            -cf - \
-            ActiveDiscoveryFinite.lean \
-            PRIVATE_HEAD_SHA.txt \
-            SOURCE_SHA256SUMS \
-            logic_power_v10 \
-            tla_v10 \
-            reports \
-            certificates \
-            | gzip -n > logic-power-v10-public-evidence.tar.gz
-          sha256sum logic-power-v10-public-evidence.tar.gz \
-            > logic-power-v10-public-evidence.sha256
-          cat reports/public-verification-receipt-v10.json
-          cat logic-power-v10-public-evidence.sha256
 
       - name: Upload public verification evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -210,5 +109,3 @@ jobs:
             _logic_power_v10/certificates/
             _logic_power_v10/SOURCE_SHA256SUMS
             _logic_power_v10/PRIVATE_HEAD_SHA.txt
-            _logic_power_v10/logic-power-v10-public-evidence.tar.gz
-            _logic_power_v10/logic-power-v10-public-evidence.sha256
