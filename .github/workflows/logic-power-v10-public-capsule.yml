@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - agent/logic-power-v10-public-ci-capsule
+  pull_request:
+    paths:
+      - '.github/workflows/logic-power-v10-public-capsule.yml'
+      - 'logic_power_v10_capsule/**'
   workflow_dispatch:
 
 permissions:
