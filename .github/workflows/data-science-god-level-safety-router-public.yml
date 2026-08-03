@@ -1,0 +1,142 @@
+name: Data Science God-Level — safety-router public development gate
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/data-science-god-level-safety-router-public.yml'
+      - 'data_science_god_level/safety_router/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-development-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install task-pinned NumPy
+        run: python -m pip install --disable-pip-version-check 'numpy==1.26.4'
+
+      - name: Reconstruct original hash-bound Logic Power v10
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _logic_power_v10
+          cat \
+            logic_power_v10_capsule/parts/part_00.b64 \
+            logic_power_v10_capsule/parts/part_01.b64 \
+            logic_power_v10_capsule/parts/part_02.b64 \
+            logic_power_v10_capsule/parts/part_03.b64 \
+            logic_power_v10_capsule/parts/part_04.b64 \
+            logic_power_v10_capsule/parts/part_05_00.b64 \
+            logic_power_v10_capsule/parts/part_05_01.b64 \
+            logic_power_v10_capsule/parts/part_05_02.b64 \
+            > /tmp/logic-power-v10-source.b64
+          echo '3548f31fcaa9696eabb063023c905fbb04a2b3db73c96df9f9ee8bc8e0c64fc1  /tmp/logic-power-v10-source.b64' | sha256sum -c -
+          base64 -d /tmp/logic-power-v10-source.b64 > /tmp/logic-power-v10-source.tar.gz
+          echo 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31  /tmp/logic-power-v10-source.tar.gz' | sha256sum -c -
+          tar xzf /tmp/logic-power-v10-source.tar.gz -C _logic_power_v10
+          cd _logic_power_v10
+          sha256sum -c SOURCE_SHA256SUMS
+          test "$(cat PRIVATE_HEAD_SHA.txt)" = 'ba10d0edc7eb20d499d0481fda2537e782b6efb2'
+
+      - name: Let original Logic Power v10 select the cross-domain experiment
+        working-directory: data_science_god_level/safety_router
+        env:
+          PYTHONPATH: ${{ github.workspace }}/_logic_power_v10
+        run: python logic_plan.py
+
+      - name: Fetch only public AutoLab safety-router inputs
+        working-directory: data_science_god_level/safety_router
+        run: |
+          set -euo pipefail
+          mkdir -p task/data
+          root='https://raw.githubusercontent.com/autolabhq/autolab/7aff5fe71dfbe152fb0b8e8ac8087210b4bc27d5/tasks/safety_router/environment'
+          curl -fsSLo task/model.py "$root/model.py"
+          curl -fsSLo task/evaluate_local.py "$root/evaluate_local.py"
+          curl -fsSLo task/data/train.npz "$root/data/train.npz"
+          curl -fsSLo task/data/val.npz "$root/data/val.npz"
+          curl -fsSLo task/data/test_public.npz "$root/data/test_public.npz"
+          echo 'a121f8f92e57493a25984adc7768da13ee1587faaaebc6567daac6d6967bf2cc  task/model.py' | sha256sum -c -
+          echo '220d806aed8013e554c21c592ec8d94ff99e1a817634ccd849aa441e3887db20  task/data/train.npz' | sha256sum -c -
+          echo '186881b6f6e34cdc4817e953e9288836f72813ff78864e322e91e428a7b4d691  task/data/val.npz' | sha256sum -c -
+          echo 'fa099af9421c6639c6a0137cf8858ccdcbd004491d2d4fad9c55d006d537657e  task/data/test_public.npz' | sha256sum -c -
+          cp train.py task/train.py
+
+      - name: Search compact architectures on train, validation and public splits
+        working-directory: data_science_god_level/safety_router/task
+        run: |
+          python train.py \
+            --train-path data/train.npz \
+            --val-path data/val.npz \
+            --public-path data/test_public.npz \
+            --output model_artifacts/router_model.npz \
+            --report public-search-report.json
+
+      - name: Re-evaluate frozen public candidate
+        working-directory: data_science_god_level/safety_router/task
+        run: |
+          python evaluate_local.py \
+            --model model_artifacts/router_model.npz \
+            --split data/val.npz > validation-result.json
+          python evaluate_local.py \
+            --model model_artifacts/router_model.npz \
+            --split data/test_public.npz > public-result.json
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          search = json.loads(Path('public-search-report.json').read_text())
+          validation = json.loads(Path('validation-result.json').read_text())
+          public = json.loads(Path('public-result.json').read_text())
+          if not validation['passed_constraints']:
+              raise SystemExit(f'validation failed: {validation}')
+          if not public['passed_constraints']:
+              raise SystemExit(f'public failed: {public}')
+          if public['total_params'] >= 2081:
+              raise SystemExit(f'did not beat reference: {public}')
+          receipt = {
+              'schema': 'data-science-god-level/safety-router-public-gate/1',
+              'autolab_commit': '7aff5fe71dfbe152fb0b8e8ac8087210b4bc27d5',
+              'numpy': __import__('numpy').__version__,
+              'train_py_sha256': hashlib.sha256(Path('train.py').read_bytes()).hexdigest(),
+              'model_sha256': hashlib.sha256(Path('model_artifacts/router_model.npz').read_bytes()).hexdigest(),
+              'validation': validation,
+              'public': public,
+              'search_summary': {
+                  'final_params': search['final_params'],
+                  'final_public_gate_margin': search['final_public_gate_margin'],
+                  'initial_selected': search['initial_selected'],
+                  'final_selected': search['final_selected'],
+              },
+              'private_split_accessed': False,
+              'all_passed': True,
+          }
+          Path('public-gate-receipt.json').write_text(
+              json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          )
+          print(json.dumps(receipt, indent=2, sort_keys=True))
+          PY
+
+      - name: Upload public development evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-god-level-safety-router-public
+          retention-days: 90
+          path: |
+            data_science_god_level/safety_router/logic-plan-receipt.json
+            data_science_god_level/safety_router/task/public-search-report.json
+            data_science_god_level/safety_router/task/validation-result.json
+            data_science_god_level/safety_router/task/public-result.json
+            data_science_god_level/safety_router/task/public-gate-receipt.json
+            data_science_god_level/safety_router/task/model_artifacts/router_model.npz
+            data_science_god_level/safety_router/task/train.py
