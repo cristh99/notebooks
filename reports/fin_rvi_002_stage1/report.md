@@ -5,22 +5,22 @@
 - Candidatos generados: **2295**
 - Candidatos estrictos 1:1: **917**
 - Holdout congelado: **20**
-- SHA-256 del payload: `bbd117b249fe214cc74dca58a5ae080545e1c34bc5652857850eec2fa6008440`
+- SHA-256 del payload: `0b22eb6c7e340a591bbd67df57c4af33c52b28fa664f29e155129a673c73734c`
 
 ## Resultado decisional
 
 - Promociones baseline: **20**
-- Promociones baseline sin respaldo suficiente: **4**
-- Promociones de la política documental: **16**
+- Promociones baseline sin respaldo suficiente: **3**
+- Promociones de la política documental: **17**
 - Promociones no respaldadas de la política: **0**
-- Monto SEFIN preservado de promoción no respaldada: **L 4,644,050.40**
+- Monto SEFIN preservado de promoción no respaldada: **L 4,059,782.40**
 
 ## Adquisición pública
 
 - Documentos intentados: **20**
-- Documentos adquiridos: **20**
-- Bytes adquiridos: **9,379,348**
-- Tiempo observado: **72.305 s**
+- Documentos adquiridos: **16**
+- Bytes adquiridos: **62,001,875**
+- Tiempo observado: **163.798 s**
 
 ## Frontera honesta
 

@@ -10,11 +10,14 @@
       "candidates_for_sefin": 1,
       "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
       "document_acquisition": {
-        "bytes": 66728,
+        "bytes": 1978532,
+        "cache_reuse": false,
         "content_type": "application/pdf",
-        "sha256": "4623ab27491fe6f3a4a627074f913094995504446a8f769f0f1f7eece8b0f229",
+        "selected_document_title": "Contrato u Orden de Compra",
+        "selected_document_type": "contractSigned",
+        "sha256": "87f318ab0703de8b4d9eec91d3a70cd7a07c34b27866c3195cbebe87983ae6aa",
         "status": "ACQUIRED",
-        "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-063-2024102-AvisodePrensa.pdf"
+        "url": "http://h1.honducompras.gob.hn/Docs/Con1211SIT-CO-467-20241200-ContratouOrdendeCompra.pdf"
       },
       "evidence_policy_decision": "PROMOTE_SUPPORTED",
       "holdout_order_key": "00919a4976c04362f74b8c1c0c6244db19a7b46de3081062d639a23711a03fd3",
@@ -24,6 +27,7 @@
       "linkage_status": "AMBIGUOUS",
       "object_adjudication": {
         "decision": "SUPPORTED",
+        "hard_category_conflict": false,
         "jaccard": 0.255319,
         "left_categories": [
           "CONSTRUCTION",
@@ -31,7 +35,8 @@
           "TOOLS"
         ],
         "left_token_count": 36,
-        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "lexical_support": true,
+        "reason": "SUPPLIER_AND_OBJECT_EVIDENCE_COMPATIBLE",
         "right_categories": [
           "CONSTRUCTION",
           "TOOLS"
@@ -120,11 +125,14 @@
       "candidates_for_sefin": 1,
       "cardinality_type": "ONE_TO_ONE",
       "document_acquisition": {
-        "bytes": 484902,
+        "bytes": 2134519,
+        "cache_reuse": false,
         "content_type": "application/pdf",
-        "sha256": "970da666ec1a1c6789ce1a15a364c6fe8bd863093e2f8cabfdeb9806c13bfdb6",
+        "selected_document_title": "Contrato u Orden de Compra",
+        "selected_document_type": "contractSigned",
+        "sha256": "af2360eacbd57f985c0ae9099cf7e2ec66872937d64334531396809af51dcde3",
         "status": "ACQUIRED",
-        "url": "http://h1.honducompras.gob.hn/Docs/Lic1230CPN-SIT-042-2023100-AvisodePrensa.pdf"
+        "url": "http://h1.honducompras.gob.hn/Docs/Con1230SIT-SU-028-20231200-ContratouOrdendeCompra.pdf"
       },
       "evidence_policy_decision": "PROMOTE_SUPPORTED",
       "holdout_order_key": "06705bbc69785aa4c4991f68b7d3e2f779093823ca7915c2376cbafa4408642c",
@@ -134,13 +142,15 @@
       "linkage_status": "STRICT_1_TO_1",
       "object_adjudication": {
         "decision": "SUPPORTED",
+        "hard_category_conflict": false,
         "jaccard": 0.2,
         "left_categories": [
           "CONSTRUCTION",
           "PUBLICATION"
         ],
         "left_token_count": 32,
-        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "lexical_support": true,
+        "reason": "SUPPLIER_AND_OBJECT_EVIDENCE_COMPATIBLE",
         "right_categories": [
           "CONSTRUCTION",
           "CONSULTING"
@@ -226,11 +236,14 @@
       "candidates_for_sefin": 1,
       "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
       "document_acquisition": {
-        "bytes": 563436,
+        "bytes": 5252202,
+        "cache_reuse": false,
         "content_type": "application/pdf",
-        "sha256": "cc51a24b7b1bf788ec28de557f322533ef5d1b82b109f62811ebe8857a795528",
+        "selected_document_title": "Contrato u Orden de Compra",
+        "selected_document_type": "contractSigned",
+        "sha256": "443fff0a703ad63dd3f2c7b9cb2b1aa05af765dc095163d29807ea13cdb0b742",
         "status": "ACQUIRED",
-        "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-102-2024102-AvisodePrensa.pdf"
+        "url": "http://h1.honducompras.gob.hn/Docs/Con1211SIT-CO-497-20241200-ContratouOrdendeCompra.pdf"
       },
       "evidence_policy_decision": "PROMOTE_SUPPORTED",
       "holdout_order_key": "07656412dee8d36dc5fc7b2d3a809e5f45e3dac36492baf7c406766ddbf66840",
@@ -240,13 +253,15 @@
       "linkage_status": "AMBIGUOUS",
       "object_adjudication": {
         "decision": "SUPPORTED",
+        "hard_category_conflict": false,
         "jaccard": 0.196078,
         "left_categories": [
           "CONSTRUCTION",
           "PUBLICATION"
         ],
         "left_token_count": 33,
-        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "lexical_support": true,
+        "reason": "SUPPLIER_AND_OBJECT_EVIDENCE_COMPATIBLE",
         "right_categories": [
           "CONSTRUCTION",
           "TOOLS"
@@ -333,11 +348,14 @@
       "candidates_for_sefin": 1,
       "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
       "document_acquisition": {
-        "bytes": 652667,
+        "bytes": 1856033,
+        "cache_reuse": false,
         "content_type": "application/pdf",
-        "sha256": "2b6031f69ba9bc4640cd5fcd0b390dd6fa95b84b9ad1d0cb4d5e1ad3f2253a08",
+        "selected_document_title": "Contrato u Orden de Compra",
+        "selected_document_type": "contractSigned",
+        "sha256": "8a52b05b3c53aac4274c486c6b0a823498a1d5fe38d8cb20b9c779eb0e8ba3ef",
         "status": "ACQUIRED",
-        "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-002-2024102-AvisodePrensa.pdf"
+        "url": "http://h1.honducompras.gob.hn/Docs/Con1211SIT-CO-429-20241200-ContratouOrdendeCompra.pdf"
       },
       "evidence_policy_decision": "PROMOTE_SUPPORTED",
       "holdout_order_key": "0a2fbd46388c4d22718cded2bc08db313e5d5a5cd368ca27d72b39c63be2decf",
@@ -347,13 +365,15 @@
       "linkage_status": "AMBIGUOUS",
       "object_adjudication": {
         "decision": "SUPPORTED",
+        "hard_category_conflict": false,
         "jaccard": 0.176471,
         "left_categories": [
           "CONSTRUCTION",
           "PUBLICATION"
         ],
         "left_token_count": 35,
-        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "lexical_support": true,
+        "reason": "SUPPLIER_AND_OBJECT_EVIDENCE_COMPATIBLE",
         "right_categories": [
           "CONSTRUCTION",
           "TOOLS"
@@ -439,11 +459,12 @@
       "candidates_for_sefin": 1,
       "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
       "document_acquisition": {
-        "bytes": 200018,
-        "content_type": "image/jpeg",
-        "sha256": "e2a083ba81cdcef854ef7bf9f1d25dd6ed53ddf2208c1a2f2347c3402c2d9a76",
-        "status": "ACQUIRED",
-        "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-052-2024100-AvisodePrensa.jpg"
+        "cache_reuse": false,
+        "declared_bytes": 15225800,
+        "selected_document_title": "Contrato u Orden de Compra",
+        "selected_document_type": "contractSigned",
+        "status": "SKIPPED_TOO_LARGE",
+        "url": "http://h1.honducompras.gob.hn/Docs/Con1211SIT-CO-261-20241200-ContratouOrdendeCompra.pdf"
       },
       "evidence_policy_decision": "PROMOTE_SUPPORTED",
       "holdout_order_key": "0bb7638c8da1e5b3933a2e3c59e71e42f8b85ab5bef26d05481cfd3f448ec6b0",
@@ -453,6 +474,7 @@
       "linkage_status": "AMBIGUOUS",
       "object_adjudication": {
         "decision": "SUPPORTED",
+        "hard_category_conflict": false,
         "jaccard": 0.537313,
         "left_categories": [
           "CONSTRUCTION",
@@ -460,7 +482,8 @@
           "TOOLS"
         ],
         "left_token_count": 60,
-        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "lexical_support": true,
+        "reason": "SUPPLIER_AND_OBJECT_EVIDENCE_COMPATIBLE",
         "right_categories": [
           "CONSTRUCTION",
           "TOOLS"
@@ -573,11 +596,12 @@
       "candidates_for_sefin": 1,
       "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
       "document_acquisition": {
-        "bytes": 149196,
-        "content_type": "application/pdf",
-        "sha256": "96f19db00e9e75507f7d4162efb2e177f80035b21a8fcf9fd6a274eb2a0752fb",
-        "status": "ACQUIRED",
-        "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-371604-CW-RFB100-AvisodePrensa.pdf"
+        "cache_reuse": false,
+        "declared_bytes": 15248974,
+        "selected_document_title": "Contrato u Orden de Compra",
+        "selected_document_type": "contractSigned",
+        "status": "SKIPPED_TOO_LARGE",
+        "url": "http://h1.honducompras.gob.hn/Docs/Con1192Contrato%20No_SDO-O-FHIS-01-20251200-ContratouOrdendeCompra.pdf"
       },
       "evidence_policy_decision": "PROMOTE_SUPPORTED",
       "holdout_order_key": "0c44bad5392c4be6c48298ef9253ed2119b1b37fc5731a981395121c91850ef9",
@@ -587,6 +611,7 @@
       "linkage_status": "AMBIGUOUS",
       "object_adjudication": {
         "decision": "SUPPORTED",
+        "hard_category_conflict": false,
         "jaccard": 0.12766,
         "left_categories": [
           "CONSTRUCTION",
@@ -594,7 +619,8 @@
           "SOFTWARE"
         ],
         "left_token_count": 37,
-        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "lexical_support": true,
+        "reason": "SUPPLIER_AND_OBJECT_EVIDENCE_COMPATIBLE",
         "right_categories": [
           "CONSTRUCTION",
           "SOFTWARE"
@@ -699,11 +725,14 @@
       "candidates_for_sefin": 1,
       "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
       "document_acquisition": {
-        "bytes": 140223,
+        "bytes": 1937876,
+        "cache_reuse": false,
         "content_type": "application/pdf",
-        "sha256": "a235bd9da3ce549276d95066ee0d5d6f32a5777b5876abba8d8771179a4d600a",
+        "selected_document_title": "Contrato u Orden de Compra",
+        "selected_document_type": "contractSigned",
+        "sha256": "6ed508df81a5c6ab5dc2e4567289caf4c06f65bc4a6881c1fd26793c8294377c",
         "status": "ACQUIRED",
-        "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-407817-CW-RFB100-AvisodePrensa.pdf"
+        "url": "http://h1.honducompras.gob.hn/Docs/Con1192SDO-O-FHIS-08-20241200-ContratouOrdendeCompra.pdf"
       },
       "evidence_policy_decision": "PROMOTE_SUPPORTED",
       "holdout_order_key": "0da4241cf52954463edfbe968c143943fe9586219a1f74fba15e80054ac9c113",
@@ -713,13 +742,15 @@
       "linkage_status": "AMBIGUOUS",
       "object_adjudication": {
         "decision": "SUPPORTED",
+        "hard_category_conflict": false,
         "jaccard": 0.107143,
         "left_categories": [
           "CONSTRUCTION",
           "PUBLICATION"
         ],
         "left_token_count": 45,
-        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "lexical_support": true,
+        "reason": "SUPPLIER_AND_OBJECT_EVIDENCE_COMPATIBLE",
         "right_categories": [
           "CONSTRUCTION"
         ],
@@ -841,11 +872,12 @@
       "candidates_for_sefin": 1,
       "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
       "document_acquisition": {
-        "bytes": 312110,
-        "content_type": "application/pdf",
-        "sha256": "a73155a0b67b7f5bb1dd00b6c20737c1bdc27b3f72611c1e3205bdd7928032bb",
-        "status": "ACQUIRED",
-        "url": "http://h1.honducompras.gob.hn/Docs/Lic1230LPN-SIT-160-2023100-AvisodePrensa.pdf"
+        "cache_reuse": false,
+        "declared_bytes": 11459504,
+        "selected_document_title": "Contrato u Orden de Compra",
+        "selected_document_type": "contractSigned",
+        "status": "SKIPPED_TOO_LARGE",
+        "url": "http://h1.honducompras.gob.hn/Docs/Con1230SIT-CO-007-20241200-ContratouOrdendeCompra.pdf"
       },
       "evidence_policy_decision": "PROMOTE_SUPPORTED",
       "holdout_order_key": "0e98ddfdb075c9035dbf0f76f4cd095808e4efb75d1c62ebe8799dbdf0627e96",
@@ -855,6 +887,7 @@
       "linkage_status": "AMBIGUOUS",
       "object_adjudication": {
         "decision": "SUPPORTED",
+        "hard_category_conflict": false,
         "jaccard": 0.245614,
         "left_categories": [
           "CONSTRUCTION",
@@ -862,7 +895,8 @@
           "TOOLS"
         ],
         "left_token_count": 39,
-        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "lexical_support": true,
+        "reason": "SUPPLIER_AND_OBJECT_EVIDENCE_COMPATIBLE",
         "right_categories": [],
         "right_token_count": 32,
         "shared_classifications": [],
@@ -950,11 +984,14 @@
       "candidates_for_sefin": 2,
       "cardinality_type": "MANY_ONCAE_TO_ONE_SEFIN",
       "document_acquisition": {
-        "bytes": 468996,
+        "bytes": 2191457,
+        "cache_reuse": false,
         "content_type": "application/pdf",
-        "sha256": "8fd754de0794a0f96b82786110acf156d8d840379f4882e019bed60fb8c90b32",
+        "selected_document_title": "Contrato u Orden de Compra",
+        "selected_document_type": "contractSigned",
+        "sha256": "d8fd5de987c76ecf7cc0efcfe8afe4a9ca5adc5c98e95c6209292e2c7d0e0776",
         "status": "ACQUIRED",
-        "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPN-FHIS-33-2025100-AvisodePrensa.pdf"
+        "url": "http://h1.honducompras.gob.hn/Docs/Con742806591200-ContratouOrdendeCompra.pdf"
       },
       "evidence_policy_decision": "ABSTAIN_OR_REJECT",
       "holdout_order_key": "10186346e25a926c1d580f2a0fd66b8f7b1c44fba9c5404f171c52023042382c",
@@ -964,12 +1001,14 @@
       "linkage_status": "AMBIGUOUS",
       "object_adjudication": {
         "decision": "UNRESOLVED",
+        "hard_category_conflict": false,
         "jaccard": 0.210526,
         "left_categories": [
           "CONSTRUCTION",
           "PUBLICATION"
         ],
         "left_token_count": 48,
+        "lexical_support": true,
         "reason": "OBJECT_COMPATIBLE_SUPPLIER_IDENTITY_UNRESOLVED",
         "right_categories": [
           "CONSTRUCTION",
@@ -1079,11 +1118,14 @@
       "candidates_for_sefin": 1,
       "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
       "document_acquisition": {
-        "bytes": 212909,
+        "bytes": 3049213,
+        "cache_reuse": false,
         "content_type": "application/pdf",
-        "sha256": "ab80a5984747cfe9857bf921b712ce71369d5a838f71006fa8a6f12efd03ca79",
+        "selected_document_title": "Contrato u Orden de Compra",
+        "selected_document_type": "contractSigned",
+        "sha256": "3f62d395d58634dbd71ef853515c672b78e4176728ce52370bd8a63e8e9b91db",
         "status": "ACQUIRED",
-        "url": "http://h1.honducompras.gob.hn/Docs/Lic1230CPN-SIT-054-2023100-AvisodePrensa.pdf"
+        "url": "http://h1.honducompras.gob.hn/Docs/Con1230SIT-SU-104-2023%201200-ContratouOrdendeCompra.pdf"
       },
       "evidence_policy_decision": "PROMOTE_SUPPORTED",
       "holdout_order_key": "104df4357c93ab6e8761f8bdc656abbbcfbae11263e5287c563af2032427a0ab",
@@ -1093,13 +1135,15 @@
       "linkage_status": "AMBIGUOUS",
       "object_adjudication": {
         "decision": "SUPPORTED",
+        "hard_category_conflict": false,
         "jaccard": 0.227273,
         "left_categories": [
           "CONSTRUCTION",
           "PUBLICATION"
         ],
         "left_token_count": 40,
-        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "lexical_support": true,
+        "reason": "SUPPLIER_AND_OBJECT_EVIDENCE_COMPATIBLE",
         "right_categories": [
           "CONSTRUCTION",
           "CONSULTING"
@@ -1193,11 +1237,14 @@
       "candidates_for_sefin": 1,
       "cardinality_type": "ONE_TO_ONE",
       "document_acquisition": {
-        "bytes": 140659,
+        "bytes": 6004020,
+        "cache_reuse": false,
         "content_type": "application/pdf",
-        "sha256": "a8ddf2365eeb5c2b70cef71c88aff07b5b20e03c1a017a541fb937cf83058090",
+        "selected_document_title": "Contrato u Orden de Compra",
+        "selected_document_type": "contractSigned",
+        "sha256": "c930a85fb1b713c6d96df54c5fec5a0f93360bd98f1ffe92f895d5e358357943",
         "status": "ACQUIRED",
-        "url": "http://h1.honducompras.gob.hn/Docs/Lic1230CPN-SIT-117-2023100-AvisodePrensa.pdf"
+        "url": "http://h1.honducompras.gob.hn/Docs/Con1230SIT-SU-030-20241200-ContratouOrdendeCompra.pdf"
       },
       "evidence_policy_decision": "PROMOTE_SUPPORTED",
       "holdout_order_key": "108d78ab4c31acc8afa7b575294a30600d106e519a6a28ea1c81adb29dea7b6f",
@@ -1207,6 +1254,7 @@
       "linkage_status": "STRICT_1_TO_1",
       "object_adjudication": {
         "decision": "SUPPORTED",
+        "hard_category_conflict": false,
         "jaccard": 0.234043,
         "left_categories": [
           "CONSTRUCTION",
@@ -1214,7 +1262,8 @@
           "TOOLS"
         ],
         "left_token_count": 34,
-        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "lexical_support": true,
+        "reason": "SUPPLIER_AND_OBJECT_EVIDENCE_COMPATIBLE",
         "right_categories": [
           "CONSTRUCTION",
           "CONSULTING"
@@ -1300,11 +1349,14 @@
       "candidates_for_sefin": 1,
       "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
       "document_acquisition": {
-        "bytes": 249949,
-        "content_type": "image/jpeg",
-        "sha256": "407ffd06f485981a16fdbe124a4ae49fab9dd61666038305c8cda4534380f5dd",
+        "bytes": 551005,
+        "cache_reuse": false,
+        "content_type": "application/pdf",
+        "selected_document_title": "Contrato u Orden de Compra",
+        "selected_document_type": "contractSigned",
+        "sha256": "185b7c46aac4690c1e3abd9778fb1ad2827927079e91c68834b5d256bdfd2e6b",
         "status": "ACQUIRED",
-        "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-341542-CW-RFB100-AvisodePrensa.jpeg"
+        "url": "http://h1.honducompras.gob.hn/Docs/Con1192SDO-O-FHIS-05-20231200-ContratouOrdendeCompra.pdf"
       },
       "evidence_policy_decision": "ABSTAIN_OR_REJECT",
       "holdout_order_key": "10b0940980a651dda65d66d1a7638bd706316e6a24c08ffb8d29954240d66e27",
@@ -1314,12 +1366,14 @@
       "linkage_status": "AMBIGUOUS",
       "object_adjudication": {
         "decision": "UNRESOLVED",
+        "hard_category_conflict": false,
         "jaccard": 0.220339,
         "left_categories": [
           "CONSTRUCTION",
           "PUBLICATION"
         ],
         "left_token_count": 43,
+        "lexical_support": true,
         "reason": "OBJECT_COMPATIBLE_SUPPLIER_IDENTITY_UNRESOLVED",
         "right_categories": [
           "CONSTRUCTION",
@@ -1436,11 +1490,14 @@
       "candidates_for_sefin": 1,
       "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
       "document_acquisition": {
-        "bytes": 662261,
+        "bytes": 7284443,
+        "cache_reuse": false,
         "content_type": "application/pdf",
-        "sha256": "1db7f5657fe81dfce4bf969d02f8688b225c6d594d1dd5f87a3af66e17110c3f",
+        "selected_document_title": "Contrato u Orden de Compra",
+        "selected_document_type": "contractSigned",
+        "sha256": "03bb1dfd757ed58c32475488fe448827373055b22ae68240d6467e7566b40ab7",
         "status": "ACQUIRED",
-        "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-001-2024100-AvisodePrensa.pdf"
+        "url": "http://h1.honducompras.gob.hn/Docs/Con1211SIT-CO-041-20241200-ContratouOrdendeCompra.pdf"
       },
       "evidence_policy_decision": "PROMOTE_SUPPORTED",
       "holdout_order_key": "10dfb2db1d67df4c97239eaca9ef97ad38c90464ab85f12759970687117299ad",
@@ -1450,13 +1507,15 @@
       "linkage_status": "AMBIGUOUS",
       "object_adjudication": {
         "decision": "SUPPORTED",
+        "hard_category_conflict": false,
         "jaccard": 0.192982,
         "left_categories": [
           "CONSTRUCTION",
           "PUBLICATION"
         ],
         "left_token_count": 37,
-        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "lexical_support": true,
+        "reason": "SUPPLIER_AND_OBJECT_EVIDENCE_COMPATIBLE",
         "right_categories": [
           "CONSTRUCTION"
         ],
@@ -1577,26 +1636,29 @@
       "candidates_for_sefin": 1,
       "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
       "document_acquisition": {
-        "bytes": 2288468,
-        "content_type": "application/pdf",
-        "sha256": "478c0737771345e1ab33a0319f6d19945bf3cd179b9f8226717f7a8c3ce6fd9a",
-        "status": "ACQUIRED",
-        "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPR-SIT-185-2024102-AvisodePrensa.pdf"
+        "cache_reuse": false,
+        "declared_bytes": 13920272,
+        "selected_document_title": "Contrato u Orden de Compra",
+        "selected_document_type": "contractSigned",
+        "status": "SKIPPED_TOO_LARGE",
+        "url": "http://h1.honducompras.gob.hn/Docs/Con1211SIT-CO-324-20241200-ContratouOrdendeCompra.pdf"
       },
-      "evidence_policy_decision": "ABSTAIN_OR_REJECT",
+      "evidence_policy_decision": "PROMOTE_SUPPORTED",
       "holdout_order_key": "15358a625d408788ab52a06620893ed7480bf4c40f2cd9a2a7e587372e1c0afe",
       "holdout_stratum": "BREADTH_FIRST_PER_CODE",
       "identity_basis": "BUYER_ALIAS_CODE",
       "linkage_rule": "CANONICAL_BUYER_ALIAS_AND_SHARED_CODE",
       "linkage_status": "AMBIGUOUS",
       "object_adjudication": {
-        "decision": "REJECTED",
+        "decision": "SUPPORTED",
+        "hard_category_conflict": false,
         "jaccard": 0.244898,
         "left_categories": [
           "PUBLICATION"
         ],
         "left_token_count": 38,
-        "reason": "SUPPLIER_MATCH_BUT_MATERIAL_OBJECT_CONFLICT",
+        "lexical_support": true,
+        "reason": "SUPPLIER_AND_OBJECT_EVIDENCE_COMPATIBLE",
         "right_categories": [
           "CONSTRUCTION",
           "TOOLS"
@@ -1683,11 +1745,14 @@
       "candidates_for_sefin": 1,
       "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
       "document_acquisition": {
-        "bytes": 92596,
-        "content_type": "image/jpeg",
-        "sha256": "2458aee16b351747d3c65b965bceb6888713e1651a0dbb756c0d262df8c9b7e6",
+        "bytes": 5327606,
+        "cache_reuse": false,
+        "content_type": "application/pdf",
+        "selected_document_title": "Contrato u Orden de Compra",
+        "selected_document_type": "contractSigned",
+        "sha256": "6ea631970c41705e4377b7146d81897a90ddf1b184c48c285a1efb48f5eeb287",
         "status": "ACQUIRED",
-        "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-121-2024100-AvisodePrensa.jpg"
+        "url": "http://h1.honducompras.gob.hn/Docs/Con1211SIT-CO-034-20251200-ContratouOrdendeCompra.pdf"
       },
       "evidence_policy_decision": "PROMOTE_SUPPORTED",
       "holdout_order_key": "38d01795344614781685dc8fb10763101c4ec7acb1c89df6f107caae02963083",
@@ -1697,13 +1762,15 @@
       "linkage_status": "AMBIGUOUS",
       "object_adjudication": {
         "decision": "SUPPORTED",
+        "hard_category_conflict": false,
         "jaccard": 0.266667,
         "left_categories": [
           "CONSTRUCTION",
           "PUBLICATION"
         ],
         "left_token_count": 37,
-        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "lexical_support": true,
+        "reason": "SUPPLIER_AND_OBJECT_EVIDENCE_COMPATIBLE",
         "right_categories": [
           "CONSTRUCTION"
         ],
@@ -1787,11 +1854,14 @@
       "candidates_for_sefin": 1,
       "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
       "document_acquisition": {
-        "bytes": 1711193,
+        "bytes": 9477356,
+        "cache_reuse": false,
         "content_type": "application/pdf",
-        "sha256": "452d5988241eaadd677957fdf77fdbe16ac59ad3e24ce08aa3791e27ecfaf0e5",
+        "selected_document_title": "Contrato u Orden de Compra",
+        "selected_document_type": "contractSigned",
+        "sha256": "d9308bf8577f2eeb1b65b128b323d823d78a280943784bcc86a7b4651589965d",
         "status": "ACQUIRED",
-        "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPR-FHIS-94-2025103-AvisodePrensa.pdf"
+        "url": "http://h1.honducompras.gob.hn/Docs/Con742817981200-ContratouOrdendeCompra.pdf"
       },
       "evidence_policy_decision": "ABSTAIN_OR_REJECT",
       "holdout_order_key": "3f456b37201ad02e396c415d290a6860d3e2d3e85de59d73bd651ac133bf1608",
@@ -1801,6 +1871,7 @@
       "linkage_status": "AMBIGUOUS",
       "object_adjudication": {
         "decision": "UNRESOLVED",
+        "hard_category_conflict": false,
         "jaccard": 0.16129,
         "left_categories": [
           "CONSTRUCTION",
@@ -1808,6 +1879,7 @@
           "TOOLS"
         ],
         "left_token_count": 49,
+        "lexical_support": true,
         "reason": "OBJECT_COMPATIBLE_SUPPLIER_IDENTITY_UNRESOLVED",
         "right_categories": [],
         "right_token_count": 23,
@@ -1900,11 +1972,14 @@
       "candidates_for_sefin": 1,
       "cardinality_type": "ONE_TO_ONE",
       "document_acquisition": {
-        "bytes": 163463,
-        "content_type": "image/jpeg",
-        "sha256": "c594c050b5567e9f0147e056e16cfaa807fc924daa37d06b39bd5953dd5e5a47",
+        "bytes": 1889631,
+        "cache_reuse": false,
+        "content_type": "application/pdf",
+        "selected_document_title": "Contrato u Orden de Compra",
+        "selected_document_type": "contractSigned",
+        "sha256": "561ed7a377e31b0dc49b5441f981fa6b862e98d624259cd30f04923ab68ca6ca",
         "status": "ACQUIRED",
-        "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-012-2025%202DO%20PROCESO100-AvisodePrensa.jpg"
+        "url": "http://h1.honducompras.gob.hn/Docs/Con1211SIT-CO-424-20251200-ContratouOrdendeCompra.pdf"
       },
       "evidence_policy_decision": "PROMOTE_SUPPORTED",
       "holdout_order_key": "4b2becdca4c83dc77cf9d3b6dc81441b4e215176876d49a32b06b788c6d6211b",
@@ -1914,6 +1989,7 @@
       "linkage_status": "STRICT_1_TO_1",
       "object_adjudication": {
         "decision": "SUPPORTED",
+        "hard_category_conflict": false,
         "jaccard": 0.225,
         "left_categories": [
           "CONSTRUCTION",
@@ -1921,7 +1997,8 @@
           "TOOLS"
         ],
         "left_token_count": 32,
-        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "lexical_support": true,
+        "reason": "SUPPLIER_AND_OBJECT_EVIDENCE_COMPATIBLE",
         "right_categories": [
           "CONSTRUCTION",
           "TOOLS"
@@ -2035,11 +2112,14 @@
       "candidates_for_sefin": 1,
       "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
       "document_acquisition": {
-        "bytes": 91817,
+        "bytes": 2120599,
+        "cache_reuse": false,
         "content_type": "application/pdf",
-        "sha256": "ea513f006198a617ec1003f737e1513def297e09f8e5e2aedcfccd0fa76360d3",
+        "selected_document_title": "Contrato u Orden de Compra",
+        "selected_document_type": "contractSigned",
+        "sha256": "153f87374da4be30e65bca80b9e486e8d3561239e5ca759e721d18fa0f70ab75",
         "status": "ACQUIRED",
-        "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-037-2024102-AvisodePrensa.pdf"
+        "url": "http://h1.honducompras.gob.hn/Docs/Con1211SIT-CO-465-20241200-ContratouOrdendeCompra.pdf"
       },
       "evidence_policy_decision": "PROMOTE_SUPPORTED",
       "holdout_order_key": "6f6d842022370ab29a7b5d7915efb9cd661c1a9c654e5ae800049ed802552e40",
@@ -2049,6 +2129,7 @@
       "linkage_status": "AMBIGUOUS",
       "object_adjudication": {
         "decision": "SUPPORTED",
+        "hard_category_conflict": false,
         "jaccard": 0.1875,
         "left_categories": [
           "CONSTRUCTION",
@@ -2056,7 +2137,8 @@
           "TOOLS"
         ],
         "left_token_count": 34,
-        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "lexical_support": true,
+        "reason": "SUPPLIER_AND_OBJECT_EVIDENCE_COMPATIBLE",
         "right_categories": [],
         "right_token_count": 23,
         "shared_classifications": [],
@@ -2139,11 +2221,14 @@
       "candidates_for_sefin": 1,
       "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
       "document_acquisition": {
-        "bytes": 196908,
-        "content_type": "image/png",
-        "sha256": "0db2e04af9749746d6c07b02b7cc1164045a1a920317ce095e80428b07df645b",
+        "bytes": 2204601,
+        "cache_reuse": false,
+        "content_type": "application/pdf",
+        "selected_document_title": "Contrato u Orden de Compra",
+        "selected_document_type": "contractSigned",
+        "sha256": "5f53f3a5ecab9c10e70a7870b150b2dc3e48856903062c496159f3d3783eadb5",
         "status": "ACQUIRED",
-        "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-067-2025100-AvisodePrensa.png"
+        "url": "http://h1.honducompras.gob.hn/Docs/Con1211SIT-CO-404-20251200-ContratouOrdendeCompra.pdf"
       },
       "evidence_policy_decision": "PROMOTE_SUPPORTED",
       "holdout_order_key": "777767951d5fbf4227f20f8572c9184566a222c103bd8a277e609cb74a48824b",
@@ -2153,13 +2238,15 @@
       "linkage_status": "AMBIGUOUS",
       "object_adjudication": {
         "decision": "SUPPORTED",
+        "hard_category_conflict": false,
         "jaccard": 0.255319,
         "left_categories": [
           "CONSTRUCTION",
           "PUBLICATION"
         ],
         "left_token_count": 37,
-        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "lexical_support": true,
+        "reason": "SUPPLIER_AND_OBJECT_EVIDENCE_COMPATIBLE",
         "right_categories": [
           "CONSTRUCTION"
         ],
@@ -2257,11 +2344,14 @@
       "candidates_for_sefin": 1,
       "cardinality_type": "ONE_TO_ONE",
       "document_acquisition": {
-        "bytes": 530849,
+        "bytes": 8742782,
+        "cache_reuse": false,
         "content_type": "application/pdf",
-        "sha256": "25a3332e75f4950c6c01ad2949457496c7b844afe52809fa0339a4b4ff7ce1b2",
+        "selected_document_title": "Contrato u Orden de Compra",
+        "selected_document_type": "contractSigned",
+        "sha256": "183353ce6227f4c9fd1d6963d9cd500771ad960a43ee1088c9ed16598603ce09",
         "status": "ACQUIRED",
-        "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPN-FHIS-23-2023100-AvisodePrensa.pdf"
+        "url": "http://h1.honducompras.gob.hn/Docs/Con742714481200-ContratouOrdendeCompra.pdf"
       },
       "evidence_policy_decision": "PROMOTE_SUPPORTED",
       "holdout_order_key": "9878221cfe01f565a975f47c598705972255686912b6fe346fa82ad3d3fd3880",
@@ -2271,6 +2361,7 @@
       "linkage_status": "STRICT_1_TO_1",
       "object_adjudication": {
         "decision": "SUPPORTED",
+        "hard_category_conflict": false,
         "jaccard": 0.306122,
         "left_categories": [
           "CONSTRUCTION",
@@ -2278,7 +2369,8 @@
           "TOOLS"
         ],
         "left_token_count": 44,
-        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "lexical_support": true,
+        "reason": "SUPPLIER_AND_OBJECT_EVIDENCE_COMPATIBLE",
         "right_categories": [
           "CONSTRUCTION"
         ],
@@ -2607,22 +2699,23 @@
     },
     "holdout_metrics": {
       "baseline_promotions": 20,
-      "baseline_unsupported_promotion_rate": 0.2,
-      "baseline_unsupported_promotions": 4,
+      "baseline_unsupported_promotion_rate": 0.15,
+      "baseline_unsupported_promotions": 3,
       "cardinality_counts": {
         "MANY_ONCAE_TO_ONE_SEFIN": 1,
         "ONE_ONCAE_TO_MANY_SEFIN": 15,
         "ONE_TO_ONE": 4
       },
       "decision_counts": {
-        "REJECTED": 1,
-        "SUPPORTED": 16,
+        "SUPPORTED": 17,
         "UNRESOLVED": 3
       },
       "document_acquisition_attempts": 20,
-      "document_acquisition_bytes": 9379348,
-      "document_acquisition_successes": 20,
-      "evidence_policy_promotions": 16,
+      "document_acquisition_bytes": 62001875,
+      "document_acquisition_cache_reuses": 0,
+      "document_acquisition_successes": 16,
+      "document_references": 20,
+      "evidence_policy_promotions": 17,
       "evidence_policy_unsupported_promotions": 0,
       "holdout_size": 20,
       "stratum_counts": {
@@ -2630,7 +2723,7 @@
         "WITHIN_CODE_AMBIGUITY": 10
       },
       "unique_shared_codes": 20,
-      "unsupported_amount_at_risk_avoided": 4644050.4
+      "unsupported_amount_at_risk_avoided": 4059782.4
     },
     "known_target_hit_counts": {
       "108877": 14,
@@ -2645,5 +2738,5 @@
     "status": "PASS"
   },
   "schema": "fin-rvi-002/stage1-deterministic-replay/2",
-  "sha256": "0441d92dfa643e93ee95c77955ce6d24e09f343a0bf9572966299d56d0bef826"
+  "sha256": "2bac26e3f8f30d14133995d888571d0085fa59f3ca0c19dd43c14ca08016ac47"
 }

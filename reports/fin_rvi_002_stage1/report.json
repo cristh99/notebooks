@@ -25,7 +25,7 @@
         "line_count": 65210,
         "parse_errors": 0,
         "release_count": 65210,
-        "seconds": 40.298,
+        "seconds": 32.822,
         "source": "ONCAE",
         "tag_counts": {
           "compiled": 65210
@@ -53,7 +53,7 @@
         "line_count": 60832,
         "parse_errors": 0,
         "release_count": 60832,
-        "seconds": 38.467,
+        "seconds": 32.065,
         "source": "SEFIN",
         "tag_counts": {
           "compiled": 60832
@@ -79,7 +79,7 @@
         "line_count": 78177,
         "parse_errors": 0,
         "release_count": 78177,
-        "seconds": 50.952,
+        "seconds": 40.862,
         "source": "ONCAE",
         "tag_counts": {
           "compiled": 78177
@@ -107,7 +107,7 @@
         "line_count": 88437,
         "parse_errors": 0,
         "release_count": 88437,
-        "seconds": 58.78,
+        "seconds": 48.218,
         "source": "SEFIN",
         "tag_counts": {
           "compiled": 88437
@@ -133,7 +133,7 @@
         "line_count": 75409,
         "parse_errors": 0,
         "release_count": 75409,
-        "seconds": 49.351,
+        "seconds": 41.182,
         "source": "ONCAE",
         "tag_counts": {
           "compiled": 75409
@@ -161,7 +161,7 @@
         "line_count": 86477,
         "parse_errors": 0,
         "release_count": 86477,
-        "seconds": 57.643,
+        "seconds": 47.326,
         "source": "SEFIN",
         "tag_counts": {
           "compiled": 86477
@@ -190,7 +190,7 @@
         "bytes": 24469814,
         "cached": false,
         "path": ".cache/fin_rvi_002_stage1/oncae_2023.jsonl.gz",
-        "seconds": 8.542,
+        "seconds": 1.521,
         "sha256": "db9a76958a069ff5fc47b6f68caf59a74174efcbebcca0458d0f4a08cf00683d",
         "source": "ONCAE",
         "url": "https://data.open-contracting.org/en/publication/122/download?name=2023.jsonl.gz",
@@ -201,7 +201,7 @@
         "bytes": 21563886,
         "cached": false,
         "path": ".cache/fin_rvi_002_stage1/sefin_2023.jsonl.gz",
-        "seconds": 7.594,
+        "seconds": 1.301,
         "sha256": "9bae4bcef17c618137901f1f9b7a548ab734a7195cb92aaddeb34b2a49b1ced6",
         "source": "SEFIN",
         "url": "https://data.open-contracting.org/en/publication/123/download?name=2023.jsonl.gz",
@@ -212,7 +212,7 @@
         "bytes": 28980227,
         "cached": false,
         "path": ".cache/fin_rvi_002_stage1/oncae_2024.jsonl.gz",
-        "seconds": 10.337,
+        "seconds": 1.536,
         "sha256": "43e12ce76ba1fcd3bf1240ffea4e246126bdcc2832d3d77bcb7415d8a1195c37",
         "source": "ONCAE",
         "url": "https://data.open-contracting.org/en/publication/122/download?name=2024.jsonl.gz",
@@ -223,7 +223,7 @@
         "bytes": 33358694,
         "cached": false,
         "path": ".cache/fin_rvi_002_stage1/sefin_2024.jsonl.gz",
-        "seconds": 11.579,
+        "seconds": 1.334,
         "sha256": "f41f2f9b11ab8e6ccd185ab2c7e193a7107bd1b12f25d33a14946589d5dccd47",
         "source": "SEFIN",
         "url": "https://data.open-contracting.org/en/publication/123/download?name=2024.jsonl.gz",
@@ -234,7 +234,7 @@
         "bytes": 27622276,
         "cached": false,
         "path": ".cache/fin_rvi_002_stage1/oncae_2025.jsonl.gz",
-        "seconds": 11.034,
+        "seconds": 1.471,
         "sha256": "aa33b9b591fabce5f2397b5966b67ba7fc6471bf8b394ceb5c2aeec707f6cb06",
         "source": "ONCAE",
         "url": "https://data.open-contracting.org/en/publication/122/download?name=2025.jsonl.gz",
@@ -245,7 +245,7 @@
         "bytes": 33348824,
         "cached": false,
         "path": ".cache/fin_rvi_002_stage1/sefin_2025.jsonl.gz",
-        "seconds": 13.29,
+        "seconds": 10.592,
         "sha256": "3971d50d45b21ea97dbdaf05b70cd38f674765a9d70f2ed30e80d7b9a5d25db5",
         "source": "SEFIN",
         "url": "https://data.open-contracting.org/en/publication/123/download?name=2025.jsonl.gz",
@@ -258,23 +258,24 @@
     },
     "holdout_metrics": {
       "baseline_promotions": 20,
-      "baseline_unsupported_promotion_rate": 0.2,
-      "baseline_unsupported_promotions": 4,
+      "baseline_unsupported_promotion_rate": 0.15,
+      "baseline_unsupported_promotions": 3,
       "cardinality_counts": {
         "MANY_ONCAE_TO_ONE_SEFIN": 1,
         "ONE_ONCAE_TO_MANY_SEFIN": 15,
         "ONE_TO_ONE": 4
       },
       "decision_counts": {
-        "REJECTED": 1,
-        "SUPPORTED": 16,
+        "SUPPORTED": 17,
         "UNRESOLVED": 3
       },
       "document_acquisition_attempts": 20,
-      "document_acquisition_bytes": 9379348,
-      "document_acquisition_seconds": 72.305,
-      "document_acquisition_successes": 20,
-      "evidence_policy_promotions": 16,
+      "document_acquisition_bytes": 62001875,
+      "document_acquisition_cache_reuses": 0,
+      "document_acquisition_seconds": 163.798,
+      "document_acquisition_successes": 16,
+      "document_references": 20,
+      "evidence_policy_promotions": 17,
       "evidence_policy_unsupported_promotions": 0,
       "holdout_size": 20,
       "stratum_counts": {
@@ -282,7 +283,7 @@
         "WITHIN_CODE_AMBIGUITY": 10
       },
       "unique_shared_codes": 20,
-      "unsupported_amount_at_risk_avoided": 4644050.4
+      "unsupported_amount_at_risk_avoided": 4059782.4
     },
     "known_target_hit_counts": {
       "108877": 14,
@@ -296,5 +297,5 @@
     "schema": "fin-rvi-002/stage1-public-data/2",
     "status": "PASS"
   },
-  "sha256": "bbd117b249fe214cc74dca58a5ae080545e1c34bc5652857850eec2fa6008440"
+  "sha256": "0b22eb6c7e340a591bbd67df57c4af33c52b28fa664f29e155129a673c73734c"
 }
