@@ -1,0 +1,30 @@
+{
+  "schema": "ocr-god-10x/probe-contract/1",
+  "stage": "PP_OCRV6_TINY_CPU_HPI_SMOKE",
+  "base_workflow_commit": "628f041d77abe5c53e5630a8e196a93db5e689e3",
+  "engine": {
+    "paddleocr": "3.7.0",
+    "paddlepaddle": "3.2.0",
+    "detector": "PP-OCRv6_tiny_det",
+    "recognizer": "PP-OCRv6_tiny_rec",
+    "language": "es",
+    "high_performance_inference": true,
+    "device": "cpu",
+    "persistent_process": true
+  },
+  "pass_conditions": {
+    "initializes": true,
+    "nonempty_output": true,
+    "numeric_token_observed": true,
+    "second_in_process_inference_completes": true,
+    "text_and_geometry_deterministic": true
+  },
+  "forbidden_in_primary_10x_claim": [
+    "native_text_as_inference",
+    "result_cache",
+    "repeated_pages",
+    "paid_api",
+    "gpu",
+    "gcloud"
+  ]
+}
