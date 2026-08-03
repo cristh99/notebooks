@@ -8,7 +8,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parent
 PAYLOAD = ROOT / "sharp_multiscale_unrestricted_public_source.py.xz.b64"
-SOURCE_SHA256 = "8f7d037f62cd930aaafe8e7da8dc1b97ac7913170ccd02bc8937d349f9f237e3"
+SOURCE_SHA256 = "bbcab12adcf702cb6324c0448c266b50d54bf0e58cceca86940da4c0d99297fd"
 
 
 def decoded_source() -> bytes:
