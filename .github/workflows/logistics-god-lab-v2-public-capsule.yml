@@ -1,0 +1,249 @@
+name: Logistics God Lab v2 — public proof-carrying verification
+
+on:
+  push:
+    branches:
+      - agent/logistics-god-lab-v2-public-ci-capsule
+  pull_request:
+    paths:
+      - '.github/workflows/logistics-god-lab-v2-public-capsule.yml'
+      - 'logic_power_v10_capsule/**'
+      - 'logistics_god_lab_v2_capsule/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Reconstruct the verified Logic Power v10 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _logic_power_v10
+          echo 'fbee850593592f701a39c4f6491c8f9a3bcfb586c1910357bdcd48f48967d5ce  logic_power_v10_capsule/parts/part_00.b64' | sha256sum -c -
+          echo '7303cffc0012f655af430d9125f6258afe3a370c69abf02afacfa8bd93709979  logic_power_v10_capsule/parts/part_01.b64' | sha256sum -c -
+          echo '9c0ebf32b4fa12be52d7c72fe879d76e542bd6f223febcdaf4fda10083a669da  logic_power_v10_capsule/parts/part_02.b64' | sha256sum -c -
+          echo '2b5b23d38a64a4cc98f2bb376a38f20fe7dda9bd36539c2446f822d98ac9296a  logic_power_v10_capsule/parts/part_03.b64' | sha256sum -c -
+          echo 'f83c70b1800617313c14f6241dc1f144f993900c5701f500c48f82485ecc58a5  logic_power_v10_capsule/parts/part_04.b64' | sha256sum -c -
+          echo 'fb8a7c4e1ae79848f5114d9ce189d570860432714ca564adfb6655d63a868718  logic_power_v10_capsule/parts/part_05_00.b64' | sha256sum -c -
+          echo '0585c5b94628c10dfc3921c472e903badd10f395f6d119fc4434d2ea7290cc86  logic_power_v10_capsule/parts/part_05_01.b64' | sha256sum -c -
+          echo '897986739715627049a30f43ecb2abcfd50aecbfa7f4f8520428ada29f98b028  logic_power_v10_capsule/parts/part_05_02.b64' | sha256sum -c -
+          cat \
+            logic_power_v10_capsule/parts/part_00.b64 \
+            logic_power_v10_capsule/parts/part_01.b64 \
+            logic_power_v10_capsule/parts/part_02.b64 \
+            logic_power_v10_capsule/parts/part_03.b64 \
+            logic_power_v10_capsule/parts/part_04.b64 \
+            logic_power_v10_capsule/parts/part_05_00.b64 \
+            logic_power_v10_capsule/parts/part_05_01.b64 \
+            logic_power_v10_capsule/parts/part_05_02.b64 \
+            > /tmp/logic-power-v10-source.b64
+          echo '3548f31fcaa9696eabb063023c905fbb04a2b3db73c96df9f9ee8bc8e0c64fc1  /tmp/logic-power-v10-source.b64' | sha256sum -c -
+          base64 -d /tmp/logic-power-v10-source.b64 > /tmp/logic-power-v10-source.tar.gz
+          echo 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31  /tmp/logic-power-v10-source.tar.gz' | sha256sum -c -
+          tar xzf /tmp/logic-power-v10-source.tar.gz -C _logic_power_v10
+          cd _logic_power_v10
+          sha256sum -c SOURCE_SHA256SUMS
+          test "$(cat PRIVATE_HEAD_SHA.txt)" = 'ba10d0edc7eb20d499d0481fda2537e782b6efb2'
+          test "$(git hash-object ../logic_power_v10_capsule/overlay/logic_power_v10/ci_v10.sh)" = '0042baf4f79f208670a9a5e8cfcf5cb81c15aecb'
+          cp ../logic_power_v10_capsule/overlay/logic_power_v10/ci_v10.sh logic_power_v10/ci_v10.sh
+
+      - name: Reconstruct the hash-bound Logistics God Lab v2 overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '7a5479368fe0c0fa28404f7d6cfda7136a8cbc58173782f34649a321e258dbf4  logistics_god_lab_v2_capsule/logistics-god-lab-v2-source.tar.gz.b64' | sha256sum -c -
+          base64 -d logistics_god_lab_v2_capsule/logistics-god-lab-v2-source.tar.gz.b64 > /tmp/logistics-god-lab-v2-source.tar.gz
+          echo 'a0b71852d772001794b989dd692b97ae06b8fb48719a3031d312a23d14214771  /tmp/logistics-god-lab-v2-source.tar.gz' | sha256sum -c -
+          rm -rf /tmp/logistics-god-lab-v2-overlay
+          mkdir -p /tmp/logistics-god-lab-v2-overlay
+          tar xzf /tmp/logistics-god-lab-v2-source.tar.gz -C /tmp/logistics-god-lab-v2-overlay
+          cd /tmp/logistics-god-lab-v2-overlay
+          echo 'd2beeca2fc8377ee7e617bfc76b1216dc1611277fbfcc07de785542d67e35554  SOURCE_SHA256SUMS' | sha256sum -c -
+          sha256sum -c SOURCE_SHA256SUMS
+          test "$(cat PRIVATE_LOGISTICS_GOD_LAB_HEAD_SHA.txt)" = '4de9b4dee50fb549e6410b892817a1412504799a'
+          test "$(cat PRIVATE_LOGIC_HEAD_SHA.txt)" = 'ba10d0edc7eb20d499d0481fda2537e782b6efb2'
+
+          # Bind every executable source file to the private branch blobs.
+          test "$(git hash-object .github/workflows/logistics-god-lab-v2.yml)" = '4cc6878f1e81cecde977a8e6b31f7d7bb4917855'
+          test "$(git hash-object README_logistics_god_lab_v2.md)" = '5c8c6035fb832b09a89a98ec6a98ecf1c4e138b0'
+          test "$(git hash-object logistics_god_lab_v2/__init__.py)" = 'dd8b5c6ad314025f40a77a0cbae88faf3efa1f5a'
+          test "$(git hash-object logistics_god_lab_v2/meta_controller.py)" = '00c91bc7f27cb55f268cdae1072cb08ee1c3cb3e'
+          test "$(git hash-object logistics_god_lab_v2/run_logistics_god_lab_v2.py)" = 'f501d1c3f9144621c87ce7c36a6ecb9c2ab18e7a'
+          test "$(git hash-object logistics_god_lab_v2/test_logistics_god_lab_v2.py)" = 'a4be7030147f9025d211fc583e52f016f8ba4dbb'
+          test "$(git hash-object sql/logistics_god_lab_v2_rideshare.sql)" = '2ab9d3a9fb4f859244ef5ddd7f6692a47413b1df'
+          test "$(git hash-object sql/logistics_god_lab_v2_service_requests.sql)" = 'c9958a22a6597e6a23c57f410ff868734d1be7d3'
+
+          cp -a logistics_god_lab_v2 "$GITHUB_WORKSPACE/_logic_power_v10/"
+          cp README_logistics_god_lab_v2.md "$GITHUB_WORKSPACE/_logic_power_v10/"
+          cp -a sql "$GITHUB_WORKSPACE/_logic_power_v10/"
+          mkdir -p "$GITHUB_WORKSPACE/_logic_power_v10/.github/workflows"
+          cp .github/workflows/logistics-god-lab-v2.yml "$GITHUB_WORKSPACE/_logic_power_v10/.github/workflows/"
+
+      - name: Execute original and meta-controller test suites
+        shell: bash
+        working-directory: _logic_power_v10
+        run: |
+          set -euo pipefail
+          python -m unittest \
+            logic_power_v10.test_logic_power_v10 \
+            logistics_god_lab_v2.test_logistics_god_lab_v2
+          python -m compileall -q logic_power_v10 logistics_god_lab_v2
+
+      - name: Build and replay proof-carrying meta-controller evidence
+        shell: bash
+        working-directory: _logic_power_v10
+        run: |
+          set -euo pipefail
+          python -m logistics_god_lab_v2.run_logistics_god_lab_v2
+          python -m logic_power_v10.verify_logic_power_v10 \
+            certificates/logistics_god_lab_v2_policy_exact.json
+          python -m logic_power_v10.verify_logic_power_v10 \
+            certificates/logistics_god_lab_v2_policy_impossible.json
+          node logic_power_v10/verify_logic_power_v10.js \
+            certificates/logistics_god_lab_v2_policy_exact.json
+          node logic_power_v10/verify_logic_power_v10.js \
+            certificates/logistics_god_lab_v2_policy_impossible.json
+          if python -m logic_power_v10.verify_logic_power_v10 \
+            certificates/logistics_god_lab_v2_policy_tampered.json; then
+            echo 'Python accepted tampered evidence'
+            exit 1
+          fi
+          if node logic_power_v10/verify_logic_power_v10.js \
+            certificates/logistics_god_lab_v2_policy_tampered.json; then
+            echo 'Node accepted tampered evidence'
+            exit 1
+          fi
+
+          echo '29d08ee4fe4f014412866ef783dfc093b1f9c95ceb73eb2353c1a6c46aee227a  certificates/logistics_god_lab_v2_policy_exact.json' | sha256sum -c -
+          echo 'a13bf64ad71ad9bcca485c58a418118f2b27f309ff7d18ecce375afde710c4de  certificates/logistics_god_lab_v2_policy_impossible.json' | sha256sum -c -
+          echo '10f9aac26eba9c80e073e7bfdd2ccbae5312137804bbadcb26a08c24204f58c3  certificates/logistics_god_lab_v2_policy_tampered.json' | sha256sum -c -
+          echo 'd879d8e0f86c5206e94c938e07cc6af100305585a840d277938b5d2fb5335e64  reports/logistics_god_lab_v2.json' | sha256sum -c -
+          echo '62971cbf0798b3349dffd5d630d7dc19b74536f3e6d168e273ceb6f6416e9cc3  reports/logistics_god_lab_v2.canonical.json' | sha256sum -c -
+          echo '34f1ef1a2b3d9caaafc580ad156eef4553c7ea352a6bb05c6613d3c669d15c02  reports/logistics_god_lab_v2.sha256' | sha256sum -c -
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path('reports/logistics_god_lab_v2.json').read_text())
+          assert report['comparison']['winner'] == 'logic_power_v10_original'
+          assert report['strict_objective']['status'] == 'FALSE'
+          active = report['active_discovery']
+          assert active['minimum_fixed_basis'] == [
+              'rideshare_temporal_holdout',
+              'service_request_temporal_holdout',
+          ]
+          assert active['minimum_fixed_cost'] == [4, 1]
+          assert active['adaptive_worst_cost'] == [4, 1]
+          assert active['adaptive_expected_cost'] == [3, 1]
+          assert active['impossible_without_rideshare_holdout'] == [
+              'rideshare_shift',
+              'stable_both',
+          ]
+          assert active['current_verdict'] == 'FALSE'
+          assert report['action_policy']['selected_next_action']['action_id'] == \
+              'CONTEXT_CONDITIONED_POLICY_BENCHMARK'
+          assert report['certificates']['exact_sha256'] == \
+              'd3f7bc7e005b01586e735f7c8b7d78570216bf6f5f27c29836f18cc81e9744ba'
+          assert report['certificates']['impossible_sha256'] == \
+              '98ab07c1035bb352f7556746df5f073c9538648c62d7c932db0e8acb4b1d4152'
+          assert report['certificates']['tampered_rejected'] is True
+          PY
+
+      - name: Bind public receipt to private and public heads
+        shell: bash
+        working-directory: _logic_power_v10
+        env:
+          PUBLIC_EVENT_SHA: ${{ github.sha }}
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          def digest(path: str) -> str:
+              return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+          report = json.loads(Path('reports/logistics_god_lab_v2.json').read_text())
+          receipt = {
+              'schema': 'logistics-god-lab-v2/public-verification-receipt/1',
+              'status': 'PASS_META_CONTROLLER_REAL_FALSIFICATION',
+              'private_repository': 'cristh99/my_first_repository',
+              'private_logic_head': 'ba10d0edc7eb20d499d0481fda2537e782b6efb2',
+              'private_meta_controller_head': '4de9b4dee50fb549e6410b892817a1412504799a',
+              'private_pr': 79,
+              'public_capsule_repository': 'cristh99/notebooks',
+              'public_capsule_head': os.environ['PUBLIC_HEAD_SHA'],
+              'public_event_sha': os.environ['PUBLIC_EVENT_SHA'],
+              'logic_source_archive_sha256': 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31',
+              'logic_transport_sha256': '3548f31fcaa9696eabb063023c905fbb04a2b3db73c96df9f9ee8bc8e0c64fc1',
+              'meta_source_archive_sha256': 'a0b71852d772001794b989dd692b97ae06b8fb48719a3031d312a23d14214771',
+              'meta_transport_sha256': '7a5479368fe0c0fa28404f7d6cfda7136a8cbc58173782f34649a321e258dbf4',
+              'meta_source_manifest_sha256': 'd2beeca2fc8377ee7e617bfc76b1216dc1611277fbfcc07de785542d67e35554',
+              'exact_certificate_payload_sha256': report['certificates']['exact_sha256'],
+              'impossible_certificate_payload_sha256': report['certificates']['impossible_sha256'],
+              'exact_certificate_file_sha256': digest('certificates/logistics_god_lab_v2_policy_exact.json'),
+              'impossible_certificate_file_sha256': digest('certificates/logistics_god_lab_v2_policy_impossible.json'),
+              'tampered_certificate_file_sha256': digest('certificates/logistics_god_lab_v2_policy_tampered.json'),
+              'report_file_sha256': digest('reports/logistics_god_lab_v2.json'),
+              'canonical_report_file_sha256': digest('reports/logistics_god_lab_v2.canonical.json'),
+              'report_manifest_sha256': digest('reports/logistics_god_lab_v2.sha256'),
+              'tests': 21,
+              'python_replay': 'PASS',
+              'node_bigint_replay': 'PASS',
+              'tampered_negative_control': 'REJECTED',
+              'strict_objective': report['strict_objective']['status'],
+              'minimum_fixed_cost': report['active_discovery']['minimum_fixed_cost'],
+              'adaptive_expected_cost': report['active_discovery']['adaptive_expected_cost'],
+              'current_verdict': report['active_discovery']['current_verdict'],
+              'obstruction': report['active_discovery']['impossible_without_rideshare_holdout'],
+              'selected_next_action': report['action_policy']['selected_next_action']['action_id'],
+              'rideshare_test_costs': {
+                  'validation_selected_q90': 0.672877,
+                  'mean': 0.623142,
+                  'holdout_winner_q75': 0.597034,
+              },
+              'service_request_test_costs': {
+                  'validation_selected_mean': 0.432196,
+                  'imported_q75': 0.464045,
+              },
+              'promotion_boundary': (
+                  'No capacity policy or prospective pilot is promoted until '
+                  'temporal robustness and the context-conditioned selector pass.'
+              ),
+          }
+          path = Path('reports/logistics-god-lab-v2-public-verification-receipt.json')
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          receipt_digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path('reports/logistics-god-lab-v2-public-verification-receipt.sha256').write_text(
+              f'{receipt_digest}  logistics-god-lab-v2-public-verification-receipt.json\n'
+          )
+          print(path.read_text())
+          print(receipt_digest)
+          PY
+
+      - name: Upload public verification evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: logistics-god-lab-v2-public-evidence
+          path: |
+            _logic_power_v10/certificates/logistics_god_lab_v2_policy_exact.json
+            _logic_power_v10/certificates/logistics_god_lab_v2_policy_impossible.json
+            _logic_power_v10/certificates/logistics_god_lab_v2_policy_tampered.json
+            _logic_power_v10/reports/logistics_god_lab_v2.json
+            _logic_power_v10/reports/logistics_god_lab_v2.canonical.json
+            _logic_power_v10/reports/logistics_god_lab_v2.sha256
+            _logic_power_v10/reports/logistics-god-lab-v2-public-verification-receipt.json
+            _logic_power_v10/reports/logistics-god-lab-v2-public-verification-receipt.sha256
+            _logic_power_v10/sql/logistics_god_lab_v2_rideshare.sql
+            _logic_power_v10/sql/logistics_god_lab_v2_service_requests.sql
