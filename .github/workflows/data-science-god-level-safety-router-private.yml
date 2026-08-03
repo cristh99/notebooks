@@ -1,0 +1,134 @@
+name: Data Science God-Level — safety-router sealed private gate
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/data-science-god-level-safety-router-private.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  sealed-private-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install task-pinned NumPy
+        run: python -m pip install --disable-pip-version-check 'numpy==1.26.4'
+
+      - name: Download the already-frozen public candidate
+        uses: actions/download-artifact@v4
+        with:
+          name: data-science-god-level-safety-router-public
+          path: frozen-public
+          github-token: ${{ github.token }}
+          repository: cristh99/notebooks
+          run-id: 30830318501
+
+      - name: Bind the public candidate and original Logic Power decision
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'bed44fea63585a3df5a21de5c95f89319763f6bc5a4ca304aa6bcfa74f5bb09a  frozen-public/task/train.py' | sha256sum -c -
+          echo '4f26ccc677cca9b8480222472bf7b8786072ef3bd1172b97036a1f4dde4963ea  frozen-public/task/model_artifacts/router_model.npz' | sha256sum -c -
+          echo 'e2dbe86eb4bea475576e8ff84c3e34fd4a1ce5525a1158577542501482d9480e  frozen-public/task/public-gate-receipt.json' | sha256sum -c -
+          echo '6f74fa098cba671f82b922844bbbe44ceaa43bd4296d9a7ad9a6429322c86445  frozen-public/logic-plan-receipt.json' | sha256sum -c -
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          plan = json.loads(Path('frozen-public/logic-plan-receipt.json').read_text())
+          if plan['selected_experiment'] != 'safety_router_private_split':
+              raise SystemExit(f"unexpected Logic Power experiment: {plan}")
+          public = json.loads(Path('frozen-public/task/public-gate-receipt.json').read_text())
+          if not public['all_passed'] or public['private_split_accessed']:
+              raise SystemExit(f"invalid public seal: {public}")
+          if public['model_sha256'] != '4f26ccc677cca9b8480222472bf7b8786072ef3bd1172b97036a1f4dde4963ea':
+              raise SystemExit('model binding mismatch')
+          PY
+
+      - name: Fetch the pinned official private verifier and immutable inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p verifier frozen-public/task/data private-data private-logs
+          root='https://raw.githubusercontent.com/autolabhq/autolab/7aff5fe71dfbe152fb0b8e8ac8087210b4bc27d5/tasks/safety_router'
+          curl -fsSLo verifier/verify.py "$root/tests/verify.py"
+          curl -fsSLo private-data/test_private.npz "$root/tests/data/test_private.npz"
+          curl -fsSLo frozen-public/task/model.py "$root/environment/model.py"
+          curl -fsSLo frozen-public/task/data/train.npz "$root/environment/data/train.npz"
+          curl -fsSLo frozen-public/task/data/val.npz "$root/environment/data/val.npz"
+          curl -fsSLo frozen-public/task/data/test_public.npz "$root/environment/data/test_public.npz"
+          test "$(git hash-object verifier/verify.py)" = '1a3b0f9e278786358c0937f6f5a5fd39c241d172'
+          echo '200e504630fc8c08aae36230449294053a3a3208285b85cfa1b09d27204ad98b  private-data/test_private.npz' | sha256sum -c -
+          echo 'a121f8f92e57493a25984adc7768da13ee1587faaaebc6567daac6d6967bf2cc  frozen-public/task/model.py' | sha256sum -c -
+          echo '220d806aed8013e554c21c592ec8d94ff99e1a817634ccd849aa441e3887db20  frozen-public/task/data/train.npz' | sha256sum -c -
+          echo '186881b6f6e34cdc4817e953e9288836f72813ff78864e322e91e428a7b4d691  frozen-public/task/data/val.npz' | sha256sum -c -
+          echo 'fa099af9421c6639c6a0137cf8858ccdcbd004491d2d4fad9c55d006d537657e  frozen-public/task/data/test_public.npz' | sha256sum -c -
+
+      - name: Execute the official private verifier exactly once
+        run: |
+          python verifier/verify.py \
+            --app-dir frozen-public/task \
+            --private-data private-data/test_private.npz \
+            --model-path frozen-public/task/model_artifacts/router_model.npz \
+            --log-dir private-logs
+
+      - name: Adjudicate and bind the sealed result
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          reward = json.loads(Path('private-logs/reward.json').read_text())
+          public = json.loads(Path('frozen-public/task/public-gate-receipt.json').read_text())
+          if not reward.get('integrity_ok'):
+              raise SystemExit(f"private integrity failed: {reward}")
+          if reward.get('total_params') != 1951:
+              raise SystemExit(f"parameter drift: {reward}")
+          if not reward.get('passed_constraints'):
+              raise SystemExit(f"private scientific gate failed: {reward}")
+          receipt = {
+              'schema': 'data-science-god-level/safety-router-private-gate/1',
+              'autolab_commit': '7aff5fe71dfbe152fb0b8e8ac8087210b4bc27d5',
+              'public_run': 30830318501,
+              'logic_power_selected_experiment': 'safety_router_private_split',
+              'train_py_sha256': 'bed44fea63585a3df5a21de5c95f89319763f6bc5a4ca304aa6bcfa74f5bb09a',
+              'model_sha256': '4f26ccc677cca9b8480222472bf7b8786072ef3bd1172b97036a1f4dde4963ea',
+              'private_data_sha256': '200e504630fc8c08aae36230449294053a3a3208285b85cfa1b09d27204ad98b',
+              'public_metrics': public['public'],
+              'private_result': reward,
+              'candidate_changed_after_public_result': False,
+              'all_passed': True,
+          }
+          Path('private-gate-receipt.json').write_text(
+              json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          )
+          print(json.dumps(receipt, indent=2, sort_keys=True))
+          print('private_receipt_sha256=' + hashlib.sha256(
+              Path('private-gate-receipt.json').read_bytes()
+          ).hexdigest())
+          PY
+
+      - name: Upload immutable private-gate evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-god-level-safety-router-private
+          retention-days: 90
+          path: |
+            private-gate-receipt.json
+            private-logs/reward.json
+            private-logs/reward.txt
+            frozen-public/logic-plan-receipt.json
+            frozen-public/task/public-gate-receipt.json
+            frozen-public/task/model_artifacts/router_model.npz
+            frozen-public/task/train.py
