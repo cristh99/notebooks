@@ -1,0 +1,94 @@
+{
+  "annotation_method": "Agent visual inspection of frozen numbered first-page overlays; no block addition, deletion, merge, split, or rename. Decorative/noise blocks are preserved but excluded from semantic-order scoring.",
+  "annotations": [
+    {
+      "confidence": "HIGH",
+      "correct_order": ["B000", "B001", "B002", "B003", "B004", "B005", "B006", "B007", "B008"],
+      "document_id": "HN01_tender_notice_CDE-SIT-063-2024",
+      "ignored_block_ids": [],
+      "must_precede": [["B000", "B001"], ["B001", "B002"], ["B002", "B003"], ["B003", "B004"], ["B004", "B005"], ["B005", "B006"], ["B006", "B007"], ["B007", "B008"]],
+      "semantic_block_ids": ["B000", "B001", "B002", "B003", "B004", "B005", "B006", "B007", "B008"]
+    },
+    {
+      "confidence": "HIGH",
+      "correct_order": ["B000", "B001", "B002", "B003", "B004", "B005", "B006"],
+      "document_id": "HN02_opening_act_CDE-SIT-063-2024",
+      "ignored_block_ids": [],
+      "must_precede": [["B000", "B001"], ["B001", "B002"], ["B002", "B003"], ["B003", "B004"], ["B004", "B005"], ["B005", "B006"]],
+      "semantic_block_ids": ["B000", "B001", "B002", "B003", "B004", "B005", "B006"]
+    },
+    {
+      "confidence": "HIGH",
+      "correct_order": ["B001", "B002", "B003", "B004", "B005", "B006", "B007"],
+      "document_id": "HN03_bidding_docs_CPN-SIT-042-2023",
+      "ignored_block_ids": ["B000"],
+      "must_precede": [["B001", "B002"], ["B002", "B003"], ["B003", "B004"], ["B004", "B005"], ["B005", "B006"], ["B006", "B007"]],
+      "semantic_block_ids": ["B001", "B002", "B003", "B004", "B005", "B006", "B007"]
+    },
+    {
+      "confidence": "HIGH",
+      "correct_order": ["B002", "B003", "B004", "B005", "B006"],
+      "document_id": "HN04_clarification_CPN-SIT-042-2023",
+      "ignored_block_ids": ["B000", "B001"],
+      "must_precede": [["B002", "B003"], ["B003", "B004"], ["B004", "B005"], ["B005", "B006"]],
+      "semantic_block_ids": ["B002", "B003", "B004", "B005", "B006"]
+    },
+    {
+      "ambiguity_note": "The two signature columns are parallel; B010 is intentionally unordered relative to the left-column B009→B011 chain.",
+      "confidence": "MEDIUM",
+      "correct_order": ["B000", "B001", "B002", "B003", "B004", "B005", "B006", "B009", "B011", "B010"],
+      "document_id": "HN05_opening_act_CDE-SIT-102-2024",
+      "ignored_block_ids": ["B007", "B008"],
+      "must_precede": [["B000", "B001"], ["B001", "B002"], ["B002", "B003"], ["B003", "B004"], ["B004", "B005"], ["B005", "B006"], ["B006", "B009"], ["B009", "B011"], ["B006", "B010"]],
+      "semantic_block_ids": ["B000", "B001", "B002", "B003", "B004", "B005", "B006", "B009", "B011", "B010"]
+    },
+    {
+      "confidence": "HIGH",
+      "correct_order": ["B000", "B001", "B002", "B003", "B004", "B005", "B006", "B007", "B008", "B009", "B010", "B011"],
+      "document_id": "HN06_award_notice_CDE-SIT-102-2024",
+      "ignored_block_ids": [],
+      "must_precede": [["B000", "B001"], ["B001", "B002"], ["B002", "B003"], ["B003", "B004"], ["B004", "B005"], ["B005", "B006"], ["B006", "B007"], ["B007", "B008"], ["B008", "B009"], ["B009", "B010"], ["B010", "B011"]],
+      "semantic_block_ids": ["B000", "B001", "B002", "B003", "B004", "B005", "B006", "B007", "B008", "B009", "B010", "B011"]
+    },
+    {
+      "confidence": "HIGH",
+      "correct_order": ["B000", "B001", "B002", "B003", "B004", "B005", "B006", "B007"],
+      "document_id": "HN07_tender_notice_CDE-SIT-002-2024",
+      "ignored_block_ids": [],
+      "must_precede": [["B000", "B001"], ["B001", "B002"], ["B002", "B003"], ["B003", "B004"], ["B004", "B005"], ["B005", "B006"], ["B006", "B007"]],
+      "semantic_block_ids": ["B000", "B001", "B002", "B003", "B004", "B005", "B006", "B007"]
+    },
+    {
+      "confidence": "HIGH",
+      "correct_order": ["B000", "B001", "B002", "B003", "B004", "B005", "B006", "B007"],
+      "document_id": "HN08_contract_CDE-SIT-002-2024",
+      "ignored_block_ids": [],
+      "must_precede": [["B000", "B001"], ["B001", "B002"], ["B002", "B003"], ["B003", "B004"], ["B004", "B005"], ["B005", "B006"], ["B006", "B007"]],
+      "semantic_block_ids": ["B000", "B001", "B002", "B003", "B004", "B005", "B006", "B007"]
+    },
+    {
+      "confidence": "HIGH",
+      "correct_order": ["B001", "B002", "B003", "B005", "B006", "B007"],
+      "document_id": "HN09_opening_act_LPN-SIT-052-2024",
+      "ignored_block_ids": ["B000", "B004"],
+      "must_precede": [["B001", "B002"], ["B002", "B003"], ["B003", "B005"], ["B005", "B006"], ["B006", "B007"]],
+      "semantic_block_ids": ["B001", "B002", "B003", "B005", "B006", "B007"]
+    },
+    {
+      "confidence": "HIGH",
+      "correct_order": ["B000", "B001", "B002", "B003", "B004", "B005"],
+      "document_id": "HN10_award_notice_LPN-SIT-052-2024",
+      "ignored_block_ids": [],
+      "must_precede": [["B000", "B001"], ["B001", "B002"], ["B002", "B003"], ["B003", "B004"], ["B004", "B005"]],
+      "semantic_block_ids": ["B000", "B001", "B002", "B003", "B004", "B005"]
+    }
+  ],
+  "blinding": "NOT_BLINDED_TO_CANDIDATE_ORDERS",
+  "independence": "NOT_INDEPENDENT_HUMAN_GROUND_TRUTH",
+  "manifest_sha256": "bf07f221342c42bc64624677e7472d32484ea7214e6b2dd6aa90fd0a201d1605",
+  "preparation_artifact_id": 8872000063,
+  "preparation_artifact_sha256": "dabdf25820e910e4d7b7966e419cc7e28b69082cca24d1367f7b9c9926e1ab1d",
+  "preparation_stable_payload_sha256": "9c2d97c0c3b7b0929d43c8a257bbac3f1cbbc8446270cb1d39c5b5c70bb3087a",
+  "primary_ground_truth": "partial order over semantic Tesseract blocks; evaluator computes transitive closure of must_precede edges",
+  "schema": "ocr-reading-order-honduras-v1/annotations/2"
+}
