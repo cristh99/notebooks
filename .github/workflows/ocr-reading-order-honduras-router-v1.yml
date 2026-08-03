@@ -1,0 +1,68 @@
+name: OCR reading order Honduras router v1
+
+on:
+  pull_request:
+    paths:
+      - 'ocr_reading_order_real_v1/**'
+      - 'ocr_reading_order_honduras_v1/prepare_holdout.py'
+      - 'ocr_reading_order_honduras_router_v1/manifest.json'
+      - 'ocr_reading_order_honduras_router_v1/router.py'
+      - 'ocr_reading_order_honduras_router_v1/prepare_holdout.py'
+      - 'ocr_reading_order_honduras_router_v1/test_router.py'
+      - 'ocr_reading_order_honduras_router_v1/verify_preparation.py'
+      - 'ocr_reading_order_honduras_router_v1/requirements.txt'
+      - '.github/workflows/ocr-reading-order-honduras-router-v1.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ocr-reading-order-honduras-router-v1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  prepare-independent-router-holdout:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: ocr_reading_order_honduras_router_v1/requirements.txt
+      - name: Install free local document tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            curl poppler-utils tesseract-ocr tesseract-ocr-eng tesseract-ocr-spa
+      - name: Install minimal Python dependencies
+        run: python -m pip install --disable-pip-version-check -r ocr_reading_order_honduras_router_v1/requirements.txt
+      - name: Router unit and adversarial tests
+        run: python -m unittest -v ocr_reading_order_honduras_router_v1.test_router
+      - name: Acquire frozen first/last pages and route
+        run: python -m ocr_reading_order_honduras_router_v1.prepare_holdout --output-dir ocr_reading_order_honduras_router_v1/run
+      - name: Verify hashes, denominators, permutations and router replay
+        run: |
+          python -m ocr_reading_order_honduras_router_v1.verify_preparation \
+            ocr_reading_order_honduras_router_v1/run/reports/preparation.json \
+            ocr_reading_order_honduras_router_v1/manifest.json \
+            ocr_reading_order_honduras_router_v1/run/reports/annotation_template.json
+      - name: Environment and hashes
+        if: always()
+        run: |
+          mkdir -p ocr_reading_order_honduras_router_v1/run/reports
+          python -m pip freeze | LC_ALL=C sort > ocr_reading_order_honduras_router_v1/run/reports/pip-freeze.txt
+          tesseract --version > ocr_reading_order_honduras_router_v1/run/reports/tesseract-version.txt
+          pdftoppm -v 2> ocr_reading_order_honduras_router_v1/run/reports/pdftoppm-version.txt || true
+          sha256sum ocr_reading_order_honduras_router_v1/run/reports/* > ocr_reading_order_honduras_router_v1/run/reports/SHA256SUMS.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: ocr-reading-order-honduras-router-v1-preparation
+          path: |
+            ocr_reading_order_honduras_router_v1/run/reports
+            ocr_reading_order_honduras_router_v1/run/pages
+            ocr_reading_order_honduras_router_v1/run/overlays
+          retention-days: 30

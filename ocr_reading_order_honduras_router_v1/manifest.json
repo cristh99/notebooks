@@ -1,0 +1,108 @@
+{
+  "schema": "ocr-reading-order-honduras-router-v1/manifest/1",
+  "selection_frozen_before_page_review": true,
+  "selection_rule": "next five unused FIN-RVI-002 source records (lines 6-10); two fixed document/page-type slots per process",
+  "source": {
+    "repository": "cristh99/notebooks",
+    "branch": "agent/fin-rvi-002-stage1-public-data",
+    "file": "reports/fin_rvi_002_stage1/holdout_decisions.jsonl",
+    "source_record_lines": [6, 7, 8, 9, 10],
+    "public_pr": 8
+  },
+  "prior_holdout_excluded": {
+    "public_pr": 33,
+    "preparation_stable_payload_sha256": "9c2d97c0c3b7b0929d43c8a257bbac3f1cbbc8446270cb1d39c5b5c70bb3087a",
+    "evaluation_stable_payload_sha256": "a7d29e39163f0614baa8e34136a2f126e270999d3710514146651d1c3e2bff0d"
+  },
+  "documents": [
+    {
+      "id": "HR01_tender_HN-SEDECOAS-371604-CW-RFB",
+      "process": "HN-SEDECOAS-371604-CW-RFB",
+      "source_record_line": 6,
+      "document_type": "tenderNotice",
+      "page_rule": "FIRST",
+      "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-371604-CW-RFB100-AvisodePrensa.pdf"
+    },
+    {
+      "id": "HR02_opening_HN-SEDECOAS-371604-CW-RFB",
+      "process": "HN-SEDECOAS-371604-CW-RFB",
+      "source_record_line": 6,
+      "document_type": "recordOpeningTendersReceived",
+      "page_rule": "LAST",
+      "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-371604-CW-RFB604-ActadeRecepcionyAperturadeOfertas.pdf"
+    },
+    {
+      "id": "HR03_amendment_HN-SEDECOAS-407817-CW-RFB",
+      "process": "HN-SEDECOAS-407817-CW-RFB",
+      "source_record_line": 7,
+      "document_type": "amendment",
+      "page_rule": "FIRST",
+      "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-407817-CW-RFB405-EnmiendaoAdendum.pdf"
+    },
+    {
+      "id": "HR04_opening_HN-SEDECOAS-407817-CW-RFB",
+      "process": "HN-SEDECOAS-407817-CW-RFB",
+      "source_record_line": 7,
+      "document_type": "recordOpeningTendersReceived",
+      "page_rule": "LAST",
+      "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-407817-CW-RFB607-ActadeRecepcionyAperturadeOfertas.pdf"
+    },
+    {
+      "id": "HR05_tender_LPN-SIT-160-2023",
+      "process": "LPN-SIT-160-2023",
+      "source_record_line": 8,
+      "document_type": "tenderNotice",
+      "page_rule": "FIRST",
+      "url": "http://h1.honducompras.gob.hn/Docs/Lic1230LPN-SIT-160-2023100-AvisodePrensa.pdf"
+    },
+    {
+      "id": "HR06_contract_LPN-SIT-160-2023",
+      "process": "LPN-SIT-160-2023",
+      "source_record_line": 8,
+      "document_type": "contractSigned",
+      "page_rule": "LAST",
+      "url": "http://h1.honducompras.gob.hn/Docs/Con1230SIT-CO-007-20241200-ContratouOrdendeCompra.pdf"
+    },
+    {
+      "id": "HR07_tender_LPN-FHIS-33-2025",
+      "process": "LPN-FHIS-33-2025",
+      "source_record_line": 9,
+      "document_type": "tenderNotice",
+      "page_rule": "FIRST",
+      "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPN-FHIS-33-2025100-AvisodePrensa.pdf"
+    },
+    {
+      "id": "HR08_opening_LPN-FHIS-33-2025",
+      "process": "LPN-FHIS-33-2025",
+      "source_record_line": 9,
+      "document_type": "recordOpeningTendersReceived",
+      "page_rule": "LAST",
+      "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPN-FHIS-33-2025607-ActadeRecepcionyAperturadeOfertas.pdf"
+    },
+    {
+      "id": "HR09_clarification_CPN-SIT-054-2023",
+      "process": "CPN-SIT-054-2023",
+      "source_record_line": 10,
+      "document_type": "clarifications",
+      "page_rule": "FIRST",
+      "url": "http://h1.honducompras.gob.hn/Docs/Lic1230CPN-SIT-054-2023503-Aclaratoria.pdf"
+    },
+    {
+      "id": "HR10_contract_CPN-SIT-054-2023",
+      "process": "CPN-SIT-054-2023",
+      "source_record_line": 10,
+      "document_type": "contractSigned",
+      "page_rule": "LAST",
+      "url": "http://h1.honducompras.gob.hn/Docs/Con1230SIT-SU-104-2023%201200-ContratouOrdendeCompra.pdf"
+    }
+  ],
+  "constraints": {
+    "external_spend_usd": 0,
+    "gcloud_used": false,
+    "paid_api_used": false,
+    "gpu_used": false,
+    "second_ocr_pass_used": false,
+    "logic_power_in_runtime": false,
+    "production_path_modified": false
+  }
+}
