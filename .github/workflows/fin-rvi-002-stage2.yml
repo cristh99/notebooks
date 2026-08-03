@@ -35,7 +35,7 @@ jobs:
           sha256sum -c report.sha256
       - name: Independent Node semantic verification
         run: |
-          node fin_rvi_002_stage2/verify_stage2.mjs \
+          node fin_rvi_002_stage2/verify_stage2_semantic.mjs \
             reports/fin_rvi_002_stage2/report.json
       - name: Negative tamper controls
         run: |
@@ -50,7 +50,7 @@ jobs:
           )
           Path('/tmp/tampered.json').write_text(json.dumps(report))
           PY
-          if node fin_rvi_002_stage2/verify_stage2.mjs /tmp/tampered.json; then
+          if node fin_rvi_002_stage2/verify_stage2_semantic.mjs /tmp/tampered.json; then
             echo 'tampered report accepted'; exit 1
           fi
       - name: Upload evidence
