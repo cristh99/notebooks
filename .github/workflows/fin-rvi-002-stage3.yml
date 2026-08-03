@@ -14,6 +14,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: fin-rvi-002-stage3-label-acquisition
+  cancel-in-progress: true
+
 jobs:
   acquire-and-test:
     runs-on: ubuntu-latest
@@ -68,8 +72,14 @@ jobs:
           from pathlib import Path
           source = Path('reports/fin_rvi_002_stage3/report.json')
           report = json.loads(source.read_text())
-          report['payload']['stage3']['gate_status'] = 'PASS_CANDIDATE_PENDING_CLEAN_RECONSTRUCTION'
-          report['payload']['gate_readout']['G07'] = 'PASS_CANDIDATE_PENDING_CLEAN_RECONSTRUCTION'
+          current = report['payload']['stage3']['gate_status']
+          forged = (
+              'OPEN_POLICY_DID_NOT_DOMINATE_STRONG_BASELINE'
+              if current == 'PASS_CANDIDATE_PENDING_CLEAN_RECONSTRUCTION'
+              else 'PASS_CANDIDATE_PENDING_CLEAN_RECONSTRUCTION'
+          )
+          report['payload']['stage3']['gate_status'] = forged
+          report['payload']['gate_readout']['G07'] = forged
           Path('/tmp/forged-stage3.json').write_text(json.dumps(report))
           PY
           if node fin_rvi_002_stage3/verify_stage3.mjs /tmp/forged-stage3.json; then
