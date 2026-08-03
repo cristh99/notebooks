@@ -50,7 +50,8 @@ theorem monotonicity_collapses_cross_world_gap
     (complierCount defierCount : Nat)
     (hdefier : defierCount = 0) :
     complierCount - defierCount = complierCount := by
-  simp [hdefier]
+  subst defierCount
+  rfl
 
 /-- The three PNS values partition all sixty-four models. -/
 theorem pns_histogram_partition :
