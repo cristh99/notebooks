@@ -1,0 +1,111 @@
+name: Finance — absolute 423 public replay
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'finance_absolute_423/**'
+      - 'README_FINANCE_ABSOLUTE_423.md'
+      - '.github/workflows/finance-absolute-423.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Python tests
+        run: |
+          python -m compileall -q finance_absolute_423
+          python -m unittest -v finance_absolute_423.test_score
+
+      - name: Python independent receipt
+        run: |
+          rm -rf reports/finance_absolute_423
+          python -m finance_absolute_423.verify_score \
+            finance_absolute_423/scorecard.json \
+            --output reports/finance_absolute_423/python_receipt.json
+
+      - name: Node independent receipt
+        run: |
+          node finance_absolute_423/verify_score.mjs \
+            finance_absolute_423/scorecard.json \
+            reports/finance_absolute_423/node_receipt.json
+
+      - name: Cross-check receipts
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('reports/finance_absolute_423')
+          py = json.loads((root / 'python_receipt.json').read_text())
+          node = json.loads((root / 'node_receipt.json').read_text())
+          for receipt in (py, node):
+              payload = receipt['payload']
+              assert payload['valid'] is True
+              assert payload['absolute_score'] == 423
+              assert payload['terminal_status'] == 'BLOCKED'
+              assert payload['selected_action'] == 'parallel_benchmark_deployment_discovery'
+              assert all(payload['gates'].values())
+          assert py['payload']['absolute_score'] == node['payload']['absolute_score']
+          assert py['payload']['selected_action'] == node['payload']['selected_action']
+          PY
+
+      - name: Reject score, scope, and utility forgeries
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import copy, json
+          from pathlib import Path
+          source = json.loads(Path('finance_absolute_423/scorecard.json').read_text())
+          forged = []
+          value = copy.deepcopy(source)
+          value['absolute_score'] = 1000
+          forged.append(('score', value))
+          value = copy.deepcopy(source)
+          value['maximum_claim'] = 'universal finance SOTA'
+          forged.append(('scope', value))
+          value = copy.deepcopy(source)
+          for state in value['problem_ir']['actions']['more_internal_theory']:
+              value['problem_ir']['actions']['more_internal_theory'][state] = 1000
+          forged.append(('utility', value))
+          for name, payload in forged:
+              Path(f'/tmp/{name}.json').write_text(json.dumps(payload))
+          PY
+          for forged in /tmp/score.json /tmp/scope.json /tmp/utility.json; do
+            if python -m finance_absolute_423.verify_score "$forged" --output /tmp/python-forged.json; then
+              echo "Python accepted forgery: $forged" >&2
+              exit 1
+            fi
+            if node finance_absolute_423/verify_score.mjs "$forged" /tmp/node-forged.json; then
+              echo "Node accepted forgery: $forged" >&2
+              exit 1
+            fi
+          done
+
+      - name: Manifest and artifact
+        run: |
+          sha256sum \
+            finance_absolute_423/scorecard.json \
+            reports/finance_absolute_423/python_receipt.json \
+            reports/finance_absolute_423/node_receipt.json \
+            > reports/finance_absolute_423/manifest.sha256
+
+      - name: Upload evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: finance-absolute-423-public-replay
+          path: reports/finance_absolute_423/
+          if-no-files-found: error
+          retention-days: 90
