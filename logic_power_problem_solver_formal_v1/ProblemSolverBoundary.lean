@@ -46,15 +46,20 @@ def primaryAllowed : Solver → Bool
   | _ => true
 
 
+def primaryAllowedProp : Solver → Prop
+  | .monteCarlo => False
+  | _ => True
+
+
 theorem bool_and_left_true {a b : Bool}
-    (h : a && b = true) : a = true := by
+    (h : (a && b) = true) : a = true := by
   cases a with
   | false => cases h
   | true => rfl
 
 
 theorem bool_and_right_true {a b : Bool}
-    (h : a && b = true) : b = true := by
+    (h : (a && b) = true) : b = true := by
   cases a with
   | false => cases h
   | true =>
@@ -81,10 +86,9 @@ theorem planning_rejects_one_shot_bayes
 
 
 theorem monte_carlo_is_support_only :
-    primaryAllowed .monteCarlo ≠ true := by
-  change false ≠ true
+    ¬ primaryAllowedProp .monteCarlo := by
   intro h
-  cases h
+  exact h
 
 
 theorem dynamic_programming_requires_exact_scope
