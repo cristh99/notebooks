@@ -39,7 +39,9 @@ jobs:
         working-directory: capsule
         run: |
           python -m compileall -q fin_abs_001_finver
-          python -m unittest discover -v -s fin_abs_001_finver -p 'test_*.py'
+          python -m unittest -v \
+            fin_abs_001_finver.test_finver \
+            fin_abs_001_finver.test_adapter_v3
 
       - name: Audit upstream contract and adapt committed SEC-XBRL corpus
         working-directory: capsule
