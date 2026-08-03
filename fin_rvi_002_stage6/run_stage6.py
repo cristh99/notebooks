@@ -94,12 +94,30 @@ def exclusion_manifest() -> dict:
 
 
 def rewrite_stage6(output: Path) -> None:
+    decision_rows = [
+        json.loads(line)
+        for line in (output / "holdout_decisions.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if line
+    ]
+    decision_by_id = {row["candidate_id"]: row for row in decision_rows}
+
     stage3.rewrite_report(output)
     report_path = output / "report.json"
     report = json.loads(report_path.read_text(encoding="utf-8"))
     payload = report["payload"]
     stage6_block = payload.pop("stage3")
     manifest = exclusion_manifest()
+
+    for row in stage6_block["compact_rows"]:
+        adjudication = decision_by_id[row["candidate_id"]][
+            "object_adjudication"
+        ]
+        row["base_v2_decision"] = str(
+            adjudication.get("base_v2_decision", "UNRESOLVED")
+        )
+
     payload["schema"] = SCHEMA
     payload["configuration"]["seed"] = SEED
     payload["configuration"]["selection_blinding"] = (
@@ -119,6 +137,7 @@ def rewrite_stage6(output: Path) -> None:
         "labeler_unchanged_from_stage3": True,
         "selection_seed_new": True,
         "exclusions_derived_without_outcome_access": True,
+        "independent_policy_facts_exported": True,
     }
     payload["gate_readout"] = {
         "G07": "PASS",
@@ -135,9 +154,17 @@ def rewrite_stage6(output: Path) -> None:
     base.write_json(report_path, report)
 
     stage3_compact = output / "stage3_compact_rows.jsonl"
+    stage3_compact.unlink(missing_ok=True)
+    stage6_compact = output / "stage6_compact_rows.jsonl"
+    stage6_compact.write_text(
+        "\n".join(
+            json.dumps(row, sort_keys=True, ensure_ascii=False)
+            for row in stage6_block["compact_rows"]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     stage3_labels = output / "stage3_confirmed_labels.jsonl"
-    if stage3_compact.exists():
-        stage3_compact.replace(output / "stage6_compact_rows.jsonl")
     if stage3_labels.exists():
         stage3_labels.replace(output / "stage6_confirmed_labels.jsonl")
     (output / "stage34_exclusion_manifest.json").write_text(
