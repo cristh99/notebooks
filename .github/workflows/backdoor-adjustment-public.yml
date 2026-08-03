@@ -39,7 +39,7 @@ jobs:
           test -s inference_power_compiler_v2/BACKDOOR_ADJUSTMENT_PUBLIC_REPORT.json
           test -s inference_power_compiler_v2/BACKDOOR_ADJUSTMENT_PUBLIC_CERTIFICATE.json
 
-      - name: Reconstruct the hash-bound Mathlib project
+      - name: Reconstruct hash-bound Logic Power v10 provenance
         shell: bash
         run: |
           set -euo pipefail
@@ -69,10 +69,9 @@ jobs:
           cd _backdoor_lean
           sha256sum -c SOURCE_SHA256SUMS
           test "$(cat PRIVATE_HEAD_SHA.txt)" = 'ba10d0edc7eb20d499d0481fda2537e782b6efb2'
-          printf '%s\n' 'leanprover/lean4:v4.33.0-rc1' > lean-toolchain
           cp ../FiniteBackdoorAdjustment.lean .
 
-      - name: Compile exact adjustment boundary in Lean
+      - name: Compile exact adjustment boundary in pinned Lean
         shell: bash
         working-directory: _backdoor_lean
         run: |
@@ -81,8 +80,8 @@ jobs:
             | sh -s -- -y --default-toolchain none
           export PATH="$HOME/.elan/bin:$PATH"
           elan toolchain install leanprover/lean4:v4.33.0-rc1
-          lake update
-          lake env lean -o FiniteBackdoorAdjustment.olean \
+          elan run leanprover/lean4:v4.33.0-rc1 lean \
+            -o FiniteBackdoorAdjustment.olean \
             FiniteBackdoorAdjustment.lean 2>&1 \
             | tee finite-backdoor-adjustment-lean.log
           test -s FiniteBackdoorAdjustment.olean
@@ -108,10 +107,12 @@ jobs:
           certificate_path = Path('inference_power_compiler_v2/BACKDOOR_ADJUSTMENT_PUBLIC_CERTIFICATE.json')
           lean_path = Path('FiniteBackdoorAdjustment.lean')
           receipt = {
-              'schema': 'backdoor-adjustment-public-verification-receipt/1',
+              'schema': 'backdoor-adjustment-public-verification-receipt/2',
               'repository': 'cristh99/notebooks',
               'head': os.environ['PUBLIC_HEAD_SHA'],
               'event_sha': os.environ['PUBLIC_EVENT_SHA'],
+              'logic_power_v10_head': 'ba10d0edc7eb20d499d0481fda2537e782b6efb2',
+              'logic_power_v10_source_archive_sha256': 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31',
               'report_sha256': hashlib.sha256(report_path.read_bytes()).hexdigest(),
               'certificate_sha256': hashlib.sha256(certificate_path.read_bytes()).hexdigest(),
               'lean_source_sha256': hashlib.sha256(lean_path.read_bytes()).hexdigest(),
@@ -146,5 +147,7 @@ jobs:
             _backdoor_lean/FiniteBackdoorAdjustment.lean
             _backdoor_lean/FiniteBackdoorAdjustment.olean
             _backdoor_lean/finite-backdoor-adjustment-lean.log
+            _backdoor_lean/SOURCE_SHA256SUMS
+            _backdoor_lean/PRIVATE_HEAD_SHA.txt
           if-no-files-found: error
           retention-days: 90
