@@ -47,10 +47,10 @@ Init ==
 Classify ==
   /\ phase = "Captured"
   /\ knowledge' =
-       Scenario \in {
+       (Scenario \in {
          "NoChange", "MoveExisting", "Kill",
          "CreateAfterSearch", "KnowledgeExecute"
-       }
+       })
   /\ actionState' =
        CASE Scenario \in {"NoChange", "KnowledgeExecute", "CreateAfterSearch"}
               -> "NONE"
@@ -58,12 +58,12 @@ Classify ==
          [] Scenario = "FutureDate" -> "AT_A_DATE"
          [] OTHER -> "ASAP"
   /\ authorized' =
-       Scenario \in {
+       (Scenario \in {
          "LocalOnly", "Generalizable",
          "FailedPreflight", "FutureDate"
-       }
-  /\ preflight' = Scenario \in {"LocalOnly", "Generalizable"}
-  /\ generalizable' = Scenario \in {"MoveExisting", "Generalizable"}
+       })
+  /\ preflight' = (Scenario \in {"LocalOnly", "Generalizable"})
+  /\ generalizable' = (Scenario \in {"MoveExisting", "Generalizable"})
   /\ phase' =
        CASE Scenario \in {
               "NoChange", "MoveExisting", "Kill",
