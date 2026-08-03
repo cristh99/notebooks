@@ -7,6 +7,8 @@ on:
     paths:
       - 'fin_rvi_002_g09/final_contract_v2.json'
       - 'fin_rvi_002_g09/prior_art_closure_20260803_v2.json'
+      - 'fin_rvi_002_g09/claim_scope_audit_v2.json'
+      - 'fin_rvi_002_g09/verify_scope_audit_v2.py'
       - 'fin_rvi_002_g09/verify_final_contract_v2.py'
       - 'fin_rvi_002_g09/verify_final_contract_v3.py'
       - 'fin_rvi_002_g09/verify_final_contract_v3.mjs'
@@ -33,11 +35,12 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Python contract and adversarial tests
+      - name: Python contract, scope audit, and adversarial tests
         run: |
           python -m compileall -q fin_rvi_002_g09
           python -m unittest -v fin_rvi_002_g09.test_final_contract_v3
           rm -rf reports/fin_rvi_002_g09_v3
+          python -m fin_rvi_002_g09.verify_scope_audit_v2
           python -m fin_rvi_002_g09.verify_final_contract_v3
 
       - name: Independent Node contract verification
@@ -52,6 +55,9 @@ jobs:
           import json
           from pathlib import Path
           root = Path('reports/fin_rvi_002_g09_v3')
+          scope = json.loads((root / 'scope_audit_receipt.json').read_text())
+          assert scope['payload']['valid'] is True, scope
+          assert scope['payload']['verdict'] == 'PASS', scope
           py = json.loads((root / 'final_contract_receipt.json').read_text())
           node = json.loads((root / 'node_final_contract_receipt.json').read_text())
           for receipt in (py, node):
@@ -72,6 +78,7 @@ jobs:
           import copy, json
           from pathlib import Path
           from fin_rvi_002_g09.verify_final_contract_v3 import verify
+          from fin_rvi_002_g09.verify_scope_audit_v2 import verify as verify_scope
           source = json.loads(Path('fin_rvi_002_g09/final_contract_v2.json').read_text())
 
           premature = copy.deepcopy(source)
@@ -92,6 +99,10 @@ jobs:
           forged['empirical_evidence']['stage4']['challenger']['unsafe_overpromotions'] = 1
           assert 'stage4-challenger' in verify(forged, Path('.'))
           Path('/tmp/forged-g09-v2.json').write_text(json.dumps(forged))
+
+          audit = json.loads(Path('fin_rvi_002_g09/claim_scope_audit_v2.json').read_text())
+          audit['excluded_claims'].remove('fraud')
+          assert 'excluded-claims' in verify_scope(audit, Path('.'))
           PY
           if node fin_rvi_002_g09/verify_final_contract_v3.mjs \
               /tmp/forged-g09-v2.json /tmp/forged-node-receipt.json; then
