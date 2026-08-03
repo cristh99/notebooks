@@ -4,8 +4,13 @@ on:
   pull_request:
     paths:
       - 'ocr_reading_order_real_v1/**'
-      - 'ocr_reading_order_honduras_v1/**'
-      - 'ocr_reading_order_honduras_router_v1/**'
+      - 'ocr_reading_order_honduras_v1/prepare_holdout.py'
+      - 'ocr_reading_order_honduras_router_v1/manifest.json'
+      - 'ocr_reading_order_honduras_router_v1/router.py'
+      - 'ocr_reading_order_honduras_router_v1/prepare_holdout.py'
+      - 'ocr_reading_order_honduras_router_v1/test_router.py'
+      - 'ocr_reading_order_honduras_router_v1/verify_preparation.py'
+      - 'ocr_reading_order_honduras_router_v1/requirements.txt'
       - '.github/workflows/ocr-reading-order-honduras-router-v1.yml'
   workflow_dispatch:
 
