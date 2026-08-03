@@ -1,0 +1,263 @@
+name: LOG-RVI-001 — public proof-carrying verification
+
+on:
+  push:
+    branches:
+      - agent/logistics-rvi-001-public-ci-capsule
+  pull_request:
+    paths:
+      - '.github/workflows/logistics-rvi-001-public-capsule.yml'
+      - 'logic_power_v10_capsule/**'
+      - 'logistics_god_lab_v2_capsule/**'
+      - 'logistics_rvi_001_capsule/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Reconstruct the verified Logic Power v10 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _logic_power_v10
+          echo 'fbee850593592f701a39c4f6491c8f9a3bcfb586c1910357bdcd48f48967d5ce  logic_power_v10_capsule/parts/part_00.b64' | sha256sum -c -
+          echo '7303cffc0012f655af430d9125f6258afe3a370c69abf02afacfa8bd93709979  logic_power_v10_capsule/parts/part_01.b64' | sha256sum -c -
+          echo '9c0ebf32b4fa12be52d7c72fe879d76e542bd6f223febcdaf4fda10083a669da  logic_power_v10_capsule/parts/part_02.b64' | sha256sum -c -
+          echo '2b5b23d38a64a4cc98f2bb376a38f20fe7dda9bd36539c2446f822d98ac9296a  logic_power_v10_capsule/parts/part_03.b64' | sha256sum -c -
+          echo 'f83c70b1800617313c14f6241dc1f144f993900c5701f500c48f82485ecc58a5  logic_power_v10_capsule/parts/part_04.b64' | sha256sum -c -
+          echo 'fb8a7c4e1ae79848f5114d9ce189d570860432714ca564adfb6655d63a868718  logic_power_v10_capsule/parts/part_05_00.b64' | sha256sum -c -
+          echo '0585c5b94628c10dfc3921c472e903badd10f395f6d119fc4434d2ea7290cc86  logic_power_v10_capsule/parts/part_05_01.b64' | sha256sum -c -
+          echo '897986739715627049a30f43ecb2abcfd50aecbfa7f4f8520428ada29f98b028  logic_power_v10_capsule/parts/part_05_02.b64' | sha256sum -c -
+          cat \
+            logic_power_v10_capsule/parts/part_00.b64 \
+            logic_power_v10_capsule/parts/part_01.b64 \
+            logic_power_v10_capsule/parts/part_02.b64 \
+            logic_power_v10_capsule/parts/part_03.b64 \
+            logic_power_v10_capsule/parts/part_04.b64 \
+            logic_power_v10_capsule/parts/part_05_00.b64 \
+            logic_power_v10_capsule/parts/part_05_01.b64 \
+            logic_power_v10_capsule/parts/part_05_02.b64 \
+            > /tmp/logic-power-v10-source.b64
+          echo '3548f31fcaa9696eabb063023c905fbb04a2b3db73c96df9f9ee8bc8e0c64fc1  /tmp/logic-power-v10-source.b64' | sha256sum -c -
+          base64 -d /tmp/logic-power-v10-source.b64 > /tmp/logic-power-v10-source.tar.gz
+          echo 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31  /tmp/logic-power-v10-source.tar.gz' | sha256sum -c -
+          tar xzf /tmp/logic-power-v10-source.tar.gz -C _logic_power_v10
+          cd _logic_power_v10
+          sha256sum -c SOURCE_SHA256SUMS
+          test "$(cat PRIVATE_HEAD_SHA.txt)" = 'ba10d0edc7eb20d499d0481fda2537e782b6efb2'
+          test "$(git hash-object ../logic_power_v10_capsule/overlay/logic_power_v10/ci_v10.sh)" = '0042baf4f79f208670a9a5e8cfcf5cb81c15aecb'
+          cp ../logic_power_v10_capsule/overlay/logic_power_v10/ci_v10.sh logic_power_v10/ci_v10.sh
+
+      - name: Reconstruct the hash-bound meta-controller overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '7a5479368fe0c0fa28404f7d6cfda7136a8cbc58173782f34649a321e258dbf4  logistics_god_lab_v2_capsule/logistics-god-lab-v2-source.tar.gz.b64' | sha256sum -c -
+          base64 -d logistics_god_lab_v2_capsule/logistics-god-lab-v2-source.tar.gz.b64 > /tmp/logistics-god-lab-v2-source.tar.gz
+          echo 'a0b71852d772001794b989dd692b97ae06b8fb48719a3031d312a23d14214771  /tmp/logistics-god-lab-v2-source.tar.gz' | sha256sum -c -
+          rm -rf /tmp/logistics-god-lab-v2-overlay
+          mkdir -p /tmp/logistics-god-lab-v2-overlay
+          tar xzf /tmp/logistics-god-lab-v2-source.tar.gz -C /tmp/logistics-god-lab-v2-overlay
+          cd /tmp/logistics-god-lab-v2-overlay
+          echo 'd2beeca2fc8377ee7e617bfc76b1216dc1611277fbfcc07de785542d67e35554  SOURCE_SHA256SUMS' | sha256sum -c -
+          sha256sum -c SOURCE_SHA256SUMS
+          test "$(cat PRIVATE_LOGISTICS_GOD_LAB_HEAD_SHA.txt)" = '4de9b4dee50fb549e6410b892817a1412504799a'
+          test "$(cat PRIVATE_LOGIC_HEAD_SHA.txt)" = 'ba10d0edc7eb20d499d0481fda2537e782b6efb2'
+          cp -a logistics_god_lab_v2 "$GITHUB_WORKSPACE/_logic_power_v10/"
+          cp README_logistics_god_lab_v2.md "$GITHUB_WORKSPACE/_logic_power_v10/"
+          cp -a sql "$GITHUB_WORKSPACE/_logic_power_v10/"
+
+      - name: Reconstruct the hash-bound LOG-RVI-001 overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '5628a895b863dc1a9a9fe1989a8487904f128ff13b283f2c299a3eb41e872227  logistics_rvi_001_capsule/logistics-rvi-001-source.tar.gz.b64' | sha256sum -c -
+          base64 -d logistics_rvi_001_capsule/logistics-rvi-001-source.tar.gz.b64 > /tmp/logistics-rvi-001-source.tar.gz
+          echo '126735f2aa48d6b87b7daf780e168f509d9d8130ac992d540935be2d97138fc6  /tmp/logistics-rvi-001-source.tar.gz' | sha256sum -c -
+          rm -rf /tmp/logistics-rvi-001-overlay
+          mkdir -p /tmp/logistics-rvi-001-overlay
+          tar xzf /tmp/logistics-rvi-001-source.tar.gz -C /tmp/logistics-rvi-001-overlay
+          cd /tmp/logistics-rvi-001-overlay
+          echo 'a1f0984fbb36cfe8ef51e916b92fa587f591777f735056fdca7f3723f965e5f1  SOURCE_SHA256SUMS' | sha256sum -c -
+          sha256sum -c SOURCE_SHA256SUMS
+          test "$(cat PRIVATE_RVI_HEAD_SHA.txt)" = 'c3d85938950747c4915534831441b31bef0eb7d0'
+          test "$(cat PRIVATE_META_HEAD_SHA.txt)" = '4de9b4dee50fb549e6410b892817a1412504799a'
+          test "$(cat PRIVATE_LOGIC_HEAD_SHA.txt)" = 'ba10d0edc7eb20d499d0481fda2537e782b6efb2'
+
+          test "$(git hash-object .github/workflows/logistics-rvi-001.yml)" = 'a92bbb78ef72ceea769bfda1d5df5bd33fc33cc8'
+          test "$(git hash-object logistics_rvi_001/__init__.py)" = 'e1ee6bcc450f13c262587b44b8ef943412b66f83'
+          test "$(git hash-object logistics_rvi_001/proof.py)" = '48a9c744307e1e5a06cf9ba1ab0072aba16c1b28'
+          test "$(git hash-object logistics_rvi_001/run_logistics_rvi_001.py)" = '4808a6642e5fcc1ca04cd70eb464a366b348bda6'
+          test "$(git hash-object logistics_rvi_001/test_logistics_rvi_001.py)" = '192baa79d7a676955973f4e8431c6ba8afe5e743'
+          test "$(git hash-object logistics_rvi_001/README.md)" = 'ff2c7ca67894bd9c4a4afea8c566cb8e3e675fca'
+          test "$(git hash-object logistics_rvi_001/RESULT.md)" = 'f59d0fa5e909830cabbf6d0f7eb25d82747283bc'
+          test "$(git hash-object logistics_rvi_001/spec.json)" = 'bc56daa151bf8487b26c37badb3aae6fc047afa8'
+          test "$(git hash-object logistics_rvi_001/spec.canonical.json)" = 'b7eda7da22d6aeb86a8ca360871bad4c17068e56'
+          test "$(git hash-object logistics_rvi_001/spec.sha256)" = '9345735f5a5e26dafe3a3f3b8ae3bdae9ed64c8e'
+          test "$(git hash-object logistics_rvi_001/taxi.sql)" = '141b7fcd01ec14bbf1630fe94d7f88139d1ce8d2'
+          test "$(git hash-object logistics_rvi_001/service_requests.sql)" = '6a667fc65b8b5fba8636a5c9946abbdcf47f1187'
+          test "$(git hash-object logistics_rvi_001/result.json)" = '3ee8e0d4a649b74eaef61ab540c71a2aaad10286'
+          test "$(git hash-object logistics_rvi_001/result.canonical.json)" = '2714c093f236be35c820ee8a07a08d44ed6e36ac'
+          test "$(git hash-object logistics_rvi_001/result.sha256)" = '6eaf1a73ff7b4eb9fc25fd72ffe948fc6ad735bb'
+
+          cp -a logistics_rvi_001 "$GITHUB_WORKSPACE/_logic_power_v10/"
+          mkdir -p "$GITHUB_WORKSPACE/_logic_power_v10/.github/workflows"
+          cp .github/workflows/logistics-rvi-001.yml "$GITHUB_WORKSPACE/_logic_power_v10/.github/workflows/"
+
+      - name: Execute all 29 test gates
+        shell: bash
+        working-directory: _logic_power_v10
+        run: |
+          set -euo pipefail
+          python -m unittest \
+            logic_power_v10.test_logic_power_v10 \
+            logistics_god_lab_v2.test_logistics_god_lab_v2 \
+            logistics_rvi_001.test_logistics_rvi_001
+          python -m compileall -q logic_power_v10 logistics_god_lab_v2 logistics_rvi_001
+
+      - name: Build and independently replay LOG-RVI-001 evidence
+        shell: bash
+        working-directory: _logic_power_v10
+        run: |
+          set -euo pipefail
+          python -m logistics_rvi_001.run_logistics_rvi_001
+          python -m logic_power_v10.verify_logic_power_v10 certificates/logistics_rvi_001_exact.json
+          python -m logic_power_v10.verify_logic_power_v10 certificates/logistics_rvi_001_impossible.json
+          node logic_power_v10/verify_logic_power_v10.js certificates/logistics_rvi_001_exact.json
+          node logic_power_v10/verify_logic_power_v10.js certificates/logistics_rvi_001_impossible.json
+          if python -m logic_power_v10.verify_logic_power_v10 certificates/logistics_rvi_001_tampered.json; then
+            echo 'Python accepted tampered evidence'
+            exit 1
+          fi
+          if node logic_power_v10/verify_logic_power_v10.js certificates/logistics_rvi_001_tampered.json; then
+            echo 'Node accepted tampered evidence'
+            exit 1
+          fi
+
+          echo '382d17360a085f1f4027f7d10456546fa8e17b7f39fcf9c64b9f2e6f190914fb  logistics_rvi_001/spec.canonical.json' | sha256sum -c -
+          echo '8200b222c5367af16d8a95ce7bd379a226cf87dff7202c5436731aa1652a47f1  logistics_rvi_001/taxi.sql' | sha256sum -c -
+          echo '7920f7ed8572811cffd72ef87e5e2d3195cb8c420dcad6f967884a35f8e5a575  logistics_rvi_001/service_requests.sql' | sha256sum -c -
+          echo '8650c6117a57fb1b1b80d1969041fa27e648636ad2919eb3c51bfb96123be940  logistics_rvi_001/result.canonical.json' | sha256sum -c -
+          echo '3a8e865473e46316fc2718daffe97f54edf8dac57dd1e7ace6c5617868305cf4  certificates/logistics_rvi_001_exact.json' | sha256sum -c -
+          echo '3f5260ae79a39887d9ea0cbf228a2d1ac411055a99e78e8867f1764c2556dfff  certificates/logistics_rvi_001_impossible.json' | sha256sum -c -
+          echo '90467db3d8ad007b02005f70e3861c82f5f08b87c21a165b2e0f4616ba595365  certificates/logistics_rvi_001_tampered.json' | sha256sum -c -
+          echo 'c6b3b374907e166f9464cfc8623c8fde705b444a6432757902ee8ca13546c743  reports/logistics_rvi_001.json' | sha256sum -c -
+          echo '56036c46fdc2844af327a6dcdcc0883188d461723a665973a9edb5d55e336503  reports/logistics_rvi_001.canonical.json' | sha256sum -c -
+          echo '5f9dada358da7dd4430ed0f43065f7c4b17b2ffa87ad728da7ee6e5c3e59354a  reports/logistics_rvi_001.sha256' | sha256sum -c -
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report=json.loads(Path('reports/logistics_rvi_001.json').read_text())
+          assert report['result']['gate']['overall_pass'] is True
+          assert report['result']['execution']['replay'] == 'IDENTICAL_2_OF_2'
+          assert report['result']['domains']['nyc_taxi']['gate_pass'] is True
+          assert report['result']['domains']['nyc_service_requests']['gate_pass'] is True
+          assert report['logic_power_v10']['current_verdict'] == 'TRUE'
+          assert report['logic_power_v10']['current_belief'] == ['pass_pass']
+          assert report['logic_power_v10']['minimum_fixed_cost'] == [2,1]
+          assert report['logic_power_v10']['adaptive_expected_cost'] == [3,2]
+          assert report['logic_power_v10']['impossible_without_service_holdout'] == ['pass_fail','pass_pass']
+          assert report['gates']['promoted'] == ['G04','G05']
+          assert report['gates']['first_open'] == 'G06'
+          assert report['gates']['strict_objective'] == 'FALSE'
+          assert report['next_action']['action_id'] == 'SEALED_PROSPECTIVE_PILOT'
+          assert report['certificates']['exact_payload_sha256'] == 'b25970cceb3646beb29f0d26303770271d4783d5b6db2ef7e766321621bd918e'
+          assert report['certificates']['impossible_payload_sha256'] == '50d0ab22746d6ae46278f53cbdd6a90dacc9372aa9064a4d6e25f975cd7e3b29'
+          assert report['certificates']['tampered_rejected'] is True
+          PY
+
+      - name: Bind public receipt to private and public heads
+        shell: bash
+        working-directory: _logic_power_v10
+        env:
+          PUBLIC_EVENT_SHA: ${{ github.sha }}
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          def digest(path: str) -> str:
+              return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+          report=json.loads(Path('reports/logistics_rvi_001.json').read_text())
+          receipt={
+              'schema':'logistics-rvi-001/public-verification-receipt/1',
+              'status':'PASS_CONTEXT_CONDITIONED_SELECTOR',
+              'private_repository':'cristh99/my_first_repository',
+              'private_logic_head':'ba10d0edc7eb20d499d0481fda2537e782b6efb2',
+              'private_meta_controller_head':'4de9b4dee50fb549e6410b892817a1412504799a',
+              'private_rvi_head':'c3d85938950747c4915534831441b31bef0eb7d0',
+              'private_pr':80,
+              'public_capsule_repository':'cristh99/notebooks',
+              'public_capsule_head':os.environ['PUBLIC_HEAD_SHA'],
+              'public_event_sha':os.environ['PUBLIC_EVENT_SHA'],
+              'rvi_source_archive_sha256':'126735f2aa48d6b87b7daf780e168f509d9d8130ac992d540935be2d97138fc6',
+              'rvi_transport_sha256':'5628a895b863dc1a9a9fe1989a8487904f128ff13b283f2c299a3eb41e872227',
+              'rvi_source_manifest_sha256':'a1f0984fbb36cfe8ef51e916b92fa587f591777f735056fdca7f3723f965e5f1',
+              'preregistration_sha256':'382d17360a085f1f4027f7d10456546fa8e17b7f39fcf9c64b9f2e6f190914fb',
+              'taxi_sql_sha256':'8200b222c5367af16d8a95ce7bd379a226cf87dff7202c5436731aa1652a47f1',
+              'service_requests_sql_sha256':'7920f7ed8572811cffd72ef87e5e2d3195cb8c420dcad6f967884a35f8e5a575',
+              'result_canonical_sha256':'8650c6117a57fb1b1b80d1969041fa27e648636ad2919eb3c51bfb96123be940',
+              'exact_certificate_payload_sha256':report['certificates']['exact_payload_sha256'],
+              'impossible_certificate_payload_sha256':report['certificates']['impossible_payload_sha256'],
+              'exact_certificate_file_sha256':digest('certificates/logistics_rvi_001_exact.json'),
+              'impossible_certificate_file_sha256':digest('certificates/logistics_rvi_001_impossible.json'),
+              'report_file_sha256':digest('reports/logistics_rvi_001.json'),
+              'canonical_report_file_sha256':digest('reports/logistics_rvi_001.canonical.json'),
+              'tests':29,
+              'python_replay':'PASS',
+              'node_bigint_replay':'PASS',
+              'tampered_negative_control':'REJECTED',
+              'motherduck_replay':'IDENTICAL_2_OF_2',
+              'taxi':report['result']['domains']['nyc_taxi'],
+              'service_requests':report['result']['domains']['nyc_service_requests'],
+              'promoted_gates':['G04','G05'],
+              'strict_objective':'FALSE',
+              'next_action':'SEALED_PROSPECTIVE_PILOT',
+              'promotion_boundary':(
+                  'Retrospective robustness and selection pass only. '
+                  'Prospective utility and autonomous control remain open.'
+              ),
+          }
+          path=Path('reports/logistics-rvi-001-public-verification-receipt.json')
+          path.write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')
+          receipt_digest=hashlib.sha256(path.read_bytes()).hexdigest()
+          Path('reports/logistics-rvi-001-public-verification-receipt.sha256').write_text(
+              f'{receipt_digest}  logistics-rvi-001-public-verification-receipt.json\n'
+          )
+          print(path.read_text())
+          print(receipt_digest)
+          PY
+
+      - name: Upload public verification evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: logistics-rvi-001-public-evidence
+          path: |
+            _logic_power_v10/certificates/logistics_rvi_001_exact.json
+            _logic_power_v10/certificates/logistics_rvi_001_impossible.json
+            _logic_power_v10/certificates/logistics_rvi_001_tampered.json
+            _logic_power_v10/reports/logistics_rvi_001.json
+            _logic_power_v10/reports/logistics_rvi_001.canonical.json
+            _logic_power_v10/reports/logistics_rvi_001.sha256
+            _logic_power_v10/reports/logistics-rvi-001-public-verification-receipt.json
+            _logic_power_v10/reports/logistics-rvi-001-public-verification-receipt.sha256
+            _logic_power_v10/logistics_rvi_001/spec.canonical.json
+            _logic_power_v10/logistics_rvi_001/spec.sha256
+            _logic_power_v10/logistics_rvi_001/taxi.sql
+            _logic_power_v10/logistics_rvi_001/service_requests.sql
+            _logic_power_v10/logistics_rvi_001/result.json
+            _logic_power_v10/logistics_rvi_001/result.canonical.json
+            _logic_power_v10/logistics_rvi_001/result.sha256
