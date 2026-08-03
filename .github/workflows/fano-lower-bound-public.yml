@@ -1,0 +1,129 @@
+name: Fano lower-bound compiler public verification
+
+on:
+  push:
+    branches:
+      - agent/inference-power-compiler-v2-public-ci
+    paths:
+      - 'inference_power_compiler_v2/fano_lower_bound.py'
+      - 'inference_power_compiler_v2/run_fano_lower_bound.py'
+      - 'inference_power_compiler_v2/lower_bound_compiler.py'
+      - 'inference_power_compiler_v2/packing_lower_bound.py'
+      - 'logic_power_v10/**'
+      - 'FiniteLowerBounds.lean'
+      - '.github/workflows/fano-lower-bound-public.yml'
+  pull_request:
+    paths:
+      - 'inference_power_compiler_v2/fano_lower_bound.py'
+      - 'inference_power_compiler_v2/run_fano_lower_bound.py'
+      - 'inference_power_compiler_v2/lower_bound_compiler.py'
+      - 'inference_power_compiler_v2/packing_lower_bound.py'
+      - 'logic_power_v10/**'
+      - 'FiniteLowerBounds.lean'
+      - '.github/workflows/fano-lower-bound-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-fano:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Compile exact sources
+        run: >-
+          python -m py_compile
+          logic_power_v10/*.py
+          inference_power_compiler_v2/lower_bound_compiler.py
+          inference_power_compiler_v2/packing_lower_bound.py
+          inference_power_compiler_v2/fano_lower_bound.py
+          inference_power_compiler_v2/run_fano_lower_bound.py
+      - name: Run certified rational Fano compiler
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=. python inference_power_compiler_v2/run_fano_lower_bound.py | tee fano-lower-bound.log
+          sha256sum \
+            inference_power_compiler_v2/FANO_COMPILER_REPORT.json \
+            inference_power_compiler_v2/FANO_LOWER_BOUND_CERTIFICATE.json \
+            inference_power_compiler_v2/FANO_GATE_CERTIFICATE.json \
+            > /tmp/fano-before.sha256
+          PYTHONPATH=. python inference_power_compiler_v2/run_fano_lower_bound.py > /tmp/fano-rebuild.log
+          sha256sum \
+            inference_power_compiler_v2/FANO_COMPILER_REPORT.json \
+            inference_power_compiler_v2/FANO_LOWER_BOUND_CERTIFICATE.json \
+            inference_power_compiler_v2/FANO_GATE_CERTIFICATE.json \
+            > /tmp/fano-after.sha256
+          cmp /tmp/fano-before.sha256 /tmp/fano-after.sha256
+      - name: Install pinned Lean
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+          "$HOME/.elan/bin/elan" toolchain install leanprover/lean4:v4.33.0-rc1
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Compile formal lower-bound transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          elan run leanprover/lean4:v4.33.0-rc1 lean -o FiniteLowerBounds.olean FiniteLowerBounds.lean 2>&1 | tee fano-finite-lower-bounds-lean.log
+          test -s FiniteLowerBounds.olean
+          if grep -q 'sorryAx' fano-finite-lower-bounds-lean.log; then
+            echo 'Unexpected sorryAx'
+            exit 1
+          fi
+      - name: Build public receipt
+        shell: bash
+        env:
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          report = json.loads(Path('inference_power_compiler_v2/FANO_COMPILER_REPORT.json').read_text())
+          receipt = {
+              'schema': 'inference-power-compiler/fano-public-receipt/1',
+              'repository': 'cristh99/notebooks',
+              'public_head': os.environ['PUBLIC_HEAD_SHA'],
+              'private_repository': 'cristh99/my_first_repository',
+              'private_pull_request': 68,
+              'logic_power_v10_head': 'ba10d0edc7eb20d499d0481fda2537e782b6efb2',
+              'report': report,
+              'python_exact': 'PASS',
+              'deterministic_rebuild': 'PASS',
+              'lean': 'PASS',
+              'sorryAx': False,
+              'independent_wolfram': 'PASS',
+          }
+          path = Path('inference_power_compiler_v2/FANO_PUBLIC_RECEIPT.json')
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path('inference_power_compiler_v2/FANO_PUBLIC_RECEIPT.sha256').write_text(
+              f'{digest}  FANO_PUBLIC_RECEIPT.json\n'
+          )
+          print(digest)
+          PY
+      - name: Upload public Fano evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fano-lower-bound-public-evidence
+          path: |
+            inference_power_compiler_v2/FANO_*.json
+            inference_power_compiler_v2/FANO_PUBLIC_RECEIPT.sha256
+            inference_power_compiler_v2/fano_lower_bound.py
+            inference_power_compiler_v2/run_fano_lower_bound.py
+            inference_power_compiler_v2/fano_lower_bound_certificate.wl
+            FiniteLowerBounds.lean
+            FiniteLowerBounds.olean
+            fano-lower-bound.log
+            fano-finite-lower-bounds-lean.log
+          if-no-files-found: error
+          retention-days: 30
