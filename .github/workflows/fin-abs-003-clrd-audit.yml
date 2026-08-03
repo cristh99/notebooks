@@ -1,0 +1,112 @@
+name: FIN-ABS-003 — CLRD insurance data audit
+
+on:
+  pull_request:
+    branches:
+      - agent/finance-absolute-423-public-replay
+    paths:
+      - 'fin_abs_003_clrd/**'
+      - 'README_FIN_ABS_003_CLRD.md'
+      - '.github/workflows/fin-abs-003-clrd-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fin-abs-003-clrd-audit
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout frozen capsule
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Install deterministic audit dependencies
+        run: |
+          python -m pip install --disable-pip-version-check --no-cache-dir \
+            numpy==2.3.2 pandas==2.3.1
+
+      - name: Compile and test split invariants
+        run: |
+          python -m compileall -q fin_abs_003_clrd
+          python -m unittest -v fin_abs_003_clrd.test_audit
+
+      - name: Download pinned CAS Loss Reserving Database
+        run: |
+          set -euo pipefail
+          mkdir -p .cache/fin_abs_003_clrd reports/fin_abs_003_clrd_audit
+          curl --location --fail --show-error --silent \
+            --retry 5 --retry-all-errors --connect-timeout 30 --max-time 600 \
+            'https://raw.githubusercontent.com/casact/chainladder-python/2f6ea125d17e29d018b56e4df85eda52ac8ac206/chainladder/utils/data/clrd.csv' \
+            --output .cache/fin_abs_003_clrd/clrd.csv
+          test -s .cache/fin_abs_003_clrd/clrd.csv
+
+      - name: Audit triangles and freeze retrospective cases
+        run: |
+          python -m fin_abs_003_clrd.audit \
+            --input .cache/fin_abs_003_clrd/clrd.csv \
+            --output-dir reports/fin_abs_003_clrd_audit
+
+      - name: Independent Node audit replay
+        run: |
+          node fin_abs_003_clrd/verify_audit.mjs \
+            reports/fin_abs_003_clrd_audit/data_audit.json \
+            .cache/fin_abs_003_clrd/clrd.csv \
+            reports/fin_abs_003_clrd_audit/eligible_cases.csv \
+            reports/fin_abs_003_clrd_audit/node_audit_receipt.json
+
+      - name: Reject score and split forgeries
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          source = json.loads(Path('reports/fin_abs_003_clrd_audit/data_audit.json').read_text())
+          source['payload']['absolute_score']['after'] = 1000
+          canonical = json.dumps(source['payload'], sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+          source['payload_canonical'] = canonical
+          source['sha256'] = hashlib.sha256(canonical.encode()).hexdigest()
+          Path('/tmp/forged_score.json').write_text(json.dumps(source, indent=2, sort_keys=True) + '\n')
+
+          split = json.loads(Path('reports/fin_abs_003_clrd_audit/data_audit.json').read_text())
+          split['payload']['split']['entity_leakage'] = 1
+          canonical = json.dumps(split['payload'], sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+          split['payload_canonical'] = canonical
+          split['sha256'] = hashlib.sha256(canonical.encode()).hexdigest()
+          Path('/tmp/forged_split.json').write_text(json.dumps(split, indent=2, sort_keys=True) + '\n')
+          PY
+
+          for forged in /tmp/forged_score.json /tmp/forged_split.json; do
+            if node fin_abs_003_clrd/verify_audit.mjs \
+                "$forged" \
+                .cache/fin_abs_003_clrd/clrd.csv \
+                reports/fin_abs_003_clrd_audit/eligible_cases.csv \
+                /tmp/forged_receipt.json; then
+              echo "forged CLRD audit accepted: $forged" >&2
+              exit 1
+            fi
+          done
+
+      - name: Build evidence manifest
+        run: |
+          sha256sum reports/fin_abs_003_clrd_audit/* \
+            > reports/fin_abs_003_clrd_audit/manifest.sha256
+
+      - name: Upload bounded audit evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-abs-003-clrd-data-audit
+          path: reports/fin_abs_003_clrd_audit/
+          if-no-files-found: error
+          retention-days: 90
