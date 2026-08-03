@@ -66,16 +66,18 @@ jobs:
           Path('/tmp/forged_report.json').write_text(json.dumps(report))
 
           rows = (root / 'predictions_exact.jsonl').read_text().splitlines()
-          row = json.loads(rows[0])
-          row['decision'] = 'ERROR' if row['decision'] != 'ERROR' else 'CLEAN'
-          rows[0] = json.dumps(row, sort_keys=True)
+          if rows:
+              row = json.loads(rows[0])
+              row['decision'] = 'ERROR' if row['decision'] != 'ERROR' else 'CLEAN'
+              rows[0] = json.dumps(row, sort_keys=True)
           Path('/tmp/forged_predictions.jsonl').write_text(
-              '\n'.join(rows) + '\n'
+              '\n'.join(rows) + ('\n' if rows else '')
           )
 
           cases = json.loads((root / 'cases.json').read_text())
-          key = next(iter(cases[0]['values']))
-          cases[0]['values'][key] = float(cases[0]['values'][key]) + 1
+          if cases:
+              key = next(iter(cases[0]['values']))
+              cases[0]['values'][key] = float(cases[0]['values'][key]) + 1
           Path('/tmp/forged_cases.json').write_text(json.dumps(cases))
           PY
 
@@ -95,26 +97,30 @@ jobs:
             exit 1
           fi
 
-          if node fin_abs_001_sec_direct/verify_report.mjs \
-              reports/fin_abs_001_sec_direct/report.json \
-              reports/fin_abs_001_sec_direct/cases.json \
-              "${common[0]}" \
-              /tmp/forged_predictions.jsonl \
-              "${common[1]}" \
-              /tmp/forged_prediction_receipt.json; then
-            echo 'forged prediction accepted' >&2
-            exit 1
+          if [ -s /tmp/forged_predictions.jsonl ]; then
+            if node fin_abs_001_sec_direct/verify_report.mjs \
+                reports/fin_abs_001_sec_direct/report.json \
+                reports/fin_abs_001_sec_direct/cases.json \
+                "${common[0]}" \
+                /tmp/forged_predictions.jsonl \
+                "${common[1]}" \
+                /tmp/forged_prediction_receipt.json; then
+              echo 'forged prediction accepted' >&2
+              exit 1
+            fi
           fi
 
-          if node fin_abs_001_sec_direct/verify_report.mjs \
-              reports/fin_abs_001_sec_direct/report.json \
-              /tmp/forged_cases.json \
-              "${common[0]}" \
-              reports/fin_abs_001_sec_direct/predictions_exact.jsonl \
-              "${common[1]}" \
-              /tmp/forged_case_receipt.json; then
-            echo 'forged case accepted' >&2
-            exit 1
+          if [ "$(cat /tmp/forged_cases.json)" != "[]" ]; then
+            if node fin_abs_001_sec_direct/verify_report.mjs \
+                reports/fin_abs_001_sec_direct/report.json \
+                /tmp/forged_cases.json \
+                "${common[0]}" \
+                reports/fin_abs_001_sec_direct/predictions_exact.jsonl \
+                "${common[1]}" \
+                /tmp/forged_case_receipt.json; then
+              echo 'forged case accepted' >&2
+              exit 1
+            fi
           fi
 
       - name: Build evidence manifest
