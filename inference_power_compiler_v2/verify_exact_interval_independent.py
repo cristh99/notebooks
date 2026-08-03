@@ -134,7 +134,6 @@ def main() -> None:
     if (lower, upper) != (Fraction(39, 128), Fraction(89, 128)):
         raise AssertionError("interval endpoints changed")
 
-    # Negative controls.
     independence_control = {
         "independent_given_training": False,
         "required_status": "INVALID_DEPENDENCE",
@@ -151,10 +150,10 @@ def main() -> None:
         "private_binding": {
             "repository": "cristh99/my_first_repository",
             "pull_request": 68,
-            "head": "11ac1518c67a48082758a5858deb8da4a8b0ca27",
+            "head": "2f16adf315ff01222cd49ef0635c31bbbb50ec46",
             "compiler_blob": "f4a1b3b0c70ed120ed5b1b832b8a996c4c8c6f85",
             "runner_blob": "ddde9c875d3abf564a531f9db4179ccde504b836",
-            "lean_blob": "910513f763ad2c4f7f57490344a3bd51f0ecc4be",
+            "lean_blob": "d6b01fb80aad4a16cc7917e67baa98b36744f260",
         },
         "public_repository": "cristh99/notebooks",
         "public_event_sha": os.environ.get("GITHUB_SHA", "local"),
