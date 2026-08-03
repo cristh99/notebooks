@@ -4,9 +4,9 @@ import Std
 # Formal boundary for proof-carrying finite lower bounds
 
 This file deliberately uses only Lean's standard library. The executable
-compiler supplies the exact rational total-variation and risk calculations;
-these theorems certify the logical transport from indistinguishability and
-matching bounds to impossibility and optimality.
+compiler supplies exact rational total-variation, Bayes-risk, packing and
+candidate-risk calculations. These theorems certify the logical transport
+from indistinguishability and testing to impossibility and optimality.
 -/
 
 namespace FiniteLowerBounds
@@ -69,6 +69,36 @@ theorem matching_bounds_certify_optimality
     rw [hcandidate]
     exact hlower procedure
 
+/-- A Bayes lower bound transfers to worst-case risk by transitivity. -/
+theorem bayes_lower_transfers_to_worst
+    {Procedure Value : Type}
+    (le : Value → Value → Prop)
+    (transitive : ∀ {a b c}, le a b → le b c → le a c)
+    (bayesRisk worstRisk : Procedure → Value)
+    (bound : Value)
+    (hlower : ∀ procedure, le bound (bayesRisk procedure))
+    (hbayesWorst : ∀ procedure,
+      le (bayesRisk procedure) (worstRisk procedure)) :
+    ∀ procedure, le bound (worstRisk procedure) := by
+  intro procedure
+  exact transitive (hlower procedure) (hbayesWorst procedure)
+
+/-- If a wrong packing label is no farther than the true label, triangle
+transport forces the packing separation below twice the true distance. -/
+theorem wrong_nearest_forces_double_radius
+    {Value : Type}
+    (combine : Value → Value → Value)
+    (le : Value → Value → Prop)
+    (transitive : ∀ {a b c}, le a b → le b c → le a c)
+    (monotoneRight : ∀ a {b c},
+      le b c → le (combine a b) (combine a c))
+    (separation trueDistance wrongDistance : Value)
+    (htriangle :
+      le separation (combine trueDistance wrongDistance))
+    (hnearest : le wrongDistance trueDistance) :
+    le separation (combine trueDistance trueDistance) := by
+  exact transitive htriangle (monotoneRight trueDistance hnearest)
+
 /-- A missing required coordinate is an instance of indistinguishability. -/
 theorem missing_coordinate_blocks_exact_boolean_target
     {dimension : Nat}
@@ -84,6 +114,8 @@ theorem missing_coordinate_blocks_exact_boolean_target
 #print axioms FiniteLowerBounds.indistinguishable_pair_no_exact_decoder
 #print axioms FiniteLowerBounds.four_coordinate_bounds_combine
 #print axioms FiniteLowerBounds.matching_bounds_certify_optimality
+#print axioms FiniteLowerBounds.bayes_lower_transfers_to_worst
+#print axioms FiniteLowerBounds.wrong_nearest_forces_double_radius
 #print axioms FiniteLowerBounds.missing_coordinate_blocks_exact_boolean_target
 
 end FiniteLowerBounds
