@@ -5,7 +5,7 @@ import unittest
 
 from fin_rvi_002_stage1.identity_v2 import compact_identity_pairs_v2
 from fin_rvi_002_stage1.ocds import ReleaseSummary
-from fin_rvi_002_stage1.run_stage1_v2 import freeze_holdout_v2
+from fin_rvi_002_stage1.run_stage1_v2 import _best_document, freeze_holdout_v2
 
 
 class IdentityGrammarV2Tests(unittest.TestCase):
@@ -16,6 +16,7 @@ class IdentityGrammarV2Tests(unittest.TestCase):
         buyer_ids=(),
         buyer_names=(),
         text="",
+        documents=(),
     ) -> ReleaseSummary:
         return ReleaseSummary(
             source=source,
@@ -30,7 +31,7 @@ class IdentityGrammarV2Tests(unittest.TestCase):
             dates=("2024-01-01",),
             object_text=text,
             classifications=(),
-            documents=(),
+            documents=tuple(documents),
             codes=(),
         )
 
@@ -92,6 +93,35 @@ class IdentityGrammarV2Tests(unittest.TestCase):
             "WITHIN_CODE_AMBIGUITY",
             {item["holdout_stratum"] for item in first},
         )
+
+    def test_document_selector_prefers_signed_contract(self) -> None:
+        left = self._summary(
+            source="ONCAE",
+            buyer_names=("SIT",),
+            text="Contrato SIT-CO-001-2024",
+            documents=(
+                {
+                    "url": "https://example.test/tender.pdf",
+                    "title": "Aviso",
+                    "description": "",
+                    "documentType": "tenderNotice",
+                },
+                {
+                    "url": "https://example.test/contract.pdf",
+                    "title": "Contrato",
+                    "description": "",
+                    "documentType": "contractSigned",
+                },
+            ),
+        )
+        right = self._summary(
+            source="SEFIN",
+            buyer_ids=("HNDENG:411",),
+            text="Pago SIT-CO-001-2024",
+        )
+        selected = _best_document(left, right)
+        self.assertIsNotNone(selected)
+        self.assertEqual(selected["documentType"], "contractSigned")
 
 
 if __name__ == "__main__":
