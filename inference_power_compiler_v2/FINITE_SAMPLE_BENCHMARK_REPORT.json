@@ -1,0 +1,23 @@
+{
+  "cases": [
+    {"actual_value":[1,2],"case":"no_experiment","certificate_sha256":"f42de75e03f49be83f36b37d2f1c0fe8e0d785a53b787c56ad9f9c49f70f213a","expected_value":[1,2],"frontier_sizes_by_horizon":[2],"least_favorable_prior":{"h0":[1,2],"h1":[1,2]},"policy_count":2,"replay":"PASS"},
+    {"actual_value":[1,2],"case":"uninformative_h2","certificate_sha256":"6a0e1abe63c9c0caf8cc3cff9063e51c434f3d2873d03df4cd1b427436ede004","expected_value":[1,2],"frontier_sizes_by_horizon":[2,3,5],"least_favorable_prior":{"h0":[1,2],"h1":[1,2]},"policy_count":5,"replay":"PASS"},
+    {"actual_value":[1,10],"case":"perfect_low_cost","certificate_sha256":"fe04ba1151545f9be934031bc97da77c4c4a61a0759444a59ee75353e0bed3b3","expected_value":[1,10],"frontier_sizes_by_horizon":[2,3],"least_favorable_prior":{"h0":[9,10],"h1":[1,10]},"policy_count":3,"replay":"PASS"},
+    {"actual_value":[1,2],"case":"perfect_high_cost","certificate_sha256":"5819de4a7608e6369b527be625291e6a1cdbba6bedd2f6cd5825b27d9845a433","expected_value":[1,2],"frontier_sizes_by_horizon":[2,3],"least_favorable_prior":{"h0":[1,2],"h1":[1,2]},"policy_count":3,"replay":"PASS"},
+    {"actual_value":[1,4],"case":"symmetric_noisy_h1","certificate_sha256":"ec4e4e5c0b3132b0f9721f15cbc623bfa0a46b3fb47a9c10beea9299ea48abbf","expected_value":[1,4],"frontier_sizes_by_horizon":[2,3],"least_favorable_prior":{"h0":[3,4],"h1":[1,4]},"policy_count":3,"replay":"PASS"},
+    {"actual_value":[5,32],"case":"symmetric_noisy_h3","certificate_sha256":"242b335538c42f28df0276af7ff9dfc494d4078371c1bda496aee08af8bfde91","expected_value":[5,32],"frontier_sizes_by_horizon":[2,3,5,9],"least_favorable_prior":{"h0":[3,4],"h1":[1,4]},"policy_count":9,"replay":"PASS"},
+    {"actual_value":[2,11],"case":"asymmetric_randomized","certificate_sha256":"fec84ccf5a0e2df06667f5601bff83833428d918e625c64867bb69d4dab9d767","expected_value":[2,11],"frontier_sizes_by_horizon":[2,3],"least_favorable_prior":{"h0":[2,11],"h1":[9,11]},"policy_count":3,"replay":"PASS"}
+  ],
+  "gates": {
+    "all_exact_values": "PASS",
+    "all_semantic_replays": "PASS",
+    "case_count": 7,
+    "horizon_three_improves_symmetric_noisy_risk": true,
+    "perfect_information_used_only_below_half_loss": true,
+    "randomization_required_for_asymmetric_minimax": true,
+    "tampered_certificate": "REJECTED:payload-hash",
+    "uninformative_experiment_cannot_improve": true
+  },
+  "schema": "inference-power-compiler/finite-sample-benchmark/1",
+  "sha256": "c45c05d617e955db39ea43bd7de0e0104669d92401fc0fc053b3712cfdacfd4f"
+}
