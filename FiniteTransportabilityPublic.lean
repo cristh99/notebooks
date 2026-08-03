@@ -45,7 +45,9 @@ theorem invariant_weighted_effect_transport
     (h1 : target1 = source1) :
     weight0 * target0 + weight1 * target1 =
       weight0 * source0 + weight1 * source1 := by
-  simp [h0, h1]
+  subst target0
+  subst target1
+  rfl
 
 /-- Sequential acquisition stays feasible when action plus continuation fits. -/
 theorem transport_budget_feasible
