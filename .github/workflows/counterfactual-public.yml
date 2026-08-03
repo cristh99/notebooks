@@ -1,0 +1,137 @@
+name: Finite counterfactual compiler — public independent verification
+
+on:
+  push:
+    branches:
+      - agent/inference-power-compiler-v2-public-ci
+    paths:
+      - 'inference_power_compiler_v2/verify_counterfactual_public.py'
+      - 'FiniteCounterfactualPublic.lean'
+      - '.github/workflows/counterfactual-public.yml'
+  pull_request:
+    paths:
+      - 'inference_power_compiler_v2/verify_counterfactual_public.py'
+      - 'FiniteCounterfactualPublic.lean'
+      - '.github/workflows/counterfactual-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-counterfactual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+
+      - name: Execute independent counterfactual replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile inference_power_compiler_v2/verify_counterfactual_public.py
+          python inference_power_compiler_v2/verify_counterfactual_public.py \
+            | tee finite-counterfactual-public.log
+          test -s inference_power_compiler_v2/FINITE_COUNTERFACTUAL_PUBLIC_REPORT.json
+          test -s inference_power_compiler_v2/FINITE_COUNTERFACTUAL_PUBLIC_CERTIFICATE.json
+          sha256sum \
+            inference_power_compiler_v2/FINITE_COUNTERFACTUAL_PUBLIC_REPORT.json \
+            inference_power_compiler_v2/FINITE_COUNTERFACTUAL_PUBLIC_CERTIFICATE.json \
+            > /tmp/counterfactual-public-before.sha256
+          python inference_power_compiler_v2/verify_counterfactual_public.py \
+            > /tmp/counterfactual-public-rebuild.log
+          sha256sum \
+            inference_power_compiler_v2/FINITE_COUNTERFACTUAL_PUBLIC_REPORT.json \
+            inference_power_compiler_v2/FINITE_COUNTERFACTUAL_PUBLIC_CERTIFICATE.json \
+            > /tmp/counterfactual-public-after.sha256
+          cmp /tmp/counterfactual-public-before.sha256 /tmp/counterfactual-public-after.sha256
+
+      - name: Install pinned Lean
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -sSf \
+            https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          "$HOME/.elan/bin/elan" toolchain install leanprover/lean4:v4.33.0-rc1
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Compile public counterfactual boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          elan run leanprover/lean4:v4.33.0-rc1 lean \
+            -o FiniteCounterfactualPublic.olean FiniteCounterfactualPublic.lean \
+            2>&1 | tee finite-counterfactual-public-lean.log
+          test -s FiniteCounterfactualPublic.olean
+          if grep -q 'sorryAx' finite-counterfactual-public-lean.log; then
+            echo 'Unexpected sorryAx' >&2
+            exit 1
+          fi
+
+      - name: Build public verification receipt
+        shell: bash
+        env:
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PUBLIC_EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          report = Path('inference_power_compiler_v2/FINITE_COUNTERFACTUAL_PUBLIC_REPORT.json')
+          certificate = Path('inference_power_compiler_v2/FINITE_COUNTERFACTUAL_PUBLIC_CERTIFICATE.json')
+          lean = Path('FiniteCounterfactualPublic.lean')
+          receipt = {
+              'schema': 'finite-counterfactual-public-verification-receipt/1',
+              'repository': 'cristh99/notebooks',
+              'head': os.environ['PUBLIC_HEAD_SHA'],
+              'event_sha': os.environ['PUBLIC_EVENT_SHA'],
+              'private_repository': 'cristh99/my_first_repository',
+              'private_pull_request': 68,
+              'private_head': '26ccc743f42df497102851e259cbbbcecefc8f0d',
+              'report_sha256': hashlib.sha256(report.read_bytes()).hexdigest(),
+              'certificate_sha256': hashlib.sha256(certificate.read_bytes()).hexdigest(),
+              'lean_source_sha256': hashlib.sha256(lean.read_bytes()).hexdigest(),
+              'complete_model_enumeration': 'PASS',
+              'sharp_width_frontier': 'PASS',
+              'adaptive_design': 'PASS',
+              'single_world_nonidentifiability': 'PASS',
+              'monotonicity_closure': 'PASS',
+              'semantic_replay': 'PASS',
+              'deterministic_rebuild': 'PASS',
+              'tamper_rejection': 'PASS',
+              'lean': 'PASS',
+              'sorryAx': 'ABSENT',
+          }
+          path = Path('inference_power_compiler_v2/FINITE_COUNTERFACTUAL_PUBLIC_RECEIPT.json')
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path('inference_power_compiler_v2/FINITE_COUNTERFACTUAL_PUBLIC_RECEIPT.sha256').write_text(
+              f'{digest}  FINITE_COUNTERFACTUAL_PUBLIC_RECEIPT.json\n'
+          )
+          print(path.read_text())
+          print(digest)
+          PY
+
+      - name: Upload public counterfactual evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: finite-counterfactual-public-evidence
+          path: |
+            inference_power_compiler_v2/FINITE_COUNTERFACTUAL_PUBLIC_*.json
+            inference_power_compiler_v2/FINITE_COUNTERFACTUAL_PUBLIC_RECEIPT.sha256
+            inference_power_compiler_v2/verify_counterfactual_public.py
+            FiniteCounterfactualPublic.lean
+            FiniteCounterfactualPublic.olean
+            finite-counterfactual-public.log
+            finite-counterfactual-public-lean.log
+          if-no-files-found: error
+          retention-days: 90
