@@ -2,11 +2,16 @@ from __future__ import annotations
 
 import unittest
 
-from .router import route
+from ocr_reading_order_real_v1.core import Block
+from .router import _strong_body_columns, route
 
 
 def item(block_id: str, bbox: tuple[float, float, float, float]):
     return {"block_id": block_id, "bbox": list(bbox)}
+
+
+def geometry(block_id: str, bbox: tuple[float, float, float, float]) -> Block:
+    return Block(block_id, 0, "test", bbox)
 
 
 class ContextRouterTests(unittest.TestCase):
@@ -42,7 +47,6 @@ class ContextRouterTests(unittest.TestCase):
 
     def test_strong_body_columns_select_geometry(self) -> None:
         blocks = [
-            item("HEADER", (0, 0, 100, 15)),
             item("L1", (0, 40, 40, 50)),
             item("R1", (60, 40, 100, 50)),
             item("L2", (0, 60, 40, 70)),
@@ -52,17 +56,17 @@ class ContextRouterTests(unittest.TestCase):
         self.assertEqual(decision.selected, "geometry")
         self.assertEqual(decision.reason, "STRONG_BODY_COLUMNS")
 
-    def test_spanning_body_block_blocks_geometry(self) -> None:
-        blocks = [
-            item("L1", (0, 40, 40, 50)),
-            item("R1", (60, 40, 100, 50)),
-            item("SPAN", (0, 52, 100, 58)),
-            item("L2", (0, 60, 40, 70)),
-            item("R2", (60, 60, 100, 70)),
+    def test_spanning_body_block_blocks_column_evidence(self) -> None:
+        changed = [
+            geometry("L1", (0, 40, 40, 50)),
+            geometry("R1", (60, 40, 100, 50)),
+            geometry("L2", (0, 60, 40, 70)),
+            geometry("R2", (60, 60, 100, 70)),
         ]
-        decision = route(blocks, 100, 100)
-        self.assertEqual(decision.selected, "baseline")
-        self.assertEqual(decision.reason, "INSUFFICIENT_BODY_COLUMN_EVIDENCE")
+        all_blocks = [*changed, geometry("SPAN", (0, 45, 100, 65))]
+        evidence = _strong_body_columns(changed, all_blocks, 100, 100)
+        self.assertFalse(evidence["strong"])
+        self.assertTrue(evidence["spanning_block_present"])
 
     def test_selected_order_is_permutation(self) -> None:
         blocks = [
