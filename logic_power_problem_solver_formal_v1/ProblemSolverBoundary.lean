@@ -46,10 +46,26 @@ def primaryAllowed : Solver → Bool
   | _ => true
 
 
+theorem bool_and_left_true {a b : Bool}
+    (h : a && b = true) : a = true := by
+  cases a with
+  | false => cases h
+  | true => rfl
+
+
+theorem bool_and_right_true {a b : Bool}
+    (h : a && b = true) : b = true := by
+  cases a with
+  | false => cases h
+  | true =>
+      change b = true at h
+      exact h
+
+
 theorem planning_rejects_logic_exact
     (problem : Problem) (h : problem.planning = true) :
     eligible problem .logicExact = false := by
-  unfold eligible
+  change (!problem.planning && !problem.game) = false
   rw [h]
   rfl
 
@@ -57,14 +73,18 @@ theorem planning_rejects_logic_exact
 theorem planning_rejects_one_shot_bayes
     (problem : Problem) (h : problem.planning = true) :
     eligible problem .bayes = false := by
-  unfold eligible
+  change
+    ((!problem.planning && !problem.game) &&
+      problem.staticHorizon) = false
   rw [h]
   rfl
 
 
 theorem monte_carlo_is_support_only :
-    primaryAllowed .monteCarlo = false := by
-  rfl
+    primaryAllowed .monteCarlo ≠ true := by
+  change false ≠ true
+  intro h
+  cases h
 
 
 theorem dynamic_programming_requires_exact_scope
@@ -73,10 +93,14 @@ theorem dynamic_programming_requires_exact_scope
     problem.planning = true ∧
       problem.singleAgent = true ∧
       problem.knownModel = true := by
-  unfold eligible at h
-  have outer := Bool.and_eq_true.mp h
-  have inner := Bool.and_eq_true.mp outer.1
-  exact ⟨inner.1, ⟨inner.2, outer.2⟩⟩
+  change
+    ((problem.planning && problem.singleAgent) &&
+      problem.knownModel) = true at h
+  have known := bool_and_right_true h
+  have pair := bool_and_left_true h
+  have single := bool_and_right_true pair
+  have planning := bool_and_left_true pair
+  exact ⟨planning, ⟨single, known⟩⟩
 
 
 theorem mcts_requires_declared_simulator_scope
@@ -87,13 +111,20 @@ theorem mcts_requires_declared_simulator_scope
       problem.simulator = true ∧
       problem.rolloutBudget = true ∧
       problem.depthBudget = true := by
-  unfold eligible at h
-  have h5 := Bool.and_eq_true.mp h
-  have h4 := Bool.and_eq_true.mp h5.1
-  have h3 := Bool.and_eq_true.mp h4.1
-  have h2 := Bool.and_eq_true.mp h3.1
+  change
+    ((((problem.planning && problem.singleAgent) &&
+      problem.simulator) && problem.rolloutBudget) &&
+      problem.depthBudget) = true at h
+  have depth := bool_and_right_true h
+  have four := bool_and_left_true h
+  have rollout := bool_and_right_true four
+  have three := bool_and_left_true four
+  have simulator := bool_and_right_true three
+  have two := bool_and_left_true three
+  have single := bool_and_right_true two
+  have planning := bool_and_left_true two
   exact
-    ⟨h2.1, ⟨h2.2, ⟨h3.2, ⟨h4.2, h5.2⟩⟩⟩⟩
+    ⟨planning, ⟨single, ⟨simulator, ⟨rollout, depth⟩⟩⟩⟩
 
 
 theorem muzero_requires_all_prerequisites
@@ -107,22 +138,33 @@ theorem muzero_requires_all_prerequisites
       problem.neuralTraining = true ∧
       problem.rolloutBudget = true ∧
       problem.depthBudget = true := by
-  unfold eligible at h
-  have h8 := Bool.and_eq_true.mp h
-  have h7 := Bool.and_eq_true.mp h8.1
-  have h6 := Bool.and_eq_true.mp h7.1
-  have h5 := Bool.and_eq_true.mp h6.1
-  have h4 := Bool.and_eq_true.mp h5.1
-  have h3 := Bool.and_eq_true.mp h4.1
-  have h2 := Bool.and_eq_true.mp h3.1
+  change
+    (((((((problem.planning && problem.singleAgent) &&
+      problem.learnableModel) && problem.interactionData) &&
+      problem.rewardSignal) && problem.neuralTraining) &&
+      problem.rolloutBudget) && problem.depthBudget) = true at h
+  have depth := bool_and_right_true h
+  have seven := bool_and_left_true h
+  have rollout := bool_and_right_true seven
+  have six := bool_and_left_true seven
+  have neural := bool_and_right_true six
+  have five := bool_and_left_true six
+  have reward := bool_and_right_true five
+  have four := bool_and_left_true five
+  have interaction := bool_and_right_true four
+  have three := bool_and_left_true four
+  have learnable := bool_and_right_true three
+  have two := bool_and_left_true three
+  have single := bool_and_right_true two
+  have planning := bool_and_left_true two
   exact
-    ⟨h2.1,
-      ⟨h2.2,
-        ⟨h3.2,
-          ⟨h4.2,
-            ⟨h5.2,
-              ⟨h6.2,
-                ⟨h7.2, h8.2⟩⟩⟩⟩⟩⟩⟩
+    ⟨planning,
+      ⟨single,
+        ⟨learnable,
+          ⟨interaction,
+            ⟨reward,
+              ⟨neural,
+                ⟨rollout, depth⟩⟩⟩⟩⟩⟩⟩
 
 
 inductive RootAction where
