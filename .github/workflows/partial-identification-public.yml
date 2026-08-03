@@ -1,0 +1,48 @@
+name: Partial-identification compiler public verification
+
+on:
+  push:
+    branches: [agent/inference-power-compiler-v2-public-ci]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify sharp identified sets and adaptive intervention policy
+        run: |
+          python -m py_compile inference_power_compiler_v2/verify_partial_identification_independent.py
+          python inference_power_compiler_v2/verify_partial_identification_independent.py | tee partial-identification-public.log
+          test -s inference_power_compiler_v2/PARTIAL_IDENTIFICATION_PUBLIC_RECEIPT.json
+      - name: Install Lean
+        run: |
+          curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+          export PATH="$HOME/.elan/bin:$PATH"
+          elan toolchain install leanprover/lean4:v4.33.0-rc1
+      - name: Compile Lean partial-identification boundary
+        run: |
+          export PATH="$HOME/.elan/bin:$PATH"
+          elan run leanprover/lean4:v4.33.0-rc1 lean -o PartialIdentificationPublic.olean PartialIdentificationPublic.lean 2>&1 | tee partial-identification-lean.log
+          test -s PartialIdentificationPublic.olean
+          ! grep -q 'sorryAx' partial-identification-lean.log
+      - name: Upload evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: partial-identification-public-evidence
+          path: |
+            inference_power_compiler_v2/PARTIAL_IDENTIFICATION_PUBLIC_RECEIPT.json
+            PartialIdentificationPublic.lean
+            PartialIdentificationPublic.olean
+            partial-identification-public.log
+            partial-identification-lean.log
+          if-no-files-found: error
+          retention-days: 30
