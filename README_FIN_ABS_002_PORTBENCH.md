@@ -11,13 +11,13 @@ FIN-ABS-002 attacks the largest remaining absolute Finance deficits: world-SOTA 
 - Market dataset: `AgenticFinLab/PortBench-Market`, file `market-base-dataset.csv`.
 - Dataset SHA-256 declared by the repository: `495659fb40690d48748dcbcbd8c8c2add5371fac9d5be535270959ae8f519221`.
 - Coverage: 2015-01-02 through 2025-12-31, 183 instruments, six asset classes.
-- Published split contract: train 2015–2022, validation 2023–2024, test 2025.
+- Split contract from the pinned preprocessing specification: train 2015–2022, validation 2023, sealed test 2024–2025. The run fails if the dataset's own labels do not agree.
 
 The benchmark is read-only and public. No model API, cloud VM, GCloud, MotherDuck, OCR, crawler, or paid data is required.
 
 ## Problem
 
-Determine whether a deterministic, cost-aware and correlation-aware portfolio policy can beat the strongest classical PortBench baselines on the sealed 2025 test period without sacrificing stress survival.
+Determine whether a deterministic, cost-aware and correlation-aware portfolio policy can beat the strongest classical PortBench baselines on the sealed 2024–2025 test period without sacrificing stress survival.
 
 ## Baselines
 
@@ -28,19 +28,19 @@ Every strategy uses the same prices, rebalance dates, costs, eligibility rules, 
 3. inverse-volatility risk parity;
 4. full-covariance equal-risk-contribution;
 5. long-only minimum variance;
-6. Black–Litterman when the frozen PortBench implementation is available at the pinned commit.
+6. Black–Litterman when the frozen PortBench implementation is callable at the pinned commit.
 
-The best validation baseline becomes the primary comparator before the 2025 test is opened.
+The best validation baseline becomes the primary comparator before the sealed test is opened.
 
 ## Challenger family
 
 Only the following three variants may be compared on validation data:
 
-- `ROBUST_ERC`: shrinkage covariance, equal-risk-contribution, class concentration cap;
-- `ROBUST_ERC_NTB`: `ROBUST_ERC` plus a no-trade band and turnover penalty;
-- `ROBUST_SURVIVAL`: `ROBUST_ERC_NTB` plus an ex-ante drawdown-risk throttle using trailing information only.
+- `ROBUST_ERC`: 50% diagonal covariance shrinkage, equal-risk-contribution, 35% asset-class cap and 10% single-asset cap;
+- `ROBUST_ERC_NTB`: `ROBUST_ERC` plus a 10% L1 no-trade band and 50% partial adjustment toward a changed target;
+- `ROBUST_SURVIVAL`: `ROBUST_ERC_NTB` plus a fixed 25% shift to cash when trailing 60-day portfolio drawdown is at or below −8% or trailing 60-day annualized volatility exceeds 25%.
 
-The single validation winner is frozen before test evaluation. No threshold or model change is allowed after the 2025 result is observed.
+The single validation winner is selected by net Sharpe, breaking ties by lower drawdown, lower Expected Shortfall and then lower turnover. No threshold or model change is allowed after the sealed result is observed.
 
 ## Temporal and execution contract
 
@@ -69,10 +69,10 @@ The single validation winner is frozen before test evaluation. No threshold or m
 All gates must pass:
 
 1. exact dataset SHA-256 and pinned source commit;
-2. zero point-in-time violations;
+2. exact declared split labels and zero point-in-time violations;
 3. identical execution and cost layer for every strategy;
-4. sealed validation selection and one-shot 2025 test;
-5. challenger net Sharpe exceeds the best validation-selected baseline on 2025;
+4. sealed validation selection and one-shot 2024–2025 test;
+5. challenger net Sharpe exceeds the best validation-selected baseline on the sealed test;
 6. challenger maximum drawdown is no worse than the comparator by more than 100 bps;
 7. challenger Expected Shortfall is no worse than the comparator by more than 100 bps;
 8. lower 95% moving-block-bootstrap bound for paired monthly net-return improvement is positive;
