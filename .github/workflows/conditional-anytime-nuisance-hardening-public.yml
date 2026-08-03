@@ -1,0 +1,224 @@
+name: Public conditional anytime nuisance hardening
+
+on:
+  push:
+    branches:
+      - agent/inference-power-compiler-v2-public-ci
+    paths:
+      - 'inference_power_compiler_v2/verify_conditional_anytime_nuisance_hardening_public.py'
+      - 'inference_power_compiler_v2/conditional_anytime_nuisance_hardening_public_source.py.xz.b64'
+      - 'ConditionalAnytimeNuisanceHardeningPublic.lean'
+      - '.github/workflows/conditional-anytime-nuisance-hardening-public.yml'
+  pull_request:
+    paths:
+      - 'inference_power_compiler_v2/verify_conditional_anytime_nuisance_hardening_public.py'
+      - 'inference_power_compiler_v2/conditional_anytime_nuisance_hardening_public_source.py.xz.b64'
+      - 'ConditionalAnytimeNuisanceHardeningPublic.lean'
+      - '.github/workflows/conditional-anytime-nuisance-hardening-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-conditional-anytime-hardening-public:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+
+      - name: Bind immutable private source snapshot by Git object IDs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          binding = {
+              'schema': 'conditional-anytime-nuisance-hardening/private-binding/1',
+              'repository': 'cristh99/my_first_repository',
+              'branch': 'agent/inference-power-compiler-v2-logic-power-v10',
+              'head': '6f47c1759e64f156473ce377c5a307e584bf1e55',
+              'binding_mode': 'immutable-git-object-ids',
+              'files': {
+                  'base_compiler': {
+                      'path': 'inference_power_compiler_v2/conditional_anytime_nuisance_calibrator.py',
+                      'git_blob_sha1': '02469b38bf4f4386b97fb8acd9eb2214597a23db',
+                  },
+                  'base_runner': {
+                      'path': 'inference_power_compiler_v2/run_conditional_anytime_nuisance_calibrator.py',
+                      'git_blob_sha1': '82c81864f0edfce79fe866d1c46f02aab4605cfa',
+                  },
+                  'base_tests': {
+                      'path': 'inference_power_compiler_v2/test_conditional_anytime_nuisance_calibrator.py',
+                      'git_blob_sha1': '4cedc34bbaeb46dee843d4892d84cb3dd6b1e527',
+                  },
+                  'base_lean': {
+                      'path': 'ConditionalAnytimeNuisanceCalibration.lean',
+                      'git_blob_sha1': 'a2b9e5cd3e55e001c48f64bb6a9637aea3ba1085',
+                  },
+                  'hardening': {
+                      'path': 'inference_power_compiler_v2/conditional_anytime_nuisance_hardening.py',
+                      'git_blob_sha1': '5dc39121c108ecbb513f99faf70e130f6f2d9476',
+                  },
+                  'hardening_runner': {
+                      'path': 'inference_power_compiler_v2/run_conditional_anytime_nuisance_hardening.py',
+                      'git_blob_sha1': 'c5f606d05e7903720d7f5df20ef2dd0b3fd13060',
+                  },
+                  'hardening_tests': {
+                      'path': 'inference_power_compiler_v2/test_conditional_anytime_nuisance_hardening.py',
+                      'git_blob_sha1': 'e976da58053054bd1a49453b51bd605bc2262a03',
+                  },
+                  'hardening_lean': {
+                      'path': 'ConditionalAnytimeNuisanceHardening.lean',
+                      'git_blob_sha1': '97f788f6c71ca7cd1963c3667a73e4708b898772',
+                  },
+                  'workflow': {
+                      'path': '.github/workflows/conditional-anytime-nuisance-hardening.yml',
+                      'git_blob_sha1': '2545617adf34f83a179c243120676affa13a45a8',
+                  },
+              },
+          }
+          path = Path('/tmp/private-conditional-anytime-hardening-binding.json')
+          path.write_text(json.dumps(binding, indent=2, sort_keys=True) + '\n')
+          Path('inference_power_compiler_v2/CONDITIONAL_ANYTIME_NUISANCE_HARDENING_PRIVATE_BINDING.json').write_text(
+              path.read_text()
+          )
+          print(path.read_text())
+          PY
+
+      - name: Decode, compile and execute independent verifier
+        shell: bash
+        env:
+          PRIVATE_BINDING_PATH: /tmp/private-conditional-anytime-hardening-binding.json
+        run: |
+          set -euo pipefail
+          bootstrap='inference_power_compiler_v2/verify_conditional_anytime_nuisance_hardening_public.py'
+          decoded='inference_power_compiler_v2/verify_conditional_anytime_nuisance_hardening_public_decoded.py'
+          python -m py_compile "$bootstrap"
+          python "$bootstrap" --emit-source "$decoded"
+          python -m py_compile "$decoded"
+          test "$(sha256sum "$decoded" | cut -d' ' -f1)" = \
+            '56b058905f04377097445b876043ff0177a80f38fa734f55a4b9b6122010e9e3'
+          python "$decoded" | tee conditional-anytime-hardening-public.log
+          test -s inference_power_compiler_v2/CONDITIONAL_ANYTIME_NUISANCE_HARDENING_PUBLIC_CERTIFICATE.json
+          test -s inference_power_compiler_v2/CONDITIONAL_ANYTIME_NUISANCE_HARDENING_PUBLIC_REPORT.json
+          sha256sum \
+            inference_power_compiler_v2/CONDITIONAL_ANYTIME_NUISANCE_HARDENING_PUBLIC_CERTIFICATE.json \
+            inference_power_compiler_v2/CONDITIONAL_ANYTIME_NUISANCE_HARDENING_PUBLIC_REPORT.json \
+            > /tmp/conditional-public-before.sha256
+          python "$decoded" > /tmp/conditional-public-rebuild.log
+          sha256sum \
+            inference_power_compiler_v2/CONDITIONAL_ANYTIME_NUISANCE_HARDENING_PUBLIC_CERTIFICATE.json \
+            inference_power_compiler_v2/CONDITIONAL_ANYTIME_NUISANCE_HARDENING_PUBLIC_REPORT.json \
+            > /tmp/conditional-public-after.sha256
+          cmp /tmp/conditional-public-before.sha256 /tmp/conditional-public-after.sha256
+
+      - name: Install pinned Lean
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -sSf \
+            https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          "$HOME/.elan/bin/elan" toolchain install leanprover/lean4:v4.33.0-rc1
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Compile public hardening boundary without axioms
+        shell: bash
+        run: |
+          set -euo pipefail
+          elan run leanprover/lean4:v4.33.0-rc1 lean \
+            -o ConditionalAnytimeNuisanceHardeningPublic.olean \
+            ConditionalAnytimeNuisanceHardeningPublic.lean \
+            2>&1 | tee conditional-anytime-hardening-public-lean.log
+          test -s ConditionalAnytimeNuisanceHardeningPublic.olean
+          if grep -Eq 'sorryAx|depends on axioms:' \
+            conditional-anytime-hardening-public-lean.log; then
+            echo 'Unexpected Lean axiom dependency' >&2
+            exit 1
+          fi
+
+      - name: Build public verification receipt
+        shell: bash
+        env:
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PUBLIC_EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          files = {
+              'report': Path('inference_power_compiler_v2/CONDITIONAL_ANYTIME_NUISANCE_HARDENING_PUBLIC_REPORT.json'),
+              'certificate': Path('inference_power_compiler_v2/CONDITIONAL_ANYTIME_NUISANCE_HARDENING_PUBLIC_CERTIFICATE.json'),
+              'bootstrap': Path('inference_power_compiler_v2/verify_conditional_anytime_nuisance_hardening_public.py'),
+              'compressed_source': Path('inference_power_compiler_v2/conditional_anytime_nuisance_hardening_public_source.py.xz.b64'),
+              'decoded_source': Path('inference_power_compiler_v2/verify_conditional_anytime_nuisance_hardening_public_decoded.py'),
+              'lean': Path('ConditionalAnytimeNuisanceHardeningPublic.lean'),
+              'private_binding': Path('inference_power_compiler_v2/CONDITIONAL_ANYTIME_NUISANCE_HARDENING_PRIVATE_BINDING.json'),
+          }
+          receipt = {
+              'schema': 'conditional-anytime-nuisance-hardening-public-receipt/1',
+              'repository': 'cristh99/notebooks',
+              'head': os.environ['PUBLIC_HEAD_SHA'],
+              'event_sha': os.environ['PUBLIC_EVENT_SHA'],
+              'private_binding': json.loads(files['private_binding'].read_text()),
+              'sha256': {
+                  name: hashlib.sha256(path.read_bytes()).hexdigest()
+                  for name, path in files.items()
+              },
+              'decoded_source_sha256': '56b058905f04377097445b876043ff0177a80f38fa734f55a4b9b6122010e9e3',
+              'independent_reconstruction': 'PASS',
+              'raw_row_merkle_binding': 'PASS',
+              'raw_count_reconciliation': 'PASS',
+              'raw_row_disjointness': 'PASS',
+              'regime_origin_precommitment': 'PASS',
+              'predictable_shift_certification': 'PASS',
+              'predictable_learner_selection': 'PASS',
+              'corrected_total_evaluations': 363562,
+              'former_resource_cap_rejected': 'PASS',
+              'truth_anytime_inclusion': 'PASS',
+              'negative_controls': 'PASS',
+              'semantic_replay': 'PASS',
+              'deterministic_rebuild': 'PASS',
+              'certificate_tamper_rejection': 'PASS',
+              'semantic_forgery_rejection': 'PASS',
+              'lean': 'PASS',
+              'axioms': 'ABSENT',
+          }
+          path = Path('inference_power_compiler_v2/CONDITIONAL_ANYTIME_NUISANCE_HARDENING_PUBLIC_RECEIPT.json')
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path('inference_power_compiler_v2/CONDITIONAL_ANYTIME_NUISANCE_HARDENING_PUBLIC_RECEIPT.sha256').write_text(
+              f'{digest}  CONDITIONAL_ANYTIME_NUISANCE_HARDENING_PUBLIC_RECEIPT.json\n'
+          )
+          print(path.read_text())
+          print(digest)
+          PY
+
+      - name: Upload public evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: conditional-anytime-nuisance-hardening-public-evidence
+          path: |
+            inference_power_compiler_v2/CONDITIONAL_ANYTIME_NUISANCE_HARDENING_PUBLIC_*.json
+            inference_power_compiler_v2/CONDITIONAL_ANYTIME_NUISANCE_HARDENING_PRIVATE_BINDING.json
+            inference_power_compiler_v2/CONDITIONAL_ANYTIME_NUISANCE_HARDENING_PUBLIC_RECEIPT.sha256
+            inference_power_compiler_v2/verify_conditional_anytime_nuisance_hardening_public.py
+            inference_power_compiler_v2/conditional_anytime_nuisance_hardening_public_source.py.xz.b64
+            inference_power_compiler_v2/verify_conditional_anytime_nuisance_hardening_public_decoded.py
+            ConditionalAnytimeNuisanceHardeningPublic.lean
+            ConditionalAnytimeNuisanceHardeningPublic.olean
+            conditional-anytime-hardening-public.log
+            conditional-anytime-hardening-public-lean.log
+          if-no-files-found: error
+          retention-days: 90
