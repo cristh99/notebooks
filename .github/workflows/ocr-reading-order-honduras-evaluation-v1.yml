@@ -1,0 +1,63 @@
+name: OCR reading order Honduras evaluation v1
+
+on:
+  pull_request:
+    paths:
+      - 'ocr_reading_order_real_v1/**'
+      - 'ocr_reading_order_honduras_v1/annotations.json'
+      - 'ocr_reading_order_honduras_v1/evaluate_holdout.py'
+      - 'ocr_reading_order_honduras_v1/verify_evaluation.py'
+      - 'ocr_reading_order_honduras_v1/test_evaluation.py'
+      - '.github/workflows/ocr-reading-order-honduras-evaluation-v1.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ocr-reading-order-honduras-evaluation-v1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  evaluate-frozen-honduran-holdout:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PREPARATION_ARTIFACT_ID: '8872000063'
+      PREPARATION_ARTIFACT_SHA256: 'dabdf25820e910e4d7b7966e419cc7e28b69082cca24d1367f7b9c9926e1ab1d'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Unit and adversarial tests
+        run: python -m unittest -v ocr_reading_order_honduras_v1.test_evaluation
+      - name: Download exact frozen preparation artifact
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${PREPARATION_ARTIFACT_ID}/zip" > frozen-preparation.zip
+          echo "${PREPARATION_ARTIFACT_SHA256}  frozen-preparation.zip" | sha256sum --check --strict
+          mkdir frozen-preparation
+          unzip -q frozen-preparation.zip -d frozen-preparation
+      - name: Evaluate frozen baseline and XY-cut orders
+        run: |
+          python -m ocr_reading_order_honduras_v1.evaluate_holdout \
+            --preparation frozen-preparation/reports/preparation.json \
+            --annotations ocr_reading_order_honduras_v1/annotations.json \
+            --artifact-zip frozen-preparation.zip \
+            --output-dir ocr_reading_order_honduras_v1/evaluation
+      - name: Independent semantic replay
+        run: |
+          python -m ocr_reading_order_honduras_v1.verify_evaluation \
+            ocr_reading_order_honduras_v1/evaluation/honduras_evaluation.json \
+            --preparation frozen-preparation/reports/preparation.json \
+            --annotations ocr_reading_order_honduras_v1/annotations.json \
+            --artifact-zip frozen-preparation.zip
+      - name: Hash evidence
+        run: sha256sum ocr_reading_order_honduras_v1/evaluation/* > ocr_reading_order_honduras_v1/evaluation/SHA256SUMS.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-reading-order-honduras-v1-evaluation
+          path: ocr_reading_order_honduras_v1/evaluation
+          retention-days: 30
