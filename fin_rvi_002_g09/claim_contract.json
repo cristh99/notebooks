@@ -1,0 +1,102 @@
+{
+  "schema": "fin-rvi-002/g09-claim-contract/1",
+  "claim_id": "FIN-RVI-002-C1",
+  "status": "OPEN",
+  "claim": "On a sealed public ONCAE-SEFIN holdout, after exact contract/project-code blocking and compatible supplier identity, object/document evidence strictly reduces unsupported promotions to CONTRACTOR_PAYMENT relative to the CODE+SUPPLIER baseline, without reducing supported-payment recovery, when one-to-many contract-financial-event cardinality and fail-closed abstention are preserved.",
+  "scope": {
+    "country": "Honduras",
+    "sources": ["ONCAE OCP publication 122", "SEFIN OCP publication 123"],
+    "period": "2023-2025",
+    "claim_level": "CONTRACTOR_PAYMENT",
+    "excluded_claims": [
+      "legality",
+      "fraud",
+      "corruption",
+      "physical receipt",
+      "quality",
+      "liquidation",
+      "causal impact"
+    ]
+  },
+  "strong_baseline": "B1_CODE_SUPPLIER",
+  "challenger": "POLICY_DOCUMENTARY",
+  "exclusive_predictions": [
+    "challenger_unsafe_overpromotions_strictly_less_than_baseline",
+    "challenger_supported_recovered_not_less_than_baseline",
+    "fixed_permutation_control_is_worse",
+    "clean_reconstruction_reproduces_holdout_ids_decisions_and_hashes",
+    "second_sealed_cohort_reproduces_direction_and_zero_unsafe_promotion",
+    "every_promotion_respects_maximum_permissible_claim"
+  ],
+  "falsifiers": [
+    "baseline_matches_challenger_safety_and_recovery",
+    "challenger_loses_supported_payments_without_declared_net_utility",
+    "permutation_control_is_not_worse",
+    "effect_disappears_when_event_cardinality_is_preserved",
+    "clean_replay_changes_holdout_or_decisions",
+    "primary_prior_art_reports_same_protocol_and result",
+    "second_cohort_does_not_replicate"
+  ],
+  "prior_art_absorbed": [
+    "public_payment_record_linkage",
+    "procurement_supplier_name_reconciliation",
+    "procurement_spending_knowledge_graphs",
+    "OCDS_contract_lifecycle_transactions_and_documents",
+    "adaptive_costly_information_acquisition",
+    "noisy_expensive_test_selection",
+    "provenance_and_refutation",
+    "one_to_many_procurement_data_modeling"
+  ],
+  "candidate_components": [
+    "maximum_permissible_financial_claim_ladder",
+    "monetary_amount_at_risk_from_unsupported_promotion",
+    "proof_carrying_cross_language_semantic_replay",
+    "Honduras_ONCAE_SEFIN_strong_baseline_empirical_result"
+  ],
+  "required_gates": {
+    "stage2_strong_baseline": "PASS",
+    "clean_independent_replay": "PASS",
+    "second_sealed_cohort": "PASS",
+    "systematic_primary_prior_art_log": "PASS",
+    "claim_scope_audit": "PASS"
+  },
+  "current_gates": {
+    "stage2_strong_baseline": "PENDING",
+    "clean_independent_replay": "PENDING",
+    "second_sealed_cohort": "PENDING",
+    "systematic_primary_prior_art_log": "IN_PROGRESS",
+    "claim_scope_audit": "PASS"
+  },
+  "primary_sources": [
+    {
+      "title": "The Keys to Unlocking Public Payments Data",
+      "doi": "10.1111/kykl.12171",
+      "absorbs": ["public_payment_record_linkage", "targeted_domain_specific_reconciliation"]
+    },
+    {
+      "title": "Enabling policy making processes by unifying and reconciling corporate names in public procurement data. The CORFU technique",
+      "doi": "10.1016/j.csi.2015.02.009",
+      "absorbs": ["procurement_supplier_name_reconciliation"]
+    },
+    {
+      "title": "Data Quality Barriers for Transparency in Public Procurement",
+      "doi": "10.3390/info13020099",
+      "absorbs": ["procurement_spending_integration", "data_quality_and_missing_identifiers"]
+    },
+    {
+      "title": "Adaptive Submodularity: Theory and Applications in Active Learning and Stochastic Optimization",
+      "identifier": "arXiv:1003.3967",
+      "absorbs": ["adaptive_costly_information_acquisition"]
+    },
+    {
+      "title": "Near-Optimal Bayesian Active Learning with Noisy Observations",
+      "venue": "NeurIPS 2010",
+      "absorbs": ["noisy_expensive_tests", "decision_equivalence_classes"]
+    },
+    {
+      "title": "Open Contracting Data Standard",
+      "publisher": "Open Contracting Partnership / World Bank",
+      "absorbs": ["contract_lifecycle", "transactions", "documents", "implementation_links"]
+    }
+  ]
+}
