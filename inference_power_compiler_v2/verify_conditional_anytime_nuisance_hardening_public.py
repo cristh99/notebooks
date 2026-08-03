@@ -8,7 +8,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parent
 PAYLOAD = ROOT / "conditional_anytime_nuisance_hardening_public_source.py.xz.b64"
-SOURCE_SHA256 = "56b058905f04377097445b876043ff0177a80f38fa734f55a4b9b6122010e9e3"
+SOURCE_SHA256 = "c25257f7be1d5289a19a6fda72f9e29828532f1b18c8b142df9971183c77b127"
 
 
 def decoded_source() -> bytes:
