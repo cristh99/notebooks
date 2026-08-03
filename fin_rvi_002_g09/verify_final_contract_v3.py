@@ -13,6 +13,8 @@ from typing import Any, Mapping
 
 from . import verify_final_contract_v2 as base
 
+ORIGINAL_VERIFY_PRIOR_ART = base.verify_prior_art
+
 PRIOR_ART_CORE_PHRASES = (
     "multiple preregistered, mutually code-disjoint public Honduras ONCAE-SEFIN cohorts",
     "exact contract/project-code blocking",
@@ -32,7 +34,7 @@ PRIOR_ART_CORE_PHRASES = (
 def verify_prior_art_semantic(
     contract: Mapping[str, Any], root: Path
 ) -> list[str]:
-    errors = base.verify_prior_art(contract, root)
+    errors = ORIGINAL_VERIFY_PRIOR_ART(contract, root)
     if "prior-art-claim-boundary" not in errors:
         return errors
     boundary = contract.get("prior_art_boundary")
