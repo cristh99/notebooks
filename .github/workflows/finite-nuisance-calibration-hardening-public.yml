@@ -1,0 +1,201 @@
+name: Public nuisance calibration provenance hardening
+
+on:
+  push:
+    branches:
+      - agent/inference-power-compiler-v2-public-ci
+    paths:
+      - 'inference_power_compiler_v2/verify_finite_nuisance_calibration_public.py'
+      - 'inference_power_compiler_v2/verify_finite_nuisance_calibration_hardening_public.py'
+      - 'FiniteNuisanceCalibrationHardeningPublic.lean'
+      - '.github/workflows/finite-nuisance-calibration-hardening-public.yml'
+  pull_request:
+    paths:
+      - 'inference_power_compiler_v2/verify_finite_nuisance_calibration_public.py'
+      - 'inference_power_compiler_v2/verify_finite_nuisance_calibration_hardening_public.py'
+      - 'FiniteNuisanceCalibrationHardeningPublic.lean'
+      - '.github/workflows/finite-nuisance-calibration-hardening-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-calibration-provenance-hardening-public:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+
+      - name: Bind immutable private hardening snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          from urllib.parse import quote
+          from urllib.request import Request, urlopen
+
+          repository = 'cristh99/my_first_repository'
+          branch = 'agent/inference-power-compiler-v2-logic-power-v10'
+          with urlopen(Request(
+              f'https://api.github.com/repos/{repository}/commits/{quote(branch, safe="")}',
+              headers={'Accept': 'application/vnd.github+json', 'User-Agent': 'public-verifier'},
+          ), timeout=30) as response:
+              head = json.load(response)['sha']
+          paths = {
+              'base_compiler': 'inference_power_compiler_v2/finite_nuisance_calibration_compiler.py',
+              'hardening': 'inference_power_compiler_v2/finite_nuisance_calibration_hardening.py',
+              'runner': 'inference_power_compiler_v2/run_finite_nuisance_calibration_hardening.py',
+              'tests': 'inference_power_compiler_v2/test_finite_nuisance_calibration_hardening.py',
+              'lean': 'FiniteNuisanceCalibrationHardening.lean',
+              'workflow': '.github/workflows/finite-nuisance-calibration-hardening.yml',
+          }
+          files = {}
+          for name, path in paths.items():
+              url = f'https://raw.githubusercontent.com/{repository}/{head}/{path}'
+              with urlopen(Request(url, headers={'User-Agent': 'public-verifier'}), timeout=30) as response:
+                  data = response.read()
+              files[name] = {
+                  'path': path,
+                  'bytes': len(data),
+                  'sha256': hashlib.sha256(data).hexdigest(),
+                  'git_blob_sha1': hashlib.sha1(
+                      b'blob ' + str(len(data)).encode() + b'\0' + data
+                  ).hexdigest(),
+              }
+          binding = {
+              'repository': repository,
+              'branch': branch,
+              'head': head,
+              'files': files,
+          }
+          path = Path('/tmp/private-calibration-hardening-binding.json')
+          path.write_text(json.dumps(binding, indent=2, sort_keys=True) + '\n')
+          Path('inference_power_compiler_v2/FINITE_NUISANCE_CALIBRATION_HARDENING_PRIVATE_BINDING.json').write_text(path.read_text())
+          print(path.read_text())
+          PY
+
+      - name: Compile and execute independent hardening verifier
+        shell: bash
+        env:
+          PRIVATE_BINDING_PATH: /tmp/private-calibration-hardening-binding.json
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            inference_power_compiler_v2/verify_finite_nuisance_calibration_public.py \
+            inference_power_compiler_v2/verify_finite_nuisance_calibration_hardening_public.py
+          python inference_power_compiler_v2/verify_finite_nuisance_calibration_hardening_public.py \
+            | tee finite-nuisance-calibration-hardening-public.log
+          test -s inference_power_compiler_v2/FINITE_NUISANCE_CALIBRATION_HARDENING_PUBLIC_CERTIFICATE.json
+          test -s inference_power_compiler_v2/FINITE_NUISANCE_CALIBRATION_HARDENING_PUBLIC_REPORT.json
+          sha256sum inference_power_compiler_v2/FINITE_NUISANCE_CALIBRATION_HARDENING_PUBLIC_*.json \
+            > /tmp/hardening-public-before.sha256
+          python inference_power_compiler_v2/verify_finite_nuisance_calibration_hardening_public.py \
+            > /tmp/hardening-public-rebuild.log
+          sha256sum inference_power_compiler_v2/FINITE_NUISANCE_CALIBRATION_HARDENING_PUBLIC_*.json \
+            > /tmp/hardening-public-after.sha256
+          cmp /tmp/hardening-public-before.sha256 /tmp/hardening-public-after.sha256
+
+      - name: Install pinned Lean
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -sSf \
+            https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          "$HOME/.elan/bin/elan" toolchain install leanprover/lean4:v4.33.0-rc1
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Compile public hardening boundary without axioms
+        shell: bash
+        run: |
+          set -euo pipefail
+          elan run leanprover/lean4:v4.33.0-rc1 lean \
+            -o FiniteNuisanceCalibrationHardeningPublic.olean \
+            FiniteNuisanceCalibrationHardeningPublic.lean \
+            2>&1 | tee finite-nuisance-calibration-hardening-public-lean.log
+          test -s FiniteNuisanceCalibrationHardeningPublic.olean
+          if grep -q 'sorryAx' finite-nuisance-calibration-hardening-public-lean.log; then
+            echo 'Unexpected sorryAx' >&2
+            exit 1
+          fi
+          if grep -q 'depends on axioms:' finite-nuisance-calibration-hardening-public-lean.log; then
+            echo 'Unexpected axiom dependency' >&2
+            exit 1
+          fi
+
+      - name: Build public hardening receipt
+        shell: bash
+        env:
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PUBLIC_EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          files = {
+              'report': Path('inference_power_compiler_v2/FINITE_NUISANCE_CALIBRATION_HARDENING_PUBLIC_REPORT.json'),
+              'certificate': Path('inference_power_compiler_v2/FINITE_NUISANCE_CALIBRATION_HARDENING_PUBLIC_CERTIFICATE.json'),
+              'verifier': Path('inference_power_compiler_v2/verify_finite_nuisance_calibration_hardening_public.py'),
+              'lean': Path('FiniteNuisanceCalibrationHardeningPublic.lean'),
+              'private_binding': Path('inference_power_compiler_v2/FINITE_NUISANCE_CALIBRATION_HARDENING_PRIVATE_BINDING.json'),
+          }
+          receipt = {
+              'schema': 'finite-nuisance-calibration-hardening-public-receipt/1',
+              'repository': 'cristh99/notebooks',
+              'head': os.environ['PUBLIC_HEAD_SHA'],
+              'event_sha': os.environ['PUBLIC_EVENT_SHA'],
+              'private_binding': json.loads(files['private_binding'].read_text()),
+              'sha256': {
+                  name: hashlib.sha256(path.read_bytes()).hexdigest()
+                  for name, path in files.items()
+              },
+              'source_namespace_disjointness': 'PASS',
+              'source_hash_manifest': 'PASS',
+              'batch_source_exactness': 'PASS',
+              'envelope_source_rebinding': 'PASS',
+              'source_collision_negative': 'PASS',
+              'base_metrics_unchanged': 'PASS',
+              'semantic_replay': 'PASS',
+              'deterministic_rebuild': 'PASS',
+              'certificate_tamper_rejection': 'PASS',
+              'semantic_forgery_rejection': 'PASS',
+              'lean': 'PASS',
+              'axioms': 'ABSENT',
+          }
+          path = Path('inference_power_compiler_v2/FINITE_NUISANCE_CALIBRATION_HARDENING_PUBLIC_RECEIPT.json')
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path('inference_power_compiler_v2/FINITE_NUISANCE_CALIBRATION_HARDENING_PUBLIC_RECEIPT.sha256').write_text(
+              f'{digest}  FINITE_NUISANCE_CALIBRATION_HARDENING_PUBLIC_RECEIPT.json\n'
+          )
+          print(path.read_text())
+          print(digest)
+          PY
+
+      - name: Upload public hardening evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: finite-nuisance-calibration-hardening-public-evidence
+          path: |
+            inference_power_compiler_v2/FINITE_NUISANCE_CALIBRATION_HARDENING_PUBLIC_*.json
+            inference_power_compiler_v2/FINITE_NUISANCE_CALIBRATION_HARDENING_PRIVATE_BINDING.json
+            inference_power_compiler_v2/FINITE_NUISANCE_CALIBRATION_HARDENING_PUBLIC_RECEIPT.sha256
+            inference_power_compiler_v2/verify_finite_nuisance_calibration_hardening_public.py
+            FiniteNuisanceCalibrationHardeningPublic.lean
+            FiniteNuisanceCalibrationHardeningPublic.olean
+            finite-nuisance-calibration-hardening-public.log
+            finite-nuisance-calibration-hardening-public-lean.log
+          if-no-files-found: error
+          retention-days: 90
