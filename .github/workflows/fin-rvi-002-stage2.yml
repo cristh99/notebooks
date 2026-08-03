@@ -1,0 +1,60 @@
+name: FIN-RVI-002 Stage 2 — strong baselines
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'fin_rvi_002_stage1/**'
+      - 'fin_rvi_002_stage2/**'
+      - 'reports/fin_rvi_002_stage1/**'
+      - 'README_FIN_RVI_002_STAGE2.md'
+      - '.github/workflows/fin-rvi-002-stage2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: Python tests and report
+        run: |
+          python -m compileall -q fin_rvi_002_stage1 fin_rvi_002_stage2
+          python -m unittest -v fin_rvi_002_stage2.test_stage2
+          rm -rf reports/fin_rvi_002_stage2
+          python -m fin_rvi_002_stage2.run_stage2
+          cd reports/fin_rvi_002_stage2
+          sha256sum -c report.sha256
+      - name: Independent Node semantic verification
+        run: |
+          node fin_rvi_002_stage2/verify_stage2.mjs \
+            reports/fin_rvi_002_stage2/report.json
+      - name: Negative tamper controls
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          source = Path('reports/fin_rvi_002_stage2/report.json')
+          report = json.loads(source.read_text())
+          report['payload']['gate_readout']['G07_STRONG_BASELINE'] = 'PASS_CANDIDATE_PENDING_CLEAN_REPLAY'
+          Path('/tmp/tampered.json').write_text(json.dumps(report))
+          PY
+          if node fin_rvi_002_stage2/verify_stage2.mjs /tmp/tampered.json; then
+            echo 'tampered report accepted'; exit 1
+          fi
+      - name: Upload evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-rvi-002-stage2-strong-baselines
+          path: reports/fin_rvi_002_stage2/
+          if-no-files-found: error
+          retention-days: 90
