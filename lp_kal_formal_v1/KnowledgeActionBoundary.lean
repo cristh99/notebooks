@@ -162,25 +162,20 @@ theorem integration_requires_generalizable_result
   have triple := bool_and_left_true h
   exact bool_and_right_true triple
 
-theorem solver_mandate_requires_authorized_executable_work
+theorem solver_mandate_requires_authority
     (state : ActionState) (authorized due : Bool)
     (h : mandateGate state authorized due = true) :
-    (authorized && executable state) = true := by
+    authorized = true := by
   cases state with
   | asap =>
       change (authorized && true) = true at h
-      change (authorized && true) = true
-      exact h
+      exact bool_and_left_true h
   | atADate =>
       change (authorized && due) = true at h
-      have auth : authorized = true := bool_and_left_true h
-      cases authorized with
-      | false => cases auth
-      | true => rfl
+      exact bool_and_left_true h
   | doing =>
       change (authorized && true) = true at h
-      change (authorized && true) = true
-      exact h
+      exact bool_and_left_true h
   | done =>
       change (authorized && false) = true at h
       have impossible : false = true := bool_and_right_true h
@@ -193,6 +188,24 @@ theorem solver_mandate_requires_authorized_executable_work
       change (authorized && false) = true at h
       have impossible : false = true := bool_and_right_true h
       cases impossible
+
+theorem at_a_date_mandate_requires_due
+    (authorized due : Bool)
+    (h : mandateGate .atADate authorized due = true) :
+    due = true := by
+  change (authorized && due) = true at h
+  exact bool_and_right_true h
+
+theorem solver_mandate_rejects_non_executable_states
+    (authorized due : Bool) :
+    mandateGate .done authorized due = false ∧
+      mandateGate .somedayMaybe authorized due = false ∧
+      mandateGate .trash authorized due = false := by
+  constructor
+  · cases authorized <;> rfl
+  constructor
+  · cases authorized <;> rfl
+  · cases authorized <;> rfl
 
 theorem microcycle_preserves_macro_authority (authorized : Bool) :
     microStepAuthority authorized = authorized := by
@@ -214,7 +227,9 @@ theorem integration_preserves_verified_statement (statement : String) :
 #print axioms done_requires_verified_evidence
 #print axioms integration_requires_verified_evidence
 #print axioms integration_requires_generalizable_result
-#print axioms solver_mandate_requires_authorized_executable_work
+#print axioms solver_mandate_requires_authority
+#print axioms at_a_date_mandate_requires_due
+#print axioms solver_mandate_rejects_non_executable_states
 #print axioms microcycle_preserves_macro_authority
 #print axioms integration_preserves_verified_statement
 
