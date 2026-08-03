@@ -18,7 +18,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
@@ -84,30 +84,30 @@ jobs:
           cp inference_power_compiler_v2/finite_sample_design.py _logic_power_v10/inference_power_compiler_v2/
           cp inference_power_compiler_v2/run_finite_sample_design.py _logic_power_v10/inference_power_compiler_v2/
           cp inference_power_compiler_v2/run_finite_sample_benchmark.py _logic_power_v10/inference_power_compiler_v2/
+          cp inference_power_compiler_v2/run_robust_contamination.py _logic_power_v10/inference_power_compiler_v2/
           cp inference_power_compiler_v2/FINITE_SAMPLE_MINIMAX_REPORT.json _logic_power_v10/inference_power_compiler_v2/FINITE_SAMPLE_MINIMAX_REPORT.pinned.json
           cp inference_power_compiler_v2/FINITE_SAMPLE_BENCHMARK_REPORT.json _logic_power_v10/inference_power_compiler_v2/FINITE_SAMPLE_BENCHMARK_REPORT.pinned.json
+          cp inference_power_compiler_v2/ROBUST_CONTAMINATION_REPORT.json _logic_power_v10/inference_power_compiler_v2/ROBUST_CONTAMINATION_REPORT.pinned.json
           cd _logic_power_v10
           python -m py_compile \
             inference_power_compiler_v2/structural_experiment_design.py \
             inference_power_compiler_v2/run_structural_experiment_design.py \
             inference_power_compiler_v2/finite_sample_design.py \
             inference_power_compiler_v2/run_finite_sample_design.py \
-            inference_power_compiler_v2/run_finite_sample_benchmark.py
-          PYTHONPATH=. python inference_power_compiler_v2/run_structural_experiment_design.py \
-            | tee structural-experiment-design.log
-          cmp \
-            inference_power_compiler_v2/STRUCTURAL_EXPERIMENT_DESIGN_REPORT.json \
-            ../inference_power_compiler_v2/STRUCTURAL_EXPERIMENT_DESIGN_REPORT.json
-          PYTHONPATH=. python inference_power_compiler_v2/run_finite_sample_design.py \
-            | tee finite-sample-minimax.log
-          PYTHONPATH=. python inference_power_compiler_v2/run_finite_sample_benchmark.py \
-            | tee finite-sample-benchmark.log
+            inference_power_compiler_v2/run_finite_sample_benchmark.py \
+            inference_power_compiler_v2/run_robust_contamination.py
+          PYTHONPATH=. python inference_power_compiler_v2/run_structural_experiment_design.py | tee structural-experiment-design.log
+          cmp inference_power_compiler_v2/STRUCTURAL_EXPERIMENT_DESIGN_REPORT.json ../inference_power_compiler_v2/STRUCTURAL_EXPERIMENT_DESIGN_REPORT.json
+          PYTHONPATH=. python inference_power_compiler_v2/run_finite_sample_design.py | tee finite-sample-minimax.log
+          PYTHONPATH=. python inference_power_compiler_v2/run_finite_sample_benchmark.py | tee finite-sample-benchmark.log
+          PYTHONPATH=. python inference_power_compiler_v2/run_robust_contamination.py | tee robust-contamination.log
           python - <<'PY'
           import json
           from pathlib import Path
           pairs = [
               ('FINITE_SAMPLE_MINIMAX_REPORT.json', 'FINITE_SAMPLE_MINIMAX_REPORT.pinned.json'),
               ('FINITE_SAMPLE_BENCHMARK_REPORT.json', 'FINITE_SAMPLE_BENCHMARK_REPORT.pinned.json'),
+              ('ROBUST_CONTAMINATION_REPORT.json', 'ROBUST_CONTAMINATION_REPORT.pinned.json'),
           ]
           for generated_name, pinned_name in pairs:
               generated = json.loads(Path('inference_power_compiler_v2', generated_name).read_text())
@@ -134,9 +134,10 @@ jobs:
           structural = json.loads(Path('inference_power_compiler_v2/STRUCTURAL_EXPERIMENT_DESIGN_REPORT.json').read_text())
           finite_sample = json.loads(Path('inference_power_compiler_v2/FINITE_SAMPLE_MINIMAX_REPORT.json').read_text())
           benchmark = json.loads(Path('inference_power_compiler_v2/FINITE_SAMPLE_BENCHMARK_REPORT.json').read_text())
+          robust = json.loads(Path('inference_power_compiler_v2/ROBUST_CONTAMINATION_REPORT.json').read_text())
           receipt = {
               **audit,
-              'schema': 'logic-power-v10/public-verification-receipt/4',
+              'schema': 'logic-power-v10/public-verification-receipt/5',
               'private_source_repository': 'cristh99/my_first_repository',
               'private_source_head': Path('PRIVATE_HEAD_SHA.txt').read_text().strip(),
               'public_capsule_repository': 'cristh99/notebooks',
@@ -151,6 +152,7 @@ jobs:
               'structural_experiment_design': structural,
               'finite_sample_minimax_design': finite_sample,
               'finite_sample_benchmark': benchmark,
+              'robust_contamination_phase_transition': robust,
           }
           path = Path('reports/public-verification-receipt-v10.json')
           path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
@@ -173,5 +175,6 @@ jobs:
             _logic_power_v10/structural-experiment-design.log
             _logic_power_v10/finite-sample-minimax.log
             _logic_power_v10/finite-sample-benchmark.log
+            _logic_power_v10/robust-contamination.log
             _logic_power_v10/SOURCE_SHA256SUMS
             _logic_power_v10/PRIVATE_HEAD_SHA.txt
