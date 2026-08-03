@@ -9,7 +9,8 @@
       "queries": [
         "public procurement contracts government payment expenditure transactions supplier identity contract identifiers object descriptions document provenance record linkage false positives many-to-many cardinality",
         "sequential value of information active feature acquisition costly evidence acquisition adaptive submodularity proof-carrying provenance-aware decision support",
-        "Primary scholarly literature in Spanish or Latin American public administration on linking public procurement contracts supplier identities government payment transactions expenditure records supporting documents false-positive attribution and many-to-many relationships"
+        "Primary scholarly literature in Spanish or Latin American public administration on linking public procurement contracts supplier identities government payment transactions expenditure records supporting documents false-positive attribution and many-to-many relationships",
+        "site:patents.google.com procurement contract payment transaction supplier identifier document evidence record linkage financial attribution patent"
       ]
     },
     {
@@ -30,6 +31,12 @@
         "site:issai.org audit public procurement payments documentation evidence",
         "site:iadb.org public procurement red flags payments false positives Latin America"
       ]
+    },
+    {
+      "name": "Google Patents via Exa",
+      "status": "EXECUTED",
+      "query": "procurement contract payment transaction supplier identifier document evidence record linkage financial attribution",
+      "result": "Broad patent prior art found for contract-payment reconciliation, invoice-to-purchase-order matching, vendor verification, document-context enrichment, exception handling, and code-based financial adjudication."
     },
     {
       "name": "Elicit",
@@ -159,6 +166,57 @@
         "reconciliation_between_procurement_and_accounting_interfaces",
         "audit_assertions_completeness_accuracy_validity_and_legality"
       ]
+    },
+    {
+      "title": "System and method for payment reconciliation against expressive contracts",
+      "identifier": "US8494935B2",
+      "decision": "INCLUDE_PATENT_PRIOR_ART",
+      "absorbs": [
+        "identifying_contract_for_purchase_transaction",
+        "seller_good_service_payment_rule_and_payment_amount_reconciliation",
+        "invoice_bill_of_lading_and_payment_record_context",
+        "multiple_purchases_and_payments_against_contract"
+      ]
+    },
+    {
+      "title": "Accounts payable process",
+      "identifier": "US7865411B2",
+      "decision": "INCLUDE_PATENT_PRIOR_ART",
+      "absorbs": [
+        "multidimensional_invoice_purchase_order_vendor_matching",
+        "exact_and_probable_matches",
+        "vendor_profile_verification_and_exception_processing"
+      ]
+    },
+    {
+      "title": "System and method for management and verification of invoices",
+      "identifier": "US20060095373A1",
+      "decision": "INCLUDE_PATENT_PRIOR_ART",
+      "absorbs": [
+        "invoice_context_from_purchase_orders_contracts_goods_receipts_payments_and_documents",
+        "verification_rules_and_exception_management",
+        "document_and_people_context"
+      ]
+    },
+    {
+      "title": "Systems and methods for monitoring and analyzing transactions",
+      "identifier": "US8930295B2",
+      "decision": "INCLUDE_PATENT_PRIOR_ART",
+      "absorbs": [
+        "context_sensitive_financial_code_adjudication",
+        "provider_originator_account_matching",
+        "threshold_based_accept_deny_reclassify_or_accumulate_more_evidence"
+      ]
+    },
+    {
+      "title": "Invoice processing platform",
+      "identifier": "US12243082B1",
+      "decision": "INCLUDE_PATENT_PRIOR_ART",
+      "absorbs": [
+        "invoice_vendor_payor_contract_project_and_reference_code_extraction",
+        "vendor_resolution_from_historical_attributes_and_document_text",
+        "ranked_candidate_vendor_matching"
+      ]
     }
   ],
   "boundary_update": {
@@ -172,15 +230,18 @@
       "procurement_payment_red_flags",
       "false_positive_false_negative_management",
       "documentary_and_physical_evidence_for_payment_and_delivery_audit",
-      "reconciliation_of_procurement_and_accounting_interfaces"
+      "reconciliation_of_procurement_and_accounting_interfaces",
+      "contract_payment_reconciliation",
+      "invoice_purchase_order_vendor_matching",
+      "context_enrichment_from_contract_invoice_receipt_and_payment_documents",
+      "threshold_based_financial_adjudication_and_exception_handling"
     ],
-    "remaining_candidate": "the preregistered empirical safety-and-recovery comparison on Honduras ONCAE-SEFIN under a maximum-permissible-claim ladder, monetary amount-at-risk metric and cross-language semantic replay"
+    "remaining_candidate": "the preregistered domain-bounded empirical safety-and-recovery result on public Honduras ONCAE-SEFIN data, together with its maximum-permissible-claim evaluation and amount-at-risk measurement; no broad system or method novelty is claimed"
   },
   "completion_status": "IN_PROGRESS",
   "remaining_searches": [
     "Google Scholar or comparable scholarly index once available",
     "SSRN and RePEc for public-finance linkage methods",
-    "citation chaining from Rahal 2018, CORFU 2015, Soylu et al. 2022 and IDB 2022",
-    "patent search for documentary financial attribution workflows"
+    "citation chaining from Rahal 2018, CORFU 2015, Soylu et al. 2022 and IDB 2022"
   ]
 }
