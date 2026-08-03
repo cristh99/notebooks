@@ -39,7 +39,7 @@ jobs:
           test -s inference_power_compiler_v2/FINITE_SCM_PUBLIC_REPORT.json
           test -s inference_power_compiler_v2/FINITE_SCM_PUBLIC_CERTIFICATE.json
 
-      - name: Reconstruct the hash-bound Mathlib project
+      - name: Reconstruct hash-bound Logic Power v10 provenance
         shell: bash
         run: |
           set -euo pipefail
@@ -69,10 +69,9 @@ jobs:
           cd _finite_scm_lean
           sha256sum -c SOURCE_SHA256SUMS
           test "$(cat PRIVATE_HEAD_SHA.txt)" = 'ba10d0edc7eb20d499d0481fda2537e782b6efb2'
-          printf '%s\n' 'leanprover/lean4:v4.33.0-rc1' > lean-toolchain
           cp ../FiniteSCMCausal.lean .
 
-      - name: Compile finite SCM causal boundary in Lean
+      - name: Compile finite SCM causal boundary in pinned Lean
         shell: bash
         working-directory: _finite_scm_lean
         run: |
@@ -81,8 +80,8 @@ jobs:
             | sh -s -- -y --default-toolchain none
           export PATH="$HOME/.elan/bin:$PATH"
           elan toolchain install leanprover/lean4:v4.33.0-rc1
-          lake update
-          lake env lean -o FiniteSCMCausal.olean FiniteSCMCausal.lean \
+          elan run leanprover/lean4:v4.33.0-rc1 lean \
+            -o FiniteSCMCausal.olean FiniteSCMCausal.lean \
             2>&1 | tee finite-scm-causal-lean.log
           test -s FiniteSCMCausal.olean
           if grep -q 'sorryAx' finite-scm-causal-lean.log; then
@@ -107,15 +106,20 @@ jobs:
           certificate_path = Path('inference_power_compiler_v2/FINITE_SCM_PUBLIC_CERTIFICATE.json')
           lean_path = Path('FiniteSCMCausal.lean')
           receipt = {
-              'schema': 'finite-scm-causal-public-verification-receipt/1',
+              'schema': 'finite-scm-causal-public-verification-receipt/2',
               'repository': 'cristh99/notebooks',
               'head': os.environ['PUBLIC_HEAD_SHA'],
               'event_sha': os.environ['PUBLIC_EVENT_SHA'],
+              'logic_power_v10_head': 'ba10d0edc7eb20d499d0481fda2537e782b6efb2',
+              'logic_power_v10_source_archive_sha256': 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31',
               'report_sha256': hashlib.sha256(report_path.read_bytes()).hexdigest(),
               'certificate_sha256': hashlib.sha256(certificate_path.read_bytes()).hexdigest(),
               'lean_source_sha256': hashlib.sha256(lean_path.read_bytes()).hexdigest(),
-              'source_archive_sha256': 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31',
               'python_replay': 'PASS',
+              'complete_scm_enumeration': 'PASS',
+              'observational_obstruction': 'PASS',
+              'intervention_separation': 'PASS',
+              'adaptive_policy': 'PASS',
               'tamper_rejection': 'PASS',
               'lean': 'PASS',
               'sorryAx': 'ABSENT',
@@ -143,5 +147,7 @@ jobs:
             _finite_scm_lean/FiniteSCMCausal.lean
             _finite_scm_lean/FiniteSCMCausal.olean
             _finite_scm_lean/finite-scm-causal-lean.log
+            _finite_scm_lean/SOURCE_SHA256SUMS
+            _finite_scm_lean/PRIVATE_HEAD_SHA.txt
           if-no-files-found: error
           retention-days: 90
