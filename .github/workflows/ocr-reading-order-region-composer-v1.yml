@@ -1,0 +1,83 @@
+name: OCR reading order region composer v1
+
+on:
+  pull_request:
+    paths:
+      - 'ocr_reading_order_real_v1/**'
+      - 'ocr_reading_order_honduras_v1/annotations.json'
+      - 'ocr_reading_order_honduras_router_v1/annotations.py'
+      - 'ocr_reading_order_honduras_router_v1/evaluate_holdout.py'
+      - 'ocr_reading_order_region_composer_v1/**'
+      - '.github/workflows/ocr-reading-order-region-composer-v1.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ocr-reading-order-region-composer-v1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  exact-development-replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SET1_ARTIFACT_ID: '8872000063'
+      SET1_ARTIFACT_SHA256: 'dabdf25820e910e4d7b7966e419cc7e28b69082cca24d1367f7b9c9926e1ab1d'
+      SET2_ARTIFACT_ID: '8872737306'
+      SET2_ARTIFACT_SHA256: '37fda26ae4ddbb40ed97652318cf7db5f6a930e48894fee12fcba6331ed19bb3'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Unit and selection tests
+        run: python -m unittest -v ocr_reading_order_region_composer_v1.test_composer
+      - name: Materialize second annotation set
+        run: |
+          python -m ocr_reading_order_honduras_router_v1.annotations \
+            --output ocr_reading_order_honduras_router_v1/annotations.json
+      - name: Download and verify both exact preparation artifacts
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${SET1_ARTIFACT_ID}/zip" > set1.zip
+          echo "${SET1_ARTIFACT_SHA256}  set1.zip" | sha256sum --check --strict
+          mkdir set1
+          unzip -q set1.zip -d set1
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${SET2_ARTIFACT_ID}/zip" > set2.zip
+          echo "${SET2_ARTIFACT_SHA256}  set2.zip" | sha256sum --check --strict
+          mkdir set2
+          unzip -q set2.zip -d set2
+      - name: Execute exact 20-page development replay
+        run: |
+          python -m ocr_reading_order_region_composer_v1.development_replay \
+            --set1-preparation set1/reports/preparation.json \
+            --set1-annotations ocr_reading_order_honduras_v1/annotations.json \
+            --set2-preparation set2/reports/preparation.json \
+            --set2-annotations ocr_reading_order_honduras_router_v1/annotations.json \
+            --set1-artifact set1.zip \
+            --set2-artifact set2.zip \
+            --output-dir ocr_reading_order_region_composer_v1/development
+      - name: Independent semantic replay
+        run: |
+          python -m ocr_reading_order_region_composer_v1.verify_development \
+            ocr_reading_order_region_composer_v1/development/development_report.json \
+            --set1-preparation set1/reports/preparation.json \
+            --set1-annotations ocr_reading_order_honduras_v1/annotations.json \
+            --set2-preparation set2/reports/preparation.json \
+            --set2-annotations ocr_reading_order_honduras_router_v1/annotations.json \
+            --set1-artifact set1.zip \
+            --set2-artifact set2.zip
+      - name: Hash evidence
+        run: |
+          cp ocr_reading_order_honduras_router_v1/annotations.json \
+            ocr_reading_order_region_composer_v1/development/set2_annotations.json
+          sha256sum ocr_reading_order_region_composer_v1/development/* \
+            > ocr_reading_order_region_composer_v1/development/SHA256SUMS.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-reading-order-region-composer-v1-development
+          path: ocr_reading_order_region_composer_v1/development
+          retention-days: 30
