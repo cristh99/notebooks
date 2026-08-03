@@ -41,7 +41,7 @@ jobs:
               'schema': 'finite-nuisance-calibration/private-binding/1',
               'repository': 'cristh99/my_first_repository',
               'branch': 'agent/inference-power-compiler-v2-logic-power-v10',
-              'head': 'a0dd87eff51f23cd343a35cde86e1da9b04aa7dd',
+              'head': '3ce7c59a8929bf580e1cedc6df478ea51f9830ff',
               'binding_mode': 'immutable-git-object-ids',
               'files': {
                   'compiler': {
@@ -50,7 +50,7 @@ jobs:
                   },
                   'runner': {
                       'path': 'inference_power_compiler_v2/run_finite_nuisance_calibration_compiler.py',
-                      'git_blob_sha1': '3cc3a8b81232408a447034a68d5f7ce410e1c553',
+                      'git_blob_sha1': 'e95feddf30bdb512692882aa5d6da551106d15dc',
                   },
                   'tests': {
                       'path': 'inference_power_compiler_v2/test_finite_nuisance_calibration_compiler.py',
@@ -89,6 +89,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m py_compile \
+            inference_power_compiler_v2/verify_drift_aware_online_crossfit_public.py \
             inference_power_compiler_v2/verify_finite_nuisance_calibration_public.py
           python inference_power_compiler_v2/verify_finite_nuisance_calibration_public.py \
             | tee finite-nuisance-calibration-public.log
@@ -152,7 +153,7 @@ jobs:
           }
           private_binding = json.loads(files['private_binding'].read_text())
           receipt = {
-              'schema': 'finite-nuisance-calibration-public-verification-receipt/1',
+              'schema': 'finite-nuisance-calibration-public-verification-receipt/2',
               'repository': 'cristh99/notebooks',
               'head': os.environ['PUBLIC_HEAD_SHA'],
               'event_sha': os.environ['PUBLIC_EVENT_SHA'],
@@ -161,9 +162,9 @@ jobs:
                   name: hashlib.sha256(path.read_bytes()).hexdigest()
                   for name, path in files.items()
               },
+              'independent_prior_batch_reconstruction': 'PASS',
               'rational_hoeffding_certificate': 'PASS',
               'simultaneous_union_bound': 'PASS',
-              'strict_prior_calibration': 'PASS',
               'automatic_envelope_generation': 'PASS',
               'generated_product_rate': 'PASS',
               'generated_remainder_nonincreasing': 'PASS',
