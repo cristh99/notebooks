@@ -54,9 +54,28 @@ class Stage2Tests(unittest.TestCase):
         self.assertTrue(policy_promotes(positive, "POLICY_DOCUMENTARY"))
         self.assertFalse(policy_promotes(positive, "B2_CODE_SUPPLIER_AMOUNT"))
 
-    def test_documentary_policy_dominates_strong_baseline_on_synthetic_gold(self):
-        compact = compact_rows(self.synthetic_rows())
-        metrics = evaluate_policies(compact)
+    def test_documentary_policy_dominates_strong_baseline_on_labeled_rows(self):
+        rows = [
+            {
+                "candidate_id": "positive",
+                "shared_code": "CODE:A",
+                "amount_sefin": 100.0,
+                "relative_amount_difference": 0.2,
+                "supplier_supported": True,
+                "documentary_decision": "SUPPORTED",
+                "gold": [{"rule_id": "P", "expected": "SUPPORTED", "source_url": "x"}],
+            },
+            {
+                "candidate_id": "negative",
+                "shared_code": "CODE:B",
+                "amount_sefin": 50.0,
+                "relative_amount_difference": 0.01,
+                "supplier_supported": True,
+                "documentary_decision": "REJECTED",
+                "gold": [{"rule_id": "N", "expected": "REJECTED", "source_url": "y"}],
+            },
+        ]
+        metrics = evaluate_policies(rows)
         self.assertEqual(metrics["B1_CODE_SUPPLIER"]["unsafe_overpromotions"], 1)
         self.assertEqual(metrics["POLICY_DOCUMENTARY"]["unsafe_overpromotions"], 0)
         self.assertEqual(metrics["POLICY_DOCUMENTARY"]["supported_recovered"], 1)
