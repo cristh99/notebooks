@@ -1,0 +1,166 @@
+name: Logic Power Problem Solver v1 — public formal verification
+
+on:
+  push:
+    branches:
+      - agent/logic-power-problem-solver-formal-v1
+  pull_request:
+    paths:
+      - 'logic_power_problem_solver_formal_v1/**'
+      - '.github/workflows/logic-power-problem-solver-formal-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Verify private-source binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'd2b2222b84076d3314de7a66694ef9cae8fc22cd9cd78c44eb7b73ac9aad5b73  logic_power_problem_solver_formal_v1/ProblemSolverLifecycle.tla' \
+            | sha256sum -c -
+          echo '4c21d5fd034c47c46d5cd11c904039991a213341cba76a98eaa70bbfe8df8616  logic_power_problem_solver_formal_v1/ProblemSolverBoundary.lean' \
+            | sha256sum -c -
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          binding = json.loads(
+              Path('logic_power_problem_solver_formal_v1/SOURCE_BINDING.json').read_text()
+          )
+          assert binding['private_repository'] == 'cristh99/my_first_repository'
+          assert binding['private_branch'] == 'agent/logic-power-problem-solver-v1'
+          assert binding['private_head'] == '79abc124b938b3bc1099ba4163851c42789206cb'
+          assert binding['tla_sha256'] == 'd2b2222b84076d3314de7a66694ef9cae8fc22cd9cd78c44eb7b73ac9aad5b73'
+          assert binding['lean_sha256'] == '4c21d5fd034c47c46d5cd11c904039991a213341cba76a98eaa70bbfe8df8616'
+          PY
+
+      - name: Check all lifecycle scenarios with TLA+ TLC
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reports formal_configs
+          curl -L --fail --retry 4 --retry-all-errors \
+            https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar \
+            -o tla2tools.jar
+          echo 'feffd16994db963ad945628cfd03d154c195a468  tla2tools.jar' \
+            | sha1sum -c -
+          java -cp tla2tools.jar tla2sany.SANY \
+            logic_power_problem_solver_formal_v1/ProblemSolverLifecycle.tla \
+            2>&1 | tee reports/problem-solver-sany-v1.log
+          if grep -Eq 'Semantic errors|\*\*\* Errors:' \
+            reports/problem-solver-sany-v1.log; then
+            exit 1
+          fi
+          for scenario in \
+            Exact Search LearnedReady LearnedMissing \
+            Unsafe Underspecified Impossible NoBudget; do
+            cfg="formal_configs/ProblemSolver${scenario}.cfg"
+            cat > "$cfg" <<CFG
+          CONSTANT Scenario = "${scenario}"
+          SPECIFICATION Spec
+          INVARIANT TypeOK
+          INVARIANT TerminalStatusIff
+          INVARIANT SolvedHasEvidence
+          INVARIANT BlockedHasNoSolver
+          INVARIANT MuZeroNeedsPrerequisites
+          INVARIANT UnsafeNeverExecutes
+          INVARIANT TerminalLegitimate
+          PROPERTY Termination
+          CFG
+            java -cp tla2tools.jar tlc2.TLC -workers 1 \
+              -config "$cfg" \
+              logic_power_problem_solver_formal_v1/ProblemSolverLifecycle.tla \
+              2>&1 | tee "reports/problem-solver-tlc-${scenario}-v1.log"
+            grep -q 'Model checking completed. No error has been found.' \
+              "reports/problem-solver-tlc-${scenario}-v1.log"
+          done
+
+      - name: Compile Lean boundary without axioms or sorry
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reports
+          curl -sSf \
+            https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          export PATH="$HOME/.elan/bin:$PATH"
+          elan toolchain install leanprover/lean4:v4.33.0-rc1
+          elan run leanprover/lean4:v4.33.0-rc1 \
+            lean logic_power_problem_solver_formal_v1/ProblemSolverBoundary.lean \
+            2>&1 | tee reports/problem-solver-lean-v1.log
+          if grep -q 'sorryAx' reports/problem-solver-lean-v1.log; then
+            echo 'Lean reported sorryAx'
+            exit 1
+          fi
+          test "$(grep -c 'does not depend on any axioms' \
+            reports/problem-solver-lean-v1.log)" -eq 7
+
+      - name: Build formal verification receipt
+        shell: bash
+        env:
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          def sha256(path: str) -> str:
+              return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+          scenarios = [
+              'Exact', 'Search', 'LearnedReady', 'LearnedMissing',
+              'Unsafe', 'Underspecified', 'Impossible', 'NoBudget',
+          ]
+          receipt = {
+              'schema': 'logic-power-problem-solver/public-formal-receipt/1',
+              'status': 'PASS',
+              'private_repository': 'cristh99/my_first_repository',
+              'private_head': '79abc124b938b3bc1099ba4163851c42789206cb',
+              'public_repository': 'cristh99/notebooks',
+              'public_head': os.environ['PUBLIC_HEAD_SHA'],
+              'event_sha': os.environ['EVENT_SHA'],
+              'tla_sany': True,
+              'tlc_scenarios': scenarios,
+              'tlc_scenario_count': len(scenarios),
+              'lean_compiled': True,
+              'lean_theorem_count': 7,
+              'lean_axiom_count': 0,
+              'lean_sorry_ax': False,
+              'tla_sha256': sha256(
+                  'logic_power_problem_solver_formal_v1/ProblemSolverLifecycle.tla'
+              ),
+              'lean_sha256': sha256(
+                  'logic_power_problem_solver_formal_v1/ProblemSolverBoundary.lean'
+              ),
+          }
+          path = Path('reports/problem-solver-public-formal-receipt-v1.json')
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path('reports/problem-solver-public-formal-receipt-v1.sha256').write_text(
+              f'{digest}  problem-solver-public-formal-receipt-v1.json\n'
+          )
+          print(path.read_text())
+          print(digest)
+          PY
+
+      - name: Upload formal evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: logic-power-problem-solver-formal-v1
+          path: |
+            reports/
+            logic_power_problem_solver_formal_v1/SOURCE_BINDING.json
+            logic_power_problem_solver_formal_v1/ProblemSolverLifecycle.tla
+            logic_power_problem_solver_formal_v1/ProblemSolverBoundary.lean
