@@ -134,13 +134,13 @@ def main() -> None:
     if upper["maximum_squared_loss_risk"] != [3, 2]:
         raise AssertionError("MAP squared risk differs")
 
-    expected_error = Decimal(
-        "0.6389314386674453148303909266543369083036363235234125572818"
-    )
     actual_error = Decimal(
         independent["classification_error_lower_bound"]
     )
-    if abs(actual_error - expected_error) > Decimal("1e-55"):
+    exact_wolfram_expression = (
+        Decimal(5488) / Decimal(27)
+    ).ln() / Decimal(4096).ln()
+    if abs(actual_error - exact_wolfram_expression) > Decimal("1e-80"):
         raise AssertionError("independent Fano value differs from Wolfram")
 
     tampered = deepcopy(certificate)
@@ -161,6 +161,7 @@ def main() -> None:
         "public_event_sha": os.environ.get("GITHUB_SHA", "local"),
         "canonical_certificate_sha256": certificate["sha256"],
         "independent_search": independent,
+        "wolfram_exact_expression": "Log[5488/27]/Log[4096]",
         "exact_controls": {
             "row_sum": "1/4 + 7*(3/28) = 1",
             "map_classification_risk": "3/4",
