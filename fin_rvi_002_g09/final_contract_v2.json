@@ -1,0 +1,125 @@
+{
+  "schema": "fin-rvi-002/g09-final-contract/2",
+  "claim_id": "FIN-RVI-002-C1-BOUNDED",
+  "status": "OPEN",
+  "canonical_score_before": 920,
+  "gate_points": 80,
+  "claim": "Across multiple preregistered, mutually shared-code-disjoint public Honduras ONCAE-SEFIN cohorts from 2023-2025, after exact contract/project-code blocking and compatible supplier identity, a fixed fail-closed documentary policy for the maximum claim CONTRACTOR_PAYMENT reduces unsupported payment attribution relative to CODE+SUPPLIER without reducing recovery of supported payments, while preserving one-to-many contract-payment cardinality; the result is evaluated with strong baselines, monetary amount at risk, permutation controls, an independent policy implementation, and clean public reconstruction.",
+  "scope": {
+    "country": "Honduras",
+    "sources": [
+      "ONCAE OCP publication 122",
+      "SEFIN OCP publication 123"
+    ],
+    "period": "2023-2025",
+    "claim_level": "CONTRACTOR_PAYMENT",
+    "excluded_claims": [
+      "legality",
+      "fraud",
+      "corruption",
+      "physical receipt",
+      "quality",
+      "liquidation",
+      "causal impact",
+      "global universality",
+      "novelty of entity resolution",
+      "novelty of procurement knowledge graphs",
+      "novelty of active evidence acquisition"
+    ]
+  },
+  "strong_baseline": "B1_CODE_SUPPLIER",
+  "challenger": "FIN-RVI-002-DOCUMENTARY-V3",
+  "exclusive_predictions": [
+    "CODE+SUPPLIER still overpromotes auxiliary, accounting-only, payee-authority-ambiguous, or object-conflicting events.",
+    "The fixed documentary policy strictly reduces unsupported promotions without reducing supported-payment recovery.",
+    "Rotating candidate-specific financial evidence materially worsens safety or supported-payment recovery.",
+    "The safety-recovery result persists on cohorts excluding every previously evaluated shared code.",
+    "A clean reconstruction from the six official packages reproduces cohort identities, labels, policy decisions, and metrics.",
+    "An independent implementation of the policy reproduces every decision and reason."
+  ],
+  "falsifiers": [
+    "Any unsupported promotion by the fixed policy on a sealed replication cohort.",
+    "Any loss of supported-payment recovery relative to CODE+SUPPLIER.",
+    "Failure on a cohort that excludes all previously evaluated shared codes.",
+    "A permutation control that is not worse than candidate-specific evidence.",
+    "A clean replay that changes the frozen cohort, labels, decisions, or metrics.",
+    "A primary source predating the search cut that reports the same bounded result with equivalent gates.",
+    "An independent implementation that disagrees with the policy on any candidate."
+  ],
+  "prior_art_boundary": {
+    "closure_file": "fin_rvi_002_g09/prior_art_closure_20260803_v2.json",
+    "search_cut": "2026-08-03",
+    "searched_status": "SYSTEMATIC_SEARCH_COMPLETE_NO_EXACT_HIT_FOUND_IN_SEARCHED_CORPORA",
+    "interpretation": "No exact hit in searched corpora is not proof of global novelty.",
+    "absorbed_components": [
+      "public payment ingestion and record linkage",
+      "procurement supplier reconciliation",
+      "procurement-company-spending knowledge graphs",
+      "many-to-many purchase-to-pay cardinality",
+      "documentary audit evidence for payment",
+      "active and agentic evidence acquisition",
+      "cost-aware sequential entity resolution",
+      "provenance-bearing governed match assertions",
+      "false-positive-aware procurement red flags",
+      "contract-payment reconciliation and accounts-payable exception handling"
+    ]
+  },
+  "required_gates": {
+    "g07_operational_utility": "PASS",
+    "stage4_independent_code_disjoint_cohort": "PASS",
+    "stage5_clean_reconstruction": "PASS",
+    "systematic_primary_prior_art_closure": "PASS",
+    "claim_scope_audit": "PASS",
+    "stage6_third_code_disjoint_cohort": "PENDING",
+    "stage6_independent_policy_implementation": "PENDING",
+    "stage7_third_cohort_clean_reconstruction": "PENDING"
+  },
+  "empirical_evidence": {
+    "stage4": {
+      "head_sha": "9e6686204fce20bc21d17f041d506a2a9c92761d",
+      "run_id": 30841561243,
+      "artifact_id": 8867231467,
+      "artifact_sha256": "a1a4a2e7dd3a722ce9b1dac9b5dbe02a5bfde0f7bd63c9e5fb6974c056de3928",
+      "cohort_rows": 120,
+      "prior_shared_codes_excluded": 118,
+      "labels": {
+        "SUPPORTED": 58,
+        "REJECTED": 28,
+        "UNRESOLVED": 34
+      },
+      "baseline": {
+        "unsafe_overpromotions": 20,
+        "supported_recovered": 58
+      },
+      "challenger": {
+        "unsafe_overpromotions": 0,
+        "supported_recovered": 58,
+        "missed_supported": 0
+      },
+      "permutation": {
+        "unsafe_overpromotions": 21,
+        "supported_recovered": 37
+      }
+    },
+    "stage5": {
+      "head_sha": "d9928f064d0ff80084d46c9fae73d7717dffbfbd",
+      "run_id": 30844453922,
+      "artifact_id": 8868335548,
+      "artifact_sha256": "53920001230a0ea13f3929f0abcdf529653759a8e869dd1707499029ba867462",
+      "python_receipt_sha256": "03e97d0eb13ad7808a1a78f37ff2e8d16695ca092ccf3ed76f7cd12a78b795be",
+      "node_receipt_sha256": "3fa82f11d111d97e3b5fcaf58680a413f1482e01744e336cd5e64fa0c33d72d6",
+      "compact_rows_sha256": "5793b9d1f88176b9ba3b61a006510766041572502a6ad0595e05fc2869f71571",
+      "labels_sha256": "949b6e8d0ad035130cb47d2e7c97a5f4176ea5d9bbcdb7dbc7b0444c22754a1f",
+      "candidate_ids_sha256": "7352d9e05195fe597a4b8001192f39f7e540a0ee8799d0b0e940c73dff2354db",
+      "g07": "PASS",
+      "score_after": 920
+    },
+    "stage6": null,
+    "stage7": null
+  },
+  "gate_readout": {
+    "G07": "PASS",
+    "G09": "OPEN_THIRD_COHORT_AND_CLEAN_REPLAY_REQUIRED",
+    "finance_score": 920
+  }
+}

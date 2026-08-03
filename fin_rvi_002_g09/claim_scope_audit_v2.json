@@ -1,0 +1,65 @@
+{
+  "schema": "fin-rvi-002/g09-claim-scope-audit/2",
+  "claim_id": "FIN-RVI-002-C1-BOUNDED",
+  "auditor": "FIN-RVI-002-SCOPE-AUDITOR-V2",
+  "audit_date": "2026-08-03",
+  "claim_contract": "fin_rvi_002_g09/final_contract_v2.json",
+  "prior_art_closure": "fin_rvi_002_g09/prior_art_closure_20260803_v2.json",
+  "included_scope": {
+    "country": "Honduras",
+    "sources": [
+      "ONCAE OCP publication 122",
+      "SEFIN OCP publication 123"
+    ],
+    "period": "2023-2025",
+    "unit": "candidate link between a procurement contract/project and a public-finance event",
+    "maximum_claim": "CONTRACTOR_PAYMENT",
+    "policy": "FIN-RVI-002-DOCUMENTARY-V3",
+    "baseline": "B1_CODE_SUPPLIER",
+    "replication_design": "multiple preregistered cohorts mutually disjoint by shared contract/project code"
+  },
+  "excluded_claims": [
+    "legality",
+    "fraud",
+    "corruption",
+    "physical receipt",
+    "quality",
+    "liquidation",
+    "causal impact",
+    "global universality",
+    "novelty of entity resolution",
+    "novelty of procurement knowledge graphs",
+    "novelty of active evidence acquisition"
+  ],
+  "absorbed_prior_art": [
+    "public payment ingestion and record linkage",
+    "procurement supplier reconciliation",
+    "procurement-company-spending knowledge graphs",
+    "many-to-many purchase-to-pay cardinality",
+    "documentary audit evidence for payment",
+    "active and agentic evidence acquisition",
+    "cost-aware sequential entity resolution",
+    "provenance-bearing governed match assertions",
+    "false-positive-aware procurement red flags",
+    "contract-payment reconciliation and accounts-payable exception handling"
+  ],
+  "checks": {
+    "country_and_period_explicit": true,
+    "source_publications_explicit": true,
+    "maximum_claim_explicit": true,
+    "strong_baseline_explicit": true,
+    "policy_version_explicit": true,
+    "one_to_many_cardinality_preserved": true,
+    "unsupported_promotion_is_primary_safety_metric": true,
+    "supported_recovery_is_guardrail": true,
+    "permutation_falsifier_declared": true,
+    "code_disjoint_replication_declared": true,
+    "clean_reconstruction_declared": true,
+    "independent_policy_implementation_declared": true,
+    "general_technique_novelty_disclaimed": true,
+    "legal_and_misconduct_claims_disclaimed": true,
+    "no_exact_hit_not_equated_with_global_novelty": true
+  },
+  "verdict": "PASS",
+  "boundary": "The scientific candidate is the bounded empirical safety-recovery result. It is not a claim that the component methods are new, nor a legal, causal, fraud, corruption, delivery, quality, or global-universality conclusion."
+}
