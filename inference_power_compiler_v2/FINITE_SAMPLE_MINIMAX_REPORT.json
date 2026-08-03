@@ -1,0 +1,72 @@
+{
+  "certificates": {
+    "interventional_sha256": "7a98ec8ade92eb11614525c0bec5a9b57c660a7ea17a30967a1122772008c96b",
+    "observational_sha256": "ac7ded0d48622de3c7f2d6ef7647ed90b1af1e39f811dfa7fc5be80eb5c35b81",
+    "semantic_replay": "PASS",
+    "tampered_certificate": "REJECTED:payload-hash"
+  },
+  "independent_wolfram": {
+    "dual_value": [13, 49],
+    "least_favorable_no_effect_weight": [36, 49],
+    "positive_support_indices_one_based": [1, 4],
+    "positive_support_weights": [[9, 49], [40, 49]],
+    "primal_value": [13, 49],
+    "zero_gap": true
+  },
+  "interventional_design": {
+    "deterministic_policy_count": 7,
+    "dual_vertices_examined": 36,
+    "frontier_sizes_by_horizon": [2, 4, 7],
+    "least_favorable_prior": {
+      "confounded_no_effect": [36, 49],
+      "direct_positive_effect": [13, 49]
+    },
+    "minimax_value": [13, 49],
+    "primal_vertices_examined": 36,
+    "randomized_support": [
+      {
+        "policy_index": 0,
+        "policy_sha256": "af57e1a9ca98256d6ee0869fd2cff627223365f74d0b6abf66ac03c58da81e68",
+        "risks": [[0, 1], [1, 1]],
+        "tree": {"action": "declare_no_effect", "kind": "stop"},
+        "weight": [9, 49]
+      },
+      {
+        "policy_index": 3,
+        "policy_sha256": "5cab985c7203d1b89381e6b99f85fbf1b32a9a262943dc7201e169e158d19ab6",
+        "risks": [[13, 40], [1, 10]],
+        "tree": {
+          "children": {
+            "0": {"action": "declare_no_effect", "kind": "stop"},
+            "1": {
+              "children": {
+                "0": {"action": "declare_no_effect", "kind": "stop"},
+                "1": {"action": "declare_positive_effect", "kind": "stop"}
+              },
+              "cost": [1, 20],
+              "experiment": "intervene_A_1",
+              "kind": "experiment"
+            }
+          },
+          "cost": [1, 20],
+          "experiment": "intervene_A_1",
+          "kind": "experiment"
+        },
+        "weight": [40, 49]
+      }
+    ],
+    "theorem": "The exact minimax value is 13/49. With probability 9/49 the rule stops and declares no effect; with probability 40/49 it samples the intervention up to twice, stopping no-effect after any zero and declaring positive effect after two ones.",
+    "world_risks": [[13, 49], [13, 49]]
+  },
+  "observation_only": {
+    "interpretation": "The observational kernel is identical in both worlds. The exact minimax compiler assigns it no support and the value remains one half.",
+    "least_favorable_prior": {
+      "confounded_no_effect": [1, 2],
+      "direct_positive_effect": [1, 2]
+    },
+    "minimax_value": [1, 2]
+  },
+  "schema": "inference-power-compiler/finite-sample-minimax-design-report/1",
+  "scope": "two finite causal worlds, binary actions, exact rational sampling kernels and costs, horizon two, randomized mixtures over deterministic adaptive policies",
+  "sha256": "e1e3e9b2b1b2ced09a8730216e83d674a9c949b39156e8f8f19bf9136e47d62f"
+}
