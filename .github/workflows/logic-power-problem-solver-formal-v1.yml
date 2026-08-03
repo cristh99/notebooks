@@ -26,7 +26,7 @@ jobs:
           set -euo pipefail
           echo '4317f1112d33afc13959ad705730394340dd098cdb4cc3cadb258e4992597cb1  logic_power_problem_solver_formal_v1/ProblemSolverLifecycle.tla' \
             | sha256sum -c -
-          echo 'be47f419ec06e5a4647f826a437c9067a5ca52d5190f3cd15c8e18b8032336e3  logic_power_problem_solver_formal_v1/ProblemSolverBoundary.lean' \
+          echo '9b9bd37edfaaec9a877e488ce3b08e47758173607d5421d423f71f3b9f59bbb5  logic_power_problem_solver_formal_v1/ProblemSolverBoundary.lean' \
             | sha256sum -c -
           python - <<'PY'
           import json
@@ -37,9 +37,9 @@ jobs:
           )
           assert binding['private_repository'] == 'cristh99/my_first_repository'
           assert binding['private_branch'] == 'agent/logic-power-problem-solver-v1'
-          assert binding['private_head'] == 'b3f8ad67d6fea28eaa4dfba7d156c87b92fe9b00'
+          assert binding['private_head'] == '8fcc5aa6f2793d35fdbf6f8b62f407ff74562343'
           assert binding['tla_sha256'] == '4317f1112d33afc13959ad705730394340dd098cdb4cc3cadb258e4992597cb1'
-          assert binding['lean_sha256'] == 'be47f419ec06e5a4647f826a437c9067a5ca52d5190f3cd15c8e18b8032336e3'
+          assert binding['lean_sha256'] == '9b9bd37edfaaec9a877e488ce3b08e47758173607d5421d423f71f3b9f59bbb5'
           PY
 
       - name: Check all lifecycle scenarios with TLA+ TLC
@@ -127,7 +127,7 @@ jobs:
               'schema': 'logic-power-problem-solver/public-formal-receipt/1',
               'status': 'PASS',
               'private_repository': 'cristh99/my_first_repository',
-              'private_head': 'b3f8ad67d6fea28eaa4dfba7d156c87b92fe9b00',
+              'private_head': '8fcc5aa6f2793d35fdbf6f8b62f407ff74562343',
               'public_repository': 'cristh99/notebooks',
               'public_head': os.environ['PUBLIC_HEAD_SHA'],
               'event_sha': os.environ['EVENT_SHA'],
