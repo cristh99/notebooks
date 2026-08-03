@@ -1,0 +1,103 @@
+name: FIN-ABS-002 — PortBench sealed benchmark
+
+on:
+  pull_request:
+    branches:
+      - agent/finance-absolute-423-public-replay
+    paths:
+      - 'fin_abs_002_portbench/**'
+      - 'README_FIN_ABS_002_PORTBENCH.md'
+      - '.github/workflows/fin-abs-002-portbench-benchmark.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fin-abs-002-portbench-benchmark
+  cancel-in-progress: true
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout frozen capsule
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Install deterministic numerical dependencies
+        run: |
+          python -m pip install --disable-pip-version-check --no-cache-dir \
+            numpy==2.3.2 pandas==2.3.1 scipy==1.16.1
+
+      - name: Compile and test portfolio engine
+        run: |
+          python -m compileall -q fin_abs_002_portbench
+          python -m unittest -v fin_abs_002_portbench.test_audit
+          python -m unittest -v fin_abs_002_portbench.test_portfolio_engine
+
+      - name: Download and hash frozen PortBench market file
+        run: |
+          set -euo pipefail
+          mkdir -p .cache/fin_abs_002_portbench reports/fin_abs_002_portbench_benchmark
+          curl --location --fail --show-error --silent \
+            --retry 5 --retry-all-errors --connect-timeout 30 --max-time 900 \
+            'https://huggingface.co/datasets/AgenticFinLab/PortBench-Market/resolve/main/market-base-dataset.csv?download=true' \
+            --output .cache/fin_abs_002_portbench/market-base-dataset.csv
+          echo '495659fb40690d48748dcbcbd8c8c2add5371fac9d5be535270959ae8f519221  .cache/fin_abs_002_portbench/market-base-dataset.csv' \
+            | sha256sum -c -
+
+      - name: Execute validation selection and sealed test
+        run: |
+          python -m fin_abs_002_portbench.benchmark \
+            --input .cache/fin_abs_002_portbench/market-base-dataset.csv \
+            --output-dir reports/fin_abs_002_portbench_benchmark
+
+      - name: Independent Node performance replay
+        run: |
+          node fin_abs_002_portbench/verify_benchmark.mjs \
+            reports/fin_abs_002_portbench_benchmark/report.json \
+            reports/fin_abs_002_portbench_benchmark/node_performance_receipt.json
+
+      - name: Reject premature score promotion
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          source = json.loads(
+              Path('reports/fin_abs_002_portbench_benchmark/report.json').read_text()
+          )
+          source['payload']['absolute_score'] = {
+              'before': 423, 'after': 1000, 'delta': 577,
+              'boundary': 'forged',
+          }
+          Path('/tmp/forged_score.json').write_text(
+              json.dumps(source, indent=2, sort_keys=True) + '\n'
+          )
+          PY
+          if node fin_abs_002_portbench/verify_benchmark.mjs \
+              /tmp/forged_score.json /tmp/forged_receipt.json; then
+            echo 'forged absolute score accepted' >&2
+            exit 1
+          fi
+
+      - name: Build evidence manifest
+        run: |
+          sha256sum reports/fin_abs_002_portbench_benchmark/* \
+            > reports/fin_abs_002_portbench_benchmark/manifest.sha256
+
+      - name: Upload bounded benchmark evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-abs-002-portbench-sealed-benchmark
+          path: reports/fin_abs_002_portbench_benchmark/
+          if-no-files-found: error
+          retention-days: 90
