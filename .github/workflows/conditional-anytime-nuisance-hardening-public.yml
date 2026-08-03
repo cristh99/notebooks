@@ -104,7 +104,7 @@ jobs:
           python "$bootstrap" --emit-source "$decoded"
           python -m py_compile "$decoded"
           test "$(sha256sum "$decoded" | cut -d' ' -f1)" = \
-            '56b058905f04377097445b876043ff0177a80f38fa734f55a4b9b6122010e9e3'
+            'c25257f7be1d5289a19a6fda72f9e29828532f1b18c8b142df9971183c77b127'
           python "$decoded" | tee conditional-anytime-hardening-public.log
           test -s inference_power_compiler_v2/CONDITIONAL_ANYTIME_NUISANCE_HARDENING_PUBLIC_CERTIFICATE.json
           test -s inference_power_compiler_v2/CONDITIONAL_ANYTIME_NUISANCE_HARDENING_PUBLIC_REPORT.json
@@ -176,11 +176,12 @@ jobs:
                   name: hashlib.sha256(path.read_bytes()).hexdigest()
                   for name, path in files.items()
               },
-              'decoded_source_sha256': '56b058905f04377097445b876043ff0177a80f38fa734f55a4b9b6122010e9e3',
+              'decoded_source_sha256': 'c25257f7be1d5289a19a6fda72f9e29828532f1b18c8b142df9971183c77b127',
               'independent_reconstruction': 'PASS',
               'raw_row_merkle_binding': 'PASS',
               'raw_count_reconciliation': 'PASS',
               'raw_row_disjointness': 'PASS',
+              'cluster_separation': 'PASS',
               'regime_origin_precommitment': 'PASS',
               'predictable_shift_certification': 'PASS',
               'predictable_learner_selection': 'PASS',
