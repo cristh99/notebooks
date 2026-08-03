@@ -4,7 +4,7 @@ import hashlib
 import json
 from collections import Counter
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from fin_rvi_002_stage1.known_gold import matching_rules
 
@@ -41,6 +41,9 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
 
 
 def documentary_decision(row: dict[str, Any]) -> str:
+    compact = row.get("documentary_decision")
+    if compact in {"SUPPORTED", "REJECTED", "UNRESOLVED"}:
+        return str(compact)
     nested = row.get("object_adjudication")
     if not isinstance(nested, dict):
         return "UNRESOLVED"
@@ -49,6 +52,8 @@ def documentary_decision(row: dict[str, Any]) -> str:
 
 
 def supplier_supported(row: dict[str, Any]) -> bool:
+    if "supplier_supported" in row:
+        return bool(row.get("supplier_supported"))
     nested = row.get("object_adjudication")
     return bool(isinstance(nested, dict) and nested.get("supplier_identity_supported"))
 
