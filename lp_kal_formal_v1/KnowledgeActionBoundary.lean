@@ -50,7 +50,8 @@ def consequenceTarget : Verdict → Option ActionState
 def doingGate (authorized preflight mandate : Bool) : Bool :=
   authorized && preflight && mandate
 
-def doneGate (verifiedEvidence : Bool) : Bool := verifiedEvidence
+def doneGate (verifiedEvidence : Bool) : Bool :=
+  verifiedEvidence
 
 def integrationGate
     (done verifiedEvidence generalizable exactStatement : Bool) : Bool :=
@@ -67,7 +68,22 @@ def mandateGate
 
 def microStepAuthority (authorized : Bool) : Bool := authorized
 
-def integratedStatement (verifiedStatement : String) : String := verifiedStatement
+def integratedStatement (verifiedStatement : String) : String :=
+  verifiedStatement
+
+theorem bool_and_left_true {a b : Bool}
+    (h : (a && b) = true) : a = true := by
+  cases a with
+  | false => cases h
+  | true => rfl
+
+theorem bool_and_right_true {a b : Bool}
+    (h : (a && b) = true) : b = true := by
+  cases a with
+  | false => cases h
+  | true =>
+      change b = true at h
+      exact h
 
 theorem knowledge_and_action_roles_are_disjoint
     (knowledgeId : KnowledgeId) (actionId : ActionId) :
@@ -99,45 +115,79 @@ theorem doing_requires_authority
     (authorized preflight mandate : Bool)
     (h : doingGate authorized preflight mandate = true) :
     authorized = true := by
-  cases authorized <;> cases preflight <;> cases mandate <;> decide
+  change ((authorized && preflight) && mandate) = true at h
+  have pair := bool_and_left_true h
+  exact bool_and_left_true pair
 
 theorem doing_requires_preflight
     (authorized preflight mandate : Bool)
     (h : doingGate authorized preflight mandate = true) :
     preflight = true := by
-  cases authorized <;> cases preflight <;> cases mandate <;> decide
+  change ((authorized && preflight) && mandate) = true at h
+  have pair := bool_and_left_true h
+  exact bool_and_right_true pair
 
 theorem doing_requires_solver_mandate
     (authorized preflight mandate : Bool)
     (h : doingGate authorized preflight mandate = true) :
     mandate = true := by
-  cases authorized <;> cases preflight <;> cases mandate <;> decide
+  change ((authorized && preflight) && mandate) = true at h
+  exact bool_and_right_true h
 
 theorem done_requires_verified_evidence
     (verifiedEvidence : Bool)
     (h : doneGate verifiedEvidence = true) :
     verifiedEvidence = true := by
-  cases verifiedEvidence <;> decide
+  change verifiedEvidence = true at h
+  exact h
 
 theorem integration_requires_verified_evidence
     (done verifiedEvidence generalizable exactStatement : Bool)
     (h : integrationGate done verifiedEvidence generalizable exactStatement = true) :
     verifiedEvidence = true := by
-  cases done <;> cases verifiedEvidence <;>
-    cases generalizable <;> cases exactStatement <;> decide
+  change
+    (((done && verifiedEvidence) && generalizable) &&
+      exactStatement) = true at h
+  have triple := bool_and_left_true h
+  have pair := bool_and_left_true triple
+  exact bool_and_right_true pair
 
 theorem integration_requires_generalizable_result
     (done verifiedEvidence generalizable exactStatement : Bool)
     (h : integrationGate done verifiedEvidence generalizable exactStatement = true) :
     generalizable = true := by
-  cases done <;> cases verifiedEvidence <;>
-    cases generalizable <;> cases exactStatement <;> decide
+  change
+    (((done && verifiedEvidence) && generalizable) &&
+      exactStatement) = true at h
+  have triple := bool_and_left_true h
+  exact bool_and_right_true triple
 
 theorem solver_mandate_requires_authorized_executable_work
     (state : ActionState) (authorized due : Bool)
     (h : mandateGate state authorized due = true) :
     authorized = true ∧ executable state = true := by
-  cases state <;> cases authorized <;> cases due <;> decide
+  cases state with
+  | asap =>
+      change (authorized && true) = true at h
+      exact ⟨bool_and_left_true h, rfl⟩
+  | atADate =>
+      change (authorized && due) = true at h
+      exact ⟨bool_and_left_true h, rfl⟩
+  | doing =>
+      change (authorized && true) = true at h
+      exact ⟨bool_and_left_true h, rfl⟩
+  | done =>
+      change (authorized && false) = true at h
+      have impossible : false = true := bool_and_right_true h
+      cases impossible
+  | somedayMaybe =>
+      change (authorized && false) = true at h
+      have impossible : false = true := bool_and_right_true h
+      cases impossible
+  | trash =>
+      change (authorized && false) = true at h
+      have impossible : false = true := bool_and_right_true h
+      cases impossible
 
 theorem microcycle_preserves_macro_authority (authorized : Bool) :
     microStepAuthority authorized = authorized := by
