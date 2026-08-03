@@ -8,6 +8,10 @@ on:
       - '.github/workflows/ocr-reading-order-tesseract-v1.yml'
   workflow_dispatch:
 
+concurrency:
+  group: ocr-reading-order-tesseract-v1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
