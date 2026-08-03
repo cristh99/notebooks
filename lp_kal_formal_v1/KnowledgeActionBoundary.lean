@@ -66,6 +66,16 @@ def mandateGate
     | .doing => true
     | _ => false
 
+inductive MandateCertificate : ActionState → Bool → Bool → Type where
+  | asap (due : Bool) : MandateCertificate .asap true due
+  | atADate : MandateCertificate .atADate true true
+  | doing (due : Bool) : MandateCertificate .doing true due
+
+inductive NonExecutableState : ActionState → Type where
+  | done : NonExecutableState .done
+  | somedayMaybe : NonExecutableState .somedayMaybe
+  | trash : NonExecutableState .trash
+
 def microStepAuthority (authorized : Bool) : Bool := authorized
 
 def integratedStatement (verifiedStatement : String) : String :=
@@ -162,50 +172,32 @@ theorem integration_requires_generalizable_result
   have triple := bool_and_left_true h
   exact bool_and_right_true triple
 
-theorem solver_mandate_requires_authority
+theorem mandate_certificate_implies_runtime_gate
     (state : ActionState) (authorized due : Bool)
-    (h : mandateGate state authorized due = true) :
+    (certificate : MandateCertificate state authorized due) :
+    mandateGate state authorized due = true := by
+  cases certificate <;> rfl
+
+theorem mandate_certificate_requires_authority
+    (state : ActionState) (authorized due : Bool)
+    (certificate : MandateCertificate state authorized due) :
     authorized = true := by
-  cases state with
-  | asap =>
-      change (authorized && true) = true at h
-      exact bool_and_left_true h
-  | atADate =>
-      change (authorized && due) = true at h
-      exact bool_and_left_true h
-  | doing =>
-      change (authorized && true) = true at h
-      exact bool_and_left_true h
-  | done =>
-      change (authorized && false) = true at h
-      have impossible : false = true := bool_and_right_true h
-      cases impossible
-  | somedayMaybe =>
-      change (authorized && false) = true at h
-      have impossible : false = true := bool_and_right_true h
-      cases impossible
-  | trash =>
-      change (authorized && false) = true at h
-      have impossible : false = true := bool_and_right_true h
-      cases impossible
+  cases certificate <;> rfl
 
-theorem at_a_date_mandate_requires_due
+theorem at_a_date_certificate_requires_due
     (authorized due : Bool)
-    (h : mandateGate .atADate authorized due = true) :
+    (certificate : MandateCertificate .atADate authorized due) :
     due = true := by
-  change (authorized && due) = true at h
-  exact bool_and_right_true h
+  cases certificate
+  rfl
 
-theorem solver_mandate_rejects_non_executable_states
+theorem non_executable_state_has_no_mandate
+    (state : ActionState)
+    (nonExecutable : NonExecutableState state)
     (authorized due : Bool) :
-    mandateGate .done authorized due = false ∧
-      mandateGate .somedayMaybe authorized due = false ∧
-      mandateGate .trash authorized due = false := by
-  constructor
-  · cases authorized <;> rfl
-  constructor
-  · cases authorized <;> rfl
-  · cases authorized <;> rfl
+    MandateCertificate state authorized due → False := by
+  intro certificate
+  cases nonExecutable <;> cases certificate
 
 theorem microcycle_preserves_macro_authority (authorized : Bool) :
     microStepAuthority authorized = authorized := by
@@ -227,9 +219,10 @@ theorem integration_preserves_verified_statement (statement : String) :
 #print axioms done_requires_verified_evidence
 #print axioms integration_requires_verified_evidence
 #print axioms integration_requires_generalizable_result
-#print axioms solver_mandate_requires_authority
-#print axioms at_a_date_mandate_requires_due
-#print axioms solver_mandate_rejects_non_executable_states
+#print axioms mandate_certificate_implies_runtime_gate
+#print axioms mandate_certificate_requires_authority
+#print axioms at_a_date_certificate_requires_due
+#print axioms non_executable_state_has_no_mandate
 #print axioms microcycle_preserves_macro_authority
 #print axioms integration_preserves_verified_statement
 
