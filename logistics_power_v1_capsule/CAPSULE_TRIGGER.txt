@@ -1,0 +1,3 @@
+Logistics Power v1 public verification capsule trigger.
+Private logistics head: 0ae44945832b18cc3b8914603b83639f03faa0d6
+Private Logic Power v10 head: ba10d0edc7eb20d499d0481fda2537e782b6efb2
