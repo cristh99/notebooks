@@ -4,9 +4,10 @@ import Std
 # Formal boundary for proof-carrying finite lower bounds
 
 This file deliberately uses only Lean's standard library. The executable
-compiler supplies exact rational total-variation, Bayes-risk, packing and
-candidate-risk calculations. These theorems certify the logical transport
-from indistinguishability and testing to impossibility and optimality.
+compiler supplies exact rational total-variation, Bayes-risk, packing,
+information-interval and candidate-risk calculations. These theorems certify
+the logical transport from indistinguishability, testing and certified upper
+bounds to impossibility and optimality.
 -/
 
 namespace FiniteLowerBounds
@@ -83,6 +84,23 @@ theorem bayes_lower_transfers_to_worst
   intro procedure
   exact transitive (hlower procedure) (hbayesWorst procedure)
 
+/-- Substituting a certified upper information bound into an antitone lower-bound
+formula yields a conservative lower certificate. -/
+theorem antitone_upper_certificate_is_conservative
+    {Information Bound : Type}
+    (infoLe : Information → Information → Prop)
+    (boundLe : Bound → Bound → Prop)
+    (lowerFromInformation : Information → Bound)
+    (antitone : ∀ {exact upper},
+      infoLe exact upper →
+      boundLe (lowerFromInformation upper)
+        (lowerFromInformation exact))
+    (exact upper : Information)
+    (hupper : infoLe exact upper) :
+    boundLe (lowerFromInformation upper)
+      (lowerFromInformation exact) := by
+  exact antitone hupper
+
 /-- If a wrong packing label is no farther than the true label, triangle
 transport forces the packing separation below twice the true distance. -/
 theorem wrong_nearest_forces_double_radius
@@ -115,6 +133,7 @@ theorem missing_coordinate_blocks_exact_boolean_target
 #print axioms FiniteLowerBounds.four_coordinate_bounds_combine
 #print axioms FiniteLowerBounds.matching_bounds_certify_optimality
 #print axioms FiniteLowerBounds.bayes_lower_transfers_to_worst
+#print axioms FiniteLowerBounds.antitone_upper_certificate_is_conservative
 #print axioms FiniteLowerBounds.wrong_nearest_forces_double_radius
 #print axioms FiniteLowerBounds.missing_coordinate_blocks_exact_boolean_target
 
