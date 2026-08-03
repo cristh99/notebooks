@@ -168,6 +168,124 @@ def freeze_holdout_v2(candidates: list[dict[str, Any]], size: int) -> list[dict[
     return selected[:size]
 
 
+_DOCUMENT_PRIORITY = {
+    "financialTransaction": 120,
+    "contractSigned": 110,
+    "contractNotice": 100,
+    "awardNotice": 90,
+    "contractAmendment": 80,
+    "completionCertificate": 75,
+    "physicalProgressReport": 70,
+    "recordOpeningTendersReceived": 40,
+    "biddingDocuments": 30,
+    "tenderNotice": 20,
+}
+
+
+def _best_document(left, right) -> dict[str, str] | None:
+    candidates: list[tuple[int, int, str, dict[str, str]]] = []
+    for source_rank, summary in enumerate((right, left)):
+        for document in summary.documents:
+            url = str(document.get("url") or "").strip()
+            if not url:
+                continue
+            document_type = str(document.get("documentType") or "")
+            priority = _DOCUMENT_PRIORITY.get(document_type, 10)
+            candidates.append((-priority, source_rank, url, dict(document)))
+    if not candidates:
+        return None
+    return min(candidates)[3]
+
+
+def evaluate_holdout_v2(
+    connection,
+    holdout: list[dict[str, Any]],
+    acquire_documents: bool,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    decisions: list[dict[str, Any]] = []
+    acquisition_cache: dict[str, dict[str, Any]] = {}
+    document_references = 0
+    acquisition_seconds = 0.0
+
+    for candidate in holdout:
+        left = base.load_summary(connection, candidate["oncae_release_pk"])
+        right = base.load_summary(connection, candidate["sefin_release_pk"])
+        adjudication = adjudicate_object_v2(left, right)
+        document = _best_document(left, right)
+        document_acquisition: dict[str, Any] | None = None
+        if acquire_documents and document is not None:
+            document_references += 1
+            url = document["url"]
+            if url not in acquisition_cache:
+                acquisition_cache[url] = base.acquire_public_document(url)
+                acquisition_seconds += float(acquisition_cache[url].get("seconds", 0.0))
+            document_acquisition = dict(acquisition_cache[url])
+            document_acquisition["selected_document_type"] = document.get("documentType", "")
+            document_acquisition["selected_document_title"] = document.get("title", "")
+            document_acquisition["cache_reuse"] = sum(
+                1 for row in decisions
+                if isinstance(row.get("document_acquisition"), dict)
+                and row["document_acquisition"].get("url") == url
+            ) > 0
+
+        decisions.append({
+            **candidate,
+            "object_adjudication": adjudication,
+            "baseline_decision": "PROMOTE_CONTRACTOR_PAYMENT",
+            "evidence_policy_decision": (
+                "PROMOTE_SUPPORTED"
+                if adjudication["decision"] == "SUPPORTED"
+                else "ABSTAIN_OR_REJECT"
+            ),
+            "oncae_object_text": left.object_text[:5000],
+            "sefin_object_text": right.object_text[:5000],
+            "oncae_documents": list(left.documents)[:20],
+            "sefin_documents": list(right.documents)[:20],
+            "document_acquisition": document_acquisition,
+        })
+
+    decision_counts = Counter(
+        item["object_adjudication"]["decision"] for item in decisions
+    )
+    unsupported_baseline = (
+        decision_counts["REJECTED"] + decision_counts["UNRESOLVED"]
+    )
+    amount_at_risk = sum(
+        float(item["amount_sefin"])
+        for item in decisions
+        if item["object_adjudication"]["decision"] != "SUPPORTED"
+    )
+    successes = sum(
+        record.get("status") == "ACQUIRED" for record in acquisition_cache.values()
+    )
+    acquired_bytes = sum(
+        int(record.get("bytes", 0))
+        for record in acquisition_cache.values()
+        if record.get("status") == "ACQUIRED"
+    )
+    metrics = {
+        "holdout_size": len(decisions),
+        "decision_counts": dict(decision_counts),
+        "baseline_promotions": len(decisions),
+        "baseline_unsupported_promotions": unsupported_baseline,
+        "baseline_unsupported_promotion_rate": (
+            unsupported_baseline / len(decisions) if decisions else None
+        ),
+        "evidence_policy_promotions": decision_counts["SUPPORTED"],
+        "evidence_policy_unsupported_promotions": 0,
+        "unsupported_amount_at_risk_avoided": round(amount_at_risk, 2),
+        "document_references": document_references,
+        "document_acquisition_attempts": len(acquisition_cache),
+        "document_acquisition_cache_reuses": max(
+            0, document_references - len(acquisition_cache)
+        ),
+        "document_acquisition_successes": successes,
+        "document_acquisition_bytes": acquired_bytes,
+        "document_acquisition_seconds": round(acquisition_seconds, 3),
+    }
+    return decisions, metrics
+
+
 def _rewrite_report(output: Path) -> None:
     report_path = output / "report.json"
     report = json.loads(report_path.read_text(encoding="utf-8"))
@@ -235,6 +353,7 @@ def main() -> None:
     base.generate_candidates = generate_candidates_v2
     base.freeze_holdout = freeze_holdout_v2
     base.adjudicate_object = adjudicate_object_v2
+    base.evaluate_holdout = evaluate_holdout_v2
     output = Path("reports/fin_rvi_002_stage1")
     if "--output" in sys.argv:
         output = Path(sys.argv[sys.argv.index("--output") + 1])
