@@ -35,7 +35,7 @@ jobs:
       - name: Unit and adversarial tests
         run: python -m unittest -v ocr_sota_real_canary_v2.test_canary
       - name: Real annotated-page replay
-        run: python -m ocr_sota_real_canary_v2.run_canary --pages 8 --output-dir ocr_sota_real_canary_v2/run
+        run: python -m ocr_sota_real_canary_v2.run_ci_canary --pages 8 --output-dir ocr_sota_real_canary_v2/run
       - name: Independent semantic verification
         run: python -m ocr_sota_real_canary_v2.verify_report ocr_sota_real_canary_v2/run/reports/canary.json
       - name: Environment manifest
