@@ -281,7 +281,12 @@ def audit_dataset(path: Path) -> dict[str, Any]:
             "reason": "Information acquisition only; no external performance gate has been run.",
         },
     }
-    return {"payload": payload, "sha256": digest(payload)}
+    payload_canonical = canonical(payload)
+    return {
+        "payload": payload,
+        "payload_canonical": payload_canonical,
+        "sha256": hashlib.sha256(payload_canonical.encode("utf-8")).hexdigest(),
+    }
 
 
 def main() -> None:
