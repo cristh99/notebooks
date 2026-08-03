@@ -245,8 +245,8 @@ def audit_dataset(path: Path) -> dict[str, Any]:
         "split_labels_consistent_if_present": splits[
             "embedded_labels_consistent"
         ],
-        "return_convention_is_log": convention["inferred_convention"]
-        == "log_return",
+        "return_convention_is_simple": convention["inferred_convention"]
+        == "simple_return",
     }
     payload = {
         "schema": SCHEMA,
