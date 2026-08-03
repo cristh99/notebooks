@@ -18,7 +18,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
@@ -73,7 +73,7 @@ jobs:
           elan toolchain install leanprover/lean4:v4.33.0-rc1
           bash logic_power_v10/ci_v10.sh
 
-      - name: Execute the statistical structural-design extension
+      - name: Execute the statistical compiler extensions
         shell: bash
         run: |
           set -euo pipefail
@@ -81,15 +81,21 @@ jobs:
           cp inference_power_compiler_v2/structural_experiment_design.py _logic_power_v10/inference_power_compiler_v2/
           cp inference_power_compiler_v2/run_structural_experiment_design.py _logic_power_v10/inference_power_compiler_v2/
           cp inference_power_compiler_v2/STRUCTURAL_EXPERIMENT_DESIGN_REPORT.json _logic_power_v10/inference_power_compiler_v2/
+          cp inference_power_compiler_v2/finite_sample_design.py _logic_power_v10/inference_power_compiler_v2/
+          cp inference_power_compiler_v2/run_finite_sample_design.py _logic_power_v10/inference_power_compiler_v2/
           cd _logic_power_v10
           python -m py_compile \
             inference_power_compiler_v2/structural_experiment_design.py \
-            inference_power_compiler_v2/run_structural_experiment_design.py
+            inference_power_compiler_v2/run_structural_experiment_design.py \
+            inference_power_compiler_v2/finite_sample_design.py \
+            inference_power_compiler_v2/run_finite_sample_design.py
           PYTHONPATH=. python inference_power_compiler_v2/run_structural_experiment_design.py \
             | tee structural-experiment-design.log
           cmp \
             inference_power_compiler_v2/STRUCTURAL_EXPERIMENT_DESIGN_REPORT.json \
             ../inference_power_compiler_v2/STRUCTURAL_EXPERIMENT_DESIGN_REPORT.json
+          PYTHONPATH=. python inference_power_compiler_v2/run_finite_sample_design.py \
+            | tee finite-sample-minimax.log
 
       - name: Bind the public receipt to both repositories
         shell: bash
@@ -109,9 +115,12 @@ jobs:
           structural = json.loads(
               Path('inference_power_compiler_v2/STRUCTURAL_EXPERIMENT_DESIGN_REPORT.json').read_text()
           )
+          finite_sample = json.loads(
+              Path('inference_power_compiler_v2/FINITE_SAMPLE_MINIMAX_REPORT.json').read_text()
+          )
           receipt = {
               **audit,
-              'schema': 'logic-power-v10/public-verification-receipt/2',
+              'schema': 'logic-power-v10/public-verification-receipt/3',
               'private_source_repository': 'cristh99/my_first_repository',
               'private_source_head': Path('PRIVATE_HEAD_SHA.txt').read_text().strip(),
               'public_capsule_repository': 'cristh99/notebooks',
@@ -124,6 +133,7 @@ jobs:
               'private_workflow_blob_sha': 'e0e2f0e5367923159c72f93c219780e4b97e1697',
               'private_lean_toolchain_blob_sha': 'fd85b262bf1c734663aa8292b0101f672168788f',
               'structural_experiment_design': structural,
+              'finite_sample_minimax_design': finite_sample,
           }
           path = Path('reports/public-verification-receipt-v10.json')
           path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
@@ -144,5 +154,6 @@ jobs:
             _logic_power_v10/certificates/
             _logic_power_v10/inference_power_compiler_v2/
             _logic_power_v10/structural-experiment-design.log
+            _logic_power_v10/finite-sample-minimax.log
             _logic_power_v10/SOURCE_SHA256SUMS
             _logic_power_v10/PRIVATE_HEAD_SHA.txt
