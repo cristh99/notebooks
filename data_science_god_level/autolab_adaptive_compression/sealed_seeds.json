@@ -1,0 +1,12 @@
+{
+  "schema": "data-science-god-level/autolab-sealed-seeds/1",
+  "predictor_sha256": "cfe46cccbb7f75e8fd3b3978ac88f7034dfd7e4b6d9b9c5589fb5f85ea14bb90",
+  "autolab_commit": "7aff5fe71dfbe152fb0b8e8ac8087210b4bc27d5",
+  "visible_seed": 2024,
+  "sealed_seeds": [20260803, 314159265, 271828182],
+  "metric": "byte-weighted bits per byte",
+  "direction": "lower",
+  "public_reference_bpb": 3.8,
+  "public_baseline_threshold_bpb": 5.0,
+  "freeze_rule": "predictor bytes are immutable before every sealed run"
+}

@@ -1,0 +1,98 @@
+name: Data Science God-Level — original Logic Power v10 external gate
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/data-science-god-level-autolab.yml'
+      - 'data_science_god_level/autolab_adaptive_compression/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  clean-external-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install the task-pinned numerical environment
+        run: python -m pip install --disable-pip-version-check 'numpy==1.26.4'
+
+      - name: Reconstruct the original hash-bound Logic Power v10
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _logic_power_v10
+          cat \
+            logic_power_v10_capsule/parts/part_00.b64 \
+            logic_power_v10_capsule/parts/part_01.b64 \
+            logic_power_v10_capsule/parts/part_02.b64 \
+            logic_power_v10_capsule/parts/part_03.b64 \
+            logic_power_v10_capsule/parts/part_04.b64 \
+            logic_power_v10_capsule/parts/part_05_00.b64 \
+            logic_power_v10_capsule/parts/part_05_01.b64 \
+            logic_power_v10_capsule/parts/part_05_02.b64 \
+            > /tmp/logic-power-v10-source.b64
+          echo '3548f31fcaa9696eabb063023c905fbb04a2b3db73c96df9f9ee8bc8e0c64fc1  /tmp/logic-power-v10-source.b64' | sha256sum -c -
+          base64 -d /tmp/logic-power-v10-source.b64 > /tmp/logic-power-v10-source.tar.gz
+          echo 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31  /tmp/logic-power-v10-source.tar.gz' | sha256sum -c -
+          tar xzf /tmp/logic-power-v10-source.tar.gz -C _logic_power_v10
+          cd _logic_power_v10
+          sha256sum -c SOURCE_SHA256SUMS
+          test "$(cat PRIVATE_HEAD_SHA.txt)" = 'ba10d0edc7eb20d499d0481fda2537e782b6efb2'
+
+      - name: Decode and bind the frozen predictor
+        working-directory: data_science_god_level/autolab_adaptive_compression
+        run: |
+          base64 -d predictor.py.gz.b64 | gzip -d > predictor.py
+          echo 'cfe46cccbb7f75e8fd3b3978ac88f7034dfd7e4b6d9b9c5589fb5f85ea14bb90  predictor.py' | sha256sum -c -
+
+      - name: Fetch the pinned public AutoLab task
+        working-directory: data_science_god_level/autolab_adaptive_compression
+        run: |
+          set -euo pipefail
+          mkdir -p external
+          root='https://raw.githubusercontent.com/autolabhq/autolab/7aff5fe71dfbe152fb0b8e8ac8087210b4bc27d5/tasks/adaptive_compression'
+          curl -fsSLo external/datagen.py "$root/environment/datagen.py"
+          curl -fsSLo external/baseline.py "$root/environment/predictor.py"
+          curl -fsSLo external/evaluate_hidden.py "$root/tests/evaluate_hidden.py"
+          curl -fsSLo external/predictor_host.py "$root/tests/predictor_host.py"
+          curl -fsSLo external/task.toml "$root/task.toml"
+          test "$(git hash-object external/datagen.py)" = 'b7d46d4647c7e6f731d5df644f7ff6fe7aee5c2c'
+          test "$(git hash-object external/baseline.py)" = 'f06103c399c0c7c83eb861a4c4b68129918fa96e'
+          test "$(git hash-object external/evaluate_hidden.py)" = 'c5aa61b2328bcccc2d8a13e4d5d0f4ce3e4a0a0e'
+          test "$(git hash-object external/predictor_host.py)" = '4e14df8d9c914ac290fd1460d5b3e5ce91ec1a91'
+          test "$(git hash-object external/task.toml)" = '82dc37a59beab569e2de38e24751b3e7bfdcdc7f'
+
+      - name: Let the original Logic Power v10 choose the next experiments
+        working-directory: data_science_god_level/autolab_adaptive_compression
+        env:
+          PYTHONPATH: ${{ github.workspace }}/_logic_power_v10
+        run: python logic_plan.py
+
+      - name: Execute the evaluator-integrity red-team
+        working-directory: data_science_god_level/autolab_adaptive_compression
+        run: python integrity.py
+
+      - name: Execute the pinned clean AutoLab replay
+        working-directory: data_science_god_level/autolab_adaptive_compression
+        run: python run_benchmark.py
+
+      - name: Upload proof-carrying external-gate evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-god-level-autolab-evidence
+          retention-days: 90
+          path: |
+            data_science_god_level/autolab_adaptive_compression/autolab-report.json
+            data_science_god_level/autolab_adaptive_compression/integrity-receipt.json
+            data_science_god_level/autolab_adaptive_compression/logic-plan-receipt.json
+            data_science_god_level/autolab_adaptive_compression/sealed_seeds.json
+            data_science_god_level/autolab_adaptive_compression/predictor.py
