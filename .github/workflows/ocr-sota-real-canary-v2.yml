@@ -1,0 +1,50 @@
+name: OCR SOTA real canary v2
+
+on:
+  pull_request:
+    paths:
+      - 'ocr_sota_real_canary_v2/**'
+      - '.github/workflows/ocr-sota-real-canary-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare-open-ocr:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      PADDLE_PDX_MODEL_SOURCE: HUGGINGFACE
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      OMP_NUM_THREADS: '4'
+      MKL_NUM_THREADS: '4'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: ocr_sota_real_canary_v2/requirements.txt
+      - name: Install system OCR
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng libgl1
+      - name: Install pinned engines
+        run: python -m pip install --disable-pip-version-check -r ocr_sota_real_canary_v2/requirements.txt
+      - name: Unit and adversarial tests
+        run: python -m unittest -v ocr_sota_real_canary_v2.test_canary
+      - name: Real annotated-page replay
+        run: python -m ocr_sota_real_canary_v2.run_canary --pages 8 --output-dir ocr_sota_real_canary_v2/run
+      - name: Independent semantic verification
+        run: python -m ocr_sota_real_canary_v2.verify_report ocr_sota_real_canary_v2/run/reports/canary.json
+      - name: Environment manifest
+        run: |
+          python -m pip freeze | LC_ALL=C sort > ocr_sota_real_canary_v2/run/reports/pip-freeze.txt
+          tesseract --version > ocr_sota_real_canary_v2/run/reports/tesseract-version.txt
+          sha256sum ocr_sota_real_canary_v2/run/reports/* > ocr_sota_real_canary_v2/run/reports/SHA256SUMS.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-sota-real-canary-v2
+          path: ocr_sota_real_canary_v2/run/reports
+          retention-days: 30
