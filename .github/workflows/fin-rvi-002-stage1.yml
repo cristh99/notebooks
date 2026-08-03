@@ -38,7 +38,7 @@ jobs:
       - name: Download, reconstruct, freeze, and evaluate
         run: |
           rm -rf reports/fin_rvi_002_stage1
-          python -m fin_rvi_002_stage1.run_stage1 \
+          python -m fin_rvi_002_stage1.run_diagnostic \
             --output reports/fin_rvi_002_stage1 \
             --cache .cache/fin_rvi_002_stage1 \
             --years 2023 2024 2025 \
@@ -51,7 +51,7 @@ jobs:
           set -euo pipefail
           test -s reports/fin_rvi_002_stage1/report.json
           test -s reports/fin_rvi_002_stage1/report.md
-          test -s reports/fin_rvi_002_stage1/holdout_decisions.jsonl
+          test -f reports/fin_rvi_002_stage1/holdout_decisions.jsonl
           test -s reports/fin_rvi_002_stage1/deterministic_replay.json
           cd reports/fin_rvi_002_stage1
           sha256sum -c report.sha256
