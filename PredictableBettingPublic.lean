@@ -1,4 +1,4 @@
-import Std.Tactic.Omega
+import Lean.Elab.Tactic.Omega
 
 /-!
 # Public formal boundary for predictable posterior betting
