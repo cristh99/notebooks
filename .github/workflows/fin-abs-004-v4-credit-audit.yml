@@ -82,7 +82,11 @@ jobs:
           Path('/tmp/fin_abs_004_forged_score.json').write_text(json.dumps(score))
 
           status = json.loads(json.dumps(report))
-          status['payload']['status'] = 'PASS_DATA_AUDIT'
+          status['payload']['status'] = (
+              'BLOCKED_DATA_AUDIT'
+              if report['payload']['status'] == 'PASS_DATA_AUDIT'
+              else 'PASS_DATA_AUDIT'
+          )
           status['sha256'] = digest(status['payload'])
           Path('/tmp/fin_abs_004_forged_status.json').write_text(json.dumps(status))
           PY
