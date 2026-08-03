@@ -38,3 +38,5 @@ This canary determines the next move:
 - if gains cluster by page type, route selectively;
 - if both fail on the same residual class, create a sealed Honduran holdout and only then consider adaptation;
 - no SOTA claim is allowed from this canary alone.
+
+The workflow is intentionally bounded: it downloads no corpus beyond the selected pages and leaves production OCR untouched.
