@@ -55,7 +55,7 @@ jobs:
       - name: Fresh official reconstruction and third cohort
         run: |
           rm -rf reports/fin_rvi_002_stage6 .cache/fin_rvi_002_stage6
-          python -m fin_rvi_002_stage6.run_stage6 \
+          python -m fin_rvi_002_stage6.run_stage6_fixed \
             --output reports/fin_rvi_002_stage6 \
             --cache .cache/fin_rvi_002_stage6 \
             --years 2023 2024 2025 \
