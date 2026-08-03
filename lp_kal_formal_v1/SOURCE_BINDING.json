@@ -2,7 +2,7 @@
   "schema": "logic-power-knowledge-action-loop/formal-source-binding/1",
   "private_repository": "cristh99/my_first_repository",
   "private_branch": "agent/logic-power-knowledge-action-loop-v1",
-  "private_head": "fa340227cdfa30c4cdcbe78a3249b9a47ef3ec51",
+  "private_head": "8a2392ee4f1bca25dec9380830a8a11cf07a95f9",
   "private_pull_request": 90,
   "private_issue": 89,
   "tla_private_path": "tla_lp_kal_v1/KnowledgeActionLoop.tla",
