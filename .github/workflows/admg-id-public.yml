@@ -39,7 +39,7 @@ jobs:
           test -s inference_power_compiler_v2/ADMG_ID_PUBLIC_REPORT.json
           test -s inference_power_compiler_v2/ADMG_ID_PUBLIC_CERTIFICATE.json
 
-      - name: Reconstruct the hash-bound Mathlib project
+      - name: Reconstruct hash-bound Logic Power v10 provenance
         shell: bash
         run: |
           set -euo pipefail
@@ -69,10 +69,9 @@ jobs:
           cd _admg_id_lean
           sha256sum -c SOURCE_SHA256SUMS
           test "$(cat PRIVATE_HEAD_SHA.txt)" = 'ba10d0edc7eb20d499d0481fda2537e782b6efb2'
-          printf '%s\n' 'leanprover/lean4:v4.33.0-rc1' > lean-toolchain
           cp ../FiniteCausalID.lean .
 
-      - name: Compile causal ID boundary in Lean
+      - name: Compile causal ID boundary in pinned Lean
         shell: bash
         working-directory: _admg_id_lean
         run: |
@@ -81,8 +80,8 @@ jobs:
             | sh -s -- -y --default-toolchain none
           export PATH="$HOME/.elan/bin:$PATH"
           elan toolchain install leanprover/lean4:v4.33.0-rc1
-          lake update
-          lake env lean -o FiniteCausalID.olean FiniteCausalID.lean \
+          elan run leanprover/lean4:v4.33.0-rc1 lean \
+            -o FiniteCausalID.olean FiniteCausalID.lean \
             2>&1 | tee finite-causal-id-lean.log
           test -s FiniteCausalID.olean
           if grep -q 'sorryAx' finite-causal-id-lean.log; then
@@ -107,10 +106,12 @@ jobs:
           certificate = Path('inference_power_compiler_v2/ADMG_ID_PUBLIC_CERTIFICATE.json')
           lean = Path('FiniteCausalID.lean')
           receipt = {
-              'schema': 'admg-id-public-verification-receipt/1',
+              'schema': 'admg-id-public-verification-receipt/2',
               'repository': 'cristh99/notebooks',
               'head': os.environ['PUBLIC_HEAD_SHA'],
               'event_sha': os.environ['PUBLIC_EVENT_SHA'],
+              'logic_power_v10_head': 'ba10d0edc7eb20d499d0481fda2537e782b6efb2',
+              'logic_power_v10_source_archive_sha256': 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31',
               'report_sha256': hashlib.sha256(report.read_bytes()).hexdigest(),
               'certificate_sha256': hashlib.sha256(certificate.read_bytes()).hexdigest(),
               'lean_source_sha256': hashlib.sha256(lean.read_bytes()).hexdigest(),
@@ -146,5 +147,7 @@ jobs:
             _admg_id_lean/FiniteCausalID.lean
             _admg_id_lean/FiniteCausalID.olean
             _admg_id_lean/finite-causal-id-lean.log
+            _admg_id_lean/SOURCE_SHA256SUMS
+            _admg_id_lean/PRIVATE_HEAD_SHA.txt
           if-no-files-found: error
           retention-days: 90
