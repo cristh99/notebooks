@@ -1,0 +1,72 @@
+name: Nested learner compiler public independent verification
+
+on:
+  push:
+    branches:
+      - agent/inference-power-compiler-v2-public-ci
+    paths:
+      - 'inference_power_compiler_v2/verify_nested_learner_independent.py'
+      - 'NestedLearnerFinite.lean'
+      - '.github/workflows/nested-learner-public.yml'
+  pull_request:
+    paths:
+      - 'inference_power_compiler_v2/verify_nested_learner_independent.py'
+      - 'NestedLearnerFinite.lean'
+      - '.github/workflows/nested-learner-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Bind private source and compile verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(grep -c '31f1f011cc5b93c29bb6444fc1fac5f1b6e5205a' inference_power_compiler_v2/verify_nested_learner_independent.py)" = "1"
+          python -m py_compile inference_power_compiler_v2/verify_nested_learner_independent.py
+      - name: Verify nested selection, refit and AIPW independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd inference_power_compiler_v2
+          python verify_nested_learner_independent.py | tee ../nested-learner-public.log
+          test -s NESTED_LEARNER_PUBLIC_RECEIPT.json
+      - name: Install pinned Lean
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+          "$HOME/.elan/bin/elan" toolchain install leanprover/lean4:v4.33.0-rc1
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Compile Lean boundary without sorryAx
+        shell: bash
+        run: |
+          set -euo pipefail
+          elan run leanprover/lean4:v4.33.0-rc1 lean -o NestedLearnerFinite.olean NestedLearnerFinite.lean 2>&1 | tee nested-learner-public-lean.log
+          test -s NestedLearnerFinite.olean
+          if grep -q 'sorryAx' nested-learner-public-lean.log; then
+            echo 'Lean output contains sorryAx' >&2
+            exit 1
+          fi
+      - name: Upload proof-carrying evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: nested-learner-public-evidence
+          path: |
+            inference_power_compiler_v2/NESTED_LEARNER_PUBLIC_RECEIPT.json
+            inference_power_compiler_v2/verify_nested_learner_independent.py
+            NestedLearnerFinite.lean
+            NestedLearnerFinite.olean
+            nested-learner-public.log
+            nested-learner-public-lean.log
+          if-no-files-found: error
+          retention-days: 30
