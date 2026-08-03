@@ -44,7 +44,7 @@ jobs:
       - name: Reconstruct official data and freeze 120-row cohort
         run: |
           rm -rf reports/fin_rvi_002_stage3 .cache/fin_rvi_002_stage3
-          python -m fin_rvi_002_stage3.run_stage3 \
+          python -m fin_rvi_002_stage3.run_stage3_parallel \
             --output reports/fin_rvi_002_stage3 \
             --cache .cache/fin_rvi_002_stage3 \
             --years 2023 2024 2025 \
