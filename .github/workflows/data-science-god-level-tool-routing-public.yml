@@ -54,7 +54,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p router-task /app public-logs
+          mkdir -p router-task public-logs
+          sudo mkdir -p /app
           root='https://raw.githubusercontent.com/autolabhq/autolab/7aff5fe71dfbe152fb0b8e8ac8087210b4bc27d5/tasks/agent_tool_routing'
           curl -fsSLo router-task/main.py "$root/environment/main.py"
           curl -fsSLo router-task/verify_and_benchmark.py "$root/tests/verify_and_benchmark.py"
@@ -62,8 +63,8 @@ jobs:
           test "$(git hash-object router-task/main.py)" = 'd53b7d089ad861b8201b13d10cac1d3b3ae7b3f4'
           test "$(git hash-object router-task/verify_and_benchmark.py)" = '9a33c31e6fe8439f2566ae3a918df5a0561e43be'
           test "$(git hash-object router-task/task.toml)" = '08629d042bcf345c55cbf1a5fdae368849e0f7e0'
-          cp router-task/main.py /app/main.py
-          cp data_science_god_level/tool_routing/retriever.py /app/retriever.py
+          sudo cp router-task/main.py /app/main.py
+          sudo cp data_science_god_level/tool_routing/retriever.py /app/retriever.py
 
       - name: Run the public driver
         run: python /app/main.py | tee public-logs/public-driver.txt
