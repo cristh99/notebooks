@@ -1,18 +1,2398 @@
 {
-  "holdout_decisions": [],
+  "holdout_decisions": [
+    {
+      "absolute_days": 266,
+      "amount_oncae": 11449183.58,
+      "amount_sefin": 9158922.0,
+      "baseline_decision": "PROMOTE_CONTRACTOR_PAYMENT",
+      "candidate_id": "62890e776dc8c1b49b6f233dce2476d79f6866f3266a9e431be4de2c22556b9b",
+      "candidates_for_oncae": 2,
+      "candidates_for_sefin": 1,
+      "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
+      "document_acquisition": {
+        "bytes": 66728,
+        "content_type": "application/pdf",
+        "sha256": "4623ab27491fe6f3a4a627074f913094995504446a8f769f0f1f7eece8b0f229",
+        "status": "ACQUIRED",
+        "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-063-2024102-AvisodePrensa.pdf"
+      },
+      "evidence_policy_decision": "PROMOTE_SUPPORTED",
+      "holdout_order_key": "00919a4976c04362f74b8c1c0c6244db19a7b46de3081062d639a23711a03fd3",
+      "holdout_stratum": "WITHIN_CODE_AMBIGUITY",
+      "identity_basis": "BUYER_ALIAS_CODE",
+      "linkage_rule": "CANONICAL_BUYER_ALIAS_AND_SHARED_CODE",
+      "linkage_status": "AMBIGUOUS",
+      "object_adjudication": {
+        "decision": "SUPPORTED",
+        "jaccard": 0.255319,
+        "left_categories": [
+          "CONSTRUCTION",
+          "PUBLICATION",
+          "TOOLS"
+        ],
+        "left_token_count": 36,
+        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "right_categories": [
+          "CONSTRUCTION",
+          "TOOLS"
+        ],
+        "right_token_count": 23,
+        "shared_classifications": [],
+        "shared_supplier_names": [
+          "INGEDEM CONSTRUCTORES"
+        ],
+        "shared_supplier_numeric_ids": [
+          "08019017953271"
+        ],
+        "shared_tokens": [
+          "ALCANTARILLA",
+          "CARRIZAL",
+          "CONSTRUCCION",
+          "DESVIO",
+          "DIAMETRO",
+          "EMERGENCIAS",
+          "ESQUIPULAS",
+          "NORTE",
+          "REHABILITACION",
+          "RUTA",
+          "TRAMO",
+          "UNION"
+        ],
+        "supplier_identity_supported": true
+      },
+      "ocid_oncae": "ocds-lcuori-wrVe9R-CDE-SIT-063-2024-2",
+      "ocid_sefin": "ocds-lcuori-P2025-411-1-5107",
+      "oncae_documents": [
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-063-2024102-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Pliego o Terminos de Referencia",
+          "documentType": "biddingDocuments",
+          "title": "Pliego o Terminos de Referencia",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-063-2024200-PliegooTerminosdeReferencia.docx"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-063-2024603-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-063-20241401-AnexosalPliego.pdf"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-063-2024804-ResoluciondelaAdjudicacion.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1211SIT-CO-467-20241200-ContratouOrdendeCompra.pdf"
+        }
+      ],
+      "oncae_object_text": "CDE-SIT-063-2024 | CDE-SIT-063-2024 REHABILITACIÓN POR EMERGENCIAS 2024,\r\nCONSTRUCCIÓN DE ALCANTARILLA DE 48\" DE DIÁMETRO EN EL KILÓMETRO 35 DEL TRAMO: RUTA 41, LA UNIÓN - EL CARRIZAL Y REHABILITACIÓN DEL TRAMO: RUTA 41, EL CARRIZAL - DESVIO A ESQUIPULAS DEL NORTE | Aviso de Prensa | tenderNotice | Pliego o Terminos de Referencia | biddingDocuments | Acta de Recepcion y Apertura de Ofertas | recordOpeningTendersReceived | Anexos al Pliego | solicitationDocumentAnnexe | Ver Pliego | Mantenimiento y reparación de carreteras o estacionamientos | Resolucion de la Adjudicacion | awardNotice | SIT-CO-467-2024 | Contrato u Orden de Compra | contractSigned",
+      "oncae_release_pk": 106702,
+      "relative_amount_difference": 0.20003711,
+      "sefin_documents": [],
+      "sefin_object_text": "PAGO ESTIMACION UNICA DEL PERIODO 17/1 AL 15/2/2025 SEGUN FACTURA 000-001-01-00000524 DEL CONTRATO SIT-CO-467-2024 REHABILITACION POR EMERGENCIAS 2024 CONSTRUCCION DE ALCANTARILLA DE 48 DE DIAMETRO EN EL LILOMETRO 35 DEL TRAMO RUTA 41 LA UNION - EL CARRIZAL Y REHABILITACION DEL TRAMO: RUTA 41 EL CARRIZAL - DESVIO A ESQUIPULAS DEL NORTE | RESERVA DE PAGO DEL CONTRATO SIT-CO-467-2024 REHABILITACION POR EMERGENCIAS 2024 CONSTRUCCION DE ALCANTARILLA DE 48 DE DIAMETRO EN EL LILOMETRO 35 DEL TRAMO RUTA 41 LA UNION - EL CARRIZAL Y REHABILITACION DEL TRAMO: RUTA 41 EL CARRIZAL - DESVIO A ESQUIPULAS DEL NORTE",
+      "sefin_release_pk": 250147,
+      "sefin_year": 2025,
+      "shared_code": "CODE:SIT-CO-467-2024",
+      "source_year": 2024
+    },
+    {
+      "absolute_days": 292,
+      "amount_oncae": 957705.63,
+      "amount_sefin": 294978.0,
+      "baseline_decision": "PROMOTE_CONTRACTOR_PAYMENT",
+      "candidate_id": "65ada80fdf15236bf1dcce760baf1e91ea604ce5b2a5de72f5160d3a489466e0",
+      "candidates_for_oncae": 1,
+      "candidates_for_sefin": 1,
+      "cardinality_type": "ONE_TO_ONE",
+      "document_acquisition": {
+        "bytes": 484902,
+        "content_type": "application/pdf",
+        "sha256": "970da666ec1a1c6789ce1a15a364c6fe8bd863093e2f8cabfdeb9806c13bfdb6",
+        "status": "ACQUIRED",
+        "url": "http://h1.honducompras.gob.hn/Docs/Lic1230CPN-SIT-042-2023100-AvisodePrensa.pdf"
+      },
+      "evidence_policy_decision": "PROMOTE_SUPPORTED",
+      "holdout_order_key": "06705bbc69785aa4c4991f68b7d3e2f779093823ca7915c2376cbafa4408642c",
+      "holdout_stratum": "BREADTH_FIRST_PER_CODE",
+      "identity_basis": "BUYER_ALIAS_CODE",
+      "linkage_rule": "CANONICAL_BUYER_ALIAS_AND_SHARED_CODE",
+      "linkage_status": "STRICT_1_TO_1",
+      "object_adjudication": {
+        "decision": "SUPPORTED",
+        "jaccard": 0.2,
+        "left_categories": [
+          "CONSTRUCTION",
+          "PUBLICATION"
+        ],
+        "left_token_count": 32,
+        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "right_categories": [
+          "CONSTRUCTION",
+          "CONSULTING"
+        ],
+        "right_token_count": 34,
+        "shared_classifications": [],
+        "shared_supplier_names": [],
+        "shared_supplier_numeric_ids": [
+          "08019014659094"
+        ],
+        "shared_tokens": [
+          "BUFALO",
+          "CAMINOS",
+          "CRIQUE",
+          "DOS",
+          "MANTENIMIENTO",
+          "MARANON",
+          "MILAGRO",
+          "PAVIMENTADA",
+          "RED",
+          "RUTA",
+          "TRAMO"
+        ],
+        "supplier_identity_supported": true
+      },
+      "ocid_oncae": "ocds-lcuori-gRNWvr-CPN-SIT-042-2023-2",
+      "ocid_sefin": "ocds-lcuori-P2024-411-1-991",
+      "oncae_documents": [
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1230CPN-SIT-042-2023100-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Pliego o Terminos de Referencia",
+          "documentType": "biddingDocuments",
+          "title": "Pliego o Terminos de Referencia",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1230CPN-SIT-042-2023201-PliegooTerminosdeReferencia.pdf"
+        },
+        {
+          "description": "Aclaratoria",
+          "documentType": "clarifications",
+          "title": "Aclaratoria",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1230CPN-SIT-042-2023502-Aclaratoria.pdf"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1230CPN-SIT-042-2023603-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1230CPN-SIT-042-2023804-ResoluciondelaAdjudicacion.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1230SIT-SU-028-20231200-ContratouOrdendeCompra.pdf"
+        }
+      ],
+      "oncae_object_text": "CPN-SIT-042-2023 | “Supervisión para el Mantenimiento de la Red Vial  Pavimentada Tramo: Ruta 96, Bufalo - El Marañon Ruta 100, Dos Caminos - El Milagro - El Crique, Honduras C.A.” | Aviso de Prensa | tenderNotice | Pliego o Terminos de Referencia | biddingDocuments | Aclaratoria | clarifications | Acta de Recepcion y Apertura de Ofertas | recordOpeningTendersReceived | Ver Pliego | Supervisión de proyectos, obras y construcción. | Resolucion de la Adjudicacion | awardNotice | SIT-SU-028-2023 | Contrato u Orden de Compra | contractSigned",
+      "oncae_release_pk": 10910,
+      "relative_amount_difference": 0.69199513,
+      "sefin_documents": [],
+      "sefin_object_text": "Reversión por Cierre -  Gestion :2024 Institución :411 GA :1 F-01: 991-1-0 - RESERVA DE CREDITO PARCIAL CONTRATO DE SERVICIOS DE SUPERVISION SIT-SU-028-2023 SUPERVISION PARA EL MANTENIMIENTO DE LA RED VIAL PAVIMENTADA  TRAMO: RUTA 96 BUFALO - EL MARAÑON RUTA 100 DOS CAMINOS - EL MILAGRO - EL CRIQUE HONDURAS C.A. Y MODIFICACION No.1 SUSCRITA EL 22 DE NOVIEBRE DE 2023. | RESERVA DE CREDITO PARCIAL CONTRATO DE SERVICIOS DE SUPERVISION SIT-SU-028-2023 SUPERVISION PARA EL MANTENIMIENTO DE LA RED VIAL PAVIMENTADA  TRAMO: RUTA 96 BUFALO - EL MARAÑON RUTA 100 DOS CAMINOS - EL MILAGRO - EL CRIQUE HONDURAS C.A. Y MODIFICACION No.1 SUSCRITA EL 22 DE NOVIEBRE DE 2023. | Se crea un F07 con ID: F07-C2024-411-1-991-1-2 de tipo REVERSIÓN el cual afecta el F01 con ID:F01-C2024-411-1-991-1-0",
+      "sefin_release_pk": 138922,
+      "sefin_year": 2024,
+      "shared_code": "CODE:SIT-SU-028-2023",
+      "source_year": 2023
+    },
+    {
+      "absolute_days": 269,
+      "amount_oncae": 14955347.64,
+      "amount_sefin": 116515.0,
+      "baseline_decision": "PROMOTE_CONTRACTOR_PAYMENT",
+      "candidate_id": "e7d0cb7acdb4ea9a374ab86b192cfe6514bdc7cd694314b1d53eeb3e930aa854",
+      "candidates_for_oncae": 5,
+      "candidates_for_sefin": 1,
+      "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
+      "document_acquisition": {
+        "bytes": 563436,
+        "content_type": "application/pdf",
+        "sha256": "cc51a24b7b1bf788ec28de557f322533ef5d1b82b109f62811ebe8857a795528",
+        "status": "ACQUIRED",
+        "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-102-2024102-AvisodePrensa.pdf"
+      },
+      "evidence_policy_decision": "PROMOTE_SUPPORTED",
+      "holdout_order_key": "07656412dee8d36dc5fc7b2d3a809e5f45e3dac36492baf7c406766ddbf66840",
+      "holdout_stratum": "WITHIN_CODE_AMBIGUITY",
+      "identity_basis": "BUYER_ALIAS_CODE",
+      "linkage_rule": "CANONICAL_BUYER_ALIAS_AND_SHARED_CODE",
+      "linkage_status": "AMBIGUOUS",
+      "object_adjudication": {
+        "decision": "SUPPORTED",
+        "jaccard": 0.196078,
+        "left_categories": [
+          "CONSTRUCTION",
+          "PUBLICATION"
+        ],
+        "left_token_count": 33,
+        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "right_categories": [
+          "CONSTRUCTION",
+          "TOOLS"
+        ],
+        "right_token_count": 28,
+        "shared_classifications": [],
+        "shared_supplier_names": [
+          "CONSTRUCTORA RAMIREZ A C V"
+        ],
+        "shared_supplier_numeric_ids": [
+          "05019002067340"
+        ],
+        "shared_tokens": [
+          "ATENCION",
+          "DEPARTAMENTO",
+          "EMERGENCIA",
+          "KM",
+          "LODOSA",
+          "LONGITUD",
+          "PARAISO",
+          "RUTA",
+          "SELVAS",
+          "TRAMO"
+        ],
+        "supplier_identity_supported": true
+      },
+      "ocid_oncae": "ocds-lcuori-wrVe9R-CDE-SIT-102-2024-2",
+      "ocid_sefin": "ocds-lcuori-P2025-411-1-5150",
+      "oncae_documents": [
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-102-2024102-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Pliego o Terminos de Referencia",
+          "documentType": "biddingDocuments",
+          "title": "Pliego o Terminos de Referencia",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-102-2024200-PliegooTerminosdeReferencia.docx"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-102-2024603-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-102-20241401-AnexosalPliego.docx"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-102-2024804-ResoluciondelaAdjudicacion.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1211SIT-CO-497-20241200-ContratouOrdendeCompra.pdf"
+        }
+      ],
+      "oncae_object_text": "CDE-SIT-102-2024 | CDE-SIT-102-2024 \"ATENCION A EMERGENCIA TRAMO: RUTA 121, RUTA 123 - LAS SELVAS, RUTA 121, LAS SELVAS- LA LODOSA, DEPARTAMENTO DE EL PARAISO, LONGITUD: 33.00 KM\" | Aviso de Prensa | tenderNotice | Pliego o Terminos de Referencia | biddingDocuments | Acta de Recepcion y Apertura de Ofertas | recordOpeningTendersReceived | Anexos al Pliego | solicitationDocumentAnnexe | Ver Pliego | Mantenimiento y reparación de carreteras o estacionamientos | Resolucion de la Adjudicacion | awardNotice | SIT-CO-497-2024 | Contrato u Orden de Compra | contractSigned",
+      "oncae_release_pk": 106737,
+      "relative_amount_difference": 0.99220914,
+      "sefin_documents": [],
+      "sefin_object_text": "Reversión por Cierre -  Gestion :2025 Institución :411 GA :1 F-01: 5150-1-0 - RESERVA DE CRÉDITO DEL CONTRATO DE CONSTRUCCIÓN N°SIT-CO-497-2024 ATENCION A EMERGENCIA TRAMO: RUTA 121 RUTA 123 - LA SELVAS RUTA 121 LA SELVAS - LA LODOSA DEPARTAMENTO DEL PARAISO LONGITUD 33.00 KM. | RESERVA DE CRÉDITO DEL CONTRATO DE CONSTRUCCIÓN N°SIT-CO-497-2024 ATENCION A EMERGENCIA TRAMO: RUTA 121 RUTA 123 - LA SELVAS RUTA 121 LA SELVAS - LA LODOSA DEPARTAMENTO DEL PARAISO LONGITUD 33.00 KM. | Se crea un F07 con ID: F07-C2025-411-1-5150-1-1 de tipo REVERSIÓN el cual afecta el F01 con ID:F01-C2025-411-1-5150-1-0",
+      "sefin_release_pk": 250179,
+      "sefin_year": 2025,
+      "shared_code": "CODE:SIT-CO-497-2024",
+      "source_year": 2024
+    },
+    {
+      "absolute_days": 269,
+      "amount_oncae": 5059290.03,
+      "amount_sefin": 1166656.0,
+      "baseline_decision": "PROMOTE_CONTRACTOR_PAYMENT",
+      "candidate_id": "8adc18dbb28feba623b9eb169bcdcbcb2ca8d7b54b690b77d8ed66b8b81a14c0",
+      "candidates_for_oncae": 3,
+      "candidates_for_sefin": 1,
+      "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
+      "document_acquisition": {
+        "bytes": 652667,
+        "content_type": "application/pdf",
+        "sha256": "2b6031f69ba9bc4640cd5fcd0b390dd6fa95b84b9ad1d0cb4d5e1ad3f2253a08",
+        "status": "ACQUIRED",
+        "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-002-2024102-AvisodePrensa.pdf"
+      },
+      "evidence_policy_decision": "PROMOTE_SUPPORTED",
+      "holdout_order_key": "0a2fbd46388c4d22718cded2bc08db313e5d5a5cd368ca27d72b39c63be2decf",
+      "holdout_stratum": "WITHIN_CODE_AMBIGUITY",
+      "identity_basis": "BUYER_ALIAS_CODE",
+      "linkage_rule": "CANONICAL_BUYER_ALIAS_AND_SHARED_CODE",
+      "linkage_status": "AMBIGUOUS",
+      "object_adjudication": {
+        "decision": "SUPPORTED",
+        "jaccard": 0.176471,
+        "left_categories": [
+          "CONSTRUCTION",
+          "PUBLICATION"
+        ],
+        "left_token_count": 35,
+        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "right_categories": [
+          "CONSTRUCTION",
+          "TOOLS"
+        ],
+        "right_token_count": 25,
+        "shared_classifications": [],
+        "shared_supplier_names": [
+          "CONSTRUCTORA FERNANDEZ SUAZO C V"
+        ],
+        "shared_supplier_numeric_ids": [
+          "08019002022227"
+        ],
+        "shared_tokens": [
+          "CAMASCA",
+          "COLOMONCAGUA",
+          "NO",
+          "PAVIMENTADA",
+          "RED",
+          "REPARACION",
+          "RUTA",
+          "TRAMO",
+          "VIAL"
+        ],
+        "supplier_identity_supported": true
+      },
+      "ocid_oncae": "ocds-lcuori-wrVe9R-CDE-SIT-002-2024-2",
+      "ocid_sefin": "ocds-lcuori-P2025-411-1-5121",
+      "oncae_documents": [
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-002-2024102-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Pliego o Terminos de Referencia",
+          "documentType": "biddingDocuments",
+          "title": "Pliego o Terminos de Referencia",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-002-2024200-PliegooTerminosdeReferencia.doc"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-002-2024603-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-002-20241401-AnexosalPliego.xlsx"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-002-2024804-ResoluciondelaAdjudicacion.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1211SIT-CO-429-20241200-ContratouOrdendeCompra.pdf"
+        }
+      ],
+      "oncae_object_text": "CDE-SIT-002-2024 | CDE-SIT-002-2024 PROYECTO DE EMERGENCIA PARA LA REPARACIÓN DE LA RED VIAL NO PAVIMENTADA EN EL TRAMO RUTA 120, RUTA S-118 -COLOMONCAGUA, MUNICIPIOS DE CAMASCA Y COLOMONCAGUA, DEPARTAMENTO DEINTIBUCA. | Aviso de Prensa | tenderNotice | Pliego o Terminos de Referencia | biddingDocuments | Acta de Recepcion y Apertura de Ofertas | recordOpeningTendersReceived | Anexos al Pliego | solicitationDocumentAnnexe | Ver Pliego | Mantenimiento y reparación de carreteras o estacionamientos | Resolucion de la Adjudicacion | awardNotice | SIT-CO-429-2024 | Contrato u Orden de Compra | contractSigned",
+      "oncae_release_pk": 106647,
+      "relative_amount_difference": 0.76940322,
+      "sefin_documents": [],
+      "sefin_object_text": "PAGO COMPLEMENTARIO DE ESTIMACIÓN ÚNICA SEGÚN FACTURA N°000-001-01-00000624 DEL CONTRATO DE CONSTRUCCIÓN N°SIT-CO-429-2024 REPARACION DE LA RED VIAL NO PAVIMENTADA EN EL TRAMO  RUTA 120 RUTA S118 - COLOMONCAGUA MUNICIPIO DE CAMASCA  Y COLOMONCAGUA DEPARTAMENTODE INTIBUCA | RESERVA DE CRÉDITO DEL CONTRATO DE CONSTRUCCIÓN N°SIT-CO-429-2024 REPARACION DE LA RED VIAL NO PAVIMENTADA EN EL TRAMO  RUTA 120 RUTA S118 - COLOMONCAGUA MUNICIPIO DE CAMASCA  Y COLOMONCAGUA DEPARTAMENTODE INTIBUCA",
+      "sefin_release_pk": 250155,
+      "sefin_year": 2025,
+      "shared_code": "CODE:SIT-CO-429-2024",
+      "source_year": 2024
+    },
+    {
+      "absolute_days": 81,
+      "amount_oncae": 23242706.89,
+      "amount_sefin": 4042209.0,
+      "baseline_decision": "PROMOTE_CONTRACTOR_PAYMENT",
+      "candidate_id": "a6279ff67e3e52b4d1da094dfe4a64697cab7c39598dd49238ace5f221aff6dc",
+      "candidates_for_oncae": 3,
+      "candidates_for_sefin": 1,
+      "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
+      "document_acquisition": {
+        "bytes": 200018,
+        "content_type": "image/jpeg",
+        "sha256": "e2a083ba81cdcef854ef7bf9f1d25dd6ed53ddf2208c1a2f2347c3402c2d9a76",
+        "status": "ACQUIRED",
+        "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-052-2024100-AvisodePrensa.jpg"
+      },
+      "evidence_policy_decision": "PROMOTE_SUPPORTED",
+      "holdout_order_key": "0bb7638c8da1e5b3933a2e3c59e71e42f8b85ab5bef26d05481cfd3f448ec6b0",
+      "holdout_stratum": "WITHIN_CODE_AMBIGUITY",
+      "identity_basis": "BUYER_ALIAS_CODE",
+      "linkage_rule": "CANONICAL_BUYER_ALIAS_AND_SHARED_CODE",
+      "linkage_status": "AMBIGUOUS",
+      "object_adjudication": {
+        "decision": "SUPPORTED",
+        "jaccard": 0.537313,
+        "left_categories": [
+          "CONSTRUCTION",
+          "PUBLICATION",
+          "TOOLS"
+        ],
+        "left_token_count": 60,
+        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "right_categories": [
+          "CONSTRUCTION",
+          "TOOLS"
+        ],
+        "right_token_count": 43,
+        "shared_classifications": [],
+        "shared_supplier_names": [
+          "EMPRESA OBRAS CONSTRUCCION CV"
+        ],
+        "shared_supplier_numeric_ids": [
+          "08019013587149"
+        ],
+        "shared_tokens": [
+          "BANCO",
+          "BLANCO",
+          "BURRO",
+          "CALICANTO",
+          "CANAL",
+          "CARIDAD",
+          "CONCEPCION",
+          "CONCHAL",
+          "CONCHAS",
+          "DEPARTAMENTO",
+          "DESVIO",
+          "GUATALES",
+          "KM",
+          "LONG",
+          "MANTENIMIENTO",
+          "MARIA",
+          "MARIAS",
+          "MATERIAL",
+          "NO",
+          "OLIVAS",
+          "PAPALON",
+          "PAVIMENTADA",
+          "PENA",
+          "RED",
+          "RINCON",
+          "RITA",
+          "SANTA",
+          "SECO",
+          "SONORA",
+          "TABLON",
+          "TERRERO",
+          "TRAMO",
+          "TRANSITO",
+          "V221",
+          "VALLE",
+          "VIAL"
+        ],
+        "supplier_identity_supported": true
+      },
+      "ocid_oncae": "ocds-lcuori-wrVe9R-LPN-SIT-052-2024-2",
+      "ocid_sefin": "ocds-lcuori-P2024-411-1-7965",
+      "oncae_documents": [
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-052-2024100-AvisodePrensa.jpg"
+        },
+        {
+          "description": "Pliego o Terminos de Referencia",
+          "documentType": "biddingDocuments",
+          "title": "Pliego o Terminos de Referencia",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-052-2024201-PliegooTerminosdeReferencia.docx"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-052-2024603-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-052-20241402-AnexosalPliego.docx"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-052-2024804-ResoluciondelaAdjudicacion.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1211SIT-CO-261-20241200-ContratouOrdendeCompra.pdf"
+        }
+      ],
+      "oncae_object_text": "LPN-SIT-052-2024 | LPN-SIT-052-2024-“MANTENIMIENTO DE LA RED VIAL NO PAVIMENTADA, TRAMO: EL PAPALÓN - LAS CONCHAS - V221, 0 EL PEDRERITO - EL PAPALÓN - RINCÓN DEL BURRO, SANTA RITA - LA PEÑA, DESVÍO EL TRÁNSITO - TERRERO BLANCO - LAS MARÍAS, CONCEPCIÓN DE MARÍA - LA OLIVAS - BANCO DE MATERIAL, CA-2 (CANAL SECO) - EL TABLÓN - CARIDAD, SONORA - LOS GUATALES - CALICANTO, CALICANTO - EL CONCHAL - SONORA, DEPARTAMENTO DE VALLE, LONG: 45.61 KM.” | Aviso de Prensa | tenderNotice | Pliego o Terminos de Referencia | biddingDocuments | Acta de Recepcion y Apertura de Ofertas | recordOpeningTendersReceived | Anexos al Pliego | solicitationDocumentAnnexe | Ver Pliego | Mantenimiento y reparación de carreteras o estacionamientos | Resolucion de la Adjudicacion | awardNotice | SIT-CO-261-2024 | Contrato u Orden de Compra | contractSigned",
+      "oncae_release_pk": 107034,
+      "relative_amount_difference": 0.82608699,
+      "sefin_documents": [],
+      "sefin_object_text": "PAGO DE ANTICIPO  DEL CONTRATO DE  CONSTRUCCION NO. SIT-CO-261-2024 MANTENIMIENTO DE LA RED VIAL NO PAVIMENTADA TRAMO: EL PAPALON-LAS CONCHAS-V221 0 EL PEDREDRITO-EL PAPALON-RINCON DEL BURRO SANTA RITA-LA PEÑA DESVIO EL TRANSITO-TERRERO BLANCO-LAS MARIAS CONCEPCION DE MARIA-LA OLIVAS-BANCO MATERIAL CA2 (CANAL SECO)-EL TABLON-CARIDAD SONORA-LOS GUATALES-CALICANTO CALICANTO-EL CONCHAL-SONORA-DEPARTAMENTO DE VALLE LONG: 45.61 KM | RESERVA DE CREDITO  DEL CONTRATO DE  CONSTRUCCION NO. SIT-CO-261-2024 MANTENIMIENTO DE LA RED VIAL NO PAVIMENTADA TRAMO: EL PAPALON-LAS CONCHAS-V221 0 EL PEDREDRITO-EL PAPALON-RINCON DEL BURRO SANTA RITA-LA PEÑA DESVIO EL TRANSITO-TERRERO BLANCO-LAS MARIAS CONCEPCION DE MARIA-LA OLIVAS-BANCO MATERIAL CA2 (CANAL SECO)-EL TABLON-CARIDAD SONORA-LOS GUATALES-CALICANTO CALICANTO-EL CONCHAL-SONORA-DEPARTAMENTO DE VALLE LONG: 45.61 KM",
+      "sefin_release_pk": 138790,
+      "sefin_year": 2024,
+      "shared_code": "CODE:SIT-CO-261-2024",
+      "source_year": 2024
+    },
+    {
+      "absolute_days": 19,
+      "amount_oncae": 15220808.37,
+      "amount_sefin": 3044161.0,
+      "baseline_decision": "PROMOTE_CONTRACTOR_PAYMENT",
+      "candidate_id": "51969098b665287a73311e7ff80efe3ef2ed230e9d987a09bf72d81adca74927",
+      "candidates_for_oncae": 15,
+      "candidates_for_sefin": 1,
+      "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
+      "document_acquisition": {
+        "bytes": 149196,
+        "content_type": "application/pdf",
+        "sha256": "96f19db00e9e75507f7d4162efb2e177f80035b21a8fcf9fd6a274eb2a0752fb",
+        "status": "ACQUIRED",
+        "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-371604-CW-RFB100-AvisodePrensa.pdf"
+      },
+      "evidence_policy_decision": "PROMOTE_SUPPORTED",
+      "holdout_order_key": "0c44bad5392c4be6c48298ef9253ed2119b1b37fc5731a981395121c91850ef9",
+      "holdout_stratum": "WITHIN_CODE_AMBIGUITY",
+      "identity_basis": "BUYER_ALIAS_CODE",
+      "linkage_rule": "CANONICAL_BUYER_ALIAS_AND_SHARED_CODE",
+      "linkage_status": "AMBIGUOUS",
+      "object_adjudication": {
+        "decision": "SUPPORTED",
+        "jaccard": 0.12766,
+        "left_categories": [
+          "CONSTRUCTION",
+          "PUBLICATION",
+          "SOFTWARE"
+        ],
+        "left_token_count": 37,
+        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "right_categories": [
+          "CONSTRUCTION",
+          "SOFTWARE"
+        ],
+        "right_token_count": 16,
+        "shared_classifications": [],
+        "shared_supplier_names": [],
+        "shared_supplier_numeric_ids": [
+          "08019013587149"
+        ],
+        "shared_tokens": [
+          "110509",
+          "ALDEA",
+          "GUATILLA",
+          "REPOSICION",
+          "SISTEMA",
+          "YORO"
+        ],
+        "supplier_identity_supported": true
+      },
+      "ocid_oncae": "ocds-lcuori-jRDXVR-HN-SEDECOAS-371604-CW-RFB-2",
+      "ocid_sefin": "ocds-lcuori-P2025-22-2-438",
+      "oncae_documents": [
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-371604-CW-RFB100-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-371604-CW-RFB103-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Pliego o Terminos de Referencia",
+          "documentType": "biddingDocuments",
+          "title": "Pliego o Terminos de Referencia",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-371604-CW-RFB201-PliegooTerminosdeReferencia.pdf"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-371604-CW-RFB604-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-371604-CW-RFB1402-AnexosalPliego.pdf"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-371604-CW-RFB805-ResoluciondelaAdjudicacion.pdf"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-371604-CW-RFB806-ResoluciondelaAdjudicacion.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1192Contrato%20No_SDO-O-FHIS-01-20251200-ContratouOrdendeCompra.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1192SDO-O-FHIS02-20251200-ContratouOrdendeCompra.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1192SDO-O-FHIS-03-20251200-ContratouOrdendeCompra.pdf"
+        }
+      ],
+      "oncae_object_text": "HN-SEDECOAS-371604-CW-RFB | SDO No. HN-SEDECOAS-371604-CW-RFB\r\nLote 1: Reposición Sistema Agua P. en Pacura y Toro Muerto en Gualaco Código 109071 y \r\nLote 2: Reposición Sistema de Agua P. Aldea La Guatilla, Código 110509 y Reposición Sistema de Agua P. en Guaymas en el Negrito, Yoro, Código 108919 Departamento de Yoro | Aviso de Prensa | tenderNotice | Pliego o Terminos de Referencia | biddingDocuments | Acta de Recepcion y Apertura de Ofertas | recordOpeningTendersReceived | Anexos al Pliego | solicitationDocumentAnnexe | Ver Pliego | Abastecimiento de agua | Resolucion de la Adjudicacion | awardNotice | Contrato No_SDO-O-FHIS-01-2025 | Contrato u Orden de Compra | contractSigned | SDO-O-FHIS02-2025 | SDO-O-FHIS-03-2025",
+      "oncae_release_pk": 98995,
+      "relative_amount_difference": 0.80000004,
+      "sefin_documents": [],
+      "sefin_object_text": "Pago anticipo 20% de contrato de inversión del subproyecto 110509 - Reposición Sistema de Agua Potable Aldea La Guatilla Aldea la Guatilla Aldea la Guatilla Yoro Yoro. ORDEN PAGO No.271590 CTTO No.78646 ESTIMACION No.151664",
+      "sefin_release_pk": 234353,
+      "sefin_year": 2025,
+      "shared_code": "PROJECT:110509",
+      "source_year": 2024
+    },
+    {
+      "absolute_days": 43,
+      "amount_oncae": 19122190.86,
+      "amount_sefin": 4493378.0,
+      "baseline_decision": "PROMOTE_CONTRACTOR_PAYMENT",
+      "candidate_id": "8ca63943e8f1bb559dae9c1563f071b8f126967abd8ec815c1b7933528db063e",
+      "candidates_for_oncae": 21,
+      "candidates_for_sefin": 1,
+      "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
+      "document_acquisition": {
+        "bytes": 140223,
+        "content_type": "application/pdf",
+        "sha256": "a235bd9da3ce549276d95066ee0d5d6f32a5777b5876abba8d8771179a4d600a",
+        "status": "ACQUIRED",
+        "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-407817-CW-RFB100-AvisodePrensa.pdf"
+      },
+      "evidence_policy_decision": "PROMOTE_SUPPORTED",
+      "holdout_order_key": "0da4241cf52954463edfbe968c143943fe9586219a1f74fba15e80054ac9c113",
+      "holdout_stratum": "WITHIN_CODE_AMBIGUITY",
+      "identity_basis": "BUYER_ALIAS_CODE",
+      "linkage_rule": "CANONICAL_BUYER_ALIAS_AND_SHARED_CODE",
+      "linkage_status": "AMBIGUOUS",
+      "object_adjudication": {
+        "decision": "SUPPORTED",
+        "jaccard": 0.107143,
+        "left_categories": [
+          "CONSTRUCTION",
+          "PUBLICATION"
+        ],
+        "left_token_count": 45,
+        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "right_categories": [
+          "CONSTRUCTION"
+        ],
+        "right_token_count": 17,
+        "shared_classifications": [],
+        "shared_supplier_names": [],
+        "shared_supplier_numeric_ids": [
+          "02039002029167"
+        ],
+        "shared_tokens": [
+          "110030",
+          "CEB",
+          "COLON",
+          "MONTOYA",
+          "RAMON",
+          "REPOSICION"
+        ],
+        "supplier_identity_supported": true
+      },
+      "ocid_oncae": "ocds-lcuori-jRDXVR-HN-SEDECOAS-407817-CW-RFB-2",
+      "ocid_sefin": "ocds-lcuori-P2024-22-2-1469",
+      "oncae_documents": [
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-407817-CW-RFB100-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-407817-CW-RFB101-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-407817-CW-RFB104-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Pliego o Terminos de Referencia",
+          "documentType": "biddingDocuments",
+          "title": "Pliego o Terminos de Referencia",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-407817-CW-RFB202-PliegooTerminosdeReferencia.pdf"
+        },
+        {
+          "description": "Enmienda o Adendum",
+          "documentType": "amendment",
+          "title": "Enmienda o Adendum",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-407817-CW-RFB405-EnmiendaoAdendum.pdf"
+        },
+        {
+          "description": "Enmienda o Adendum",
+          "documentType": "amendment",
+          "title": "Enmienda o Adendum",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-407817-CW-RFB407-EnmiendaoAdendum.pdf"
+        },
+        {
+          "description": "Aclaratoria",
+          "documentType": "clarifications",
+          "title": "Aclaratoria",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-407817-CW-RFB506-Aclaratoria.pdf"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-407817-CW-RFB607-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-407817-CW-RFB1403-AnexosalPliego.pdf"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-407817-CW-RFB812-ResoluciondelaAdjudicacion.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1192SDO-O-FHIS-08-20241200-ContratouOrdendeCompra.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1192SDO-O-FHIS-09-20241201-ContratouOrdendeCompra.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1192SDO-O-FHIS-10-20241200-ContratouOrdendeCompra.pdf"
+        }
+      ],
+      "oncae_object_text": "HN-SEDECOAS-407817-CW-RFB | Lote 1: Reposición CEPB Federico Froebel en Colón Código 110028; Lote 2: Reposición CEB Ramón Montoya en Colón Código 110030 y Lote 3: Reposición Escuela Padre Reyes y CCEPREB Nilsa Anastacia Solano en Colón Código 110031 | Aviso de Prensa | tenderNotice | Pliego o Terminos de Referencia | biddingDocuments | Enmienda o Adendum | amendment | Aclaratoria | clarifications | Acta de Recepcion y Apertura de Ofertas | recordOpeningTendersReceived | Anexos al Pliego | solicitationDocumentAnnexe | Ver Pliego | Escuelas | Resolucion de la Adjudicacion | awardNotice | SDO-O-FHIS-08-2024 | Contrato u Orden de Compra | contractSigned | SDO-O-FHIS-09-2024 | SDO-O-FHIS-10-2024",
+      "oncae_release_pk": 98999,
+      "relative_amount_difference": 0.76501762,
+      "sefin_documents": [],
+      "sefin_object_text": "Pago 20% en concepto de anticipo según contrato de inversión subproyecto 110030- Reposición CEB Ramón Montoya Tocoa Colón.  OP:265323  CTTO: 75957  REF: 148795",
+      "sefin_release_pk": 120264,
+      "sefin_year": 2024,
+      "shared_code": "PROJECT:110030",
+      "source_year": 2024
+    },
+    {
+      "absolute_days": 221,
+      "amount_oncae": 22683564.61,
+      "amount_sefin": 667461.0,
+      "baseline_decision": "PROMOTE_CONTRACTOR_PAYMENT",
+      "candidate_id": "f39229424d09d88986edcd3584e48238df11493aa01c709c1bfe7bb7439d3e9e",
+      "candidates_for_oncae": 3,
+      "candidates_for_sefin": 1,
+      "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
+      "document_acquisition": {
+        "bytes": 312110,
+        "content_type": "application/pdf",
+        "sha256": "a73155a0b67b7f5bb1dd00b6c20737c1bdc27b3f72611c1e3205bdd7928032bb",
+        "status": "ACQUIRED",
+        "url": "http://h1.honducompras.gob.hn/Docs/Lic1230LPN-SIT-160-2023100-AvisodePrensa.pdf"
+      },
+      "evidence_policy_decision": "PROMOTE_SUPPORTED",
+      "holdout_order_key": "0e98ddfdb075c9035dbf0f76f4cd095808e4efb75d1c62ebe8799dbdf0627e96",
+      "holdout_stratum": "WITHIN_CODE_AMBIGUITY",
+      "identity_basis": "BUYER_ALIAS_CODE",
+      "linkage_rule": "CANONICAL_BUYER_ALIAS_AND_SHARED_CODE",
+      "linkage_status": "AMBIGUOUS",
+      "object_adjudication": {
+        "decision": "SUPPORTED",
+        "jaccard": 0.245614,
+        "left_categories": [
+          "CONSTRUCTION",
+          "PUBLICATION",
+          "TOOLS"
+        ],
+        "left_token_count": 39,
+        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "right_categories": [],
+        "right_token_count": 32,
+        "shared_classifications": [],
+        "shared_supplier_names": [
+          "CONSTRUCTORA FERNANDEZ SUAZO C V"
+        ],
+        "shared_supplier_numeric_ids": [
+          "08019002022227"
+        ],
+        "shared_tokens": [
+          "08V37620",
+          "4000",
+          "CONCRETO",
+          "CORAY",
+          "DEPARTAMENTO",
+          "FASE",
+          "FM",
+          "FRANCISCO",
+          "HIDRAULICO",
+          "KM",
+          "LIBERTAD",
+          "MORAZAN",
+          "PAVIMENTACION",
+          "PSI"
+        ],
+        "supplier_identity_supported": true
+      },
+      "ocid_oncae": "ocds-lcuori-gRNWvr-LPN-SIT-160-2023-2",
+      "ocid_sefin": "ocds-lcuori-P2024-411-1-4886",
+      "oncae_documents": [
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1230LPN-SIT-160-2023100-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Pliego o Terminos de Referencia",
+          "documentType": "biddingDocuments",
+          "title": "Pliego o Terminos de Referencia",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1230LPN-SIT-160-2023201-PliegooTerminosdeReferencia.pdf"
+        },
+        {
+          "description": "Enmienda o Adendum",
+          "documentType": "amendment",
+          "title": "Enmienda o Adendum",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1230LPN-SIT-160-2023402-EnmiendaoAdendum.pdf"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1230LPN-SIT-160-2023603-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1230LPN-SIT-160-2023804-ResoluciondelaAdjudicacion.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1230SIT-CO-007-20241200-ContratouOrdendeCompra.pdf"
+        }
+      ],
+      "oncae_object_text": "LPN-SIT-160-2023 | PAVIMENTACIÓN CON CONCRETO HIDRÁULICO 4000 PSI 08V37620 CORAY - LA LIBERTAD (DE: LD VA/FM A: LA LIBERTAD), 3.00 KM, DEPARTAMENTO DE FRANCISCO MORAZÁN, FASE I | Aviso de Prensa | tenderNotice | Pliego o Terminos de Referencia | biddingDocuments | Enmienda o Adendum | amendment | Acta de Recepcion y Apertura de Ofertas | recordOpeningTendersReceived | Ver Pliego | Construcción de Bienes Dominio Público | Resolucion de la Adjudicacion | awardNotice | SIT-CO-007-2024 | Contrato u Orden de Compra | contractSigned",
+      "oncae_release_pk": 11135,
+      "relative_amount_difference": 0.97057513,
+      "sefin_documents": [],
+      "sefin_object_text": "Reversión por Cierre -  Gestion :2024 Institución :411 GA :1 F-01: 4886-1-0 - RESERVA DE CREDITO PARA PAGO DEL ANTICIPO DEL CONTRATO SIT-CO-007-2024 PAVIMENTACION CON CONCRETO HIDRAULICO 4000 PSI 08V37620 CORAY-LA LIBERTAD (DE: LDVA/FM A :LA LIBERTAD ) 3.00 KM DEPARTAMENTO DE FRANCISCO MORAZAN  FASE I | RESERVA DE CREDITO PARA PAGO DEL ANTICIPO DEL CONTRATO SIT-CO-007-2024 PAVIMENTACION CON CONCRETO HIDRAULICO 4000 PSI 08V37620 CORAY-LA LIBERTAD (DE: LDVA/FM A :LA LIBERTAD ) 3.00 KM DEPARTAMENTO DE FRANCISCO MORAZAN  FASE I | Se crea un F07 con ID: F07-C2024-411-1-4886-1-1 de tipo REVERSIÓN el cual afecta el F01 con ID:F01-C2024-411-1-4886-1-0",
+      "sefin_release_pk": 138016,
+      "sefin_year": 2024,
+      "shared_code": "CODE:SIT-CO-007-2024",
+      "source_year": 2023
+    },
+    {
+      "absolute_days": 146,
+      "amount_oncae": 4671596.36,
+      "amount_sefin": 32500.0,
+      "baseline_decision": "PROMOTE_CONTRACTOR_PAYMENT",
+      "candidate_id": "061ebc78d771ae13b1107f3ee53827e806a3c5449436b824bedd41201a7f2771",
+      "candidates_for_oncae": 1,
+      "candidates_for_sefin": 2,
+      "cardinality_type": "MANY_ONCAE_TO_ONE_SEFIN",
+      "document_acquisition": {
+        "bytes": 468996,
+        "content_type": "application/pdf",
+        "sha256": "8fd754de0794a0f96b82786110acf156d8d840379f4882e019bed60fb8c90b32",
+        "status": "ACQUIRED",
+        "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPN-FHIS-33-2025100-AvisodePrensa.pdf"
+      },
+      "evidence_policy_decision": "ABSTAIN_OR_REJECT",
+      "holdout_order_key": "10186346e25a926c1d580f2a0fd66b8f7b1c44fba9c5404f171c52023042382c",
+      "holdout_stratum": "BREADTH_FIRST_PER_CODE",
+      "identity_basis": "BUYER_ALIAS_CODE",
+      "linkage_rule": "CANONICAL_BUYER_ALIAS_AND_SHARED_CODE",
+      "linkage_status": "AMBIGUOUS",
+      "object_adjudication": {
+        "decision": "UNRESOLVED",
+        "jaccard": 0.210526,
+        "left_categories": [
+          "CONSTRUCTION",
+          "PUBLICATION"
+        ],
+        "left_token_count": 48,
+        "reason": "OBJECT_COMPATIBLE_SUPPLIER_IDENTITY_UNRESOLVED",
+        "right_categories": [
+          "CONSTRUCTION",
+          "CONSULTING"
+        ],
+        "right_token_count": 21,
+        "shared_classifications": [],
+        "shared_supplier_names": [],
+        "shared_supplier_numeric_ids": [],
+        "shared_tokens": [
+          "111124",
+          "BASICO",
+          "CENTRO",
+          "EMERGENCIA",
+          "ESCOLAR",
+          "JOHN",
+          "JUBILADOS",
+          "KENEDY",
+          "MAESTROS",
+          "REHABILITACION",
+          "SARA",
+          "TORMENTA"
+        ],
+        "supplier_identity_supported": false
+      },
+      "ocid_oncae": "ocds-lcuori-mGE4eL-LPN-FHIS-33-2025-2",
+      "ocid_sefin": "ocds-lcuori-P2025-22-1-4173",
+      "oncae_documents": [
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPN-FHIS-33-2025100-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPN-FHIS-33-2025106-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Pliego o Terminos de Referencia",
+          "documentType": "biddingDocuments",
+          "title": "Pliego o Terminos de Referencia",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPN-FHIS-33-2025201-PliegooTerminosdeReferencia.docx"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPN-FHIS-33-2025607-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPN-FHIS-33-20251402-AnexosalPliego.pdf"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPN-FHIS-33-20251403-AnexosalPliego.xlsx"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPN-FHIS-33-20251404-AnexosalPliego.pdf"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPN-FHIS-33-20251405-AnexosalPliego.pdf"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPN-FHIS-33-2025807-ResoluciondelaAdjudicacion.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con742806591200-ContratouOrdendeCompra.pdf"
+        }
+      ],
+      "oncae_object_text": "LPN-FHIS-33-2025 | LPN-FHIS-33-2025 - “REHABILITACIÓN CENTRO ESCOLAR BÁSICO MAESTROS JUBILADOS Y CENTRO ESCOLAR BÁSICO JOHN F. KENEDY EMERGENCIA TORMENTA SARA” UBICADO EN B. VENECIA Y BARRIO HIGHLAND CREEK, MUNICIPIO DE TELA, DEL DEPARTAMENTO DE ATLÁNTIDA.\r\nCÓDIGO: 111124. FUENTE DE FINANCIAMIENTO: FHIS/SEDECOAS. | Aviso de Prensa | tenderNotice | Pliego o Terminos de Referencia | biddingDocuments | Acta de Recepcion y Apertura de Ofertas | recordOpeningTendersReceived | Anexos al Pliego | solicitationDocumentAnnexe | Ver Pliego | Escuelas públicas de educación primaria o secundaria | Resolucion de la Adjudicacion | awardNotice | 80659 | Contrato u Orden de Compra | contractSigned",
+      "oncae_release_pk": 214366,
+      "relative_amount_difference": 0.99304306,
+      "sefin_documents": [],
+      "sefin_object_text": "PAGO DE ESTIMACION Nro. 1 DE SUPERVISION DE INVERSION REHABILITACION CENTRO ESCOLAR BASICO MAESTROS JUBILADOS Y CENTRO ESCOLAR BASICO JOHN F. KENEDY EMERGENCIA TORMENTA SARA PROYECTO: 111124 CTTO: 80660 ORDEN DE PAGO: 280020 ESTM: 155418 POST-TORMENTA SARA 2025",
+      "sefin_release_pk": 233227,
+      "sefin_year": 2025,
+      "shared_code": "PROJECT:111124",
+      "source_year": 2025
+    },
+    {
+      "absolute_days": 321,
+      "amount_oncae": 11486677.64,
+      "amount_sefin": 918934.0,
+      "baseline_decision": "PROMOTE_CONTRACTOR_PAYMENT",
+      "candidate_id": "239ae3a5b3c003e8e5cbc5b74a79c15b7e1f8dfc83d5d100481ab0be33e17959",
+      "candidates_for_oncae": 3,
+      "candidates_for_sefin": 1,
+      "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
+      "document_acquisition": {
+        "bytes": 212909,
+        "content_type": "application/pdf",
+        "sha256": "ab80a5984747cfe9857bf921b712ce71369d5a838f71006fa8a6f12efd03ca79",
+        "status": "ACQUIRED",
+        "url": "http://h1.honducompras.gob.hn/Docs/Lic1230CPN-SIT-054-2023100-AvisodePrensa.pdf"
+      },
+      "evidence_policy_decision": "PROMOTE_SUPPORTED",
+      "holdout_order_key": "104df4357c93ab6e8761f8bdc656abbbcfbae11263e5287c563af2032427a0ab",
+      "holdout_stratum": "WITHIN_CODE_AMBIGUITY",
+      "identity_basis": "BUYER_ALIAS_CODE",
+      "linkage_rule": "CANONICAL_BUYER_ALIAS_AND_SHARED_CODE",
+      "linkage_status": "AMBIGUOUS",
+      "object_adjudication": {
+        "decision": "SUPPORTED",
+        "jaccard": 0.227273,
+        "left_categories": [
+          "CONSTRUCTION",
+          "PUBLICATION"
+        ],
+        "left_token_count": 40,
+        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "right_categories": [
+          "CONSTRUCTION",
+          "CONSULTING"
+        ],
+        "right_token_count": 41,
+        "shared_classifications": [],
+        "shared_supplier_names": [],
+        "shared_supplier_numeric_ids": [],
+        "shared_tokens": [
+          "BENEFICIO",
+          "CA",
+          "CARRETERA",
+          "CONCRETO",
+          "DEPARTAMENTO",
+          "DESVIO",
+          "HIDRAULICO",
+          "LONGITUD",
+          "OBRAS",
+          "OCOTEPEQUE",
+          "PORTILLO",
+          "SAN",
+          "SENSENTI",
+          "TRAMO",
+          "UBICADO"
+        ],
+        "supplier_identity_supported": true
+      },
+      "ocid_oncae": "ocds-lcuori-gRNWvr-CPN-SIT-054-2023-2",
+      "ocid_sefin": "ocds-lcuori-P2024-411-1-5150",
+      "oncae_documents": [
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1230CPN-SIT-054-2023100-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Pliego o Terminos de Referencia",
+          "documentType": "biddingDocuments",
+          "title": "Pliego o Terminos de Referencia",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1230CPN-SIT-054-2023201-PliegooTerminosdeReferencia.pdf"
+        },
+        {
+          "description": "Enmienda o Adendum",
+          "documentType": "amendment",
+          "title": "Enmienda o Adendum",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1230CPN-SIT-054-2023402-EnmiendaoAdendum.pdf"
+        },
+        {
+          "description": "Aclaratoria",
+          "documentType": "clarifications",
+          "title": "Aclaratoria",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1230CPN-SIT-054-2023503-Aclaratoria.pdf"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1230CPN-SIT-054-2023604-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1230CPN-SIT-054-2023805-ResoluciondelaAdjudicacion.png"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1230SIT-SU-104-2023%201200-ContratouOrdendeCompra.pdf"
+        }
+      ],
+      "oncae_object_text": "CPN-SIT-054-2023 | “Supervisión de las obras de la Rehabilitación con Concreto Hidráulico de la Carretera CA-4, Tramo: El Portillo-Beneficio San Marco desvío Sensenti, con una longitud         (21.8 km), ubicado en el Departamento de Ocotepeque”. | Aviso de Prensa | tenderNotice | Pliego o Terminos de Referencia | biddingDocuments | Enmienda o Adendum | amendment | Aclaratoria | clarifications | Acta de Recepcion y Apertura de Ofertas | recordOpeningTendersReceived | Ver Pliego | Supervisión de proyectos, obras y construcción. | Resolucion de la Adjudicacion | awardNotice | SIT-SU-104-2023 | Contrato u Orden de Compra | contractSigned",
+      "oncae_release_pk": 10920,
+      "relative_amount_difference": 0.92000002,
+      "sefin_documents": [],
+      "sefin_object_text": "PAGO NO:7 INFORME MENSUAL NO.6 PERIODO DEL 01 AL 30 DE JUNIO DEL 2024 SEGUN FACTURA NO.000-001-01-00001432  PARA CUBRIR PAGOS DEL CONTRATO SIT-SU-104-2023 DEL PROYECTO SUPERVISION DE LA OBRAS DE LA REHABILTACION CON CONCRETO HIDRAULICO DE LA CARRETERA CA-4 TRAMO: EL PORTILLO-BENEFICIO SAN MARCOS DESVIO SENSENTI CON UNA LONGITUD (2.18KM) UBICADO EN EL DEPARTAMENTO DE OCOTEPEQUE | RESERVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO SIT-SU-104-2023 DEL PROYECTO SUPERVISION DE LA OBRAS DE LA REHABILTACION CON CONCRETO HIDRAULICO DE LA CARRETERA CA-4 TRAMO: EL PORTILLO-BENEFICIO SAN MARCOS DESVIO SENSENTI CON UNA LONGITUD (2.18KM) UBICADO EN EL DEPARTAMENTO DE OCOTEPEQUE | Se crea un F07 con ID: F07-C2024-411-1-5150-1-1 de tipo AUMENTO el cual afecta el F01 con ID:F01-C2024-411-1-5150-1-0",
+      "sefin_release_pk": 137878,
+      "sefin_year": 2024,
+      "shared_code": "CODE:SIT-SU-104-2023",
+      "source_year": 2023
+    },
+    {
+      "absolute_days": 258,
+      "amount_oncae": 1083449.93,
+      "amount_sefin": 473262.0,
+      "baseline_decision": "PROMOTE_CONTRACTOR_PAYMENT",
+      "candidate_id": "2281c919c149c7c68e0d676b67e32c9aa0ebc8ef4099ca8d743f26e72f19a2a4",
+      "candidates_for_oncae": 1,
+      "candidates_for_sefin": 1,
+      "cardinality_type": "ONE_TO_ONE",
+      "document_acquisition": {
+        "bytes": 140659,
+        "content_type": "application/pdf",
+        "sha256": "a8ddf2365eeb5c2b70cef71c88aff07b5b20e03c1a017a541fb937cf83058090",
+        "status": "ACQUIRED",
+        "url": "http://h1.honducompras.gob.hn/Docs/Lic1230CPN-SIT-117-2023100-AvisodePrensa.pdf"
+      },
+      "evidence_policy_decision": "PROMOTE_SUPPORTED",
+      "holdout_order_key": "108d78ab4c31acc8afa7b575294a30600d106e519a6a28ea1c81adb29dea7b6f",
+      "holdout_stratum": "BREADTH_FIRST_PER_CODE",
+      "identity_basis": "BUYER_ALIAS_CODE",
+      "linkage_rule": "CANONICAL_BUYER_ALIAS_AND_SHARED_CODE",
+      "linkage_status": "STRICT_1_TO_1",
+      "object_adjudication": {
+        "decision": "SUPPORTED",
+        "jaccard": 0.234043,
+        "left_categories": [
+          "CONSTRUCTION",
+          "PUBLICATION",
+          "TOOLS"
+        ],
+        "left_token_count": 34,
+        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "right_categories": [
+          "CONSTRUCTION",
+          "CONSULTING"
+        ],
+        "right_token_count": 24,
+        "shared_classifications": [],
+        "shared_supplier_names": [
+          "INGENIERIA BARMEND"
+        ],
+        "shared_supplier_numeric_ids": [],
+        "shared_tokens": [
+          "4000",
+          "CA5",
+          "CONCRETO",
+          "CORTES",
+          "DEPARTAMENTO",
+          "HIDRAULICO",
+          "KM",
+          "OBRA",
+          "PAVIMENTACION",
+          "POTRERILLOS",
+          "PSI"
+        ],
+        "supplier_identity_supported": true
+      },
+      "ocid_oncae": "ocds-lcuori-gRNWvr-CPN-SIT-117-2023-2",
+      "ocid_sefin": "ocds-lcuori-P2024-411-1-7896",
+      "oncae_documents": [
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1230CPN-SIT-117-2023100-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Pliego o Terminos de Referencia",
+          "documentType": "biddingDocuments",
+          "title": "Pliego o Terminos de Referencia",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1230CPN-SIT-117-2023201-PliegooTerminosdeReferencia.pdf"
+        },
+        {
+          "description": "Enmienda o Adendum",
+          "documentType": "amendment",
+          "title": "Enmienda o Adendum",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1230CPN-SIT-117-2023402-EnmiendaoAdendum.pdf"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1230CPN-SIT-117-2023603-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1230CPN-SIT-117-2023804-ResoluciondelaAdjudicacion.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1230SIT-SU-030-20241200-ContratouOrdendeCompra.pdf"
+        }
+      ],
+      "oncae_object_text": "CPN-SIT-117-2023 | SUPERVISIÓN DE OBRA PARA LA PAVIMENTACIÓN CON CONCRETO HIDRÁULICO 4000 PSI (POTRERILLOS - CA5), 1.00 KM, DEPARTAMENTO DE CORTÉS | Aviso de Prensa | tenderNotice | Pliego o Terminos de Referencia | biddingDocuments | Enmienda o Adendum | amendment | Acta de Recepcion y Apertura de Ofertas | recordOpeningTendersReceived | Ver Pliego | Supervisión de proyectos, obras y construcción. | Resolucion de la Adjudicacion | awardNotice | SIT-SU-030-2024 | Contrato u Orden de Compra | contractSigned",
+      "oncae_release_pk": 10963,
+      "relative_amount_difference": 0.56318978,
+      "sefin_documents": [],
+      "sefin_object_text": "PAGO No. 2 CORESPONDIENTE A LA APROBACION DEL  ENTREGABLE 2 CONTRATO SIT-SU-030-2024 SEGUN FACTURA No. 000-001-01-00000679 SUPERVISION DE OBRA PARA LA PAVIMENTACION CON CONCRETO HIDRAULICO 4000 PSI (POTRERILLOS - CA5) 1.00 KM DEPARTAMENTO DE CORTES. | RESERVA DE CREDITO PARA CUBRIR FONDOS DEL CONTRATO SIT-SU-030-2024 SUPERVISION DE OBRA PARA LA PAVIMENTACION CON CONCRETO HIDRAULICO 4000 PSI (POTRERILLOS - CA5) 1.00 KM DEPARTAMENTO DE CORTES.",
+      "sefin_release_pk": 138628,
+      "sefin_year": 2024,
+      "shared_code": "CODE:SIT-SU-030-2024",
+      "source_year": 2023
+    },
+    {
+      "absolute_days": 36,
+      "amount_oncae": 3482714.7,
+      "amount_sefin": 3532384.4,
+      "baseline_decision": "PROMOTE_CONTRACTOR_PAYMENT",
+      "candidate_id": "0967ab814c173cb48c1295d45265d41fe183019c565272f37863663c10b18f9e",
+      "candidates_for_oncae": 7,
+      "candidates_for_sefin": 1,
+      "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
+      "document_acquisition": {
+        "bytes": 249949,
+        "content_type": "image/jpeg",
+        "sha256": "407ffd06f485981a16fdbe124a4ae49fab9dd61666038305c8cda4534380f5dd",
+        "status": "ACQUIRED",
+        "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-341542-CW-RFB100-AvisodePrensa.jpeg"
+      },
+      "evidence_policy_decision": "ABSTAIN_OR_REJECT",
+      "holdout_order_key": "10b0940980a651dda65d66d1a7638bd706316e6a24c08ffb8d29954240d66e27",
+      "holdout_stratum": "WITHIN_CODE_AMBIGUITY",
+      "identity_basis": "BUYER_ALIAS_CODE",
+      "linkage_rule": "CANONICAL_BUYER_ALIAS_AND_SHARED_CODE",
+      "linkage_status": "AMBIGUOUS",
+      "object_adjudication": {
+        "decision": "UNRESOLVED",
+        "jaccard": 0.220339,
+        "left_categories": [
+          "CONSTRUCTION",
+          "PUBLICATION"
+        ],
+        "left_token_count": 43,
+        "reason": "OBJECT_COMPATIBLE_SUPPLIER_IDENTITY_UNRESOLVED",
+        "right_categories": [
+          "CONSTRUCTION",
+          "CONSULTING"
+        ],
+        "right_token_count": 29,
+        "shared_classifications": [],
+        "shared_supplier_names": [],
+        "shared_supplier_numeric_ids": [],
+        "shared_tokens": [
+          "108350",
+          "108452",
+          "CODIGO",
+          "CODIGOS",
+          "ESCUELA",
+          "ESCUELAS",
+          "FRANCISCO",
+          "JARDIN",
+          "MORAZAN",
+          "NINOS",
+          "PARAISO",
+          "REPARACION",
+          "REPOSICION"
+        ],
+        "supplier_identity_supported": false
+      },
+      "ocid_oncae": "ocds-lcuori-jRDXVR-HN-SEDECOAS-341542-CW-RFB-2",
+      "ocid_sefin": "ocds-lcuori-P2023-22-2-1497",
+      "oncae_documents": [
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-341542-CW-RFB100-AvisodePrensa.jpeg"
+        },
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-341542-CW-RFB103-AvisodePrensa.jpeg"
+        },
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-341542-CW-RFB104-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Pliego o Terminos de Referencia",
+          "documentType": "biddingDocuments",
+          "title": "Pliego o Terminos de Referencia",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-341542-CW-RFB201-PliegooTerminosdeReferencia.pdf"
+        },
+        {
+          "description": "Enmienda o Adendum",
+          "documentType": "amendment",
+          "title": "Enmienda o Adendum",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-341542-CW-RFB405-EnmiendaoAdendum.pdf"
+        },
+        {
+          "description": "Aclaratoria",
+          "documentType": "clarifications",
+          "title": "Aclaratoria",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-341542-CW-RFB506-Aclaratoria.pdf"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-341542-CW-RFB607-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-341542-CW-RFB1402-AnexosalPliego.pdf"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-341542-CW-RFB807-ResoluciondelaAdjudicacion.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1192SDO-O-FHIS-05-20231200-ContratouOrdendeCompra.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1192SDO-O-FHIS-06-20231200-ContratouOrdendeCompra.pdf"
+        }
+      ],
+      "oncae_object_text": "HN-SEDECOAS-341542-CW-RFB | “Lote 1: Reparación y/o Reposición Escuela y Jardín de Niños en Francisco Morazán Códigos 108350 y 108420; Lote 2: Reparación Escuela en El Paraíso Código 108452” | Aviso de Prensa | tenderNotice | Pliego o Terminos de Referencia | biddingDocuments | Enmienda o Adendum | amendment | Aclaratoria | clarifications | Acta de Recepcion y Apertura de Ofertas | recordOpeningTendersReceived | Anexos al Pliego | solicitationDocumentAnnexe | Ver Pliego | Escuelas públicas de educación primaria o secundaria | Resolucion de la Adjudicacion | awardNotice | SDO-O-FHIS-05-2023 | Contrato u Orden de Compra | contractSigned | SDO-O-FHIS-06-2023",
+      "oncae_release_pk": 12286,
+      "relative_amount_difference": 0.01406124,
+      "sefin_documents": [],
+      "sefin_object_text": "Pago del anticpo del 20% de contrato de supervisión de reparación y/o reposición CEB Escuela Jardín de Niños en Comayagua códigos: 108628 108511108313108314108507; Escuelas CEN en Lempiras códigos: 109394108471; PCEPB en Ocotepeque código 109631; Escuela y Jardín de Niños en Francisco Morazán códigos 108350 109420 Escuela en el Paraíso  código 108452. orden de pago:255627 ctto:74350.",
+      "sefin_release_pk": 28917,
+      "sefin_year": 2023,
+      "shared_code": "PROJECT:108452",
+      "source_year": 2023
+    },
+    {
+      "absolute_days": 360,
+      "amount_oncae": 37546813.48,
+      "amount_sefin": 2104744.0,
+      "baseline_decision": "PROMOTE_CONTRACTOR_PAYMENT",
+      "candidate_id": "1f97f67b9c443c2681a9d90c16e624b8584b8d50fabea38335832dc1bef9b88a",
+      "candidates_for_oncae": 4,
+      "candidates_for_sefin": 1,
+      "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
+      "document_acquisition": {
+        "bytes": 662261,
+        "content_type": "application/pdf",
+        "sha256": "1db7f5657fe81dfce4bf969d02f8688b225c6d594d1dd5f87a3af66e17110c3f",
+        "status": "ACQUIRED",
+        "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-001-2024100-AvisodePrensa.pdf"
+      },
+      "evidence_policy_decision": "PROMOTE_SUPPORTED",
+      "holdout_order_key": "10dfb2db1d67df4c97239eaca9ef97ad38c90464ab85f12759970687117299ad",
+      "holdout_stratum": "WITHIN_CODE_AMBIGUITY",
+      "identity_basis": "BUYER_ALIAS_CODE",
+      "linkage_rule": "CANONICAL_BUYER_ALIAS_AND_SHARED_CODE",
+      "linkage_status": "AMBIGUOUS",
+      "object_adjudication": {
+        "decision": "SUPPORTED",
+        "jaccard": 0.192982,
+        "left_categories": [
+          "CONSTRUCTION",
+          "PUBLICATION"
+        ],
+        "left_token_count": 37,
+        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "right_categories": [
+          "CONSTRUCTION"
+        ],
+        "right_token_count": 31,
+        "shared_classifications": [],
+        "shared_supplier_names": [],
+        "shared_supplier_numeric_ids": [
+          "08019010299062"
+        ],
+        "shared_tokens": [
+          "CHAMELECON",
+          "CORTES",
+          "MANACAL",
+          "MUNICIPIO",
+          "PEDRO",
+          "PUENTE",
+          "REHABILITACION",
+          "RIO",
+          "SAN",
+          "SOBRE",
+          "SULA"
+        ],
+        "supplier_identity_supported": true
+      },
+      "ocid_oncae": "ocds-lcuori-wrVe9R-LPN-SIT-001-2024-2",
+      "ocid_sefin": "ocds-lcuori-P2025-411-1-1421",
+      "oncae_documents": [
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-001-2024100-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Pliego o Terminos de Referencia",
+          "documentType": "biddingDocuments",
+          "title": "Pliego o Terminos de Referencia",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-001-2024203-PliegooTerminosdeReferencia.docx"
+        },
+        {
+          "description": "Enmienda o Adendum",
+          "documentType": "amendment",
+          "title": "Enmienda o Adendum",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-001-2024404-EnmiendaoAdendum.pdf"
+        },
+        {
+          "description": "Enmienda o Adendum",
+          "documentType": "amendment",
+          "title": "Enmienda o Adendum",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-001-2024406-EnmiendaoAdendum.pdf"
+        },
+        {
+          "description": "Aclaratoria",
+          "documentType": "clarifications",
+          "title": "Aclaratoria",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-001-2024505-Aclaratoria.pdf"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-001-2024607-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-001-20241402-AnexosalPliego.pdf"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-001-20241403-AnexosalPliego.xlsx"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-001-2024807-ResoluciondelaAdjudicacion.pdf"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-001-2024807-ResoluciondelaAdjudicacion.pdf"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-001-2024807-ResoluciondelaAdjudicacion.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1211SIT-CO-041-20241200-ContratouOrdendeCompra.pdf"
+        }
+      ],
+      "oncae_object_text": "LPN-SIT-001-2024 | “REHABILITACION DE PUENTE MANACAL SOBRE RIO CHAMELECON, MUNICIPIO DE SAN PEDRO SULA, DEPARTAMENTO DE CORTES.” | Aviso de Prensa | tenderNotice | Pliego o Terminos de Referencia | biddingDocuments | Enmienda o Adendum | amendment | Aclaratoria | clarifications | Acta de Recepcion y Apertura de Ofertas | recordOpeningTendersReceived | Anexos al Pliego | solicitationDocumentAnnexe | Ver Pliego | Puentes | Resolucion de la Adjudicacion | awardNotice | SIT-CO-041-2024 | Contrato u Orden de Compra | contractSigned",
+      "oncae_release_pk": 106986,
+      "relative_amount_difference": 0.94394347,
+      "sefin_documents": [],
+      "sefin_object_text": "Reversión por Cierre -  Gestion :2025 Institución :411 GA :1 F-01: 1421-1-0 - RESERVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO SIT-CO 041-2024 REHABILITACION DE PUENTE MANACAL SOBRE RIO CHAMELECON MUNICIPIO DE SAN PEDRO SULA DEPARTEMENTO DE CORTES | RESERVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO SIT-CO 041-2024 REHABILITACION DE PUENTE MANACAL SOBRE RIO CHAMELECON MUNICIPIO DE SAN PEDRO SULA DEPARTEMENTO DE CORTES | Se crea un F07 con ID: F07-C2025-411-1-1421-1-1 de tipo REVERSIÓN el cual afecta el F01 con ID:F01-C2025-411-1-1421-1-0",
+      "sefin_release_pk": 249144,
+      "sefin_year": 2025,
+      "shared_code": "CODE:SIT-CO-041-2024",
+      "source_year": 2024
+    },
+    {
+      "absolute_days": 201,
+      "amount_oncae": 2989117.64,
+      "amount_sefin": 584268.0,
+      "baseline_decision": "PROMOTE_CONTRACTOR_PAYMENT",
+      "candidate_id": "90321f8e974a93ce1cb3d73cf46f3384c23ea65678e5de0429b92a7bb2222b45",
+      "candidates_for_oncae": 2,
+      "candidates_for_sefin": 1,
+      "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
+      "document_acquisition": {
+        "bytes": 2288468,
+        "content_type": "application/pdf",
+        "sha256": "478c0737771345e1ab33a0319f6d19945bf3cd179b9f8226717f7a8c3ce6fd9a",
+        "status": "ACQUIRED",
+        "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPR-SIT-185-2024102-AvisodePrensa.pdf"
+      },
+      "evidence_policy_decision": "ABSTAIN_OR_REJECT",
+      "holdout_order_key": "15358a625d408788ab52a06620893ed7480bf4c40f2cd9a2a7e587372e1c0afe",
+      "holdout_stratum": "BREADTH_FIRST_PER_CODE",
+      "identity_basis": "BUYER_ALIAS_CODE",
+      "linkage_rule": "CANONICAL_BUYER_ALIAS_AND_SHARED_CODE",
+      "linkage_status": "AMBIGUOUS",
+      "object_adjudication": {
+        "decision": "REJECTED",
+        "jaccard": 0.244898,
+        "left_categories": [
+          "PUBLICATION"
+        ],
+        "left_token_count": 38,
+        "reason": "SUPPLIER_MATCH_BUT_MATERIAL_OBJECT_CONFLICT",
+        "right_categories": [
+          "CONSTRUCTION",
+          "TOOLS"
+        ],
+        "right_token_count": 23,
+        "shared_classifications": [],
+        "shared_supplier_names": [],
+        "shared_supplier_numeric_ids": [
+          "08019019129988"
+        ],
+        "shared_tokens": [
+          "ALDEA",
+          "ANGELES",
+          "AVENIDA",
+          "CERRO",
+          "CONCRETO",
+          "DEPARTAMENTO",
+          "GRANDE",
+          "HIDRAULICO",
+          "MUNICIPIO",
+          "PAVIMENTACION",
+          "PRINCIPAL",
+          "VALLE"
+        ],
+        "supplier_identity_supported": true
+      },
+      "ocid_oncae": "ocds-lcuori-wrVe9R-LPR-SIT-185-2024-2",
+      "ocid_sefin": "ocds-lcuori-P2025-411-1-2186",
+      "oncae_documents": [
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPR-SIT-185-2024102-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Pliego o Terminos de Referencia",
+          "documentType": "biddingDocuments",
+          "title": "Pliego o Terminos de Referencia",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPR-SIT-185-2024201-PliegooTerminosdeReferencia.docx"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPR-SIT-185-2024603-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPR-SIT-185-20241400-AnexosalPliego.docx"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPR-SIT-185-2024804-ResoluciondelaAdjudicacion.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1211SIT-CO-324-20241200-ContratouOrdendeCompra.pdf"
+        }
+      ],
+      "oncae_object_text": "LPR-SIT-185-2024 | LPR-SIT-185-2024 Pavimentación con Concreto Hidráulico Avenida Principal, aldea Cerro Grande, Municipio de Valle de Ángeles, Departamento de Francisco Morazán | Aviso de Prensa | tenderNotice | Pliego o Terminos de Referencia | biddingDocuments | Acta de Recepcion y Apertura de Ofertas | recordOpeningTendersReceived | Anexos al Pliego | solicitationDocumentAnnexe | Ver Pliego | Pavimentar o hacer la superficie de carreteras o caminos | Resolucion de la Adjudicacion | awardNotice | SIT-CO-324-2024 | Contrato u Orden de Compra | contractSigned",
+      "oncae_release_pk": 107241,
+      "relative_amount_difference": 0.80453496,
+      "sefin_documents": [],
+      "sefin_object_text": "PAGO DE ESTIMACION #2  DEL CONTRATO#SIT-CO-324-2024 SEG. FACTURA# 000-001-01-00000669  DEL PERIODO DEL 26/11/2024 AL 24/12/2024  PROYECTO DE CONSTRUCCION PAVIMENTACION CON CONCRETO HIDRAULICO AVENIDA PRINCIPAL ALDEA CERRO GRANDE MUNICIPIO DE VALLE DE ANGELES DEPARTAMENTO DE F.M. | RESERVA DE CREDITO DEL CONTRATO#SIT-CO-324-2024  PROYECTO DE CONSTRUCCION PAVIMENTACION CON CONCRETO HIDRAULICO AVENIDA PRINCIPAL ALDEA CERRO GRANDE MUNICIPIO DE VALLE DE ANGELES DEPARTAMENTO DE F.M.",
+      "sefin_release_pk": 249477,
+      "sefin_year": 2025,
+      "shared_code": "CODE:SIT-CO-324-2024",
+      "source_year": 2024
+    },
+    {
+      "absolute_days": 186,
+      "amount_oncae": 7065975.5,
+      "amount_sefin": 5778118.0,
+      "baseline_decision": "PROMOTE_CONTRACTOR_PAYMENT",
+      "candidate_id": "e974b49ac097efe2f7afb52567f1065f7a54d7efa0c662c702c5c7062d1e8ea3",
+      "candidates_for_oncae": 2,
+      "candidates_for_sefin": 1,
+      "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
+      "document_acquisition": {
+        "bytes": 92596,
+        "content_type": "image/jpeg",
+        "sha256": "2458aee16b351747d3c65b965bceb6888713e1651a0dbb756c0d262df8c9b7e6",
+        "status": "ACQUIRED",
+        "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-121-2024100-AvisodePrensa.jpg"
+      },
+      "evidence_policy_decision": "PROMOTE_SUPPORTED",
+      "holdout_order_key": "38d01795344614781685dc8fb10763101c4ec7acb1c89df6f107caae02963083",
+      "holdout_stratum": "BREADTH_FIRST_PER_CODE",
+      "identity_basis": "BUYER_ALIAS_CODE",
+      "linkage_rule": "CANONICAL_BUYER_ALIAS_AND_SHARED_CODE",
+      "linkage_status": "AMBIGUOUS",
+      "object_adjudication": {
+        "decision": "SUPPORTED",
+        "jaccard": 0.266667,
+        "left_categories": [
+          "CONSTRUCTION",
+          "PUBLICATION"
+        ],
+        "left_token_count": 37,
+        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "right_categories": [
+          "CONSTRUCTION"
+        ],
+        "right_token_count": 39,
+        "shared_classifications": [],
+        "shared_supplier_names": [],
+        "shared_supplier_numeric_ids": [
+          "08019019120781"
+        ],
+        "shared_tokens": [
+          "ALDEA",
+          "APROXIMADA",
+          "ATLANTIDA",
+          "CORTES",
+          "DEPARTAMENTO",
+          "DORA",
+          "KM",
+          "LONGITUD",
+          "MANTENIMIENTO",
+          "NO",
+          "PAVIMENTADA",
+          "S189",
+          "TRAMOS",
+          "URRACO",
+          "VIAL",
+          "YORO"
+        ],
+        "supplier_identity_supported": true
+      },
+      "ocid_oncae": "ocds-lcuori-wrVe9R-LPN-SIT-121-2024-2",
+      "ocid_sefin": "ocds-lcuori-P2025-411-1-3020",
+      "oncae_documents": [
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-121-2024100-AvisodePrensa.jpg"
+        },
+        {
+          "description": "Pliego o Terminos de Referencia",
+          "documentType": "biddingDocuments",
+          "title": "Pliego o Terminos de Referencia",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-121-2024201-PliegooTerminosdeReferencia.docx"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-121-2024602-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-121-2024803-ResoluciondelaAdjudicacion.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1211SIT-CO-034-20251200-ContratouOrdendeCompra.pdf"
+        }
+      ],
+      "oncae_object_text": "LPN-SIT-121-2024 | LPN-SIT-121-2024 “MANTENIMIENTO DE LA RED VIAL NO PAVIMENTADA DEPARTAMENTO DE YORO, TRAMOS: ALDEA URRACO - L.D. YORO/CORTES, S189 - LA DORA, L.D. YORO/ATLANTIDA, LONGITUD APROXIMADA: 19.41 KM” | Aviso de Prensa | tenderNotice | Pliego o Terminos de Referencia | biddingDocuments | Acta de Recepcion y Apertura de Ofertas | recordOpeningTendersReceived | Ver Pliego | Mantenimiento y reparación de carreteras o estacionamientos | Resolucion de la Adjudicacion | awardNotice | SIT-CO-034-2025 | Contrato u Orden de Compra | contractSigned",
+      "oncae_release_pk": 107091,
+      "relative_amount_difference": 0.18226181,
+      "sefin_documents": [],
+      "sefin_object_text": "PAGO ESTIMACION 2 DE CIERRE DEL PERIODO 10/4-8/5/2025 SEGUN  FACTURA 000-001-01-00000239  CUBRIR EST#1 CONTRATO#SIT-CO-034-2025 PROY: MANTENIMIENTO DE LA ARED VIAL NO PAVIMENTADA DEPARTAMENTO DE YORO TRAMOS ALDEA URRACO - LD YORO / CORTES S189 - LA DORA L.D YORO / ATLANTIDA LONGITUD APROXIMADA 19.41 KM | RESERVA DE CREDITO PARA CUBRIR EST#1 CONTRATO#SIT-CO-034-2025 PROY: MANTENIMIENTO DE LA ARED VIAL NO PAVIMENTADA DEPARTAMENTO DE YORO TRAMOS ALDEA URRACO - LD YORO / CORTES S189 - LA DORA L.D YORO / ATLANTIDA LONGITUD APROXIMADA 19.41 KM | Se crea un F07 con ID: F07-C2025-411-1-3020-1-1 de tipo AUMENTO el cual afecta el F01 con ID:F01-C2025-411-1-3020-1-0",
+      "sefin_release_pk": 249674,
+      "sefin_year": 2025,
+      "shared_code": "CODE:SIT-CO-034-2025",
+      "source_year": 2024
+    },
+    {
+      "absolute_days": 20,
+      "amount_oncae": 2099330.79,
+      "amount_sefin": 494898.0,
+      "baseline_decision": "PROMOTE_CONTRACTOR_PAYMENT",
+      "candidate_id": "dc3b3d208d2b22cf84ba75af2cb1c646f40ceff90608829909c54abef94337a2",
+      "candidates_for_oncae": 4,
+      "candidates_for_sefin": 1,
+      "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
+      "document_acquisition": {
+        "bytes": 1711193,
+        "content_type": "application/pdf",
+        "sha256": "452d5988241eaadd677957fdf77fdbe16ac59ad3e24ce08aa3791e27ecfaf0e5",
+        "status": "ACQUIRED",
+        "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPR-FHIS-94-2025103-AvisodePrensa.pdf"
+      },
+      "evidence_policy_decision": "ABSTAIN_OR_REJECT",
+      "holdout_order_key": "3f456b37201ad02e396c415d290a6860d3e2d3e85de59d73bd651ac133bf1608",
+      "holdout_stratum": "BREADTH_FIRST_PER_CODE",
+      "identity_basis": "BUYER_ALIAS_CODE",
+      "linkage_rule": "CANONICAL_BUYER_ALIAS_AND_SHARED_CODE",
+      "linkage_status": "AMBIGUOUS",
+      "object_adjudication": {
+        "decision": "UNRESOLVED",
+        "jaccard": 0.16129,
+        "left_categories": [
+          "CONSTRUCTION",
+          "PUBLICATION",
+          "TOOLS"
+        ],
+        "left_token_count": 49,
+        "reason": "OBJECT_COMPATIBLE_SUPPLIER_IDENTITY_UNRESOLVED",
+        "right_categories": [],
+        "right_token_count": 23,
+        "shared_classifications": [],
+        "shared_supplier_names": [],
+        "shared_supplier_numeric_ids": [],
+        "shared_tokens": [
+          "111590",
+          "CODIGO",
+          "CONCRETO",
+          "CORTES",
+          "HIDRAULICO",
+          "LOTE",
+          "MUNICIPIO",
+          "PEDRO",
+          "SAN",
+          "SULA"
+        ],
+        "supplier_identity_supported": false
+      },
+      "ocid_oncae": "ocds-lcuori-mGE4eL-LPR-FHIS-94-2025-2",
+      "ocid_sefin": "ocds-lcuori-P2025-22-1-3308",
+      "oncae_documents": [
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPR-FHIS-94-2025103-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Pliego o Terminos de Referencia",
+          "documentType": "biddingDocuments",
+          "title": "Pliego o Terminos de Referencia",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPR-FHIS-94-2025200-PliegooTerminosdeReferencia.docx"
+        },
+        {
+          "description": "Enmienda o Adendum",
+          "documentType": "amendment",
+          "title": "Enmienda o Adendum",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPR-FHIS-94-2025404-EnmiendaoAdendum.pdf"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPR-FHIS-94-2025605-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPR-FHIS-94-20251401-AnexosalPliego.xlsx"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPR-FHIS-94-20251402-AnexosalPliego.pdf"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPR-FHIS-94-2025806-ResoluciondelaAdjudicacion.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con742817981200-ContratouOrdendeCompra.pdf"
+        }
+      ],
+      "oncae_object_text": "LPR-FHIS-94-2025 | LPR-FHIS-94-2025\r\nCONSTRUCCIÓN PAVIMENTO DE CONCRETO HIDRÁULICO-LOTE 1, UBICADO EN VARIOS BARRIOS/COLONIAS, MUNICIPIO DE SAN PEDRO SULA, DEPARTAMENTO DE CORTÉS.\r\nCÓDIGO: 111590\r\n1.\tCONSTRUCCIÓN PAVIMENTO DE CONCRETO HIDRÁULICO-LOTE1, UBICADO EN LA AREVALO, SECTOR COFRADÍA, MUNICIPIO DE SAN PEDRO SULA, DEPARTAMENTO DE CORTÉS.\r\n2.\tCONSTRUCCIÓN PAVIMENTO DE CONCRETO HIDRÁULICO-LOTE1, UBICADO EN LA AREVALO, MUNICIPIO DE SAN PEDRO SULA, DEPARTAMENTO DE CORTÉS.\r\nFONDOS: FHIS/SEDECOAS 2025 | Aviso de Prensa | tenderNotice | Pliego o Terminos de Referencia | biddingDocuments | Enmienda o Adendum | amendment | Acta de Recepcion y Apertura de Ofertas | recordOpeningTendersReceived | Anexos al Pliego | solicitationDocumentAnnexe | Ver Pliego | Pavimentar o hacer la superficie de carreteras o caminos | Resolucion de la Adjudicacion | awardNotice | 81798 | Contrato u Orden de Compra | contractSigned",
+      "oncae_release_pk": 214451,
+      "relative_amount_difference": 0.76425916,
+      "sefin_documents": [],
+      "sefin_object_text": "PAGO DE LA SEMANA 3 LOTE 1 DEL CONTRATO PARA ADQUISICION DE SUMINISTRO DE CONCRETO HIDRAULICO PARA LA REGION NORTE DE SAN PEDRO SULA MUNICIPIO DE SAN PEDRO SULA DEP. CORTES CODIGO 111590 FACTURA 000-004-01-00092850 SEGÚN MEMORANDUM FHIS-DAF-ESP-NO.17-2025. ORDEN DE PAGO NO. 278574",
+      "sefin_release_pk": 232849,
+      "sefin_year": 2025,
+      "shared_code": "PROJECT:111590",
+      "source_year": 2025
+    },
+    {
+      "absolute_days": 51,
+      "amount_oncae": 25508864.56,
+      "amount_sefin": 4723863.0,
+      "baseline_decision": "PROMOTE_CONTRACTOR_PAYMENT",
+      "candidate_id": "f7b9a84a26088494f5e09280a0d6a61277c772268a0cb25b3b20c1bfa756d898",
+      "candidates_for_oncae": 1,
+      "candidates_for_sefin": 1,
+      "cardinality_type": "ONE_TO_ONE",
+      "document_acquisition": {
+        "bytes": 163463,
+        "content_type": "image/jpeg",
+        "sha256": "c594c050b5567e9f0147e056e16cfaa807fc924daa37d06b39bd5953dd5e5a47",
+        "status": "ACQUIRED",
+        "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-012-2025%202DO%20PROCESO100-AvisodePrensa.jpg"
+      },
+      "evidence_policy_decision": "PROMOTE_SUPPORTED",
+      "holdout_order_key": "4b2becdca4c83dc77cf9d3b6dc81441b4e215176876d49a32b06b788c6d6211b",
+      "holdout_stratum": "BREADTH_FIRST_PER_CODE",
+      "identity_basis": "BUYER_ALIAS_CODE",
+      "linkage_rule": "CANONICAL_BUYER_ALIAS_AND_SHARED_CODE",
+      "linkage_status": "STRICT_1_TO_1",
+      "object_adjudication": {
+        "decision": "SUPPORTED",
+        "jaccard": 0.225,
+        "left_categories": [
+          "CONSTRUCTION",
+          "PUBLICATION",
+          "TOOLS"
+        ],
+        "left_token_count": 32,
+        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "right_categories": [
+          "CONSTRUCTION",
+          "TOOLS"
+        ],
+        "right_token_count": 17,
+        "shared_classifications": [],
+        "shared_supplier_names": [],
+        "shared_supplier_numeric_ids": [
+          "05019998168936"
+        ],
+        "shared_tokens": [
+          "CONSTRUCCION",
+          "DEPARTAMENTO",
+          "MUNICIPIO",
+          "PUENTE",
+          "RIO",
+          "SIGUAPA",
+          "SOBRE",
+          "SULACO",
+          "YORO"
+        ],
+        "supplier_identity_supported": true
+      },
+      "ocid_oncae": "ocds-lcuori-wrVe9R-LPN-SIT-012-2025 2DO PROCESO-2",
+      "ocid_sefin": "ocds-lcuori-P2025-411-1-5435",
+      "oncae_documents": [
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-012-2025%202DO%20PROCESO100-AvisodePrensa.jpg"
+        },
+        {
+          "description": "Pliego o Terminos de Referencia",
+          "documentType": "biddingDocuments",
+          "title": "Pliego o Terminos de Referencia",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-012-2025%202DO%20PROCESO201-PliegooTerminosdeReferencia.docx"
+        },
+        {
+          "description": "Enmienda o Adendum",
+          "documentType": "amendment",
+          "title": "Enmienda o Adendum",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-012-2025%202DO%20PROCESO406-EnmiendaoAdendum.pdf"
+        },
+        {
+          "description": "Enmienda o Adendum",
+          "documentType": "amendment",
+          "title": "Enmienda o Adendum",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-012-2025%202DO%20PROCESO407-EnmiendaoAdendum.pdf"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-012-2025%202DO%20PROCESO607-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-012-2025%202DO%20PROCESO1402-AnexosalPliego.xlsx"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-012-2025%202DO%20PROCESO1403-AnexosalPliego.xlsx"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-012-2025%202DO%20PROCESO1404-AnexosalPliego.docx"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-012-2025%202DO%20PROCESO1405-AnexosalPliego.pdf"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-012-2025%202DO%20PROCESO807-ResoluciondelaAdjudicacion.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1211SIT-CO-424-20251200-ContratouOrdendeCompra.pdf"
+        }
+      ],
+      "oncae_object_text": "LPN-SIT-012-2025 2DO PROCESO | LPN-SIT-012-2025 2DO PROCESO \r\n“CONSTRUCCIÓN DE PUENTE SIGUAPA SOBRE EL RÍO SIGUAPA, MUNICIPIO DE SULACO, DEPARTAMENTO DE YORO”. | Aviso de Prensa | tenderNotice | Pliego o Terminos de Referencia | biddingDocuments | Enmienda o Adendum | amendment | Acta de Recepcion y Apertura de Ofertas | recordOpeningTendersReceived | Anexos al Pliego | solicitationDocumentAnnexe | Ver Pliego | Construcción de puentes | Resolucion de la Adjudicacion | awardNotice | SIT-CO-424-2025 | Contrato u Orden de Compra | contractSigned",
+      "oncae_release_pk": 220059,
+      "relative_amount_difference": 0.81481485,
+      "sefin_documents": [],
+      "sefin_object_text": "PAGO DE ANTICIPO SEGÚN FACTURA N°000-02-01-00000860 DEL CONTRATO DE CONSTRUCCIÓN N°SIT-CO-424-2025  CONSTRUCCIÓN DE PUENTE SIGUAPA SOBRE EL RÍO SIGUAPA MUNICIPIO DE SULACO DEPARTAMENTO DE YORO. | RESERVA DE CRÉDITO DEL CONTRATO DE CONSTRUCCIÓN N°SIT-CO-424-2025  CONSTRUCCIÓN DE PUENTE SIGUAPA SOBRE EL RÍO SIGUAPA MUNICIPIO DE SULACO DEPARTAMENTO DE YORO.",
+      "sefin_release_pk": 250355,
+      "sefin_year": 2025,
+      "shared_code": "CODE:SIT-CO-424-2025",
+      "source_year": 2025
+    },
+    {
+      "absolute_days": 183,
+      "amount_oncae": 962177.2,
+      "amount_sefin": 769741.0,
+      "baseline_decision": "PROMOTE_CONTRACTOR_PAYMENT",
+      "candidate_id": "a749086e2d5928bf8e22d0b988016d30ce0c1816eae5db02c34115ef555c11d7",
+      "candidates_for_oncae": 2,
+      "candidates_for_sefin": 1,
+      "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
+      "document_acquisition": {
+        "bytes": 91817,
+        "content_type": "application/pdf",
+        "sha256": "ea513f006198a617ec1003f737e1513def297e09f8e5e2aedcfccd0fa76360d3",
+        "status": "ACQUIRED",
+        "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-037-2024102-AvisodePrensa.pdf"
+      },
+      "evidence_policy_decision": "PROMOTE_SUPPORTED",
+      "holdout_order_key": "6f6d842022370ab29a7b5d7915efb9cd661c1a9c654e5ae800049ed802552e40",
+      "holdout_stratum": "BREADTH_FIRST_PER_CODE",
+      "identity_basis": "BUYER_ALIAS_CODE",
+      "linkage_rule": "CANONICAL_BUYER_ALIAS_AND_SHARED_CODE",
+      "linkage_status": "AMBIGUOUS",
+      "object_adjudication": {
+        "decision": "SUPPORTED",
+        "jaccard": 0.1875,
+        "left_categories": [
+          "CONSTRUCTION",
+          "PUBLICATION",
+          "TOOLS"
+        ],
+        "left_token_count": 34,
+        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "right_categories": [],
+        "right_token_count": 23,
+        "shared_classifications": [],
+        "shared_supplier_names": [
+          "PLAGSA"
+        ],
+        "shared_supplier_numeric_ids": [
+          "08019010286496"
+        ],
+        "shared_tokens": [
+          "BOCATOMA",
+          "CANAL",
+          "CORTES",
+          "EMERGENCIA",
+          "MUNICIPIO",
+          "NOLA",
+          "PUERTO",
+          "REMOCION",
+          "SEDIMENTO"
+        ],
+        "supplier_identity_supported": true
+      },
+      "ocid_oncae": "ocds-lcuori-wrVe9R-CDE-SIT-037-2024-2",
+      "ocid_sefin": "ocds-lcuori-P2025-411-1-3608",
+      "oncae_documents": [
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-037-2024102-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Pliego o Terminos de Referencia",
+          "documentType": "biddingDocuments",
+          "title": "Pliego o Terminos de Referencia",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-037-2024200-PliegooTerminosdeReferencia.docx"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-037-2024603-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-037-20241401-AnexosalPliego.docx"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-037-2024804-ResoluciondelaAdjudicacion.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1211SIT-CO-465-20241200-ContratouOrdendeCompra.pdf"
+        }
+      ],
+      "oncae_object_text": "CDE-SIT-037-2024 | CDE-SIT-037-2024 PROYECTO DE EMERGENCIA PARA REMOCIÓN DE SEDIMENTO EN BOCATOMA DEL CANAL BOTIJA, SECTOR NOLA, MUNICIPIO DE PUERTO CORTÉS, DEPARTAMENTO DE CORTÉS. | Aviso de Prensa | tenderNotice | Pliego o Terminos de Referencia | biddingDocuments | Acta de Recepcion y Apertura de Ofertas | recordOpeningTendersReceived | Anexos al Pliego | solicitationDocumentAnnexe | Ver Pliego | Construcción de Bienes Dominio Público | Resolucion de la Adjudicacion | awardNotice | SIT-CO-465-2024 | Contrato u Orden de Compra | contractSigned",
+      "oncae_release_pk": 106679,
+      "relative_amount_difference": 0.20000079,
+      "sefin_documents": [],
+      "sefin_object_text": "PAGO DE ESTIMACION UNICA  DEL PERIODO DEL 06 AL 20/01/2025 SEGUN FACTURA No. 000-001-01-00000408  CONTRATO No.SIT-CO-465-2024 DEL PROYECTO DE EMERGENCIA PARA REMOCION DE SEDIMENTO EN BOCATOMA DEL CANAL BOTIJASECTOR NOLA MUNICIPIO DE PUERTO CORTESDEPARTAMENTO DE CORTES | RESERVA DE CREDITO DEL CONTRATO No.SIT-CO-465-2024 DEL PROYECTO DE EMERGENCIA PARA REMOCION DE SEDIMENTO EN BOCATOMA DEL CANAL BOTIJASECTOR NOLA MUNICIPIO DE PUERTO CORTESDEPARTAMENTO DE CORTES",
+      "sefin_release_pk": 249825,
+      "sefin_year": 2025,
+      "shared_code": "CODE:SIT-CO-465-2024",
+      "source_year": 2024
+    },
+    {
+      "absolute_days": 180,
+      "amount_oncae": 44485850.84,
+      "amount_sefin": 4708243.0,
+      "baseline_decision": "PROMOTE_CONTRACTOR_PAYMENT",
+      "candidate_id": "b3be581708ea1846f2904228ea2842d3e474427e02dd1897d721d3aa4662dab6",
+      "candidates_for_oncae": 2,
+      "candidates_for_sefin": 1,
+      "cardinality_type": "ONE_ONCAE_TO_MANY_SEFIN",
+      "document_acquisition": {
+        "bytes": 196908,
+        "content_type": "image/png",
+        "sha256": "0db2e04af9749746d6c07b02b7cc1164045a1a920317ce095e80428b07df645b",
+        "status": "ACQUIRED",
+        "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-067-2025100-AvisodePrensa.png"
+      },
+      "evidence_policy_decision": "PROMOTE_SUPPORTED",
+      "holdout_order_key": "777767951d5fbf4227f20f8572c9184566a222c103bd8a277e609cb74a48824b",
+      "holdout_stratum": "BREADTH_FIRST_PER_CODE",
+      "identity_basis": "BUYER_ALIAS_CODE",
+      "linkage_rule": "CANONICAL_BUYER_ALIAS_AND_SHARED_CODE",
+      "linkage_status": "AMBIGUOUS",
+      "object_adjudication": {
+        "decision": "SUPPORTED",
+        "jaccard": 0.255319,
+        "left_categories": [
+          "CONSTRUCTION",
+          "PUBLICATION"
+        ],
+        "left_token_count": 37,
+        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "right_categories": [
+          "CONSTRUCTION"
+        ],
+        "right_token_count": 22,
+        "shared_classifications": [],
+        "shared_supplier_names": [],
+        "shared_supplier_numeric_ids": [
+          "02099009238718"
+        ],
+        "shared_tokens": [
+          "07P00680",
+          "ADUANA",
+          "DEPARTAMENTO",
+          "ESTACION",
+          "MANOS",
+          "MUNICIPIO",
+          "PARAISO",
+          "PASO",
+          "PAVIMENTADA",
+          "RED",
+          "REHABILITACION",
+          "VIAL"
+        ],
+        "supplier_identity_supported": true
+      },
+      "ocid_oncae": "ocds-lcuori-wrVe9R-LPN-SIT-067-2025-2",
+      "ocid_sefin": "ocds-lcuori-P2025-411-1-7881",
+      "oncae_documents": [
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-067-2025100-AvisodePrensa.png"
+        },
+        {
+          "description": "Pliego o Terminos de Referencia",
+          "documentType": "biddingDocuments",
+          "title": "Pliego o Terminos de Referencia",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-067-2025201-PliegooTerminosdeReferencia.docx"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-067-2025605-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-067-20251402-AnexosalPliego.xlsx"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-067-20251403-AnexosalPliego.pdf"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-067-20251404-AnexosalPliego.pdf"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-067-2025806-ResoluciondelaAdjudicacion.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1211SIT-CO-404-20251200-ContratouOrdendeCompra.pdf"
+        }
+      ],
+      "oncae_object_text": "LPN-SIT-067-2025 | LPN-SIT-067-2025  “REHABILITACIÓN DE PASO EN LA RED VIAL PAVIMENTADA, 07P00680, (RUTA CA-6, EL PARAISO - ADUANA LAS MANOS, ESTACIÓN: 1+500), MUNICIPIO DE EL PARAÍSO, DEPARTAMENTO DE EL PARAÍSO”. | Aviso de Prensa | tenderNotice | Pliego o Terminos de Referencia | biddingDocuments | Acta de Recepcion y Apertura de Ofertas | recordOpeningTendersReceived | Anexos al Pliego | solicitationDocumentAnnexe | Ver Pliego | Mantenimiento y reparación de carreteras o estacionamientos | Resolucion de la Adjudicacion | awardNotice | SIT-CO-404-2025 | Contrato u Orden de Compra | contractSigned",
+      "oncae_release_pk": 220081,
+      "relative_amount_difference": 0.89416313,
+      "sefin_documents": [],
+      "sefin_object_text": "PAGO DE LA ESTIMACION #2 PERIODO DEL 01 AL 30-09-2025 SEGUN FACTURA 000-001-01-00001072 DEL CONTRATO SIT-CO-404-2025 REHABILITACION DE PASO EN LA RED VIAL PAVIMENTADA 07P00680(RUTACA-6 EL PARAISO -ADUANA  LAS MANOS ESTACION 1+500) MUNICIPIO DE EL PARAISO DEPARTAMENTO DE EL PARAISO | RESERVA DE CREDITO PARA EL PAGO DEL CONTRATO SIT-CO-404-2025 REHABILITACION DE PASO EN LA RED VIAL PAVIMENTADA 07P00680(RUTACA-6 EL PARAISO -ADUANA  LAS MANOS ESTACION 1+500) MUNICIPIO DE EL PARAISO DEPARTAMENTO DE EL PARAISO",
+      "sefin_release_pk": 251152,
+      "sefin_year": 2025,
+      "shared_code": "CODE:SIT-CO-404-2025",
+      "source_year": 2025
+    },
+    {
+      "absolute_days": 337,
+      "amount_oncae": 4290922.35,
+      "amount_sefin": 1248718.0,
+      "baseline_decision": "PROMOTE_CONTRACTOR_PAYMENT",
+      "candidate_id": "fa3f2dde336aad0517d198ede172a492e4c22003d614d79d3dea121999a53bf1",
+      "candidates_for_oncae": 1,
+      "candidates_for_sefin": 1,
+      "cardinality_type": "ONE_TO_ONE",
+      "document_acquisition": {
+        "bytes": 530849,
+        "content_type": "application/pdf",
+        "sha256": "25a3332e75f4950c6c01ad2949457496c7b844afe52809fa0339a4b4ff7ce1b2",
+        "status": "ACQUIRED",
+        "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPN-FHIS-23-2023100-AvisodePrensa.pdf"
+      },
+      "evidence_policy_decision": "PROMOTE_SUPPORTED",
+      "holdout_order_key": "9878221cfe01f565a975f47c598705972255686912b6fe346fa82ad3d3fd3880",
+      "holdout_stratum": "BREADTH_FIRST_PER_CODE",
+      "identity_basis": "BUYER_ALIAS_CODE",
+      "linkage_rule": "CANONICAL_BUYER_ALIAS_AND_SHARED_CODE",
+      "linkage_status": "STRICT_1_TO_1",
+      "object_adjudication": {
+        "decision": "SUPPORTED",
+        "jaccard": 0.306122,
+        "left_categories": [
+          "CONSTRUCTION",
+          "PUBLICATION",
+          "TOOLS"
+        ],
+        "left_token_count": 44,
+        "reason": "OBJECT_TEXT_COMPATIBLE",
+        "right_categories": [
+          "CONSTRUCTION"
+        ],
+        "right_token_count": 20,
+        "shared_classifications": [],
+        "shared_supplier_names": [
+          "AC INVERSIONES CONSTRUCCIONES"
+        ],
+        "shared_supplier_numeric_ids": [
+          "08019022347430"
+        ],
+        "shared_tokens": [
+          "108950",
+          "BARBARA",
+          "CODIGO",
+          "COMUNIDAD",
+          "DELICIAS",
+          "ESCUELA",
+          "FRANCISCO",
+          "JAVIER",
+          "MUNICIPIO",
+          "OBRAS",
+          "RAPALO",
+          "REPARACION",
+          "SANTA",
+          "TRINIDAD",
+          "VARIAS"
+        ],
+        "supplier_identity_supported": true
+      },
+      "ocid_oncae": "ocds-lcuori-mGE4eL-LPN-FHIS-23-2023-2",
+      "ocid_sefin": "ocds-lcuori-P2024-22-2-2372",
+      "oncae_documents": [
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPN-FHIS-23-2023100-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPN-FHIS-23-2023104-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Pliego o Terminos de Referencia",
+          "documentType": "biddingDocuments",
+          "title": "Pliego o Terminos de Referencia",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPN-FHIS-23-2023201-PliegooTerminosdeReferencia.docx"
+        },
+        {
+          "description": "Aclaratoria",
+          "documentType": "clarifications",
+          "title": "Aclaratoria",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPN-FHIS-23-2023505-Aclaratoria.PDF"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPN-FHIS-23-2023606-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPN-FHIS-23-20231402-AnexosalPliego.docx"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPN-FHIS-23-20231403-AnexosalPliego.docx"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic742LPN-FHIS-23-2023807-ResoluciondelaAdjudicacion.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con742714481200-ContratouOrdendeCompra.pdf"
+        }
+      ],
+      "oncae_object_text": "LPN-FHIS-23-2023 | LPN-FHIS-23-2023 Reparación de Escuela, Francisco Javier Rápalo y Construcción de Obras Varias, ubicado en la Comunidad Las Delicias, Municipio de Trinidad, Departamento de Santa Bárbara. \r\n\r\nCódigo: 108950. | Aviso de Prensa | tenderNotice | Pliego o Terminos de Referencia | biddingDocuments | Aclaratoria | clarifications | Acta de Recepcion y Apertura de Ofertas | recordOpeningTendersReceived | Anexos al Pliego | solicitationDocumentAnnexe | Ver Pliego | Escuelas públicas de educación primaria o secundaria | Resolucion de la Adjudicacion | awardNotice | 71448 | Contrato u Orden de Compra | contractSigned",
+      "oncae_release_pk": 13832,
+      "relative_amount_difference": 0.70898611,
+      "sefin_documents": [],
+      "sefin_object_text": "Pago Estimación No.7  equivalente al 31.04 % Proyecto Reparación de Escuela Francisco Javier Rápalo y Obras Varias comunidad Las Delicias Municipio de Trinidad  Depto. Santa Barbara. Codigo : 108950  Programa: PIOH.",
+      "sefin_release_pk": 120925,
+      "sefin_year": 2024,
+      "shared_code": "PROJECT:108950",
+      "source_year": 2023
+    }
+  ],
   "report_payload_without_timing": {
     "candidate_reconstruction": {
-      "ambiguous_candidate_count": 0,
-      "candidate_count": 0,
-      "rule": "same year + exact normalized buyer/supplier identity + <=5% closest amount difference + <=366 closest date difference",
-      "strict_candidate_count": 0
+      "ambiguous_candidate_count": 1378,
+      "candidate_count": 2295,
+      "identity_grammar": "SIT/FHIS-SEDECOAS/ENP institutional aliases, normalized buyer cores, exact contract/project codes",
+      "rule": "same or adjacent year + canonical buyer alias + exact shared contract/project code; amount and date retained as diagnostics; <=366-day temporal gate",
+      "strict_candidate_count": 917
     },
     "configuration": {
       "amount_tolerance": 0.05,
+      "holdout_design": "50% breadth across shared codes, then within-code ambiguity, then deterministic fill; all ordered by fixed SHA-256 seed",
       "holdout_size_requested": 20,
       "max_days": 366,
       "seed": "FIN-RVI-002-STAGE1-PUBLIC-HOLDOUT-V1",
-      "selection_blinding": "identity+amount+date only; object text evaluated after freeze",
+      "selection_blinding": "canonical buyer alias + exact shared contract/project code + cardinality only; supplier identity and object text evaluated after freeze",
       "years": [
         2023,
         2024,
@@ -222,21 +2602,35 @@
       }
     ],
     "gate_readout": {
-      "G07": "OPEN",
+      "G07": "CANDIDATE_PASS_PENDING_INDEPENDENT_REPLAY",
       "G09": "OPEN_PRIOR_ART_AND_INDEPENDENT_REPLICATION_REQUIRED"
     },
     "holdout_metrics": {
-      "baseline_promotions": 0,
-      "baseline_unsupported_promotion_rate": null,
-      "baseline_unsupported_promotions": 0,
-      "decision_counts": {},
-      "document_acquisition_attempts": 0,
-      "document_acquisition_bytes": 0,
-      "document_acquisition_successes": 0,
-      "evidence_policy_promotions": 0,
+      "baseline_promotions": 20,
+      "baseline_unsupported_promotion_rate": 0.2,
+      "baseline_unsupported_promotions": 4,
+      "cardinality_counts": {
+        "MANY_ONCAE_TO_ONE_SEFIN": 1,
+        "ONE_ONCAE_TO_MANY_SEFIN": 15,
+        "ONE_TO_ONE": 4
+      },
+      "decision_counts": {
+        "REJECTED": 1,
+        "SUPPORTED": 16,
+        "UNRESOLVED": 3
+      },
+      "document_acquisition_attempts": 20,
+      "document_acquisition_bytes": 9379348,
+      "document_acquisition_successes": 20,
+      "evidence_policy_promotions": 16,
       "evidence_policy_unsupported_promotions": 0,
-      "holdout_size": 0,
-      "unsupported_amount_at_risk_avoided": 0
+      "holdout_size": 20,
+      "stratum_counts": {
+        "BREADTH_FIRST_PER_CODE": 10,
+        "WITHIN_CODE_AMBIGUITY": 10
+      },
+      "unique_shared_codes": 20,
+      "unsupported_amount_at_risk_avoided": 4644050.4
     },
     "known_target_hit_counts": {
       "108877": 14,
@@ -247,9 +2641,9 @@
       "SIT-GA-001-2024": 4,
       "SIT-SU-038-2024": 25
     },
-    "schema": "fin-rvi-002/stage1-public-data/1",
-    "status": "FAIL_NO_STRICT_HOLDOUT"
+    "schema": "fin-rvi-002/stage1-public-data/2",
+    "status": "PASS"
   },
-  "schema": "fin-rvi-002/stage1-deterministic-replay/1",
-  "sha256": "663cf2f8120deade5def2412b6102154afedac9ccdbc24844f13ac38f92e9025"
+  "schema": "fin-rvi-002/stage1-deterministic-replay/2",
+  "sha256": "0441d92dfa643e93ee95c77955ce6d24e09f343a0bf9572966299d56d0bef826"
 }

@@ -1,26 +1,26 @@
 # FIN-RVI-002 Stage 1 — reconstrucción pública y holdout prospectivo
 
-- Estado: **FAIL_NO_STRICT_HOLDOUT**
+- Estado: **PASS**
 - Años: `2023, 2024, 2025`
-- Candidatos generados: **0**
-- Candidatos estrictos 1:1: **0**
-- Holdout congelado: **0**
-- SHA-256 del payload: `29c0ba475b08b6399593378879b3824108728e01cd4f9de29810c54ea40779fb`
+- Candidatos generados: **2295**
+- Candidatos estrictos 1:1: **917**
+- Holdout congelado: **20**
+- SHA-256 del payload: `bbd117b249fe214cc74dca58a5ae080545e1c34bc5652857850eec2fa6008440`
 
 ## Resultado decisional
 
-- Promociones baseline: **0**
-- Promociones baseline sin respaldo suficiente: **0**
-- Promociones de la política documental: **0**
+- Promociones baseline: **20**
+- Promociones baseline sin respaldo suficiente: **4**
+- Promociones de la política documental: **16**
 - Promociones no respaldadas de la política: **0**
-- Monto SEFIN preservado de promoción no respaldada: **L 0.00**
+- Monto SEFIN preservado de promoción no respaldada: **L 4,644,050.40**
 
 ## Adquisición pública
 
-- Documentos intentados: **0**
-- Documentos adquiridos: **0**
-- Bytes adquiridos: **0**
-- Tiempo observado: **0.0 s**
+- Documentos intentados: **20**
+- Documentos adquiridos: **20**
+- Bytes adquiridos: **9,379,348**
+- Tiempo observado: **72.305 s**
 
 ## Frontera honesta
 
