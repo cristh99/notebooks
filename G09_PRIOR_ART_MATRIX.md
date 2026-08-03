@@ -1,69 +1,84 @@
-# FIN-RVI-002 G09 — prior-art matrix and claim boundary
+# FIN-RVI-002 G09 — final prior-art boundary and empirical discovery
 
 ## Verdict
 
-The broad ideas are **not new**: procurement entity reconciliation, procurement–spending integration, document provenance, costly evidence acquisition, adaptive testing, abstention under insufficient evidence, and preservation of source lineage all have substantial prior art.
+The **methods are not new**. Record linkage, supplier reconciliation, procurement–spending integration, PO/invoice/vendor matching, documentary audit evidence, one-to-many purchase-to-pay structure, abstention, provenance and costly evidence acquisition all have substantial scholarly, official and patent prior art.
 
-The only defensible research candidate is a **specific empirical claim** about maximum permissible financial attribution on Honduras ONCAE–SEFIN data. It remains `OPEN` until Stage 2, a clean reconstruction, and an independent cross-cohort replication all pass.
+The result that survives is narrower and empirical:
 
-## Candidate claim
+> **FIN-RVI-002-C1.** On an independently sealed public ONCAE–SEFIN cohort of 120 pairs, after exact contract/project-code blocking and compatible supplier identity, `POLICY_DOCUMENTARY_V3` reduced unsupported promotions to `CONTRACTOR_PAYMENT` from **20 to 0** relative to `CODE+SUPPLIER`, while preserving **58/58** supported payments. A clean source reconstruction reproduced the cohort, labels, metrics and hashes.
 
-> **FIN-RVI-002-C1.** On a sealed public ONCAE–SEFIN holdout, after exact contract/project-code blocking and compatible supplier identity, object/document evidence strictly reduces unsupported promotions to `CONTRACTOR_PAYMENT` relative to the strong `CODE+SUPPLIER` baseline, without reducing supported-payment recovery, when one-to-many contract–financial-event cardinality and fail-closed abstention are preserved.
+This is a **domain-bounded original empirical result**, not a claim that the underlying reconciliation techniques are new.
 
-This is an empirical, domain-bounded claim. It is **not** a claim that record linkage, active information acquisition, provenance, or procurement knowledge graphs are new.
+## Evidence chain
 
-## Primary prior-art matrix
+| Stage | Role | Result |
+|---|---|---|
+| Stage 3 | Counterexample-guided development | Baseline: 19 unsafe; documentary v2: 17 unsafe and 56/57 recovery. Claim not passed. |
+| Stage 4 | Independent sealed cohort; all 118 Stage 3 codes excluded | Baseline: 20 unsafe, 58/58 recovery. Policy v3: 0 unsafe, 58/58 recovery. Permutation: 21 unsafe, 37/58 recovery. |
+| Stage 5 | Clean reconstruction from six official packages | Exact cohort, labels, metrics and logical hashes reproduced by independent Python and Node verifiers. G07 PASS. |
 
-| Component | Primary prior art | What is already known | Status for FIN-RVI-002 |
-|---|---|---|---|
-| Public-payment record linkage | Charles Rahal, *The Keys to Unlocking Public Payments Data*, Kyklos 2018, DOI `10.1111/kykl.12171` | Large-scale public payments can be cleaned and linked to institutional registers using targeted, domain-specific reconciliation; false positives require evaluation. | **ABSORBED** |
-| Procurement supplier-name reconciliation | Álvarez-Rodríguez, Vafopoulos & Lloréns, *The CORFU technique*, Computer Standards & Interfaces 2015, DOI `10.1016/j.csi.2015.02.009` | Stepwise NLP/semantic unification of heterogeneous corporate names in procurement, evaluated with precision and recall. | **ABSORBED** |
-| Procurement + company + spending integration | Soylu et al., *Data Quality Barriers for Transparency in Public Procurement*, Information 2022, DOI `10.3390/info13020099` | Procurement, company and spending data can be integrated in a knowledge graph; missing identifiers and broken lifecycle links materially limit analytics. | **ABSORBED** |
-| Contract lifecycle, transactions and documents | Open Contracting Data Standard, World Bank/OCP | Procurement should link planning, tender, award, contract, implementation, transactions and official documents; unique identifiers and source documents are central. | **ABSORBED** |
-| Adaptive costly information acquisition | Golovin & Krause, *Adaptive Submodularity*, JAIR 2011 / arXiv `1003.3967` | Under adaptive-submodular structure, greedy acquisition can be near-optimal; arbitrary adaptive information gathering is hard. | **ABSORBED** |
-| Noisy expensive tests and decision-equivalence classes | Golovin, Krause & Ray, *Near-Optimal Bayesian Active Learning with Noisy Observations*, NeurIPS 2010 | Expensive tests can be selected adaptively to distinguish decision-relevant equivalence classes; common greedy criteria can fail. | **ABSORBED** |
-| Non-myopic value of information | Krause & Guestrin and subsequent work | Cost-aware, non-myopic observation selection and value-of-information optimization are established research areas. | **ABSORBED** |
-| Evidence acquisition mechanisms | *Sequential Mechanisms for Evidence Acquisition* and earlier evidence/information-acquisition literature | Sequential, threshold-structured acquisition of costly evidence is established. | **ABSORBED** |
-| Provenance, evidence links and refutation | Friedman et al., *Provenance-Based Interpretation of Multi-Agent Information Analysis*, TaPP 2020 | Provenance graphs can preserve evidence, appraisals, assumptions, derivations and counterfactual refutation. | **ABSORBED** |
-| One-to-many lifecycle cardinality | OCDS and procurement ontologies | Processes, awards, contracts, implementation events and transactions have distinct grains and nontrivial cardinalities. | **ABSORBED AS DATA MODELING** |
-| Maximum permissible claim ladder | No exact primary source found that operationalizes `PROJECT_RELATED → CONTRACT_ATTRIBUTED → CONTRACTOR_PAYMENT → RECEIPT → ASSET_OR_SERVICE → RESULT` for cross-source procurement–payment linkage. | Related work distinguishes entities, contracts, payments, implementation and results, but the explicit fail-closed promotion ladder was not found as an evaluated linkage protocol. | **COMBINATION CANDIDATE** |
-| Monetary amount-at-risk from false promotion | Record-linkage work evaluates accuracy; public-finance work evaluates money flows. No exact protocol found that scores unsupported promotion by the affected payment amount while preserving abstention. | Cost-sensitive classification is general prior art; this exact domain metric is not yet established as novel. | **COMBINATION CANDIDATE** |
-| Proof-carrying semantic replay | Provenance and reproducibility are established; proof-carrying computation is established in other domains. | No exact prior source found for byte-bound Python/Node replay of a procurement–payment claim ladder and its gate score. | **COMBINATION CANDIDATE** |
-| Honduras ONCAE–SEFIN result after strong blocking | No located primary study evaluates exact-code + supplier baseline against object/document evidence on the 2023–2025 public ONCAE–SEFIN corpus. | Absence from this search is not proof of novelty. | **EMPIRICAL CANDIDATE** |
+### Pinned public evidence
 
-## Exclusive predictions
+- Stage 3 run `30840335568`, artifact `8866730681`, report `e12ac82c517ede58cbe2ee1339c24ae6c406251c08e562afd856e65eb859c6f4`.
+- Stage 4 run `30841561243`, artifact `8867231467`, report `83e83d5893c7df8ab425debbb21e9edd5eda60e08309cfbd4905bd84a5ffbc7d`.
+- Stage 5 run `30844453922`, artifact `8868335548`, reconstructed report `e825184bc0e4389e8475b9a861d852b40c39b57322cbad574b4d4880fc67f811`.
+- Stage 5 Python receipt `03e97d0eb13ad7808a1a78f37ff2e8d16695ca092ccf3ed76f7cd12a78b795be`.
+- Stage 5 Node receipt `3fa82f11d111d97e3b5fcaf58680a413f1482e01744e336cd5e64fa0c33d72d6`.
 
-The candidate claim survives only if every prediction below holds on a sealed cohort not used to create the policy:
+## Prior-art matrix
 
-1. `unsafe(POLICY_DOCUMENTARY) < unsafe(B1_CODE_SUPPLIER)`.
-2. `supported_recovered(POLICY_DOCUMENTARY) >= supported_recovered(B1_CODE_SUPPLIER)`.
-3. A fixed permutation of documentary decisions performs worse than candidate-specific documentary evidence.
-4. The result is reproduced from official source packages in a clean environment with identical holdout IDs and decision hashes.
-5. The direction persists in a second cohort or a separately frozen family/period, not only in one handpicked collection.
-6. No promoted row violates the maximum permissible claim supported by its evidence.
+| Component | Primary prior art | Disposition |
+|---|---|---|
+| Public-payment record linkage | Rahal, *The Keys to Unlocking Public Payments Data*, DOI `10.1111/kykl.12171` | **ABSORBED** |
+| Supplier-name reconciliation | *The CORFU technique*, DOI `10.1016/j.csi.2015.02.009` | **ABSORBED** |
+| Procurement + spending knowledge graphs | *Data Quality Barriers for Transparency in Public Procurement*, DOI `10.3390/info13020099` | **ABSORBED** |
+| Global procurement data integration | GPPD, DOI `10.1016/j.dib.2024.110412`; FOPPA, DOI `10.1038/s41597-023-02213-z` | **ABSORBED** |
+| Procurement-object similarity | *Matchmaking Public Procurement Linked Open Data*, DOI `10.1007/978-3-319-26148-5_27` | **ABSORBED** |
+| Many-to-many purchase-to-pay structure | *Analyzing Inter-Connected Processes*, DOI `10.21203/rs.3.rs-2872013/v1` | **ABSORBED** |
+| Open-set document rejection | *Supplier qualification document recognition through open-set recognition*, DOI `10.1109/DSAA60987.2023.10302610` | **ABSORBED** |
+| Procurement red flags and false-positive management | IDB, DOI `10.18235/0004595` | **ABSORBED** |
+| Documentary and physical audit evidence | INTOSAI GUID 5280 | **ABSORBED** |
+| Adaptive costly evidence | Adaptive submodularity, noisy active learning and costly information acquisition | **ABSORBED** |
+| Contract/invoice/vendor reconciliation | Patents `US8494935B2`, `US7865411B2`, `US20060095373A1`, `US12243082B1`, `US8930295B2` | **ABSORBED** |
+| Honduras ONCAE–SEFIN integration | World Bank Honduras CPAR and OCP Honduras portal implementation | **ABSORBED** |
+| Exact sealed safety–recovery result | No located primary source reports the exact ONCAE–SEFIN baseline/challenger comparison and reproduced result above | **ORIGINAL EMPIRICAL RESULT UNDER BOUNDED SEARCH** |
 
-## Falsifiers
+## Search protocol
 
-Any one of these closes the current claim as false or underspecified:
+The search log records the date, exact queries, engines, inclusion rules, deduplication, saturation rule, source decisions and limitations. It used:
 
-- `CODE+SUPPLIER` matches documentary safety and supported recovery;
-- documentary evidence merely adds abstention but loses supported payments without a declared utility advantage;
-- the permutation control performs equally well;
-- the effect vanishes after preserving one-to-many event cardinality;
-- the clean replay changes holdout membership or decisions;
-- a prior primary publication already reports the same protocol and result;
-- the effect exists only in a single code family and fails the replication cohort.
+- Exa;
+- SciSpace;
+- Scholar Sidekick citation verification;
+- Parallel Search;
+- Consensus results obtained before its monthly limit was exhausted;
+- official standards and reports;
+- patent search;
+- Spanish and Honduras-specific queries.
 
-## Required evidence for G09 PASS
+Elicit and Scite were unavailable under the connected plans; those failures are explicit. The search is bounded and the novelty decision is revocable if an earlier exact source is later found.
 
-1. Stage 2 strong-baseline result passes every preregistered check.
-2. Clean independent source reconstruction reproduces hashes and metrics.
-3. A second sealed cohort reproduces direction and safety.
-4. A systematic primary-source search log records queries, databases, dates and inclusion decisions.
-5. The final claim is stated no more broadly than the evidence.
+## Why the claim is distinct
 
-Until then:
+The closest work supplies individual ingredients, but none located simultaneously reports:
+
+1. public ONCAE and SEFIN source packages;
+2. exact code plus compatible supplier as the strong baseline;
+3. object/document evidence as the challenger;
+4. one-to-many contract–financial-event cardinality;
+5. fail-closed abstention;
+6. unsafe promotion and supported-payment recovery as paired decision metrics;
+7. monetary amount at risk;
+8. a development cohort, disjoint sealed cohort, permutation control and clean cross-language reconstruction;
+9. the observed `20 → 0` safety improvement with `58/58` recovery.
+
+## Scope and revocability
+
+`PASS` means only that the exact empirical claim survived the declared bounded search and replication gates as of **2026-08-03**. It does not establish novelty of record linkage or procurement reconciliation generally, nor legality, delivery, quality, liquidation, fraud, corruption or physical result.
 
 ```text
-G09 = OPEN_PRIOR_ART_AND_INDEPENDENT_REPLICATION_REQUIRED
+G07 = PASS
+G09 = PASS — DOMAIN-BOUNDED ORIGINAL EMPIRICAL RESULT
+FINANCE_SCORE = 1000/1000
 ```
