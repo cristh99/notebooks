@@ -43,13 +43,21 @@ jobs:
 
       - name: Audit official taxonomy, failures and representative quarters
         run: |
+          set -u
           rm -rf reports/fin_abs_004_fdic_audit
+          set +e
           python -m fin_abs_004_fdic.audit \
             --output-dir reports/fin_abs_004_fdic_audit
+          audit_exit=$?
+          set -e
+          test -s reports/fin_abs_004_fdic_audit/report.json
+          if [ "$audit_exit" -ne 0 ] && [ "$audit_exit" -ne 2 ]; then
+            exit "$audit_exit"
+          fi
 
-      - name: Independent Node replay
+      - name: Independent Node replay including STOP state
         run: |
-          node fin_abs_004_fdic/verify_audit.mjs \
+          node fin_abs_004_fdic/verify_audit_v2.mjs \
             reports/fin_abs_004_fdic_audit/report.json \
             reports/fin_abs_004_fdic_audit/node_audit_receipt.json
 
@@ -67,7 +75,7 @@ jobs:
           source['sha256'] = hashlib.sha256(canonical.encode()).hexdigest()
           Path('/tmp/forged_score.json').write_text(json.dumps(source, indent=2, sort_keys=True) + '\n')
           PY
-          if node fin_abs_004_fdic/verify_audit.mjs \
+          if node fin_abs_004_fdic/verify_audit_v2.mjs \
               /tmp/forged_score.json /tmp/forged_receipt.json; then
             echo 'forged FDIC score accepted' >&2
             exit 1
