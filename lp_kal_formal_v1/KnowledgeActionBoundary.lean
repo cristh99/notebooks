@@ -165,17 +165,22 @@ theorem integration_requires_generalizable_result
 theorem solver_mandate_requires_authorized_executable_work
     (state : ActionState) (authorized due : Bool)
     (h : mandateGate state authorized due = true) :
-    authorized = true ∧ executable state = true := by
+    (authorized && executable state) = true := by
   cases state with
   | asap =>
       change (authorized && true) = true at h
-      exact ⟨bool_and_left_true h, rfl⟩
+      change (authorized && true) = true
+      exact h
   | atADate =>
       change (authorized && due) = true at h
-      exact ⟨bool_and_left_true h, rfl⟩
+      have auth : authorized = true := bool_and_left_true h
+      cases authorized with
+      | false => cases auth
+      | true => rfl
   | doing =>
       change (authorized && true) = true at h
-      exact ⟨bool_and_left_true h, rfl⟩
+      change (authorized && true) = true
+      exact h
   | done =>
       change (authorized && false) = true at h
       have impossible : false = true := bool_and_right_true h
