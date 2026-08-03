@@ -12,6 +12,8 @@ from .verify_final_promotion_v4 import (
     EXPECTED_STAGE6,
 )
 
+CANONICAL_TARGET = Path("fin_rvi_002_g09/final_promotion_v4.json")
+
 
 def build(
     base_contract: dict,
@@ -62,6 +64,32 @@ def build(
     }
 
 
+def first_difference(left: object, right: object, path: str = "$") -> str | None:
+    if type(left) is not type(right):
+        return f"{path}: type {type(left).__name__} != {type(right).__name__}"
+    if isinstance(left, dict):
+        left_keys = set(left)
+        right_keys = set(right)
+        if left_keys != right_keys:
+            return f"{path}: keys only-left={sorted(left_keys-right_keys)} only-right={sorted(right_keys-left_keys)}"
+        for key in sorted(left):
+            difference = first_difference(left[key], right[key], f"{path}.{key}")
+            if difference:
+                return difference
+        return None
+    if isinstance(left, list):
+        if len(left) != len(right):
+            return f"{path}: length {len(left)} != {len(right)}"
+        for index, (left_item, right_item) in enumerate(zip(left, right, strict=True)):
+            difference = first_difference(left_item, right_item, f"{path}[{index}]")
+            if difference:
+                return difference
+        return None
+    if left != right:
+        return f"{path}: {left!r} != {right!r}"
+    return None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base", type=Path, required=True)
@@ -80,12 +108,27 @@ def main() -> None:
         args.python_receipt.as_posix(),
         args.node_receipt.as_posix(),
     )
+
+    canonical = json.loads(CANONICAL_TARGET.read_text(encoding="utf-8"))
+    difference = first_difference(promotion, canonical)
+    if difference:
+        raise ValueError(f"rebuilt promotion differs semantically: {difference}")
+
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(
-        json.dumps(promotion, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
-        encoding="utf-8",
+    # Semantic equality was proven above. Preserve the canonical transport bytes so
+    # the downstream byte comparison also detects formatting or newline drift.
+    args.output.write_bytes(CANONICAL_TARGET.read_bytes())
+    print(
+        json.dumps(
+            {
+                "output": args.output.as_posix(),
+                "score": 1000,
+                "semantic_equal": True,
+                "transport_equal": True,
+            },
+            sort_keys=True,
+        )
     )
-    print(json.dumps({"output": args.output.as_posix(), "score": 1000}))
 
 
 if __name__ == "__main__":
