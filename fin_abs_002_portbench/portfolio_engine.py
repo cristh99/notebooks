@@ -230,6 +230,45 @@ def black_litterman_weights(history: pd.DataFrame) -> np.ndarray:
     return np.ones(n) / n
 
 
+def proportional_with_caps(
+    raw: np.ndarray,
+    total: float,
+    caps: np.ndarray,
+) -> np.ndarray:
+    """Allocate an exact total proportionally while respecting upper bounds."""
+    raw = np.maximum(np.asarray(raw, dtype=float), 0.0)
+    caps = np.maximum(np.asarray(caps, dtype=float), 0.0)
+    if total < -1e-12 or total > float(caps.sum()) + 1e-10:
+        raise ValueError("requested total exceeds declared capacity")
+    output = np.zeros(len(raw), dtype=float)
+    active = caps > 1e-14
+    remaining = float(max(total, 0.0))
+    for _ in range(len(raw) + 1):
+        if remaining <= 1e-12:
+            break
+        indices = np.flatnonzero(active)
+        if len(indices) == 0:
+            break
+        scores = raw[indices]
+        if float(scores.sum()) <= 1e-18:
+            scores = np.ones(len(indices), dtype=float)
+        proposal = remaining * scores / float(scores.sum())
+        capacity = caps[indices] - output[indices]
+        capped = proposal >= capacity - 1e-14
+        if not capped.any():
+            output[indices] += proposal
+            remaining = 0.0
+            break
+        capped_indices = indices[capped]
+        additions = np.maximum(caps[capped_indices] - output[capped_indices], 0.0)
+        output[capped_indices] += additions
+        remaining -= float(additions.sum())
+        active[capped_indices] = False
+    if remaining > 1e-8:
+        raise ValueError("water-filling could not allocate declared total")
+    return output
+
+
 def capped_weights(
     raw: np.ndarray,
     assets: Sequence[str],
@@ -239,35 +278,39 @@ def capped_weights(
     class_cap: float = CLASS_CAP,
 ) -> np.ndarray:
     target = normalize(raw)
-    weights = np.zeros(len(target), dtype=float)
-    remaining = 1.0
-    raw_positive = np.maximum(target, 1e-15)
-    for _ in range(100):
-        if remaining <= 1e-12:
-            break
-        capacity = np.maximum(asset_cap - weights, 0.0)
-        active = capacity > 1e-12
-        if not active.any():
-            break
-        proposal = np.zeros_like(weights)
-        proposal[active] = remaining * raw_positive[active] / raw_positive[active].sum()
-        proposal = np.minimum(proposal, capacity)
-        for class_name in sorted(set(class_map[asset] for asset in assets)):
-            indices = np.array(
-                [class_map[asset] == class_name for asset in assets], dtype=bool
-            )
-            class_remaining = max(class_cap - float(weights[indices].sum()), 0.0)
-            proposed = float(proposal[indices].sum())
-            if proposed > class_remaining + 1e-15 and proposed > 0:
-                proposal[indices] *= class_remaining / proposed
-        added = float(proposal.sum())
-        if added <= 1e-14:
-            break
-        weights += proposal
-        remaining = 1.0 - float(weights.sum())
-    if remaining > 1e-7:
-        raise ValueError("declared asset/class caps cannot fund a unit portfolio")
-    return normalize(weights)
+    classes = sorted(set(class_map[asset] for asset in assets))
+    class_indices = {
+        name: np.array([class_map[asset] == name for asset in assets], dtype=bool)
+        for name in classes
+    }
+    class_raw = np.array(
+        [float(target[indices].sum()) for indices in class_indices.values()],
+        dtype=float,
+    )
+    class_capacity = np.array(
+        [min(class_cap, int(indices.sum()) * asset_cap) for indices in class_indices.values()],
+        dtype=float,
+    )
+    class_weights = proportional_with_caps(class_raw, 1.0, class_capacity)
+    output = np.zeros(len(target), dtype=float)
+    for class_weight, indices in zip(
+        class_weights, class_indices.values(), strict=True
+    ):
+        positions = np.flatnonzero(indices)
+        within = proportional_with_caps(
+            target[positions],
+            float(class_weight),
+            np.full(len(positions), asset_cap, dtype=float),
+        )
+        output[positions] = within
+    if not np.isclose(output.sum(), 1.0, atol=1e-9):
+        raise ValueError("bounded allocation does not sum to one")
+    if float(output.max()) > asset_cap + 1e-9:
+        raise ValueError("bounded allocation exceeds asset cap")
+    for indices in class_indices.values():
+        if float(output[indices].sum()) > class_cap + 1e-9:
+            raise ValueError("bounded allocation exceeds class cap")
+    return output
 
 
 def align_previous(
@@ -437,7 +480,9 @@ def performance_metrics(
     losses = -returns
     tail_count = max(1, int(np.ceil(0.05 * len(losses))))
     expected_shortfall = float(np.mean(np.sort(losses)[-tail_count:]))
-    max_weight = float(weights.max(axis=None)) if not weights.empty else 0.0
+    max_weight = (
+        float(np.nanmax(weights.to_numpy(dtype=float))) if not weights.empty else 0.0
+    )
     return {
         "observations": int(len(returns)),
         "total_return": total_return,
