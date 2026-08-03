@@ -1,0 +1,72 @@
+name: Blackwell compiler public independent verification
+
+on:
+  push:
+    branches:
+      - agent/inference-power-compiler-v2-public-ci
+    paths:
+      - 'inference_power_compiler_v2/verify_blackwell_compiler_independent.py'
+      - 'BlackwellFinite.lean'
+      - '.github/workflows/blackwell-compiler-public.yml'
+  pull_request:
+    paths:
+      - 'inference_power_compiler_v2/verify_blackwell_compiler_independent.py'
+      - 'BlackwellFinite.lean'
+      - '.github/workflows/blackwell-compiler-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Bind private source and compile verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(grep -c 'b4f24a4aa004500d7eda6fb0a066124d0d4fdee5' inference_power_compiler_v2/verify_blackwell_compiler_independent.py)" = "1"
+          python -m py_compile inference_power_compiler_v2/verify_blackwell_compiler_independent.py
+      - name: Verify kernel, obstruction and decision witness independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd inference_power_compiler_v2
+          python verify_blackwell_compiler_independent.py | tee ../blackwell-public.log
+          test -s BLACKWELL_PUBLIC_RECEIPT.json
+      - name: Install pinned Lean
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+          "$HOME/.elan/bin/elan" toolchain install leanprover/lean4:v4.33.0-rc1
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Compile Lean boundary without sorryAx
+        shell: bash
+        run: |
+          set -euo pipefail
+          elan run leanprover/lean4:v4.33.0-rc1 lean -o BlackwellFinite.olean BlackwellFinite.lean 2>&1 | tee blackwell-public-lean.log
+          test -s BlackwellFinite.olean
+          if grep -q 'sorryAx' blackwell-public-lean.log; then
+            echo 'Lean output contains sorryAx' >&2
+            exit 1
+          fi
+      - name: Upload proof-carrying evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: blackwell-compiler-public-evidence
+          path: |
+            inference_power_compiler_v2/BLACKWELL_PUBLIC_RECEIPT.json
+            inference_power_compiler_v2/verify_blackwell_compiler_independent.py
+            BlackwellFinite.lean
+            BlackwellFinite.olean
+            blackwell-public.log
+            blackwell-public-lean.log
+          if-no-files-found: error
+          retention-days: 30
