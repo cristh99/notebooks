@@ -113,6 +113,24 @@ def _supplier_names(summary: ReleaseSummary) -> set[str]:
     return {normalize_name(value) for value in summary.supplier_names if normalize_name(value)}
 
 
+_HARD_CONFLICT_PAIRS = {
+    frozenset(("TECH_HARDWARE", "SOFTWARE")),
+    frozenset(("FURNITURE", "TOOLS")),
+    frozenset(("DENTAL", "FOOD")),
+}
+
+
+def _hard_category_conflict(
+    left_categories: set[str], right_categories: set[str]
+) -> bool:
+    return any(
+        frozenset((left, right)) in _HARD_CONFLICT_PAIRS
+        for left in left_categories
+        for right in right_categories
+        if left != right
+    )
+
+
 def adjudicate_object_v2(left: ReleaseSummary, right: ReleaseSummary) -> dict[str, Any]:
     result = adjudicate_object(left, right)
     left_ids = _supplier_numeric_ids(left)
@@ -131,9 +149,34 @@ def adjudicate_object_v2(left: ReleaseSummary, right: ReleaseSummary) -> dict[st
     result["shared_supplier_numeric_ids"] = sorted(left_ids & right_ids)
     result["shared_supplier_names"] = sorted(left_names & right_names)
 
-    if result["decision"] == "SUPPORTED" and not supplier_supported:
+    left_categories = set(result.get("left_categories", ()))
+    right_categories = set(result.get("right_categories", ()))
+    hard_conflict = _hard_category_conflict(left_categories, right_categories)
+    shared_token_count = len(result.get("shared_tokens", ()))
+    lexical_support = (
+        shared_token_count >= 2 and float(result.get("jaccard", 0.0)) >= 0.08
+    )
+    classification_support = bool(result.get("shared_classifications"))
+    result["hard_category_conflict"] = hard_conflict
+    result["lexical_support"] = lexical_support
+
+    if supplier_supported and hard_conflict:
+        result["decision"] = "REJECTED"
+        result["reason"] = "SUPPLIER_MATCH_BUT_HARD_OBJECT_CONFLICT"
+    elif supplier_supported and (classification_support or lexical_support):
+        result["decision"] = "SUPPORTED"
+        result["reason"] = "SUPPLIER_AND_OBJECT_EVIDENCE_COMPATIBLE"
+    elif supplier_supported:
+        result["decision"] = "UNRESOLVED"
+        result["reason"] = "SUPPLIER_MATCH_OBJECT_EVIDENCE_INSUFFICIENT"
+    elif hard_conflict or result["decision"] == "REJECTED":
+        result["decision"] = "REJECTED"
+        result["reason"] = (
+            "SUPPLIER_AND_OBJECT_CONFLICT"
+            if hard_conflict
+            else "SUPPLIER_UNRESOLVED_AND_NO_OBJECT_SUPPORT"
+        )
+    elif result["decision"] == "SUPPORTED":
         result["decision"] = "UNRESOLVED"
         result["reason"] = "OBJECT_COMPATIBLE_SUPPLIER_IDENTITY_UNRESOLVED"
-    elif result["decision"] == "REJECTED" and supplier_supported:
-        result["reason"] = "SUPPLIER_MATCH_BUT_MATERIAL_OBJECT_CONFLICT"
     return result
