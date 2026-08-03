@@ -1,0 +1,145 @@
+name: Data Science God-Level — tool-routing public development gate
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/data-science-god-level-tool-routing-public.yml'
+      - 'data_science_god_level/tool_routing/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-development-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+
+      - name: Reconstruct original hash-bound Logic Power v10
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _logic_power_v10
+          cat \
+            logic_power_v10_capsule/parts/part_00.b64 \
+            logic_power_v10_capsule/parts/part_01.b64 \
+            logic_power_v10_capsule/parts/part_02.b64 \
+            logic_power_v10_capsule/parts/part_03.b64 \
+            logic_power_v10_capsule/parts/part_04.b64 \
+            logic_power_v10_capsule/parts/part_05_00.b64 \
+            logic_power_v10_capsule/parts/part_05_01.b64 \
+            logic_power_v10_capsule/parts/part_05_02.b64 \
+            > /tmp/logic-power-v10-source.b64
+          echo '3548f31fcaa9696eabb063023c905fbb04a2b3db73c96df9f9ee8bc8e0c64fc1  /tmp/logic-power-v10-source.b64' | sha256sum -c -
+          base64 -d /tmp/logic-power-v10-source.b64 > /tmp/logic-power-v10-source.tar.gz
+          echo 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31  /tmp/logic-power-v10-source.tar.gz' | sha256sum -c -
+          tar xzf /tmp/logic-power-v10-source.tar.gz -C _logic_power_v10
+          cd _logic_power_v10
+          sha256sum -c SOURCE_SHA256SUMS
+          test "$(cat PRIVATE_HEAD_SHA.txt)" = 'ba10d0edc7eb20d499d0481fda2537e782b6efb2'
+
+      - name: Let original Logic Power v10 select the next external domain
+        working-directory: data_science_god_level/tool_routing
+        env:
+          PYTHONPATH: ${{ github.workspace }}/_logic_power_v10
+        run: python logic_plan.py
+
+      - name: Fetch pinned public AutoLab router inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p router-task /app public-logs
+          root='https://raw.githubusercontent.com/autolabhq/autolab/7aff5fe71dfbe152fb0b8e8ac8087210b4bc27d5/tasks/agent_tool_routing'
+          curl -fsSLo router-task/main.py "$root/environment/main.py"
+          curl -fsSLo router-task/verify_and_benchmark.py "$root/tests/verify_and_benchmark.py"
+          curl -fsSLo router-task/task.toml "$root/task.toml"
+          test "$(git hash-object router-task/main.py)" = 'd53b7d089ad861b8201b13d10cac1d3b3ae7b3f4'
+          test "$(git hash-object router-task/verify_and_benchmark.py)" = '9a33c31e6fe8439f2566ae3a918df5a0561e43be'
+          test "$(git hash-object router-task/task.toml)" = '08629d042bcf345c55cbf1a5fdae368849e0f7e0'
+          cp router-task/main.py /app/main.py
+          cp data_science_god_level/tool_routing/retriever.py /app/retriever.py
+
+      - name: Run the public driver
+        run: python /app/main.py | tee public-logs/public-driver.txt
+
+      - name: Run hidden-shaped development stress without the official seed
+        env:
+          TOOL_ROUTER_SECRET_SEED: data-science-open-development-seed-v1
+        run: |
+          python router-task/verify_and_benchmark.py \
+            --reward-file public-logs/development-reward.json \
+            --reward-txt public-logs/development-reward.txt \
+            | tee public-logs/development-verifier.txt
+
+      - name: Audit implementation and bind public evidence
+        run: |
+          python - <<'PY'
+          import ast
+          import hashlib
+          import json
+          from pathlib import Path
+
+          path = Path('/app/retriever.py')
+          tree = ast.parse(path.read_text(encoding='utf-8'))
+          imports = set()
+          forbidden_calls = []
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                  imports.update(alias.name.split('.')[0] for alias in node.names)
+              elif isinstance(node, ast.ImportFrom):
+                  imports.add((node.module or '').split('.')[0])
+              elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                  if node.func.id in {'open', 'eval', 'exec', 'compile', '__import__'}:
+                      forbidden_calls.append(node.func.id)
+          allowed = {'__future__', 'collections', 'heapq', 'math', 're'}
+          if not imports <= allowed:
+              raise SystemExit(f'forbidden imports: {sorted(imports - allowed)}')
+          if forbidden_calls:
+              raise SystemExit(f'forbidden calls: {forbidden_calls}')
+
+          reward = json.loads(
+              Path('public-logs/development-reward.json').read_text()
+          )
+          if not reward.get('correctness'):
+              raise SystemExit(f'development quality failed: {reward}')
+          if reward['mrr'] < 0.82 or reward['recall'] < 0.94:
+              raise SystemExit(f'development quality below gate: {reward}')
+          if reward['metric'] >= 0.40:
+              raise SystemExit(f'did not beat public reference: {reward}')
+
+          receipt = {
+              'schema': 'data-science-god-level/tool-routing-public/1',
+              'autolab_commit': '7aff5fe71dfbe152fb0b8e8ac8087210b4bc27d5',
+              'development_seed': 'data-science-open-development-seed-v1',
+              'official_hidden_seed_used': False,
+              'retriever_sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+              'imports': sorted(imports),
+              'forbidden_calls': forbidden_calls,
+              'development_result': reward,
+              'all_passed': True,
+          }
+          Path('public-logs/public-gate-receipt.json').write_text(
+              json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          )
+          print(json.dumps(receipt, indent=2, sort_keys=True))
+          PY
+
+      - name: Upload public router evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-god-level-tool-routing-public
+          retention-days: 90
+          path: |
+            data_science_god_level/tool_routing/logic-plan-receipt.json
+            data_science_god_level/tool_routing/retriever.py
+            public-logs/public-driver.txt
+            public-logs/development-verifier.txt
+            public-logs/development-reward.json
+            public-logs/development-reward.txt
+            public-logs/public-gate-receipt.json
