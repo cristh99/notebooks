@@ -51,7 +51,7 @@ const classes = payload.returns?.asset_class_counts ?? {};
 for (const name of EXPECTED_CLASSES) {
   if (!(Number(classes[name]) > 0)) errors.push(`asset-class-${name}`);
 }
-if (payload.returns?.convention?.inferred_convention !== 'log_return') errors.push('return-convention');
+if (payload.returns?.convention?.inferred_convention !== 'simple_return') errors.push('return-convention');
 if (payload.splits?.embedded_labels_consistent !== true) errors.push('split-consistency');
 const gates = payload.gate_checks ?? {};
 if (Object.keys(gates).length < 8 || !Object.values(gates).every(Boolean)) errors.push('gate-checks');
