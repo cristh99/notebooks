@@ -1,0 +1,16 @@
+{
+  "schema": "finance-power-v1/source-manifest/1",
+  "private_repository": "cristh99/my_first_repository",
+  "private_branch": "agent/finance-power-v1-logic-v10",
+  "logic_power_v10_private_head": "ba10d0edc7eb20d499d0481fda2537e782b6efb2",
+  "public_branch": "agent/finance-power-v1-public-ci-capsule",
+  "source_paths": [
+    "README_finance_power_v1.md",
+    "finance_power_v1/__init__.py",
+    "finance_power_v1/capital_allocation.py",
+    "finance_power_v1/domain_cases.py",
+    "finance_power_v1/finite_decision.py",
+    "finance_power_v1/run.py",
+    "finance_power_v1/test_finance_power_v1.py"
+  ]
+}

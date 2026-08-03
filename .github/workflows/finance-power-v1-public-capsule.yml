@@ -1,0 +1,147 @@
+name: Finance Power v1 — public Logic Power v10 capsule
+
+on:
+  push:
+    branches:
+      - agent/finance-power-v1-public-ci-capsule
+    paths:
+      - "finance_power_v1_capsule/**"
+      - ".github/workflows/finance-power-v1-public-capsule.yml"
+  pull_request:
+    paths:
+      - "finance_power_v1_capsule/**"
+      - ".github/workflows/finance-power-v1-public-capsule.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out capsule
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Reconstruct hash-bound Logic Power v10
+        run: python finance_power_v1_capsule/reconstruct_logic_v10.py
+
+      - name: Install canonical Finance Power v1 mirror
+        run: |
+          cp -R finance_power_v1_capsule/source/finance_power_v1 \
+            _finance_runtime/finance_power_v1
+          cp finance_power_v1_capsule/source/README_finance_power_v1.md \
+            _finance_runtime/README_finance_power_v1.md
+
+      - name: Execute ten deterministic and adversarial gates
+        env:
+          PYTHONPATH: _finance_runtime
+        run: python -m unittest -v finance_power_v1.test_finance_power_v1
+
+      - name: Build deterministic reports twice
+        env:
+          PYTHONPATH: _finance_runtime
+        run: |
+          python -m finance_power_v1.run \
+            --output reports/finance_power_v1-a.json
+          python -m finance_power_v1.run \
+            --output reports/finance_power_v1-b.json
+          cmp reports/finance_power_v1-a.json \
+            reports/finance_power_v1-b.json
+          cp reports/finance_power_v1-a.json \
+            reports/finance_power_v1.json
+
+      - name: Emit public verification receipt
+        env:
+          PRIVATE_SOURCE_REPOSITORY: cristh99/my_first_repository
+          PRIVATE_SOURCE_BRANCH: agent/finance-power-v1-logic-v10
+          LOGIC_POWER_V10_HEAD: ba10d0edc7eb20d499d0481fda2537e782b6efb2
+        run: |
+          python - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          def sha256(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          def tree_manifest(root: Path) -> dict[str, str]:
+              return {
+                  str(path.relative_to(root)): sha256(path)
+                  for path in sorted(root.rglob("*"))
+                  if path.is_file() and "__pycache__" not in path.parts
+              }
+
+          report_path = Path("reports/finance_power_v1.json")
+          report = json.loads(report_path.read_text(encoding="utf-8"))
+          domains = sorted(report["payload"]["domains"])
+          expected_domains = [
+              "capital_allocation",
+              "credit_underwriting",
+              "insurance_reserve",
+              "liquidity_intervention",
+              "portfolio_hedge",
+          ]
+          if domains != expected_domains:
+              raise SystemExit(f"unexpected domains: {domains}")
+          if report["payload"]["schema"] != "finance-power-v1/report/2":
+              raise SystemExit("unexpected finance report schema")
+
+          receipt_payload = {
+              "schema": "finance-power-v1/public-receipt/1",
+              "private_source_repository": os.environ[
+                  "PRIVATE_SOURCE_REPOSITORY"
+              ],
+              "private_source_branch": os.environ["PRIVATE_SOURCE_BRANCH"],
+              "logic_power_v10_private_head": os.environ[
+                  "LOGIC_POWER_V10_HEAD"
+              ],
+              "public_repository": os.environ["GITHUB_REPOSITORY"],
+              "public_commit": os.environ["GITHUB_SHA"],
+              "public_ref": os.environ["GITHUB_REF"],
+              "finance_source_sha256": tree_manifest(
+                  Path("finance_power_v1_capsule/source")
+              ),
+              "logic_power_v10_runtime_sha256": tree_manifest(
+                  Path("_finance_runtime/logic_power_v10")
+              ),
+              "tests": 10,
+              "domains": expected_domains,
+              "finance_report_payload_sha256": report["sha256"],
+              "finance_report_file_sha256": sha256(report_path),
+              "deterministic_rebuild": True,
+          }
+          canonical = json.dumps(
+              receipt_payload,
+              sort_keys=True,
+              separators=(",", ":"),
+              ensure_ascii=True,
+          ).encode("utf-8")
+          receipt = {
+              "payload": receipt_payload,
+              "sha256": hashlib.sha256(canonical).hexdigest(),
+          }
+          Path("reports/public_receipt.json").write_text(
+              json.dumps(receipt, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          print(receipt["sha256"])
+          PY
+
+      - name: Upload proof-carrying finance artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: finance-power-v1-public-receipt
+          path: reports/
+          if-no-files-found: error
+          retention-days: 30
