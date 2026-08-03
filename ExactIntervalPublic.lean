@@ -22,12 +22,12 @@ theorem sampling_and_remainder_bounds_add
 /-- The complete 64-score sum support has 321 points. -/
 theorem control_support_count :
     5 * 64 + 1 = 321 := by
-  decide
+  omega
 
 /-- The resource guard crosses 100 states at score twenty. -/
 theorem resource_abstention_boundary :
     5 * 20 + 1 = 101 ∧ 100 < 101 := by
-  decide
+  omega
 
 /-- The selected radius attains at least 19/20 exact coverage. -/
 theorem selected_radius_meets_nineteen_twentieths :
@@ -36,7 +36,7 @@ theorem selected_radius_meets_nineteen_twentieths :
     ≤
     20 *
       3002330471241896482860969550432384938379696188542449130789 := by
-  decide
+  omega
 
 /-- The immediately smaller radius fails the target. -/
 theorem previous_radius_fails_nineteen_twentieths :
@@ -45,17 +45,17 @@ theorem previous_radius_fails_nineteen_twentieths :
     <
     19 *
       3138550867693340381917894711603833208051177722232017256448 := by
-  decide
+  omega
 
 /-- Center 1/2 and radius 25/128 yield 39/128 and 89/128. -/
 theorem exact_interval_endpoints :
     64 - 25 = 39 ∧ 64 + 25 = 89 := by
-  decide
+  omega
 
 /-- Exact convolution is narrower than the certified Chebyshev radius 1/2. -/
 theorem exact_radius_beats_chebyshev :
     25 * 2 < 1 * 128 := by
-  decide
+  omega
 
 #print axioms ExactIntervalPublic.sampling_and_remainder_bounds_add
 #print axioms ExactIntervalPublic.control_support_count
