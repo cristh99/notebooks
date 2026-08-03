@@ -1,0 +1,48 @@
+name: Finite SCM causal compiler public verification
+
+on:
+  push:
+    branches: [agent/inference-power-compiler-v2-public-ci]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify complete finite SCM family
+        run: |
+          python -m py_compile inference_power_compiler_v2/verify_finite_scm_independent.py
+          python inference_power_compiler_v2/verify_finite_scm_independent.py | tee finite-scm-public.log
+          test -s inference_power_compiler_v2/FINITE_SCM_PUBLIC_RECEIPT.json
+      - name: Install Lean
+        run: |
+          curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+          export PATH="$HOME/.elan/bin:$PATH"
+          elan toolchain install leanprover/lean4:v4.33.0-rc1
+      - name: Compile Lean causal-identification boundary
+        run: |
+          export PATH="$HOME/.elan/bin:$PATH"
+          elan run leanprover/lean4:v4.33.0-rc1 lean -o FiniteSCMIdentificationPublic.olean FiniteSCMIdentificationPublic.lean 2>&1 | tee finite-scm-lean.log
+          test -s FiniteSCMIdentificationPublic.olean
+          ! grep -q 'sorryAx' finite-scm-lean.log
+      - name: Upload evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: finite-scm-public-evidence
+          path: |
+            inference_power_compiler_v2/FINITE_SCM_PUBLIC_RECEIPT.json
+            FiniteSCMIdentificationPublic.lean
+            FiniteSCMIdentificationPublic.olean
+            finite-scm-public.log
+            finite-scm-lean.log
+          if-no-files-found: error
+          retention-days: 30
