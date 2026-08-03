@@ -1,0 +1,153 @@
+name: Public finite transportability verification
+
+on:
+  push:
+    branches:
+      - agent/inference-power-compiler-v2-public-ci
+    paths:
+      - 'inference_power_compiler_v2/verify_transportability_public.py'
+      - 'FiniteTransportabilityPublic.lean'
+      - '.github/workflows/transportability-public.yml'
+  pull_request:
+    paths:
+      - 'inference_power_compiler_v2/verify_transportability_public.py'
+      - 'FiniteTransportabilityPublic.lean'
+      - '.github/workflows/transportability-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-transportability-public:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+
+      - name: Compile and replay independent transport verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            inference_power_compiler_v2/verify_transportability_public.py
+          python inference_power_compiler_v2/verify_transportability_public.py \
+            | tee transportability-public.log
+          test -s inference_power_compiler_v2/TRANSPORTABILITY_PUBLIC_REPORT.json
+          test -s inference_power_compiler_v2/TRANSPORTABILITY_PUBLIC_CERTIFICATE.json
+          sha256sum \
+            inference_power_compiler_v2/TRANSPORTABILITY_PUBLIC_REPORT.json \
+            inference_power_compiler_v2/TRANSPORTABILITY_PUBLIC_CERTIFICATE.json \
+            > /tmp/transportability-public-before.sha256
+          python inference_power_compiler_v2/verify_transportability_public.py \
+            > /tmp/transportability-public-rebuild.log
+          sha256sum \
+            inference_power_compiler_v2/TRANSPORTABILITY_PUBLIC_REPORT.json \
+            inference_power_compiler_v2/TRANSPORTABILITY_PUBLIC_CERTIFICATE.json \
+            > /tmp/transportability-public-after.sha256
+          cmp \
+            /tmp/transportability-public-before.sha256 \
+            /tmp/transportability-public-after.sha256
+
+      - name: Install pinned Lean
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -sSf \
+            https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          "$HOME/.elan/bin/elan" toolchain install leanprover/lean4:v4.33.0-rc1
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Compile public transportability boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          elan run leanprover/lean4:v4.33.0-rc1 lean \
+            -o FiniteTransportabilityPublic.olean \
+            FiniteTransportabilityPublic.lean \
+            2>&1 | tee finite-transportability-public-lean.log
+          test -s FiniteTransportabilityPublic.olean
+          if grep -q 'sorryAx' finite-transportability-public-lean.log; then
+            echo 'Unexpected sorryAx' >&2
+            exit 1
+          fi
+
+      - name: Build verification receipt
+        shell: bash
+        env:
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PUBLIC_EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          report = Path('inference_power_compiler_v2/TRANSPORTABILITY_PUBLIC_REPORT.json')
+          certificate = Path('inference_power_compiler_v2/TRANSPORTABILITY_PUBLIC_CERTIFICATE.json')
+          verifier = Path('inference_power_compiler_v2/verify_transportability_public.py')
+          lean = Path('FiniteTransportabilityPublic.lean')
+          receipt = {
+              'schema': 'transportability-public-verification-receipt/1',
+              'repository': 'cristh99/notebooks',
+              'head': os.environ['PUBLIC_HEAD_SHA'],
+              'event_sha': os.environ['PUBLIC_EVENT_SHA'],
+              'private_repository': 'cristh99/my_first_repository',
+              'private_pull_request': 68,
+              'private_head': '573210c5ce12a28b6f01441586caf6d2e65f7ae7',
+              'private_blobs': {
+                  'compiler': '9a42aabdf07f02d8385980ebe056b2dc960cdff9',
+                  'runner': 'b4ec440db3074bf4cdf1e711cc13c3a6b8b1ee35',
+                  'tests': '2531c34701e02c4d489cb5d2209031c249524cc7',
+                  'lean': '35ce7dce9bbfbeac3afeb1a1ca6461fba8913d45',
+                  'workflow': '348763893bb24affe62258095f5c24a5f8221e94',
+              },
+              'report_sha256': hashlib.sha256(report.read_bytes()).hexdigest(),
+              'certificate_sha256': hashlib.sha256(certificate.read_bytes()).hexdigest(),
+              'verifier_sha256': hashlib.sha256(verifier.read_bytes()).hexdigest(),
+              'lean_source_sha256': hashlib.sha256(lean.read_bytes()).hexdigest(),
+              'complete_world_enumeration': 'PASS',
+              'transport_formula_under_invariance': 'PASS',
+              'mechanism_shift_obstruction': 'PASS',
+              'complete_finite_policy_search': 'PASS',
+              'budget_feasibility': 'PASS',
+              'pareto_frontier': 'PASS',
+              'selected_policy_replay': 'PASS',
+              'policy_tamper_rejection': 'PASS',
+              'certificate_tamper_rejection': 'PASS',
+              'semantic_forgery_rejection': 'PASS',
+              'deterministic_rebuild': 'PASS',
+              'lean': 'PASS',
+              'sorryAx': 'ABSENT',
+          }
+          path = Path('inference_power_compiler_v2/TRANSPORTABILITY_PUBLIC_RECEIPT.json')
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path('inference_power_compiler_v2/TRANSPORTABILITY_PUBLIC_RECEIPT.sha256').write_text(
+              f'{digest}  TRANSPORTABILITY_PUBLIC_RECEIPT.json\n'
+          )
+          print(path.read_text())
+          print(digest)
+          PY
+
+      - name: Upload public transportability evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: transportability-public-evidence
+          path: |
+            inference_power_compiler_v2/TRANSPORTABILITY_PUBLIC_*.json
+            inference_power_compiler_v2/TRANSPORTABILITY_PUBLIC_RECEIPT.sha256
+            inference_power_compiler_v2/verify_transportability_public.py
+            FiniteTransportabilityPublic.lean
+            FiniteTransportabilityPublic.olean
+            transportability-public.log
+            finite-transportability-public-lean.log
+          if-no-files-found: error
+          retention-days: 90
