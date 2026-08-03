@@ -1,0 +1,11 @@
+{
+  "payload": {
+    "audit_sha256": "1cc9093656f0467403b611db887f397025132ada061602e6c9d4474b376f563e",
+    "claim_id": "FIN-RVI-002-C1-BOUNDED",
+    "errors": [],
+    "schema": "fin-rvi-002/g09-claim-scope-audit-receipt/2",
+    "valid": true,
+    "verdict": "PASS"
+  },
+  "sha256": "e1fd5faae0ec3e7aa5a52de151f188101d84f43692e515709b1f6cb2f36e9add"
+}
