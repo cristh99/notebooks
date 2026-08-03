@@ -1,0 +1,97 @@
+name: FIN-RVI-002 Stage 1 v2 — cardinality-preserving public holdout
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'fin_rvi_002_stage1/**'
+      - 'README_FIN_RVI_002_STAGE1.md'
+      - '.github/workflows/fin-rvi-002-stage1-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fin-rvi-002-stage1-public-data-v2
+  cancel-in-progress: true
+
+jobs:
+  reconstruct:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Unit and adversarial tests
+        run: |
+          python -m compileall -q fin_rvi_002_stage1
+          python -m unittest discover -v -s fin_rvi_002_stage1 -p 'test_*.py'
+
+      - name: Download, reconstruct, freeze, and evaluate
+        run: |
+          rm -rf reports/fin_rvi_002_stage1
+          python -m fin_rvi_002_stage1.run_stage1_v2 \
+            --output reports/fin_rvi_002_stage1 \
+            --cache .cache/fin_rvi_002_stage1 \
+            --years 2023 2024 2025 \
+            --amount-tolerance 0.05 \
+            --max-days 366 \
+            --holdout-size 20
+
+      - name: Verify Python evidence package
+        run: |
+          set -euo pipefail
+          test -s reports/fin_rvi_002_stage1/report.json
+          test -s reports/fin_rvi_002_stage1/report.md
+          test -s reports/fin_rvi_002_stage1/holdout_decisions.jsonl
+          test -s reports/fin_rvi_002_stage1/deterministic_replay.json
+          cd reports/fin_rvi_002_stage1
+          sha256sum -c report.sha256
+          gzip -9 -f candidates.jsonl
+
+      - name: Independent Node semantic verification
+        run: |
+          node --version
+          node fin_rvi_002_stage1/verify_stage1_v2.mjs \
+            reports/fin_rvi_002_stage1
+          cd reports/fin_rvi_002_stage1
+          sha256sum -c node_independent_receipt.sha256
+
+      - name: Upload full evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-rvi-002-stage1-v2-public-evidence
+          path: reports/fin_rvi_002_stage1/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish bounded evidence to branch
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            reports/fin_rvi_002_stage1/report.json \
+            reports/fin_rvi_002_stage1/report.md \
+            reports/fin_rvi_002_stage1/report.sha256 \
+            reports/fin_rvi_002_stage1/holdout_decisions.jsonl \
+            reports/fin_rvi_002_stage1/known_target_hits.json \
+            reports/fin_rvi_002_stage1/deterministic_replay.json \
+            reports/fin_rvi_002_stage1/node_independent_receipt.json \
+            reports/fin_rvi_002_stage1/node_independent_receipt.sha256
+          if git diff --cached --quiet; then
+            echo 'Evidence unchanged.'
+          else
+            git commit -m 'Publish FIN-RVI-002 Stage 1 v2 evidence [skip ci]'
+            git push origin HEAD:${GITHUB_HEAD_REF}
+          fi

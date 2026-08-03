@@ -1,0 +1,59 @@
+{
+  "schema": "fin-rvi-002/g09-prior-art-search/1",
+  "cutoff_date": "2026-08-03",
+  "status": "PRELIMINARY_NOT_EXHAUSTIVE",
+  "sources": [
+    "Exa",
+    "Consensus",
+    "Elicit",
+    "Crossref",
+    "OpenAlex",
+    "primary publisher and standards pages"
+  ],
+  "queries": [
+    "proof-carrying robust value of information complementary evidence acquisition entity resolution public procurement financial transactions active record linkage ambiguity",
+    "active record linkage value of information document acquisition entity resolution public procurement payments",
+    "ambiguity robust value of information complementary signals non-submodular evidence acquisition decision making public finance procurement",
+    "(public procurement OR government payments) (active record linkage OR value of information OR evidence acquisition) proof-carrying provenance complementarity ambiguity",
+    "joint complementarity-aware information acquisition greedy evidence selection ambiguity entity resolution record linkage public procurement"
+  ],
+  "inclusion": [
+    "primary research on decision under ambiguity or robust value of information",
+    "primary research on adaptive or nonmyopic information acquisition",
+    "active entity resolution, record linkage or entity matching",
+    "submodularity, adaptive submodularity or complementarity of evidence",
+    "data provenance, proof-carrying evidence or reproducible lineage",
+    "public procurement to payment or execution reconciliation"
+  ],
+  "exclusion": [
+    "generic OCR without a decision or acquisition policy",
+    "generic entity matching without active evidence selection",
+    "opinion pieces without a formal method or empirical evaluation",
+    "purely internal FIN-RVI artifacts when assessing external priority",
+    "secondary summaries when a primary source is available"
+  ],
+  "screening_fields": [
+    "citation",
+    "problem",
+    "decision model",
+    "evidence unit",
+    "ambiguity model",
+    "complementarity or submodularity assumptions",
+    "record-linkage component",
+    "financial or procurement setting",
+    "proof or provenance mechanism",
+    "empirical data",
+    "overlap with residual claim",
+    "reason included or excluded"
+  ],
+  "absorbed_claims": [
+    "max-min decision under multiple priors",
+    "dynamic consistency through rectangular model sets",
+    "nonmyopic value-of-information optimization",
+    "greedy guarantees under adaptive submodularity",
+    "active learning and sampling for entity resolution",
+    "generic data provenance and lineage"
+  ],
+  "residual_claim": "A proof-carrying, ambiguity-robust and complementarity-aware protocol for acquiring financial documentary evidence in public-procurement chains, governed by a maximum claim ladder and evaluated by false payment attributions avoided, correct abstention and utility per evidence cost on real ONCAE-SEFIN links.",
+  "promotion_rule": "G09 remains OPEN until deduplicated search results, exclusion reasons, sealed empirical superiority and independent replication are all published."
+}
