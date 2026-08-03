@@ -27,11 +27,6 @@ theorem zero_bias_within_remainder (remainder : Nat) :
     0 ≤ remainder := by
   exact Nat.zero_le remainder
 
-/-- Zero remainder leaves interval endpoints unchanged. -/
-theorem zero_remainder_expansion (lower upper : Int) :
-    lower - 0 = lower ∧ upper + 0 = upper := by
-  constructor <;> rfl
-
 /-- Exact monitoring score count. -/
 theorem monitoring_score_count :
     4 + 4 + 8 + 12 + 4 = 32 := by
@@ -80,7 +75,6 @@ theorem two_monitoring_batches :
 #print axioms AnytimeCrossFitPublic.earlier_training_is_predictable
 #print axioms AnytimeCrossFitPublic.frozen_nuisance_is_stable
 #print axioms AnytimeCrossFitPublic.zero_bias_within_remainder
-#print axioms AnytimeCrossFitPublic.zero_remainder_expansion
 #print axioms AnytimeCrossFitPublic.monitoring_score_count
 #print axioms AnytimeCrossFitPublic.scaled_score_sum
 #print axioms AnytimeCrossFitPublic.normalized_score_numerator_sum
