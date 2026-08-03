@@ -1,0 +1,124 @@
+name: FIN-RVI-002 Stage 6 — third sealed cohort
+
+on:
+  pull_request:
+    branches:
+      - agent/fin-rvi-002-stage4-independent-policy-v3
+    paths:
+      - 'fin_rvi_002_stage6/**'
+      - 'README_FIN_RVI_002_STAGE6.md'
+      - '.github/workflows/fin-rvi-002-stage6.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fin-rvi-002-stage6-third-sealed-cohort
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Prove policy and labeler are unchanged
+        run: |
+          set -euo pipefail
+          git diff --exit-code \
+            9e6686204fce20bc21d17f041d506a2a9c92761d HEAD -- \
+            fin_rvi_002_stage1 fin_rvi_002_stage3 fin_rvi_002_stage4
+
+      - name: Ensure PDF text extractor
+        run: |
+          if ! command -v pdftotext >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y poppler-utils
+          fi
+
+      - name: Unit tests
+        run: |
+          python -m compileall -q \
+            fin_rvi_002_stage1 fin_rvi_002_stage3 \
+            fin_rvi_002_stage4 fin_rvi_002_stage6
+          python -m unittest -v fin_rvi_002_stage6.test_stage6
+          python -m unittest -v fin_rvi_002_stage4.test_stage4
+
+      - name: Fresh official reconstruction and third cohort
+        run: |
+          rm -rf reports/fin_rvi_002_stage6 .cache/fin_rvi_002_stage6
+          python -m fin_rvi_002_stage6.run_stage6 \
+            --output reports/fin_rvi_002_stage6 \
+            --cache .cache/fin_rvi_002_stage6 \
+            --years 2023 2024 2025 \
+            --amount-tolerance 0.05 \
+            --max-days 366 \
+            --holdout-size 120
+
+      - name: Independent Node verification
+        run: |
+          node fin_rvi_002_stage6/verify_stage6.mjs \
+            reports/fin_rvi_002_stage6/report.json
+
+      - name: Enforce replication candidate
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('reports/fin_rvi_002_stage6/report.json').read_text())
+          payload = report['payload']
+          block = payload['stage6']
+          assert payload['schema'] == 'fin-rvi-002/stage6-third-sealed-cohort/1'
+          assert payload['candidate_reconstruction']['candidate_count'] == 2295
+          assert block['source_stage34_manifest']['shared_code_count'] == 237
+          assert block['source_stage34_manifest']['shared_codes_sha256'] == '927ca1f2b780b6d34e37cd2d482a766c33a58781eacf121ac581a73ad2960984'
+          assert block['gate_status'] == 'PASS_CANDIDATE_PENDING_CLEAN_RECONSTRUCTION'
+          assert block['policy_metrics']['POLICY_DOCUMENTARY']['unsafe_overpromotions'] == 0
+          assert block['policy_metrics']['POLICY_DOCUMENTARY']['supported_recovered'] == block['policy_metrics']['B1_CODE_SUPPLIER']['supported_recovered']
+          assert block['policy_metrics']['B1_CODE_SUPPLIER']['unsafe_overpromotions'] > 0
+          assert all(block['gate_checks'].values())
+          assert payload['gate_readout']['G09'] == 'OPEN_PRIOR_ART_AND_CLEAN_REPLAY_REQUIRED'
+          PY
+
+      - name: Negative gate-forgery control
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('reports/fin_rvi_002_stage6/report.json')
+          report = json.loads(path.read_text())
+          report['payload']['gate_readout']['G09'] = 'FORGED_PASS'
+          Path('/tmp/stage6_forged.json').write_text(json.dumps(report))
+          PY
+          if node fin_rvi_002_stage6/verify_stage6.mjs /tmp/stage6_forged.json; then
+            echo 'forged G09 was accepted' >&2
+            exit 1
+          fi
+
+      - name: Verify artifact files
+        run: |
+          set -euo pipefail
+          test -s reports/fin_rvi_002_stage6/report.json
+          test -s reports/fin_rvi_002_stage6/stage6_compact_rows.jsonl
+          test -s reports/fin_rvi_002_stage6/stage6_confirmed_labels.jsonl
+          test -s reports/fin_rvi_002_stage6/stage34_exclusion_manifest.json
+          test -s reports/fin_rvi_002_stage6/stage6_node_receipt.json
+          cd reports/fin_rvi_002_stage6
+          sha256sum -c report.sha256
+
+      - name: Upload Stage 6 evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-rvi-002-stage6-third-sealed-cohort
+          path: reports/fin_rvi_002_stage6/
+          if-no-files-found: error
+          retention-days: 90
