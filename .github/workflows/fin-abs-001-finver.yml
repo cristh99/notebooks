@@ -39,7 +39,7 @@ jobs:
         working-directory: capsule
         run: |
           python -m compileall -q fin_abs_001_finver
-          python -m unittest -v fin_abs_001_finver.test_finver
+          python -m unittest discover -v -s fin_abs_001_finver -p 'test_*.py'
 
       - name: Audit upstream contract and adapt committed SEC-XBRL corpus
         working-directory: capsule
@@ -47,7 +47,7 @@ jobs:
           set -euo pipefail
           rm -rf reports/fin_abs_001_finver
           mkdir -p reports/fin_abs_001_finver
-          python -m fin_abs_001_finver.adapter \
+          python -m fin_abs_001_finver.adapter_v3 \
             ../upstream/data/processed \
             reports/fin_abs_001_finver/adapted \
             --audit-output reports/fin_abs_001_finver/upstream_schema_audit.json
