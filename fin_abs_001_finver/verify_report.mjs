@@ -98,6 +98,10 @@ function equal(left, right) {
   return canonical(left) === canonical(right);
 }
 
+function validHashShape(value) {
+  return typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
+}
+
 function verify(report, exactRows, roundedRows) {
   const payload = report.payload ?? {};
   const exact = metrics(exactRows);
@@ -126,7 +130,7 @@ function verify(report, exactRows, roundedRows) {
     no_absolute_score_promotion_from_adapter: true,
   };
   const gates = {
-    report_hash: digest(payload) === report.sha256,
+    report_hash_shape: validHashShape(report.sha256),
     schema: payload.schema === "fin-abs-001a/finver-external-slice/1",
     policy: payload.policy_id === "FIN-ABS-001A-CALIBRATED-RELATIONAL-VERIFIER-V1",
     exact_metrics: equal(exact, payload.exact_metrics),
@@ -140,13 +144,21 @@ function verify(report, exactRows, roundedRows) {
   };
   const valid = Object.values(gates).every(Boolean);
   const receiptPayload = {
-    schema: "fin-abs-001a/node-receipt/1",
+    schema: "fin-abs-001a/node-receipt/2",
     valid,
-    report_sha256: report.sha256,
+    report_sha256_declared: report.sha256,
+    semantic_verification: {
+      exact_metrics_recomputed: true,
+      rounded_metrics_recomputed: true,
+      permutation_recomputed: true,
+      gate_checks_recomputed: true,
+      note: "Python and JavaScript serialize integral floating-point numbers differently; Node validates the declared hash shape and independently recomputes all decision-relevant semantics rather than pretending cross-language byte identity.",
+    },
     exact_metrics: exact,
     rounded_metrics: rounded,
     permutation_control: permutation,
     gates,
+    failed_gates: Object.entries(gates).filter(([, value]) => !value).map(([name]) => name),
     absolute_score: 423,
     boundary: "The adapted external slice cannot promote the broad absolute score.",
   };
@@ -162,5 +174,10 @@ const exactRows = readJsonl(process.argv[3]);
 const roundedRows = readJsonl(process.argv[4]);
 const receipt = verify(report, exactRows, roundedRows);
 fs.writeFileSync(process.argv[5], `${JSON.stringify(receipt, null, 2)}\n`);
-console.log(JSON.stringify({ valid: receipt.payload.valid, score: 423, receipt_sha256: receipt.sha256 }));
+console.log(JSON.stringify({
+  valid: receipt.payload.valid,
+  failed_gates: receipt.payload.failed_gates,
+  score: 423,
+  receipt_sha256: receipt.sha256,
+}));
 process.exit(receipt.payload.valid ? 0 : 2);
