@@ -83,6 +83,7 @@ jobs:
           cp inference_power_compiler_v2/STRUCTURAL_EXPERIMENT_DESIGN_REPORT.json _logic_power_v10/inference_power_compiler_v2/
           cp inference_power_compiler_v2/finite_sample_design.py _logic_power_v10/inference_power_compiler_v2/
           cp inference_power_compiler_v2/run_finite_sample_design.py _logic_power_v10/inference_power_compiler_v2/
+          cp inference_power_compiler_v2/FINITE_SAMPLE_MINIMAX_REPORT.json _logic_power_v10/inference_power_compiler_v2/FINITE_SAMPLE_MINIMAX_REPORT.pinned.json
           cd _logic_power_v10
           python -m py_compile \
             inference_power_compiler_v2/structural_experiment_design.py \
@@ -96,6 +97,14 @@ jobs:
             ../inference_power_compiler_v2/STRUCTURAL_EXPERIMENT_DESIGN_REPORT.json
           PYTHONPATH=. python inference_power_compiler_v2/run_finite_sample_design.py \
             | tee finite-sample-minimax.log
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          generated = json.loads(Path('inference_power_compiler_v2/FINITE_SAMPLE_MINIMAX_REPORT.json').read_text())
+          pinned = json.loads(Path('inference_power_compiler_v2/FINITE_SAMPLE_MINIMAX_REPORT.pinned.json').read_text())
+          if generated != pinned:
+              raise SystemExit('finite-sample pinned report mismatch')
+          PY
 
       - name: Bind the public receipt to both repositories
         shell: bash
