@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any, Iterable, Mapping, Sequence
 
 import pytesseract
 
 from . import run_canary as core
+
+
+def bbox_from_poly(poly: Any) -> tuple[float, float, float, float]:
+    if hasattr(poly, "tolist"):
+        poly = poly.tolist()
+    return _original_bbox_from_poly(poly)
 
 
 def select_pages(raw_pages: Sequence[Mapping[str, Any]], count: int):
@@ -48,6 +55,7 @@ def select_pages(raw_pages: Sequence[Mapping[str, Any]], count: int):
 
 
 def make_paddle_engine() -> Any:
+    os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
     from paddleocr import PaddleOCR
 
     return PaddleOCR(
@@ -93,7 +101,7 @@ def parse_paddle_result(result_items: Iterable[Any]) -> dict[str, Any]:
             lines.append(
                 {
                     "text": clean,
-                    "bbox": list(core.bbox_from_poly(polygon)),
+                    "bbox": list(bbox_from_poly(polygon)),
                     "confidence": None if score is None else float(score),
                 }
             )
@@ -109,6 +117,7 @@ def parse_paddle_result(result_items: Iterable[Any]) -> dict[str, Any]:
     }
 
 
+_original_bbox_from_poly = core.bbox_from_poly
 _original_evaluate = core.evaluate
 
 
@@ -118,6 +127,7 @@ def evaluate(gt: Any, engine: str, prediction: Mapping[str, Any]) -> dict[str, A
     return _original_evaluate(gt, engine, prediction)
 
 
+core.bbox_from_poly = bbox_from_poly
 core.select_pages = select_pages
 core.make_paddle_engine = make_paddle_engine
 core.parse_paddle_result = parse_paddle_result
