@@ -1,0 +1,101 @@
+name: FIN-RVI-002 G09 — final bounded discovery gate
+
+on:
+  pull_request:
+    branches:
+      - agent/fin-rvi-002-stage1-public-data
+      - main
+    paths:
+      - 'fin_rvi_002_g09/**'
+      - 'G09_PRIOR_ART_MATRIX.md'
+      - '.github/workflows/fin-rvi-002-g09.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fin-rvi-002-g09-final
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Verify bounded prior-art search and claim
+        run: |
+          python -m compileall -q fin_rvi_002_g09
+          python -m unittest -v fin_rvi_002_g09.test_claim
+          rm -rf reports/fin_rvi_002_g09
+          python -m fin_rvi_002_g09.verify_prior_art
+          python -m fin_rvi_002_g09.verify_claim
+
+      - name: Independent Node semantic verification
+        run: |
+          node fin_rvi_002_g09/verify_claim.mjs \
+            fin_rvi_002_g09/claim_contract.json \
+            reports/fin_rvi_002_g09/node_claim_receipt.json
+
+      - name: Cross-check promotion and score
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('reports/fin_rvi_002_g09')
+          py = json.loads((root / 'claim_receipt.json').read_text())
+          node = json.loads((root / 'node_claim_receipt.json').read_text())
+          prior = json.loads((root / 'prior_art_receipt.json').read_text())
+          for receipt in (py, node):
+              payload = receipt['payload']
+              assert payload['valid'] is True, payload
+              assert payload['promotion_allowed'] is True, payload
+              assert payload['gate_readout'] == {
+                  'G07': 'PASS', 'G09': 'PASS', 'finance_score': 1000
+              }, payload
+          assert prior['payload']['bounded_search_pass'] is True, prior
+          assert prior['payload']['exact_claim_match_found'] is False, prior
+          PY
+
+      - name: Reject forged evidence and scope expansion
+        run: |
+          python - <<'PY'
+          import copy, json
+          from pathlib import Path
+          from fin_rvi_002_g09.verify_claim import verify
+          source = json.loads(Path('fin_rvi_002_g09/claim_contract.json').read_text())
+
+          open_gate = copy.deepcopy(source)
+          open_gate['current_gates']['clean_independent_replay'] = 'PENDING'
+          assert 'premature-pass' in verify(open_gate)
+
+          falsified = copy.deepcopy(source)
+          falsified['empirical_evidence']['independent_stage4']['challenger_v3']['unsafe_overpromotions'] = 1
+          assert 'stage4-result' in verify(falsified)
+
+          expanded = copy.deepcopy(source)
+          expanded['scope']['excluded_claims'].remove('fraud')
+          assert 'excluded-claims' in verify(expanded)
+
+          Path('/tmp/forged-g09.json').write_text(json.dumps(falsified))
+          PY
+          if node fin_rvi_002_g09/verify_claim.mjs \
+              /tmp/forged-g09.json /tmp/forged-node.json; then
+            echo 'Node verifier accepted forged G09 evidence' >&2
+            exit 1
+          fi
+
+      - name: Upload final receipts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-rvi-002-g09-final-receipts
+          path: reports/fin_rvi_002_g09/
+          if-no-files-found: error
+          retention-days: 90

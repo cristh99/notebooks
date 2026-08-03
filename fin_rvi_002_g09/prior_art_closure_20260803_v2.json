@@ -1,0 +1,235 @@
+{
+  "schema": "fin-rvi-002/g09-prior-art-closure/2",
+  "cut_date": "2026-08-03",
+  "claim_id": "FIN-RVI-002-C1-BOUNDED",
+  "status": "SYSTEMATIC_SEARCH_COMPLETE_NO_EXACT_HIT_FOUND_IN_SEARCHED_CORPORA",
+  "interpretation": "No exact hit is not proof of global novelty. It only supports a bounded novelty candidate after explicit absorption of adjacent prior art.",
+  "searched_corpora": [
+    {
+      "name": "Exa",
+      "status": "EXECUTED",
+      "queries": [
+        "public procurement contracts government payment expenditure transactions supplier identity contract identifiers object descriptions document provenance record linkage false positives many-to-many cardinality",
+        "Primary research papers or official technical reports on linking public procurement contracts to government payment or expenditure transactions using contract or project identifiers, supplier identity, object or document evidence, preserving one-to-many purchase-to-pay cardinality, and measuring false-positive payment attribution or abstention",
+        "site:ideas.repec.org OR site:ssrn.com OR site:nber.org public procurement contract payment transaction linkage supplier identifier object document evidence record linkage",
+        "contractor payment attribution public procurement expenditure records supplier identity object description documents false positive abstention",
+        "papers citing or extending The Keys to Unlocking Public Payments Data Rahal 2018 CORFU public procurement supplier reconciliation Soylu public procurement knowledge graph payments contract linkage",
+        "site:patents.google.com procurement contract payment transaction supplier identifier document evidence record linkage financial attribution patent"
+      ]
+    },
+    {
+      "name": "SciSpace",
+      "status": "EXECUTED",
+      "queries": [
+        "Which peer-reviewed studies link public procurement contracts or projects to government payment or expenditure transactions using supplier identity, contract identifiers, object descriptions, or supporting documents, while preserving one-to-many purchase-to-pay cardinality and measuring false-positive attribution or abstention?",
+        "Has any peer-reviewed study evaluated a fail-closed policy for attributing government expenditure events as contractor payments by comparing exact contract or project codes plus supplier identity against object descriptions or procurement documents, reporting unsupported promotions and monetary amount at risk on sealed public procurement-finance cohorts?"
+      ]
+    },
+    {
+      "name": "Consensus",
+      "status": "BLOCKED_MONTHLY_QUOTA",
+      "query": "public procurement contract payment transaction linkage supplier identity document evidence one-to-many cardinality false positive attribution"
+    },
+    {
+      "name": "Elicit",
+      "status": "BLOCKED_PLAN_NO_API_ACCESS",
+      "query": "public procurement contract or project linkage to government payment or expenditure transactions using supplier identity, contract identifiers, object descriptions, documents, and many-to-many purchase-to-pay cardinality"
+    },
+    {
+      "name": "Google Patents via Exa",
+      "status": "EXECUTED",
+      "result": "Broad prior art found for contract-payment reconciliation, invoice-purchase-order-vendor matching, document-context enrichment, exception handling and code-based financial adjudication."
+    }
+  ],
+  "citation_chaining": {
+    "status": "EXECUTED",
+    "seeds": [
+      "Rahal 2018 — The Keys to Unlocking Public Payments Data",
+      "Alvarez-Rodriguez et al. 2015 — CORFU",
+      "Soylu et al. 2020/2022 — integrated procurement knowledge graphs",
+      "IDB 2022 — actionable procurement red flags"
+    ],
+    "result": "Extensions and cited work cover payment-data cleaning, supplier reconciliation, procurement-company-spending knowledge graphs, anomaly detection and false-positive-aware red flags, but no exact evaluation of the bounded contractor-payment attribution claim was located."
+  },
+  "absorbed_primary_prior_art": [
+    {
+      "title": "The Keys to Unlocking Public Payments Data",
+      "identifier": "DOI:10.1111/kykl.12171",
+      "year": 2018,
+      "absorbs": [
+        "large-scale public payment ingestion and cleaning",
+        "linkage of payment recipients to institutional registers",
+        "domain-specific approximate record linkage"
+      ],
+      "does_not_establish": [
+        "contract-to-payment event attribution with documentary claim gating",
+        "sealed unsupported-promotion and amount-at-risk evaluation"
+      ]
+    },
+    {
+      "title": "Enabling policy making processes by unifying and reconciling corporate names in public procurement data — CORFU",
+      "identifier": "DOI:10.1016/j.csi.2015.02.009",
+      "year": 2015,
+      "absorbs": [
+        "procurement supplier-name normalization and reconciliation",
+        "precision and recall evaluation of corporate-name unification"
+      ],
+      "does_not_establish": [
+        "financial event nature or contractor-payment attribution"
+      ]
+    },
+    {
+      "title": "Enhancing Public Procurement in the European Union Through Constructing and Exploiting an Integrated Knowledge Graph",
+      "identifier": "DOI:10.1007/978-3-030-62466-8_27",
+      "year": 2020,
+      "absorbs": [
+        "procurement-company knowledge graph construction",
+        "supplier reconciliation and document linkage",
+        "integrated anomaly analytics"
+      ],
+      "does_not_establish": [
+        "transaction-level public-finance payment attribution result"
+      ]
+    },
+    {
+      "title": "TheyBuyForYou Platform and Knowledge Graph: Expanding Horizons in Public Procurement with Open Linked Data",
+      "identifier": "DOI:10.3233/SW-210442",
+      "year": 2022,
+      "absorbs": [
+        "production procurement knowledge graph",
+        "supplier reconciliation",
+        "planned integration of spending transactions"
+      ],
+      "does_not_establish": [
+        "evaluated contract-payment linkage safety policy"
+      ]
+    },
+    {
+      "title": "Analyzing interconnected processes: using object-centric process mining to analyze procurement processes",
+      "identifier": "DOI:10.1007/s41060-023-00427-3",
+      "year": 2023,
+      "absorbs": [
+        "many-to-many purchase-order, invoice and payment cardinality",
+        "object-centric avoidance of convergence and divergence errors"
+      ],
+      "does_not_establish": [
+        "cross-system public procurement-to-expenditure entity attribution"
+      ]
+    },
+    {
+      "title": "From Fishing to Catching: Developing Actionable Red Flags in Public Procurement to Prevent and Control Corruption",
+      "identifier": "DOI:10.18235/0004595",
+      "year": 2022,
+      "absorbs": [
+        "false-positive and false-negative management",
+        "payment-before-contract and payment-exceeds-contract red flags",
+        "local materiality, feasibility, cost and impact prioritization"
+      ],
+      "does_not_establish": [
+        "payment attribution as a maximum-permissible claim"
+      ]
+    },
+    {
+      "title": "Agentic ER: The next frontier in Entity Resolution",
+      "identifier": "arXiv:2607.27435",
+      "year": 2026,
+      "absorbs": [
+        "sequential entity resolution",
+        "adaptive external evidence acquisition",
+        "cost-aware stopping and abstention"
+      ],
+      "does_not_establish": [
+        "the Honduras empirical result or its financial claim ladder"
+      ]
+    },
+    {
+      "title": "OntoDup: Governance-Aware Entity Matching for Scholarly Knowledge Graph Deduplication",
+      "identifier": "DOI:10.3390/info17040325",
+      "year": 2026,
+      "absorbs": [
+        "governed evidence-bearing match assertions",
+        "provenance, conflict handling and policy-driven materialization"
+      ],
+      "does_not_establish": [
+        "contractor-payment attribution or public-finance utility measurement"
+      ]
+    },
+    {
+      "title": "Open Contracting Data Standard identifiers, transactions and contract-suppliers extensions",
+      "publisher": "Open Contracting Partnership",
+      "absorbs": [
+        "common contracting identifiers across systems",
+        "implementation transactions as payments",
+        "payment-milestone linkage",
+        "multi-supplier contract cardinality"
+      ],
+      "does_not_establish": [
+        "a tested fallback when publishers do not preserve those identifiers"
+      ]
+    },
+    {
+      "title": "GUID 5280 — Guidance for Audits of Public Procurement",
+      "publisher": "INTOSAI",
+      "year": 2022,
+      "absorbs": [
+        "documentary evidence for contract payments",
+        "separation of payment, delivery and result claims"
+      ],
+      "does_not_establish": [
+        "automated cross-source attribution performance"
+      ]
+    },
+    {
+      "title": "System and method for payment reconciliation against expressive contracts",
+      "identifier": "US8494935B2",
+      "absorbs": [
+        "contract-purchase-payment reconciliation",
+        "multiple purchases and payments against contracts"
+      ],
+      "does_not_establish": [
+        "the bounded public-data empirical result"
+      ]
+    },
+    {
+      "title": "Accounts payable process",
+      "identifier": "US7865411B2",
+      "absorbs": [
+        "invoice-purchase-order-vendor matching",
+        "probable matches and exception processing"
+      ],
+      "does_not_establish": [
+        "sealed public procurement-finance attribution evaluation"
+      ]
+    }
+  ],
+  "not_novel": [
+    "supplier or payer-payee identity reconciliation",
+    "public payment data cleaning and linkage to registers",
+    "knowledge-graph integration of procurement, companies and spending",
+    "many-to-many purchase-to-pay cardinality",
+    "documentary audit evidence for payment",
+    "active or agentic evidence acquisition",
+    "cost-aware sequential entity resolution",
+    "provenance-bearing governed match assertions",
+    "false-positive-aware procurement red flags",
+    "contract-payment reconciliation and accounts-payable exception handling"
+  ],
+  "bounded_remaining_claim": "Across multiple preregistered, mutually code-disjoint public Honduras ONCAE-SEFIN cohorts, after exact contract/project-code blocking and compatible supplier identity, a fixed fail-closed documentary policy for the maximum claim CONTRACTOR_PAYMENT reduces unsupported payment attribution to zero without reducing recovery of supported payments, while preserving one-to-many contract-payment cardinality; the result is measured against strong baselines, monetary amount at risk, permutation controls and independent clean replay.",
+  "exclusive_predictions": [
+    "Code plus supplier identity will still overpromote auxiliary, accounting-only, consortium-authority or object-conflicting events.",
+    "Adding payment nature and documentary object evidence will strictly reduce those unsupported promotions without reducing supported-payment recovery.",
+    "Rotating financial evidence across otherwise fixed pairs will materially degrade safety or recovery.",
+    "The safety-recovery result will persist on cohorts that exclude every previously evaluated shared code."
+  ],
+  "falsifiers": [
+    "Any unsupported promotion by the fixed policy on a sealed cohort.",
+    "Any loss of supported-payment recovery relative to code plus supplier identity.",
+    "Failure on a code-disjoint replication cohort.",
+    "A primary source predating the cut date that reports the same bounded result with equivalent gates."
+  ],
+  "remaining_gates": [
+    "third_code_disjoint_sealed_cohort_pass",
+    "clean_replay_of_third_cohort",
+    "final_claim_scope_audit"
+  ]
+}
