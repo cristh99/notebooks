@@ -61,10 +61,10 @@
     "claim_scope_audit": "PASS"
   },
   "current_gates": {
-    "stage2_strong_baseline": "PENDING",
+    "stage2_strong_baseline": "BLOCKED_ZERO_GOLD_LABELS_STAGE3_RUNNING",
     "clean_independent_replay": "PENDING",
-    "second_sealed_cohort": "PENDING",
-    "systematic_primary_prior_art_log": "IN_PROGRESS",
+    "second_sealed_cohort": "STAGE3_RUNNING",
+    "systematic_primary_prior_art_log": "IN_PROGRESS_EXA_CONSENSUS_SCITE_ELICIT_DENIED_BY_PLAN",
     "claim_scope_audit": "PASS"
   },
   "primary_sources": [
