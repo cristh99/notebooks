@@ -1,0 +1,118 @@
+name: FIN-ABS-003 — CLRD sealed reserving benchmark
+
+on:
+  pull_request:
+    branches:
+      - agent/finance-absolute-423-public-replay
+    paths:
+      - 'fin_abs_003_clrd/**'
+      - 'README_FIN_ABS_003_CLRD.md'
+      - '.github/workflows/fin-abs-003-clrd-benchmark.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fin-abs-003-clrd-benchmark
+  cancel-in-progress: true
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout frozen capsule
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Install deterministic numerical dependencies
+        run: |
+          python -m pip install --disable-pip-version-check --no-cache-dir \
+            numpy==2.3.2 pandas==2.3.1
+
+      - name: Compile and test reserving invariants
+        run: |
+          python -m compileall -q fin_abs_003_clrd
+          python -m unittest -v fin_abs_003_clrd.test_audit
+          python -m unittest -v fin_abs_003_clrd.test_reserving
+
+      - name: Download pinned CLRD source
+        run: |
+          set -euo pipefail
+          mkdir -p .cache/fin_abs_003_clrd reports/fin_abs_003_clrd_benchmark
+          curl --location --fail --show-error --silent \
+            --retry 5 --retry-all-errors --connect-timeout 30 --max-time 600 \
+            'https://raw.githubusercontent.com/casact/chainladder-python/2f6ea125d17e29d018b56e4df85eda52ac8ac206/chainladder/utils/data/clrd.csv' \
+            --output .cache/fin_abs_003_clrd/clrd.csv
+          echo '5785a95d5d24943f601a9c46b83cb313ba5109a374331a71e28a86eb702d9eef  .cache/fin_abs_003_clrd/clrd.csv' \
+            | sha256sum -c -
+
+      - name: Execute validation selection and sealed test
+        run: |
+          python -m fin_abs_003_clrd.benchmark \
+            --input .cache/fin_abs_003_clrd/clrd.csv \
+            --output-dir reports/fin_abs_003_clrd_benchmark
+          python -m fin_abs_003_clrd.seal \
+            --report reports/fin_abs_003_clrd_benchmark/report.json \
+            --predictions reports/fin_abs_003_clrd_benchmark/predictions.csv \
+            --verification-rows reports/fin_abs_003_clrd_benchmark/verification_rows.jsonl
+
+      - name: Independent Node metric replay
+        run: |
+          node fin_abs_003_clrd/verify_benchmark.mjs \
+            reports/fin_abs_003_clrd_benchmark/report.json \
+            reports/fin_abs_003_clrd_benchmark/node_metric_receipt.json
+
+      - name: Reject premature score and metric forgeries
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import copy, hashlib, json
+          from pathlib import Path
+
+          report_path = Path('reports/fin_abs_003_clrd_benchmark/report.json')
+          source = json.loads(report_path.read_text())
+
+          score = copy.deepcopy(source)
+          score['payload']['absolute_score']['after'] = 1000
+          score['payload']['absolute_score']['delta'] = 577
+          canonical = json.dumps(score['payload'], sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+          score['payload_canonical'] = canonical
+          score['sha256'] = hashlib.sha256(canonical.encode()).hexdigest()
+          Path('/tmp/forged_score.json').write_text(json.dumps(score, indent=2, sort_keys=True) + '\n')
+
+          metric = copy.deepcopy(source)
+          selected = metric['payload']['validation']['selected_challenger']
+          metric['payload']['validation']['metrics'][selected]['wape'] = 0.0
+          canonical = json.dumps(metric['payload'], sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+          metric['payload_canonical'] = canonical
+          metric['sha256'] = hashlib.sha256(canonical.encode()).hexdigest()
+          Path('/tmp/forged_metric.json').write_text(json.dumps(metric, indent=2, sort_keys=True) + '\n')
+          PY
+
+          for forged in /tmp/forged_score.json /tmp/forged_metric.json; do
+            if node fin_abs_003_clrd/verify_benchmark.mjs \
+                "$forged" /tmp/forged_receipt.json; then
+              echo "forged benchmark accepted: $forged" >&2
+              exit 1
+            fi
+          done
+
+      - name: Build evidence manifest
+        run: |
+          sha256sum reports/fin_abs_003_clrd_benchmark/* \
+            > reports/fin_abs_003_clrd_benchmark/manifest.sha256
+
+      - name: Upload bounded benchmark evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-abs-003-clrd-sealed-benchmark
+          path: reports/fin_abs_003_clrd_benchmark/
+          if-no-files-found: error
+          retention-days: 90
