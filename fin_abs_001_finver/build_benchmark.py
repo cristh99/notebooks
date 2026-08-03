@@ -11,6 +11,7 @@ from typing import Any
 
 
 UPSTREAM_COMMIT = "8aef2f48befdab5c57cc383a521711fe11c2df98"
+MIN_ADAPTED_STATEMENTS_TO_EXECUTE = 10
 
 
 def sha256_file(path: Path) -> str:
@@ -40,8 +41,8 @@ def build(adapted_dir: Path, output_dir: Path, upstream_src: Path) -> dict[str, 
     from benchmark.dataset_builder import build_benchmark_dataset  # type: ignore
 
     source_files = [path for path in sorted(adapted_dir.glob("*.json")) if is_statement(path)]
-    if len(source_files) < 20:
-        raise ValueError(f"too few adapted statements: {len(source_files)}")
+    if len(source_files) < MIN_ADAPTED_STATEMENTS_TO_EXECUTE:
+        raise ValueError(f"too few adapted statements to execute: {len(source_files)}")
 
     output_dir.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="fin-abs-001a-") as temp:
@@ -58,10 +59,13 @@ def build(adapted_dir: Path, output_dir: Path, upstream_src: Path) -> dict[str, 
     benchmark_path = output_dir / "benchmark.json"
     stats_path = output_dir / "benchmark_stats.json"
     manifest = {
-        "schema": "fin-abs-001a/benchmark-build/1",
+        "schema": "fin-abs-001a/benchmark-build/2",
         "upstream_commit": UPSTREAM_COMMIT,
         "upstream_src": str(upstream_src),
+        "minimum_adapted_statements_to_execute": MIN_ADAPTED_STATEMENTS_TO_EXECUTE,
         "adapted_statement_count": len(source_files),
+        "breadth_target": 40,
+        "breadth_gate_met": len(source_files) >= 40,
         "adapted_statement_files": [path.name for path in source_files],
         "benchmark_instances": len(instances),
         "clean_instances": stats.clean_instances,
@@ -70,8 +74,9 @@ def build(adapted_dir: Path, output_dir: Path, upstream_src: Path) -> dict[str, 
         "stats_sha256": sha256_file(stats_path),
         "seed": 42,
         "boundary": (
-            "This benchmark uses the pinned FinVerBench error taxonomy and builders on a transparent adapter from the repository's committed SEC-XBRL line-item corpus. "
-            "It is not byte-identical to the upstream published diagnostic subset."
+            "Execution is allowed with at least ten transparent company slices so diagnostic behavior can be measured. "
+            "The separate breadth gate remains forty and must fail honestly when fewer companies are comparable. "
+            "The benchmark uses the pinned FinVerBench error taxonomy and builders on a transparent adapter from the committed SEC-XBRL line-item corpus and is not byte-identical to the published diagnostic subset."
         ),
     }
     (output_dir / "build_manifest.json").write_text(
