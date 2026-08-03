@@ -71,6 +71,7 @@ jobs:
           test "$(cat PRIVATE_LOGIC_HEAD_SHA.txt)" = 'ba10d0edc7eb20d499d0481fda2537e782b6efb2'
           cp -a logistics_power_v1 "$GITHUB_WORKSPACE/_logic_power_v10/"
           cp README_logistics_power_v1.md "$GITHUB_WORKSPACE/_logic_power_v10/"
+          mkdir -p "$GITHUB_WORKSPACE/_logic_power_v10/certificates" "$GITHUB_WORKSPACE/_logic_power_v10/reports"
           cp certificates/logistics_power_v1_capex_exact.json "$GITHUB_WORKSPACE/_logic_power_v10/certificates/"
           cp certificates/logistics_power_v1_capex_impossible.json "$GITHUB_WORKSPACE/_logic_power_v10/certificates/"
           cp reports/logistics_power_v1.json "$GITHUB_WORKSPACE/_logic_power_v10/reports/"
