@@ -49,13 +49,17 @@ def primaryAllowed : Solver → Bool
 theorem planning_rejects_logic_exact
     (problem : Problem) (h : problem.planning = true) :
     eligible problem .logicExact = false := by
-  simp [eligible, h]
+  unfold eligible
+  rw [h]
+  rfl
 
 
 theorem planning_rejects_one_shot_bayes
     (problem : Problem) (h : problem.planning = true) :
     eligible problem .bayes = false := by
-  simp [eligible, h]
+  unfold eligible
+  rw [h]
+  rfl
 
 
 theorem monte_carlo_is_support_only :
@@ -69,7 +73,10 @@ theorem dynamic_programming_requires_exact_scope
     problem.planning = true ∧
       problem.singleAgent = true ∧
       problem.knownModel = true := by
-  simpa [eligible, Bool.and_eq_true] using h
+  unfold eligible at h
+  have outer := Bool.and_eq_true.mp h
+  have inner := Bool.and_eq_true.mp outer.1
+  exact ⟨inner.1, ⟨inner.2, outer.2⟩⟩
 
 
 theorem mcts_requires_declared_simulator_scope
@@ -80,7 +87,13 @@ theorem mcts_requires_declared_simulator_scope
       problem.simulator = true ∧
       problem.rolloutBudget = true ∧
       problem.depthBudget = true := by
-  simpa [eligible, Bool.and_eq_true] using h
+  unfold eligible at h
+  have h5 := Bool.and_eq_true.mp h
+  have h4 := Bool.and_eq_true.mp h5.1
+  have h3 := Bool.and_eq_true.mp h4.1
+  have h2 := Bool.and_eq_true.mp h3.1
+  exact
+    ⟨h2.1, ⟨h2.2, ⟨h3.2, ⟨h4.2, h5.2⟩⟩⟩⟩
 
 
 theorem muzero_requires_all_prerequisites
@@ -94,7 +107,22 @@ theorem muzero_requires_all_prerequisites
       problem.neuralTraining = true ∧
       problem.rolloutBudget = true ∧
       problem.depthBudget = true := by
-  simpa [eligible, Bool.and_eq_true] using h
+  unfold eligible at h
+  have h8 := Bool.and_eq_true.mp h
+  have h7 := Bool.and_eq_true.mp h8.1
+  have h6 := Bool.and_eq_true.mp h7.1
+  have h5 := Bool.and_eq_true.mp h6.1
+  have h4 := Bool.and_eq_true.mp h5.1
+  have h3 := Bool.and_eq_true.mp h4.1
+  have h2 := Bool.and_eq_true.mp h3.1
+  exact
+    ⟨h2.1,
+      ⟨h2.2,
+        ⟨h3.2,
+          ⟨h4.2,
+            ⟨h5.2,
+              ⟨h6.2,
+                ⟨h7.2, h8.2⟩⟩⟩⟩⟩⟩⟩
 
 
 inductive RootAction where
