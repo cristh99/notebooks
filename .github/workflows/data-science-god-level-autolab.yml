@@ -51,7 +51,8 @@ jobs:
       - name: Decode and bind the frozen predictor
         working-directory: data_science_god_level/autolab_adaptive_compression
         run: |
-          base64 -d predictor.py.gz.b64 | gzip -d > predictor.py
+          set -euo pipefail
+          gzip -dc predictor.py.gz.b64 > predictor.py
           echo 'cfe46cccbb7f75e8fd3b3978ac88f7034dfd7e4b6d9b9c5589fb5f85ea14bb90  predictor.py' | sha256sum -c -
 
       - name: Fetch the pinned public AutoLab task
