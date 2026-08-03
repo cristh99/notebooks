@@ -28,8 +28,8 @@ class Stage2Tests(unittest.TestCase):
                     "supplier_identity_supported": True,
                     "decision": "SUPPORTED",
                 },
-                "oncae_object_text": "SIT-GA-001-2024 sellos Print Color",
-                "sefin_object_text": "Pago sellos Print Color",
+                "oncae_object_text": "SIT-GA-001-2024 SELLOS PRINT COLOR",
+                "sefin_object_text": "PAGO SELLOS PRINT COLOR",
             },
             {
                 "candidate_id": "negative",
@@ -40,8 +40,8 @@ class Stage2Tests(unittest.TestCase):
                     "supplier_identity_supported": True,
                     "decision": "REJECTED",
                 },
-                "oncae_object_text": "SIT-GA-001-2024 contrato de sellos",
-                "sefin_object_text": "Pago publicación periódico aviso de prensa",
+                "oncae_object_text": "SIT-GA-001-2024 EXPEDIENTE",
+                "sefin_object_text": "PAGO PUBLICACION PERIODICO AVISO DE PRENSA",
             },
         ]
 
@@ -91,7 +91,7 @@ class Stage2Tests(unittest.TestCase):
         ]
         report = build_report(rows, json.loads((source / "report.json").read_text()))
         altered = copy.deepcopy(report)
-        altered["payload"]["selected_policy"] = "B0_CODE"
+        altered["payload"]["gate_readout"]["G09"] = "FORGED_PASS"
         self.assertNotEqual(altered["sha256"], sha256_payload(altered["payload"]))
 
 
