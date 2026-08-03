@@ -1,0 +1,92 @@
+name: Adaptive e-process — public independent verification
+
+on:
+  push:
+    branches:
+      - agent/inference-power-compiler-v2-public-ci
+    paths:
+      - 'inference_power_compiler_v2/verify_adaptive_eprocess_independent.py'
+      - 'AdaptiveEProcessFinite.lean'
+      - '.github/workflows/adaptive-eprocess-public.yml'
+  pull_request:
+    paths:
+      - 'inference_power_compiler_v2/verify_adaptive_eprocess_independent.py'
+      - 'AdaptiveEProcessFinite.lean'
+      - '.github/workflows/adaptive-eprocess-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Run independent exact rational verifier
+        run: |
+          set -euo pipefail
+          python -m py_compile inference_power_compiler_v2/verify_adaptive_eprocess_independent.py
+          python inference_power_compiler_v2/verify_adaptive_eprocess_independent.py | tee adaptive-eprocess-public.log
+          test -s inference_power_compiler_v2/ADAPTIVE_EPROCESS_PUBLIC_RECEIPT.json
+      - name: Install pinned Lean
+        run: |
+          set -euo pipefail
+          curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+          export PATH="$HOME/.elan/bin:$PATH"
+          elan toolchain install leanprover/lean4:v4.33.0-rc1
+      - name: Compile Lean boundary without sorryAx
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.elan/bin:$PATH"
+          elan run leanprover/lean4:v4.33.0-rc1 lean -o AdaptiveEProcessFinite.olean AdaptiveEProcessFinite.lean 2>&1 | tee adaptive-eprocess-lean.log
+          test -s AdaptiveEProcessFinite.olean
+          if grep -q 'sorryAx' adaptive-eprocess-lean.log; then
+            echo 'Lean output contains sorryAx' >&2
+            exit 1
+          fi
+      - name: Build public binding receipt
+        env:
+          PUBLIC_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          evidence = json.loads(Path('inference_power_compiler_v2/ADAPTIVE_EPROCESS_PUBLIC_RECEIPT.json').read_text())
+          receipt = {
+              'schema': 'adaptive-eprocess-public-capsule/1',
+              'public_repository': 'cristh99/notebooks',
+              'public_head': os.environ['PUBLIC_HEAD'],
+              'private_repository': 'cristh99/my_first_repository',
+              'private_pull_request': 68,
+              'private_head': '76c0eb4b1f7e703cdd7a38eacc8ba22fcd83d597',
+              'private_source_blob': '9b89e2672491af2d61738fb10c6b74d1e6caaa26',
+              'private_report_sha256': '382855262c1226d97113d4d78853765571bc0732d394d379fd3069078bfaf543',
+              'independent_evidence': evidence,
+              'lean_source_sha256': hashlib.sha256(Path('AdaptiveEProcessFinite.lean').read_bytes()).hexdigest(),
+              'python_source_sha256': hashlib.sha256(Path('inference_power_compiler_v2/verify_adaptive_eprocess_independent.py').read_bytes()).hexdigest(),
+          }
+          path = Path('inference_power_compiler_v2/ADAPTIVE_EPROCESS_PUBLIC_CAPSULE.json')
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          Path('inference_power_compiler_v2/ADAPTIVE_EPROCESS_PUBLIC_CAPSULE.sha256').write_text(
+              hashlib.sha256(path.read_bytes()).hexdigest() + '  ADAPTIVE_EPROCESS_PUBLIC_CAPSULE.json\n'
+          )
+          PY
+      - name: Upload proof-carrying evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: adaptive-eprocess-public-evidence
+          path: |
+            inference_power_compiler_v2/ADAPTIVE_EPROCESS_PUBLIC_RECEIPT.json
+            inference_power_compiler_v2/ADAPTIVE_EPROCESS_PUBLIC_CAPSULE.json
+            inference_power_compiler_v2/ADAPTIVE_EPROCESS_PUBLIC_CAPSULE.sha256
+            AdaptiveEProcessFinite.lean
+            AdaptiveEProcessFinite.olean
+            adaptive-eprocess-public.log
+            adaptive-eprocess-lean.log
+          if-no-files-found: error
+          retention-days: 30
