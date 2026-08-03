@@ -1,0 +1,206 @@
+name: Logistics Power v1 — public proof-carrying verification
+
+on:
+  push:
+    branches:
+      - agent/logistics-power-v1-public-ci-capsule
+  pull_request:
+    paths:
+      - '.github/workflows/logistics-power-v1-public-capsule.yml'
+      - 'logic_power_v10_capsule/**'
+      - 'logistics_power_v1_capsule/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Reconstruct the verified Logic Power v10 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _logic_power_v10
+          echo 'fbee850593592f701a39c4f6491c8f9a3bcfb586c1910357bdcd48f48967d5ce  logic_power_v10_capsule/parts/part_00.b64' | sha256sum -c -
+          echo '7303cffc0012f655af430d9125f6258afe3a370c69abf02afacfa8bd93709979  logic_power_v10_capsule/parts/part_01.b64' | sha256sum -c -
+          echo '9c0ebf32b4fa12be52d7c72fe879d76e542bd6f223febcdaf4fda10083a669da  logic_power_v10_capsule/parts/part_02.b64' | sha256sum -c -
+          echo '2b5b23d38a64a4cc98f2bb376a38f20fe7dda9bd36539c2446f822d98ac9296a  logic_power_v10_capsule/parts/part_03.b64' | sha256sum -c -
+          echo 'f83c70b1800617313c14f6241dc1f144f993900c5701f500c48f82485ecc58a5  logic_power_v10_capsule/parts/part_04.b64' | sha256sum -c -
+          echo 'fb8a7c4e1ae79848f5114d9ce189d570860432714ca564adfb6655d63a868718  logic_power_v10_capsule/parts/part_05_00.b64' | sha256sum -c -
+          echo '0585c5b94628c10dfc3921c472e903badd10f395f6d119fc4434d2ea7290cc86  logic_power_v10_capsule/parts/part_05_01.b64' | sha256sum -c -
+          echo '897986739715627049a30f43ecb2abcfd50aecbfa7f4f8520428ada29f98b028  logic_power_v10_capsule/parts/part_05_02.b64' | sha256sum -c -
+          cat \
+            logic_power_v10_capsule/parts/part_00.b64 \
+            logic_power_v10_capsule/parts/part_01.b64 \
+            logic_power_v10_capsule/parts/part_02.b64 \
+            logic_power_v10_capsule/parts/part_03.b64 \
+            logic_power_v10_capsule/parts/part_04.b64 \
+            logic_power_v10_capsule/parts/part_05_00.b64 \
+            logic_power_v10_capsule/parts/part_05_01.b64 \
+            logic_power_v10_capsule/parts/part_05_02.b64 \
+            > /tmp/logic-power-v10-source.b64
+          echo '3548f31fcaa9696eabb063023c905fbb04a2b3db73c96df9f9ee8bc8e0c64fc1  /tmp/logic-power-v10-source.b64' | sha256sum -c -
+          base64 -d /tmp/logic-power-v10-source.b64 > /tmp/logic-power-v10-source.tar.gz
+          echo 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31  /tmp/logic-power-v10-source.tar.gz' | sha256sum -c -
+          tar xzf /tmp/logic-power-v10-source.tar.gz -C _logic_power_v10
+          cd _logic_power_v10
+          sha256sum -c SOURCE_SHA256SUMS
+          test "$(cat PRIVATE_HEAD_SHA.txt)" = 'ba10d0edc7eb20d499d0481fda2537e782b6efb2'
+          test "$(git hash-object ../logic_power_v10_capsule/overlay/logic_power_v10/ci_v10.sh)" = '0042baf4f79f208670a9a5e8cfcf5cb81c15aecb'
+          cp ../logic_power_v10_capsule/overlay/logic_power_v10/ci_v10.sh logic_power_v10/ci_v10.sh
+
+      - name: Reconstruct the hash-bound logistics overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '2e801e726ea46b3e4ff38a73421bf113921b44bfbc724e25c006b658de20844d  logistics_power_v1_capsule/logistics-power-v1-source.tar.gz.b64' | sha256sum -c -
+          base64 -d logistics_power_v1_capsule/logistics-power-v1-source.tar.gz.b64 > /tmp/logistics-power-v1-source.tar.gz
+          echo '4e185db5f648a56629d24d1e58d4c76926a81f15f10c3b7bd68e316a5b79aff4  /tmp/logistics-power-v1-source.tar.gz' | sha256sum -c -
+          rm -rf /tmp/logistics-power-v1-overlay
+          mkdir -p /tmp/logistics-power-v1-overlay
+          tar xzf /tmp/logistics-power-v1-source.tar.gz -C /tmp/logistics-power-v1-overlay
+          cd /tmp/logistics-power-v1-overlay
+          echo 'd828a4ccfb785b98c6a3afa3077ddb68ae8e2063f0ff1c08d6955454cfd0e3ed  SOURCE_SHA256SUMS' | sha256sum -c -
+          sha256sum -c SOURCE_SHA256SUMS
+          test "$(cat PRIVATE_LOGISTICS_HEAD_SHA.txt)" = '0ae44945832b18cc3b8914603b83639f03faa0d6'
+          test "$(cat PRIVATE_LOGIC_HEAD_SHA.txt)" = 'ba10d0edc7eb20d499d0481fda2537e782b6efb2'
+          cp -a logistics_power_v1 "$GITHUB_WORKSPACE/_logic_power_v10/"
+          cp README_logistics_power_v1.md "$GITHUB_WORKSPACE/_logic_power_v10/"
+          cp certificates/logistics_power_v1_capex_exact.json "$GITHUB_WORKSPACE/_logic_power_v10/certificates/"
+          cp certificates/logistics_power_v1_capex_impossible.json "$GITHUB_WORKSPACE/_logic_power_v10/certificates/"
+          cp reports/logistics_power_v1.json "$GITHUB_WORKSPACE/_logic_power_v10/reports/"
+          cp reports/logistics_power_v1.canonical.json "$GITHUB_WORKSPACE/_logic_power_v10/reports/"
+          mkdir -p "$GITHUB_WORKSPACE/_logic_power_v10/.github/workflows"
+          cp .github/workflows/logistics-power-v1.yml "$GITHUB_WORKSPACE/_logic_power_v10/.github/workflows/"
+
+      - name: Execute both source test suites
+        shell: bash
+        working-directory: _logic_power_v10
+        run: |
+          set -euo pipefail
+          python -m unittest \
+            logic_power_v10.test_logic_power_v10 \
+            logistics_power_v1.test_logistics_power_v1
+
+      - name: Build and replay proof-carrying logistics evidence
+        shell: bash
+        working-directory: _logic_power_v10
+        run: |
+          set -euo pipefail
+          python -m logistics_power_v1.run_logistics_power_v1
+          python -m logic_power_v10.verify_logic_power_v10 \
+            certificates/logistics_power_v1_capex_exact.json
+          python -m logic_power_v10.verify_logic_power_v10 \
+            certificates/logistics_power_v1_capex_impossible.json
+          node logic_power_v10/verify_logic_power_v10.js \
+            certificates/logistics_power_v1_capex_exact.json
+          node logic_power_v10/verify_logic_power_v10.js \
+            certificates/logistics_power_v1_capex_impossible.json
+          if python -m logic_power_v10.verify_logic_power_v10 \
+            certificates/logistics_power_v1_capex_tampered.json; then
+            echo 'Python accepted tampered evidence'
+            exit 1
+          fi
+          if node logic_power_v10/verify_logic_power_v10.js \
+            certificates/logistics_power_v1_capex_tampered.json; then
+            echo 'Node accepted tampered evidence'
+            exit 1
+          fi
+          echo '3763ea920b926f88190ad90f2a5dcbaa67269ddb849969b578b61ed81a2406d4  certificates/logistics_power_v1_capex_exact.json' | sha256sum -c -
+          echo '1ff4b56d818e752d73dc033de0dd4edd933cdc3792d183af054321e4f2f4ac4f  certificates/logistics_power_v1_capex_impossible.json' | sha256sum -c -
+          echo 'a717b2efeb9da84c97b5afed857b8362316e97148935a61525ad1bfe0d76aa91  reports/logistics_power_v1.json' | sha256sum -c -
+          echo '4e880c029e7bc0ee0371f2d8962bc54c067aec2a6d74683d6bcf463354b6df59  reports/logistics_power_v1.canonical.json' | sha256sum -c -
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path('reports/logistics_power_v1.json').read_text())
+          assert report['status'] == 'PASS_FINITE_DECLARED_DOMAIN'
+          exact = report['exact_case']
+          assert exact['minimum_fixed_cost'] == [6, 1]
+          assert exact['adaptive_expected_cost'] == [5, 2]
+          assert exact['expected_cost_reduction'] == [7, 12]
+          assert report['impossible_case']['obstruction'] == [
+              'c1_q0_s0',
+              'c1_q0_s1',
+          ]
+          assert report['negative_control']['tampered_certificate_rejected'] is True
+          PY
+
+      - name: Bind a public receipt to private and public heads
+        shell: bash
+        working-directory: _logic_power_v10
+        env:
+          PUBLIC_EVENT_SHA: ${{ github.sha }}
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          def digest(path: str) -> str:
+              return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+          report = json.loads(Path('reports/logistics_power_v1.json').read_text())
+          receipt = {
+              'schema': 'logistics-power-v1/public-verification-receipt/1',
+              'status': 'PASS_FINITE_DECLARED_DOMAIN',
+              'private_repository': 'cristh99/my_first_repository',
+              'private_logic_head': 'ba10d0edc7eb20d499d0481fda2537e782b6efb2',
+              'private_logistics_head': '0ae44945832b18cc3b8914603b83639f03faa0d6',
+              'public_capsule_repository': 'cristh99/notebooks',
+              'public_capsule_head': os.environ['PUBLIC_HEAD_SHA'],
+              'public_event_sha': os.environ['PUBLIC_EVENT_SHA'],
+              'logic_source_archive_sha256': 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31',
+              'logic_transport_sha256': '3548f31fcaa9696eabb063023c905fbb04a2b3db73c96df9f9ee8bc8e0c64fc1',
+              'logistics_source_archive_sha256': '4e185db5f648a56629d24d1e58d4c76926a81f15f10c3b7bd68e316a5b79aff4',
+              'logistics_transport_sha256': '2e801e726ea46b3e4ff38a73421bf113921b44bfbc724e25c006b658de20844d',
+              'source_manifest_sha256': 'd828a4ccfb785b98c6a3afa3077ddb68ae8e2063f0ff1c08d6955454cfd0e3ed',
+              'exact_certificate_payload_sha256': report['certificates']['exact']['sha256'],
+              'impossible_certificate_payload_sha256': report['certificates']['impossible']['sha256'],
+              'exact_certificate_file_sha256': digest('certificates/logistics_power_v1_capex_exact.json'),
+              'impossible_certificate_file_sha256': digest('certificates/logistics_power_v1_capex_impossible.json'),
+              'report_file_sha256': digest('reports/logistics_power_v1.json'),
+              'canonical_report_file_sha256': digest('reports/logistics_power_v1.canonical.json'),
+              'tests': 21,
+              'python_replay': 'PASS',
+              'node_bigint_replay': 'PASS',
+              'tampered_negative_control': 'REJECTED',
+              'fixed_cost': report['exact_case']['minimum_fixed_cost'],
+              'adaptive_expected_cost': report['exact_case']['adaptive_expected_cost'],
+              'expected_cost_reduction': report['exact_case']['expected_cost_reduction'],
+              'obstruction': report['impossible_case']['obstruction'],
+              'scope': report['scope'],
+              'promotion_boundary': report['promotion_boundary'],
+          }
+          path = Path('reports/logistics-power-v1-public-verification-receipt.json')
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          receipt_digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path('reports/logistics-power-v1-public-verification-receipt.sha256').write_text(
+              f'{receipt_digest}  logistics-power-v1-public-verification-receipt.json\n'
+          )
+          print(path.read_text())
+          print(receipt_digest)
+          PY
+
+      - name: Upload public verification evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: logistics-power-v1-public-evidence
+          path: |
+            _logic_power_v10/certificates/logistics_power_v1_capex_exact.json
+            _logic_power_v10/certificates/logistics_power_v1_capex_impossible.json
+            _logic_power_v10/certificates/logistics_power_v1_capex_tampered.json
+            _logic_power_v10/reports/logistics_power_v1.json
+            _logic_power_v10/reports/logistics_power_v1.canonical.json
+            _logic_power_v10/reports/logistics_power_v1_evidence.sha256
+            _logic_power_v10/reports/logistics-power-v1-public-verification-receipt.json
+            _logic_power_v10/reports/logistics-power-v1-public-verification-receipt.sha256
