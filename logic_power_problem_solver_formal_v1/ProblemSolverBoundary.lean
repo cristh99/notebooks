@@ -9,10 +9,8 @@ inductive Solver where
   | muzero
   deriving DecidableEq, Repr
 
-inductive SolverRole where
-  | support
-  | primary
-  deriving DecidableEq, Repr
+inductive SupportOnly : Solver → Prop where
+  | monteCarlo : SupportOnly .monteCarlo
 
 structure Problem where
   planning : Bool
@@ -44,11 +42,6 @@ def eligible (problem : Problem) : Solver → Bool
         problem.interactionData && problem.rewardSignal &&
         problem.neuralTraining && problem.rolloutBudget &&
         problem.depthBudget
-
-
-def solverRole : Solver → SolverRole
-  | .monteCarlo => .support
-  | _ => .primary
 
 
 theorem bool_and_left_true {a b : Bool}
@@ -86,8 +79,8 @@ theorem planning_rejects_one_shot_bayes
 
 
 theorem monte_carlo_is_support_only :
-    solverRole .monteCarlo = .support := by
-  rfl
+    SupportOnly .monteCarlo := by
+  exact SupportOnly.monteCarlo
 
 
 theorem dynamic_programming_requires_exact_scope
