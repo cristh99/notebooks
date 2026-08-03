@@ -8,7 +8,8 @@
       "status": "EXECUTED",
       "queries": [
         "public procurement contracts government payment expenditure transactions supplier identity contract identifiers object descriptions document provenance record linkage false positives many-to-many cardinality",
-        "sequential value of information active feature acquisition costly evidence acquisition adaptive submodularity proof-carrying provenance-aware decision support"
+        "sequential value of information active feature acquisition costly evidence acquisition adaptive submodularity proof-carrying provenance-aware decision support",
+        "Primary scholarly literature in Spanish or Latin American public administration on linking public procurement contracts supplier identities government payment transactions expenditure records supporting documents false-positive attribution and many-to-many relationships"
       ]
     },
     {
@@ -25,7 +26,9 @@
         "site:doi.org public procurement record linkage supplier names payments contract identifier",
         "site:arxiv.org costly information acquisition active feature acquisition decision support provenance",
         "site:open-contracting.org OCDS implementation transactions documents supplier identifier contract",
-        "site:worldbank.org public procurement spending data integration contract payments"
+        "site:worldbank.org public procurement spending data integration contract payments",
+        "site:issai.org audit public procurement payments documentation evidence",
+        "site:iadb.org public procurement red flags payments false positives Latin America"
       ]
     },
     {
@@ -112,6 +115,50 @@
       "absorbs": [
         "contract_level_supplier_cardinality_after_multi_supplier_awards"
       ]
+    },
+    {
+      "title": "GUID 5280 — Guidance for Audits of Public Procurement",
+      "publisher": "INTOSAI",
+      "year": 2022,
+      "decision": "INCLUDE_OFFICIAL_AUDIT_STANDARD",
+      "absorbs": [
+        "payments_must_be_tested_against_contract_performance_and_documents",
+        "sufficient_appropriate_evidence_and_physical_inspection_when_needed",
+        "audit_claims_must_distinguish_contract_payment_delivery_and_result"
+      ]
+    },
+    {
+      "title": "From Fishing to Catching: Developing Actionable Red Flags in Public Procurement to Prevent and Control Corruption",
+      "identifier": "DOI:10.18235/0004595",
+      "publisher": "Inter-American Development Bank",
+      "year": 2022,
+      "decision": "INCLUDE_ABSORBED_PRIOR_ART",
+      "absorbs": [
+        "false_positive_and_false_negative_management_in_procurement_red_flags",
+        "payment_before_contract_and_payments_exceeding_contract_value_alerts",
+        "local_context_materiality_feasibility_cost_and_impact_prioritization"
+      ]
+    },
+    {
+      "title": "Speed of Payment in Procurement Contracts",
+      "publisher": "World Bank research paper",
+      "year": 2025,
+      "decision": "INCLUDE_EMPIRICAL_BOUNDARY",
+      "absorbs": [
+        "linking_commitment_verification_payment_dates_amounts_and_supplier_tax_identifiers",
+        "public_procurement_payment_timing_analysis"
+      ]
+    },
+    {
+      "title": "Guía de auditoría del área de compras de bienes y servicios",
+      "publisher": "GPF-OCEX",
+      "year": 2023,
+      "decision": "INCLUDE_OFFICIAL_AUDIT_GUIDANCE",
+      "absorbs": [
+        "joint_audit_of_purchases_expenses_suppliers_invoices_and_payments",
+        "reconciliation_between_procurement_and_accounting_interfaces",
+        "audit_assertions_completeness_accuracy_validity_and_legality"
+      ]
     }
   ],
   "boundary_update": {
@@ -121,7 +168,11 @@
       "common_contract_identifiers_across_procurement_and_finance",
       "transaction_payee_identifiers",
       "linking_payments_to_contract_implementation_milestones",
-      "multi_supplier_and_multi_contract_cardinality"
+      "multi_supplier_and_multi_contract_cardinality",
+      "procurement_payment_red_flags",
+      "false_positive_false_negative_management",
+      "documentary_and_physical_evidence_for_payment_and_delivery_audit",
+      "reconciliation_of_procurement_and_accounting_interfaces"
     ],
     "remaining_candidate": "the preregistered empirical safety-and-recovery comparison on Honduras ONCAE-SEFIN under a maximum-permissible-claim ladder, monetary amount-at-risk metric and cross-language semantic replay"
   },
@@ -129,8 +180,7 @@
   "remaining_searches": [
     "Google Scholar or comparable scholarly index once available",
     "SSRN and RePEc for public-finance linkage methods",
-    "Spanish-language procurement/payment linkage literature",
-    "citation chaining from Rahal 2018, CORFU 2015 and Soylu et al. 2022",
+    "citation chaining from Rahal 2018, CORFU 2015, Soylu et al. 2022 and IDB 2022",
     "patent search for documentary financial attribution workflows"
   ]
 }
