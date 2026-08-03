@@ -1,0 +1,189 @@
+name: FIN-RVI-002 Stage 1 — independent clean replay
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'README_FIN_RVI_002_STAGE1_INDEPENDENT_REPLAY.md'
+      - '.github/workflows/fin-rvi-002-stage1-independent-replay.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fin-rvi-002-stage1-independent-replay
+  cancel-in-progress: true
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      SOURCE_SHA: 1063b81df29e3054961c3dba3ef190ea083ed88a
+      EXPECTED_DETERMINISTIC_SHA: 0441d92dfa643e93ee95c77955ce6d24e09f343a0bf9572966299d56d0bef826
+      EXPECTED_REPORT_PAYLOAD_SHA: bbd117b249fe214cc74dca58a5ae080545e1c34bc5652857850eec2fa6008440
+    steps:
+      - name: Checkout replay capsule
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Checkout hash-bound Stage 1 source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: cristh99/notebooks
+          ref: ${{ env.SOURCE_SHA }}
+          path: _stage1_source
+          fetch-depth: 1
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Verify source binding and preserve expected evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C _stage1_source rev-parse HEAD)" = "$SOURCE_SHA"
+          test -s _stage1_source/reports/fin_rvi_002_stage1/deterministic_replay.json
+          test -s _stage1_source/reports/fin_rvi_002_stage1/report.json
+          cp _stage1_source/reports/fin_rvi_002_stage1/deterministic_replay.json /tmp/expected_deterministic_replay.json
+          cp _stage1_source/reports/fin_rvi_002_stage1/report.json /tmp/expected_report.json
+          python - <<'PY'
+          import json, os
+          expected = json.load(open('/tmp/expected_deterministic_replay.json', encoding='utf-8'))
+          report = json.load(open('/tmp/expected_report.json', encoding='utf-8'))
+          assert expected['sha256'] == os.environ['EXPECTED_DETERMINISTIC_SHA']
+          assert report['sha256'] == os.environ['EXPECTED_REPORT_PAYLOAD_SHA']
+          PY
+
+      - name: Execute tests in clean source checkout
+        working-directory: _stage1_source
+        run: |
+          python -m compileall -q fin_rvi_002_stage1
+          python -m unittest discover -v -s fin_rvi_002_stage1 -p 'test_*.py'
+
+      - name: Redownload and reconstruct official evidence
+        working-directory: _stage1_source
+        run: |
+          rm -rf ../_stage1_replay ../_stage1_cache
+          python -m fin_rvi_002_stage1.run_stage1_v2 \
+            --output ../_stage1_replay \
+            --cache ../_stage1_cache \
+            --years 2023 2024 2025 \
+            --amount-tolerance 0.05 \
+            --max-days 366 \
+            --holdout-size 20
+
+      - name: Verify byte-identical deterministic replay and fixed inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          expected_path = Path('/tmp/expected_deterministic_replay.json')
+          actual_path = Path('_stage1_replay/deterministic_replay.json')
+          expected = json.loads(expected_path.read_text(encoding='utf-8'))
+          actual = json.loads(actual_path.read_text(encoding='utf-8'))
+          assert actual == expected, 'deterministic replay payload differs'
+          assert actual['sha256'] == os.environ['EXPECTED_DETERMINISTIC_SHA']
+
+          report = json.loads(Path('_stage1_replay/report.json').read_text(encoding='utf-8'))
+          payload = report['payload']
+          expected_inputs = {
+              ('ONCAE', 2023): 'db9a76958a069ff5fc47b6f68caf59a74174efcbebcca0458d0f4a08cf00683d',
+              ('SEFIN', 2023): '9bae4bcef17c618137901f1f9b7a548ab734a7195cb92aaddeb34b2a49b1ced6',
+              ('ONCAE', 2024): '43e12ce76ba1fcd3bf1240ffea4e246126bdcc2832d3d77bcb7415d8a1195c37',
+              ('SEFIN', 2024): 'f41f2f9b11ab8e6ccd185ab2c7e193a7107bd1b12f25d33a14946589d5dccd47',
+              ('ONCAE', 2025): 'aa33b9b591fabce5f2397b5966b67ba7fc6471bf8b394ceb5c2aeec707f6cb06',
+              ('SEFIN', 2025): '3971d50d45b21ea97dbdaf05b70cd38f674765a9d70f2ed30e80d7b9a5d25db5',
+          }
+          observed_inputs = {
+              (item['source'], int(item['year'])): item['sha256']
+              for item in payload['downloads']
+          }
+          assert observed_inputs == expected_inputs
+
+          metrics = payload['holdout_metrics']
+          assert metrics['holdout_size'] == 20
+          assert metrics['decision_counts'] == {
+              'REJECTED': 1,
+              'SUPPORTED': 16,
+              'UNRESOLVED': 3,
+          }
+          assert metrics['baseline_unsupported_promotions'] == 4
+          assert metrics['evidence_policy_unsupported_promotions'] == 0
+          assert metrics['unsupported_amount_at_risk_avoided'] == 4644050.4
+          assert metrics['document_acquisition_successes'] == 20
+
+          receipt = {
+              'schema': 'fin-rvi-002/stage1-independent-replay-receipt/1',
+              'source_repository': 'cristh99/notebooks',
+              'source_sha': os.environ['SOURCE_SHA'],
+              'capsule_repository': os.environ.get('GITHUB_REPOSITORY'),
+              'capsule_event_sha': os.environ.get('GITHUB_SHA'),
+              'run_id': os.environ.get('GITHUB_RUN_ID'),
+              'run_attempt': os.environ.get('GITHUB_RUN_ATTEMPT'),
+              'deterministic_replay_sha256': actual['sha256'],
+              'canonical_report_payload_sha256': os.environ['EXPECTED_REPORT_PAYLOAD_SHA'],
+              'official_input_sha256': {
+                  f'{source}-{year}': digest
+                  for (source, year), digest in sorted(expected_inputs.items())
+              },
+              'tests': 'PASS',
+              'byte_identical_replay': True,
+              'holdout_size': metrics['holdout_size'],
+              'decision_counts': metrics['decision_counts'],
+              'unsupported_baseline_promotions': metrics['baseline_unsupported_promotions'],
+              'unsupported_evidence_policy_promotions': metrics['evidence_policy_unsupported_promotions'],
+              'unsupported_amount_at_risk_avoided_hnl': metrics['unsupported_amount_at_risk_avoided'],
+              'boundary': 'Independent runtime replay; not independent implementation or human ground truth.',
+          }
+          canonical = json.dumps(receipt, sort_keys=True, separators=(',', ':'), ensure_ascii=True)
+          receipt['sha256'] = hashlib.sha256(canonical.encode('utf-8')).hexdigest()
+          out = Path('FIN_RVI_002_STAGE1_INDEPENDENT_RECEIPT.json')
+          out.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          Path('FIN_RVI_002_STAGE1_INDEPENDENT_RECEIPT.sha256').write_text(
+              hashlib.sha256(out.read_bytes()).hexdigest() + '  ' + out.name + '\n',
+              encoding='utf-8',
+          )
+          print(json.dumps(receipt, indent=2, sort_keys=True))
+          PY
+          sha256sum -c FIN_RVI_002_STAGE1_INDEPENDENT_RECEIPT.sha256
+
+      - name: Upload replay evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-rvi-002-stage1-independent-replay
+          path: |
+            FIN_RVI_002_STAGE1_INDEPENDENT_RECEIPT.json
+            FIN_RVI_002_STAGE1_INDEPENDENT_RECEIPT.sha256
+            _stage1_replay/report.json
+            _stage1_replay/report.md
+            _stage1_replay/report.sha256
+            _stage1_replay/deterministic_replay.json
+            _stage1_replay/holdout_decisions.jsonl
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish bounded receipt to capsule branch
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add FIN_RVI_002_STAGE1_INDEPENDENT_RECEIPT.json FIN_RVI_002_STAGE1_INDEPENDENT_RECEIPT.sha256
+          if git diff --cached --quiet; then
+            echo 'Receipt unchanged.'
+          else
+            git commit -m 'Publish FIN-RVI-002 independent replay receipt [skip ci]'
+            git push origin HEAD:${GITHUB_HEAD_REF}
+          fi
