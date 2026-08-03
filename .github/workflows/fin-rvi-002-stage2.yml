@@ -4,10 +4,9 @@ on:
   pull_request:
     branches:
       - main
+      - agent/fin-rvi-002-stage1-public-data
     paths:
-      - 'fin_rvi_002_stage1/**'
       - 'fin_rvi_002_stage2/**'
-      - 'reports/fin_rvi_002_stage1/**'
       - 'README_FIN_RVI_002_STAGE2.md'
       - '.github/workflows/fin-rvi-002-stage2.yml'
   workflow_dispatch:
@@ -45,7 +44,10 @@ jobs:
           from pathlib import Path
           source = Path('reports/fin_rvi_002_stage2/report.json')
           report = json.loads(source.read_text())
-          report['payload']['gate_readout']['G07_STRONG_BASELINE'] = 'PASS_CANDIDATE_PENDING_CLEAN_REPLAY'
+          current = report['payload']['gate_readout']['G07_STRONG_BASELINE']
+          report['payload']['gate_readout']['G07_STRONG_BASELINE'] = (
+              'OPEN' if current != 'OPEN' else 'PASS_CANDIDATE_PENDING_CLEAN_REPLAY'
+          )
           Path('/tmp/tampered.json').write_text(json.dumps(report))
           PY
           if node fin_rvi_002_stage2/verify_stage2.mjs /tmp/tampered.json; then
