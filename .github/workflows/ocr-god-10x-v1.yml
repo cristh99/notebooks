@@ -1,0 +1,68 @@
+name: OCR God 10X v1
+
+on:
+  pull_request:
+    paths:
+      - 'ocr_god_10x_v1/**'
+      - '.github/workflows/ocr-god-10x-v1.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ocr-god-10x-v1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ppocrv6-tiny-openvino-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK: 'True'
+      PADDLE_PDX_MODEL_SOURCE: 'BOS'
+      PADDLE_OCR_BASE_DIR: ${{ github.workspace }}/.paddleocr
+      OCR_GOD_10X_OUTPUT: ocr_god_10x_v1/run/smoke
+      OMP_NUM_THREADS: '4'
+      OPENBLAS_NUM_THREADS: '4'
+      MKL_NUM_THREADS: '4'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Install official PaddlePaddle CPU framework
+        run: >-
+          python -m pip install --disable-pip-version-check
+          paddlepaddle==3.2.0
+          -i https://www.paddlepaddle.org.cn/packages/stable/cpu/
+      - name: Install official PaddleOCR 3.7
+        run: python -m pip install --disable-pip-version-check paddleocr==3.7.0 Pillow==12.2.0
+      - name: Install official CPU high-performance inference dependencies
+        run: paddleocr install_hpi_deps cpu
+      - name: Show resolved inference packages
+        run: |
+          python - <<'PY'
+          import importlib.metadata as md
+          for name in ('paddleocr', 'paddlepaddle', 'paddlex', 'openvino', 'onnxruntime'):
+              try:
+                  print(name, md.version(name))
+              except md.PackageNotFoundError:
+                  print(name, 'NOT_INSTALLED')
+          PY
+      - name: Execute persistent Spanish-numeric smoke probe
+        run: python -m ocr_god_10x_v1.smoke
+      - name: Hash evidence
+        if: always()
+        run: |
+          mkdir -p ocr_god_10x_v1/run/smoke
+          python -m pip freeze | LC_ALL=C sort > ocr_god_10x_v1/run/smoke/pip-freeze.txt
+          find ocr_god_10x_v1/run/smoke -maxdepth 1 -type f ! -name SHA256SUMS.txt -print0 \
+            | sort -z | xargs -0 sha256sum > ocr_god_10x_v1/run/smoke/SHA256SUMS.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: ocr-god-10x-v1-smoke
+          path: ocr_god_10x_v1/run/smoke
+          if-no-files-found: error
+          retention-days: 30
