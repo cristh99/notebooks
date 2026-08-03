@@ -75,7 +75,11 @@ Finish ==
   /\ evidence' = TRUE
   /\ UNCHANGED selected
 
-Next == Route \/ Execute \/ Finish
+TerminalStep ==
+  /\ phase = "Terminal"
+  /\ UNCHANGED vars
+
+Next == Route \/ Execute \/ Finish \/ TerminalStep
 
 Spec ==
   /\ Init
