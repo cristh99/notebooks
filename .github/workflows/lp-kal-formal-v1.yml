@@ -1,0 +1,150 @@
+name: LP-KAL v1 public formal verification
+
+on:
+  push:
+    branches: [agent/lp-kal-formal-v1]
+  pull_request:
+    paths:
+      - 'lp_kal_formal_v1/**'
+      - '.github/workflows/lp-kal-formal-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Verify private-source binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          b=json.loads(Path('lp_kal_formal_v1/SOURCE_BINDING.json').read_text())
+          assert b['schema']=='logic-power-knowledge-action-loop/formal-source-binding/1'
+          assert b['private_repository']=='cristh99/my_first_repository'
+          assert b['private_branch']=='agent/logic-power-knowledge-action-loop-v1'
+          assert b['private_head']=='c3861f4153da3f28814b4fe823fc4c45e55e784a'
+          assert b['private_pull_request']==90
+          assert b['private_issue']==89
+          PY
+          sha256sum \
+            lp_kal_formal_v1/KnowledgeActionLoop.tla \
+            lp_kal_formal_v1/KnowledgeActionBoundary.lean \
+            lp_kal_formal_v1/SOURCE_BINDING.json
+
+      - name: Model-check nine lifecycle scenarios with TLA+
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reports formal_configs
+          curl -L --fail --retry 4 --retry-all-errors \
+            https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar \
+            -o tla2tools.jar
+          echo 'feffd16994db963ad945628cfd03d154c195a468  tla2tools.jar' | sha1sum -c -
+          java -cp tla2tools.jar tla2sany.SANY \
+            lp_kal_formal_v1/KnowledgeActionLoop.tla \
+            2>&1 | tee reports/lp-kal-sany-v1.log
+          if grep -Eq 'Semantic errors|\*\*\* Errors:' reports/lp-kal-sany-v1.log; then exit 1; fi
+          for scenario in \
+            NoChange MoveExisting LocalOnly Generalizable FailedPreflight \
+            FutureDate Kill CreateAfterSearch KnowledgeExecute; do
+            cfg="formal_configs/LPKAL${scenario}.cfg"
+            cat > "$cfg" <<CFG
+          CONSTANT Scenario = "${scenario}"
+          SPECIFICATION Spec
+          INVARIANT TypeOK
+          INVARIANT TerminalStatusIff
+          INVARIANT DoingRequiresGates
+          INVARIANT DoneRequiresEvidence
+          INVARIANT IntegrationRequiresVerifiedGeneralizableResult
+          INVARIANT MandateRequiresAuthorizedExecutableWork
+          INVARIANT SomedayMaybeIsNotExecutable
+          INVARIANT NoChangeCreatesNoAction
+          INVARIANT KnowledgeCannotExecute
+          INVARIANT CreateStartsWithoutCommitment
+          INVARIANT KillEndsInTrash
+          INVARIANT PassHasFeedback
+          INVARIANT KnowledgeToActionRequiresConsequence
+          INVARIANT ActionToKnowledgeRequiresEvidence
+          INVARIANT FutureDateCannotIssueMandateEarly
+          PROPERTY Termination
+          CFG
+            java -cp tla2tools.jar tlc2.TLC -workers 1 \
+              -config "$cfg" lp_kal_formal_v1/KnowledgeActionLoop.tla \
+              2>&1 | tee "reports/lp-kal-tlc-${scenario}-v1.log"
+            grep -q 'Model checking completed. No error has been found.' \
+              "reports/lp-kal-tlc-${scenario}-v1.log"
+          done
+
+      - name: Compile fifteen Lean boundary theorems without axioms
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reports
+          curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          export PATH="$HOME/.elan/bin:$PATH"
+          elan toolchain install leanprover/lean4:v4.33.0-rc1
+          elan run leanprover/lean4:v4.33.0-rc1 \
+            lean lp_kal_formal_v1/KnowledgeActionBoundary.lean \
+            2>&1 | tee reports/lp-kal-lean-v1.log
+          if grep -q 'sorryAx' reports/lp-kal-lean-v1.log; then
+            echo 'Lean reported sorryAx'; exit 1
+          fi
+          test "$(grep -c 'does not depend on any axioms' reports/lp-kal-lean-v1.log)" -eq 15
+
+      - name: Build formal receipt
+        shell: bash
+        env:
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          def sha(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+          scenarios=['NoChange','MoveExisting','LocalOnly','Generalizable','FailedPreflight','FutureDate','Kill','CreateAfterSearch','KnowledgeExecute']
+          receipt={
+            'schema':'logic-power-knowledge-action-loop/public-formal-receipt/1',
+            'status':'PASS',
+            'private_repository':'cristh99/my_first_repository',
+            'private_head':'c3861f4153da3f28814b4fe823fc4c45e55e784a',
+            'private_pull_request':90,
+            'public_repository':'cristh99/notebooks',
+            'public_head':os.environ['PUBLIC_HEAD_SHA'],
+            'event_sha':os.environ['EVENT_SHA'],
+            'tla_sany':True,
+            'tlc_scenarios':scenarios,
+            'tlc_scenario_count':len(scenarios),
+            'lean_compiled':True,
+            'lean_theorem_count':15,
+            'lean_axiom_count':0,
+            'lean_sorry_ax':False,
+            'tla_sha256':sha('lp_kal_formal_v1/KnowledgeActionLoop.tla'),
+            'lean_sha256':sha('lp_kal_formal_v1/KnowledgeActionBoundary.lean'),
+            'binding_sha256':sha('lp_kal_formal_v1/SOURCE_BINDING.json'),
+          }
+          p=Path('reports/lp-kal-public-formal-receipt-v1.json')
+          p.write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')
+          d=hashlib.sha256(p.read_bytes()).hexdigest()
+          Path('reports/lp-kal-public-formal-receipt-v1.sha256').write_text(f'{d}  lp-kal-public-formal-receipt-v1.json\n')
+          print(p.read_text());print(d)
+          PY
+
+      - name: Upload formal evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lp-kal-formal-v1
+          path: |
+            reports/
+            lp_kal_formal_v1/SOURCE_BINDING.json
+            lp_kal_formal_v1/KnowledgeActionLoop.tla
+            lp_kal_formal_v1/KnowledgeActionBoundary.lean
