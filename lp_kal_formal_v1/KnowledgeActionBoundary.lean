@@ -172,10 +172,10 @@ theorem integration_requires_generalizable_result
   have triple := bool_and_left_true h
   exact bool_and_right_true triple
 
-theorem mandate_certificate_implies_runtime_gate
+theorem mandate_certificate_implies_executable
     (state : ActionState) (authorized due : Bool)
     (certificate : MandateCertificate state authorized due) :
-    mandateGate state authorized due = true := by
+    executable state = true := by
   cases certificate <;> rfl
 
 theorem mandate_certificate_requires_authority
@@ -219,7 +219,7 @@ theorem integration_preserves_verified_statement (statement : String) :
 #print axioms done_requires_verified_evidence
 #print axioms integration_requires_verified_evidence
 #print axioms integration_requires_generalizable_result
-#print axioms mandate_certificate_implies_runtime_gate
+#print axioms mandate_certificate_implies_executable
 #print axioms mandate_certificate_requires_authority
 #print axioms at_a_date_certificate_requires_due
 #print axioms non_executable_state_has_no_mandate
