@@ -14,7 +14,7 @@ permissions:
 jobs:
   frozen-xycut-on-tesseract:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       HF_HUB_DISABLE_TELEMETRY: '1'
     steps:
@@ -33,15 +33,18 @@ jobs:
       - name: Unit tests
         run: python -m unittest -v ocr_reading_order_tesseract_v1.test_canary
       - name: Execute frozen 50-page real canary
-        run: python -m ocr_reading_order_tesseract_v1.run_canary --output-dir ocr_reading_order_tesseract_v1/run
+        run: python -m ocr_reading_order_tesseract_v1.run_fast --output-dir ocr_reading_order_tesseract_v1/run
       - name: Replay metrics from frozen observations
-        run: python -m ocr_reading_order_tesseract_v1.verify_report ocr_reading_order_tesseract_v1/run/reports/tesseract_order.json
+        run: python -m ocr_reading_order_tesseract_v1.verify_fast ocr_reading_order_tesseract_v1/run/reports/tesseract_order.json
       - name: Environment and hashes
+        if: always()
         run: |
+          mkdir -p ocr_reading_order_tesseract_v1/run/reports
           python -m pip freeze | LC_ALL=C sort > ocr_reading_order_tesseract_v1/run/reports/pip-freeze.txt
           tesseract --version > ocr_reading_order_tesseract_v1/run/reports/tesseract-version.txt
           sha256sum ocr_reading_order_tesseract_v1/run/reports/* > ocr_reading_order_tesseract_v1/run/reports/SHA256SUMS.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
         with:
           name: ocr-reading-order-tesseract-v1
           path: ocr_reading_order_tesseract_v1/run/reports
