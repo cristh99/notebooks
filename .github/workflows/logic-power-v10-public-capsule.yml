@@ -5,11 +5,17 @@ on:
     branches:
       - agent/logic-power-v10-public-ci-capsule
       - agent/inference-power-compiler-v2-public-ci
+    paths:
+      - 'logic_power_v10_capsule/**'
+      - 'inference_power_compiler_v2/**'
+      - 'AdaptiveEProcessFinite.lean'
+      - '.github/workflows/logic-power-v10-public-capsule.yml'
   pull_request:
     paths:
       - '.github/workflows/logic-power-v10-public-capsule.yml'
       - 'logic_power_v10_capsule/**'
       - 'inference_power_compiler_v2/**'
+      - 'AdaptiveEProcessFinite.lean'
   workflow_dispatch:
 
 permissions:
@@ -18,7 +24,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
@@ -116,6 +122,26 @@ jobs:
                   raise SystemExit(f'{generated_name} pinned report mismatch')
           PY
 
+      - name: Execute independent adaptive e-process replay and Lean boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp inference_power_compiler_v2/verify_adaptive_eprocess_public.py _logic_power_v10/inference_power_compiler_v2/
+          cp inference_power_compiler_v2/ADAPTIVE_EPROCESS_PUBLIC_REPLAY.json _logic_power_v10/inference_power_compiler_v2/ADAPTIVE_EPROCESS_PUBLIC_REPLAY.pinned.json
+          cp AdaptiveEProcessFinite.lean _logic_power_v10/
+          cd _logic_power_v10
+          python -m py_compile inference_power_compiler_v2/verify_adaptive_eprocess_public.py
+          PYTHONPATH=. python inference_power_compiler_v2/verify_adaptive_eprocess_public.py | tee adaptive-eprocess-public-replay.log
+          cmp inference_power_compiler_v2/ADAPTIVE_EPROCESS_PUBLIC_REPLAY.json inference_power_compiler_v2/ADAPTIVE_EPROCESS_PUBLIC_REPLAY.pinned.json
+          export PATH="$HOME/.elan/bin:$PATH"
+          lake update
+          lake env lean -o AdaptiveEProcessFinite.olean AdaptiveEProcessFinite.lean 2>&1 | tee adaptive-eprocess-lean.log
+          test -s AdaptiveEProcessFinite.olean
+          if grep -q 'sorryAx' adaptive-eprocess-lean.log; then
+            echo 'Lean output contains sorryAx' >&2
+            exit 1
+          fi
+
       - name: Bind the public receipt to both repositories
         shell: bash
         working-directory: _logic_power_v10
@@ -135,9 +161,10 @@ jobs:
           finite_sample = json.loads(Path('inference_power_compiler_v2/FINITE_SAMPLE_MINIMAX_REPORT.json').read_text())
           benchmark = json.loads(Path('inference_power_compiler_v2/FINITE_SAMPLE_BENCHMARK_REPORT.json').read_text())
           robust = json.loads(Path('inference_power_compiler_v2/ROBUST_CONTAMINATION_REPORT.json').read_text())
+          adaptive = json.loads(Path('inference_power_compiler_v2/ADAPTIVE_EPROCESS_PUBLIC_REPLAY.json').read_text())
           receipt = {
               **audit,
-              'schema': 'logic-power-v10/public-verification-receipt/5',
+              'schema': 'logic-power-v10/public-verification-receipt/6',
               'private_source_repository': 'cristh99/my_first_repository',
               'private_source_head': Path('PRIVATE_HEAD_SHA.txt').read_text().strip(),
               'public_capsule_repository': 'cristh99/notebooks',
@@ -153,6 +180,7 @@ jobs:
               'finite_sample_minimax_design': finite_sample,
               'finite_sample_benchmark': benchmark,
               'robust_contamination_phase_transition': robust,
+              'adaptive_eprocess_independent_replay': adaptive,
           }
           path = Path('reports/public-verification-receipt-v10.json')
           path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
@@ -176,5 +204,11 @@ jobs:
             _logic_power_v10/finite-sample-minimax.log
             _logic_power_v10/finite-sample-benchmark.log
             _logic_power_v10/robust-contamination.log
+            _logic_power_v10/adaptive-eprocess-public-replay.log
+            _logic_power_v10/AdaptiveEProcessFinite.lean
+            _logic_power_v10/AdaptiveEProcessFinite.olean
+            _logic_power_v10/adaptive-eprocess-lean.log
             _logic_power_v10/SOURCE_SHA256SUMS
             _logic_power_v10/PRIVATE_HEAD_SHA.txt
+          if-no-files-found: error
+          retention-days: 90
