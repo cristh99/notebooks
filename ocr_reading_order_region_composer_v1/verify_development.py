@@ -4,7 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from ocr_reading_order_real_v1.core import canonical_json, sha256_bytes
 from .development_replay import build_report
