@@ -1,0 +1,249 @@
+name: Public unrestricted sharp multiscale verification
+
+on:
+  push:
+    branches:
+      - agent/sharp-multiscale-v20-public
+    paths:
+      - 'inference_power_compiler_v2/verify_sharp_multiscale_unrestricted_public.py'
+      - 'inference_power_compiler_v2/sharp_multiscale_unrestricted_public_source.py.xz.b64'
+      - 'SharpMultiscaleUnrestrictedPublic.lean'
+      - '.github/workflows/sharp-multiscale-unrestricted-public.yml'
+  pull_request:
+    paths:
+      - 'inference_power_compiler_v2/verify_sharp_multiscale_unrestricted_public.py'
+      - 'inference_power_compiler_v2/sharp_multiscale_unrestricted_public_source.py.xz.b64'
+      - 'SharpMultiscaleUnrestrictedPublic.lean'
+      - '.github/workflows/sharp-multiscale-unrestricted-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-sharp-multiscale-unrestricted-public:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+
+      - name: Execute independent unrestricted-growth reconstruction
+        shell: bash
+        run: |
+          set -euo pipefail
+          bootstrap='inference_power_compiler_v2/verify_sharp_multiscale_unrestricted_public.py'
+          decoded='inference_power_compiler_v2/verify_sharp_multiscale_unrestricted_public_decoded.py'
+          python -m py_compile "$bootstrap"
+          python "$bootstrap" --emit-source "$decoded"
+          python -m py_compile "$decoded"
+          test "$(sha256sum "$decoded" | cut -d' ' -f1)" = \
+            '8f7d037f62cd930aaafe8e7da8dc1b97ac7913170ccd02bc8937d349f9f237e3'
+          python "$decoded" | tee sharp-multiscale-unrestricted-public.log
+          test -s inference_power_compiler_v2/SHARP_MULTISCALE_UNRESTRICTED_PUBLIC_CERTIFICATE.json
+          test -s inference_power_compiler_v2/SHARP_MULTISCALE_UNRESTRICTED_PUBLIC_REPORT.json
+          sha256sum \
+            inference_power_compiler_v2/SHARP_MULTISCALE_UNRESTRICTED_PUBLIC_CERTIFICATE.json \
+            inference_power_compiler_v2/SHARP_MULTISCALE_UNRESTRICTED_PUBLIC_REPORT.json \
+            > /tmp/unrestricted-before.sha256
+          python "$decoded" > /tmp/unrestricted-rebuild.log
+          sha256sum \
+            inference_power_compiler_v2/SHARP_MULTISCALE_UNRESTRICTED_PUBLIC_CERTIFICATE.json \
+            inference_power_compiler_v2/SHARP_MULTISCALE_UNRESTRICTED_PUBLIC_REPORT.json \
+            > /tmp/unrestricted-after.sha256
+          cmp /tmp/unrestricted-before.sha256 /tmp/unrestricted-after.sha256
+
+      - name: Audit exact unrestricted theorem outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path(
+                  'inference_power_compiler_v2/'
+                  'SHARP_MULTISCALE_UNRESTRICTED_PUBLIC_REPORT.json'
+              ).read_text()
+          )
+          assert report['status'] == 'SOLVED'
+          assert report['theorem']['statement'] == \
+              'selected_error <= 5 * min_k(b_k+r_k)'
+          assert report['theorem']['removed_assumptions'] == [
+              'no radius-doubling or bounded-growth condition is required',
+              'no balance point b_k <= r_k is required',
+          ]
+          assert [item['selected_level'] for item in report['controls']] == \
+              [1, 2, 3, 4, 5]
+          assert [item['oracle_level'] for item in report['controls']] == \
+              [1, 2, 3, 4, 5]
+          assert all(
+              item['realized_oracle_ratio'] == [1, 1]
+              for item in report['controls']
+          )
+          assert report['tightness_witness']['realized_oracle_ratio'] == [5, 1]
+          assert report['explosive_radius_witness']['status'] == 'SOLVED'
+          assert report['explosive_radius_witness']['problem']['levels'][1]['radius'] == [10, 1]
+          assert report['no_balance_witness']['status'] == 'SOLVED'
+          assert report['no_balance_witness']['balanced_level'] is None
+          assert len(report['prefix_obstructions']) == 5
+          assert report['monte_carlo']['trials'] == 4096
+          assert report['monte_carlo']['max_radius_growth'] == [8, 1]
+          assert report['monte_carlo']['violations'] == 0
+          assert report['chaos_stress']['cases'] == 1536
+          assert report['chaos_stress']['controls'] == 6
+          assert report['chaos_stress']['violations'] == 0
+          assert report['resources']['total_stress_cases'] == 5632
+          assert report['resource_negative']['status'] == 'UNKNOWN_RESOURCE_LIMIT'
+          assert report['logic_power_v10']['hypotheses'] == 128
+          assert report['logic_power_v10']['conflict_pairs'] == 127
+          assert report['logic_power_v10']['fixed_basis_cost'] == [67, 1]
+          assert len(report['logic_power_v10']['clean_path']) == 7
+          assert len(report['negative_controls']) == 7
+          assert report['semantic_replay'] == 'PASS'
+          assert report['tampered_certificate'] == 'REJECTED:payload-hash'
+          assert report['forged_certificate'] == 'REJECTED:semantic-replay'
+          PY
+
+      - name: Install pinned Lean
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -sSf \
+            https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          "$HOME/.elan/bin/elan" toolchain install leanprover/lean4:v4.33.0-rc1
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Compile unrestricted formal boundary without axioms
+        shell: bash
+        run: |
+          set -euo pipefail
+          elan run leanprover/lean4:v4.33.0-rc1 lean \
+            -o SharpMultiscaleUnrestrictedPublic.olean \
+            SharpMultiscaleUnrestrictedPublic.lean \
+            2>&1 | tee sharp-multiscale-unrestricted-public-lean.log
+          test -s SharpMultiscaleUnrestrictedPublic.olean
+          if grep -Eq 'sorryAx|depends on axioms:' \
+            sharp-multiscale-unrestricted-public-lean.log; then
+            echo 'Unexpected Lean axiom dependency' >&2
+            exit 1
+          fi
+
+      - name: Build unrestricted public verification receipt
+        shell: bash
+        env:
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PUBLIC_EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          files = {
+              'report': Path(
+                  'inference_power_compiler_v2/'
+                  'SHARP_MULTISCALE_UNRESTRICTED_PUBLIC_REPORT.json'
+              ),
+              'certificate': Path(
+                  'inference_power_compiler_v2/'
+                  'SHARP_MULTISCALE_UNRESTRICTED_PUBLIC_CERTIFICATE.json'
+              ),
+              'bootstrap': Path(
+                  'inference_power_compiler_v2/'
+                  'verify_sharp_multiscale_unrestricted_public.py'
+              ),
+              'compressed_source': Path(
+                  'inference_power_compiler_v2/'
+                  'sharp_multiscale_unrestricted_public_source.py.xz.b64'
+              ),
+              'decoded_source': Path(
+                  'inference_power_compiler_v2/'
+                  'verify_sharp_multiscale_unrestricted_public_decoded.py'
+              ),
+              'lean': Path('SharpMultiscaleUnrestrictedPublic.lean'),
+          }
+          receipt = {
+              'schema': 'sharp-multiscale-unrestricted-public-receipt/2',
+              'repository': 'cristh99/notebooks',
+              'head': os.environ['PUBLIC_HEAD_SHA'],
+              'event_sha': os.environ['PUBLIC_EVENT_SHA'],
+              'comparison_target': {
+                  'repository': 'cristh99/my_first_repository',
+                  'pull_request': 86,
+                  'head': 'e3063f389c2d424c91a23eadcbd7cf71feaff045',
+              },
+              'sha256': {
+                  name: hashlib.sha256(path.read_bytes()).hexdigest()
+                  for name, path in files.items()
+              },
+              'decoded_source_sha256': (
+                  '8f7d037f62cd930aaafe8e7da8dc1b97'
+                  'ac7913170ccd02bc8937d349f9f237e3'
+              ),
+              'independent_reconstruction': 'PASS',
+              'sharp_factor_five': 'PASS',
+              'factor_five_tightness': 'PASS',
+              'arbitrary_nondecreasing_radius_growth': 'PASS',
+              'radius_doubling_assumption_removed': 'PASS',
+              'balance_assumption_removed': 'PASS',
+              'explosive_radius_witness': 'PASS',
+              'no_balance_witness': 'PASS',
+              'control_oracle_matching': 'PASS',
+              'prefix_obstructions': 'PASS',
+              'monte_carlo_trials': 4096,
+              'monte_carlo_max_growth': [8, 1],
+              'monte_carlo_violations': 0,
+              'tent_map_cases': 1536,
+              'tent_map_violations': 0,
+              'logic_power_hypotheses': 128,
+              'logic_power_conflict_pairs': 127,
+              'negative_controls': 7,
+              'resource_fail_closed': 'PASS',
+              'semantic_replay': 'PASS',
+              'deterministic_rebuild': 'PASS',
+              'certificate_tamper_rejection': 'PASS',
+              'semantic_forgery_rejection': 'PASS',
+              'lean': 'PASS',
+              'sorryAx': 'ABSENT',
+              'axiom_dependencies': 'ABSENT',
+          }
+          path = Path(
+              'inference_power_compiler_v2/'
+              'SHARP_MULTISCALE_UNRESTRICTED_PUBLIC_RECEIPT.json'
+          )
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path(
+              'inference_power_compiler_v2/'
+              'SHARP_MULTISCALE_UNRESTRICTED_PUBLIC_RECEIPT.sha256'
+          ).write_text(
+              f'{digest}  SHARP_MULTISCALE_UNRESTRICTED_PUBLIC_RECEIPT.json\n'
+          )
+          print(path.read_text())
+          print(digest)
+          PY
+
+      - name: Upload unrestricted public evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: sharp-multiscale-unrestricted-public-evidence
+          path: |
+            inference_power_compiler_v2/SHARP_MULTISCALE_UNRESTRICTED_PUBLIC_*.json
+            inference_power_compiler_v2/SHARP_MULTISCALE_UNRESTRICTED_PUBLIC_RECEIPT.sha256
+            inference_power_compiler_v2/verify_sharp_multiscale_unrestricted_public.py
+            inference_power_compiler_v2/sharp_multiscale_unrestricted_public_source.py.xz.b64
+            inference_power_compiler_v2/verify_sharp_multiscale_unrestricted_public_decoded.py
+            SharpMultiscaleUnrestrictedPublic.lean
+            SharpMultiscaleUnrestrictedPublic.olean
+            sharp-multiscale-unrestricted-public.log
+            sharp-multiscale-unrestricted-public-lean.log
+          if-no-files-found: error
+          retention-days: 90
