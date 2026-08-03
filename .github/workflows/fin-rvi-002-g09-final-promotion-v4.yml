@@ -1,0 +1,220 @@
+name: FIN-RVI-002 G09 v4 — terminal promotion
+
+on:
+  pull_request:
+    branches:
+      - agent/fin-rvi-002-g09-final-contract-v2
+    paths:
+      - 'fin_rvi_002_g09/final_promotion_v4.json'
+      - 'fin_rvi_002_g09/build_final_promotion_v4.py'
+      - 'fin_rvi_002_g09/verify_final_promotion_v4.py'
+      - 'fin_rvi_002_g09/verify_final_promotion_v4.mjs'
+      - 'fin_rvi_002_g09/test_final_promotion_v4.py'
+      - 'fin_rvi_002_g09/evidence/**'
+      - 'README_FIN_RVI_002_G09_FINAL_PROMOTION_V4.md'
+      - '.github/workflows/fin-rvi-002-g09-final-promotion-v4.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fin-rvi-002-g09-terminal-promotion-v4
+  cancel-in-progress: true
+
+jobs:
+  authorize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Prove the open contract and boundary sources are unchanged
+        run: |
+          set -euo pipefail
+          git diff --exit-code \
+            27c35d6833d8ff3cdc73f8a308eae4fe50422eec HEAD -- \
+            fin_rvi_002_g09/final_contract_v2.json \
+            fin_rvi_002_g09/prior_art_closure_20260803_v2.json \
+            fin_rvi_002_g09/claim_scope_audit_v2.json \
+            fin_rvi_002_g09/verify_final_contract_v2.py \
+            fin_rvi_002_g09/verify_final_contract_v3.py \
+            fin_rvi_002_g09/verify_final_contract_v3.mjs \
+            fin_rvi_002_g09/verify_scope_audit_v2.py
+
+      - name: Compile and run adversarial promotion tests
+        run: |
+          python -m compileall -q fin_rvi_002_g09
+          python -m unittest -v fin_rvi_002_g09.test_final_contract_v3
+          python -m unittest -v fin_rvi_002_g09.test_final_promotion_v4
+
+      - name: Verify the prior open-state receipts
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          root = Path('fin_rvi_002_g09/evidence/open_contract')
+          expected = {
+              'final_contract_receipt.json': (
+                  '8bb5ff0f540c34984819a2cdc5bdab5ccc66b20221fec24a422209699e5fb436',
+                  'ea9edeb832608cf9f30806c00abba9c09cdfe77a3c88aa463afd8456bd0b9919',
+              ),
+              'node_final_contract_receipt.json': (
+                  'b7de8a91fd8deb095c6a4e34549291497db9c9f68fc681f5afc6e433ba743439',
+                  '780d25a90e0e41b333ae49c9b32ce5396c36f4c2d1f54db0a6abe5e882ce87bf',
+              ),
+              'scope_audit_receipt.json': (
+                  '64b2f17159217e5d48849bfa89b13d20a217256b7a0209a99d5534c250dd9703',
+                  'e1fd5faae0ec3e7aa5a52de151f188101d84f43692e515709b1f6cb2f36e9add',
+              ),
+          }
+          for name, (file_sha, payload_sha) in expected.items():
+              path = root / name
+              assert hashlib.sha256(path.read_bytes()).hexdigest() == file_sha
+              receipt = json.loads(path.read_text())
+              assert receipt['sha256'] == payload_sha
+              assert receipt['payload']['valid'] is True
+          PY
+
+      - name: Deterministically rebuild the promotion declaration
+        run: |
+          python -m fin_rvi_002_g09.build_final_promotion_v4 \
+            --base fin_rvi_002_g09/final_contract_v2.json \
+            --manifest fin_rvi_002_g09/evidence/stage7/stage7_run_manifest.json \
+            --python-receipt fin_rvi_002_g09/evidence/stage7/stage7_python_receipt.json \
+            --node-receipt fin_rvi_002_g09/evidence/stage7/stage7_node_receipt.json \
+            --output /tmp/final_promotion_v4.json
+          cmp /tmp/final_promotion_v4.json fin_rvi_002_g09/final_promotion_v4.json
+
+      - name: Python terminal authorization
+        run: |
+          rm -rf reports/fin_rvi_002_g09_final_v4
+          python -m fin_rvi_002_g09.verify_final_promotion_v4 \
+            fin_rvi_002_g09/final_promotion_v4.json \
+            --output-dir reports/fin_rvi_002_g09_final_v4
+
+      - name: Existing independent Node contract authorization
+        run: |
+          node fin_rvi_002_g09/verify_final_contract_v3.mjs \
+            reports/fin_rvi_002_g09_final_v4/promoted_contract.json \
+            reports/fin_rvi_002_g09_final_v4/legacy_node_promotion_receipt.json
+
+      - name: Independent Node terminal authorization
+        run: |
+          node fin_rvi_002_g09/verify_final_promotion_v4.mjs \
+            fin_rvi_002_g09/final_promotion_v4.json \
+            fin_rvi_002_g09/final_contract_v2.json \
+            fin_rvi_002_g09/evidence/stage7/stage7_python_receipt.json \
+            fin_rvi_002_g09/evidence/stage7/stage7_node_receipt.json \
+            reports/fin_rvi_002_g09_final_v4/final_promotion_receipt.json \
+            reports/fin_rvi_002_g09_final_v4/legacy_node_promotion_receipt.json \
+            reports/fin_rvi_002_g09_final_v4/node_final_promotion_receipt.json
+
+      - name: Cross-check terminal score and contract
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path('reports/fin_rvi_002_g09_final_v4')
+          py = json.loads((root / 'final_promotion_receipt.json').read_text())
+          node = json.loads((root / 'node_final_promotion_receipt.json').read_text())
+          legacy = json.loads((root / 'legacy_node_promotion_receipt.json').read_text())
+          contract = json.loads((root / 'promoted_contract.json').read_text())
+          expected = {'G07': 'PASS', 'G09': 'PASS', 'finance_score': 1000}
+          for receipt in (py, node, legacy):
+              payload = receipt['payload']
+              assert payload['valid'] is True, payload
+              assert payload['promotion_allowed'] is True, payload
+              assert payload['gate_readout'] == expected, payload
+          assert contract['status'] == 'PASS'
+          assert contract['required_gates'] == {
+              'g07_operational_utility': 'PASS',
+              'stage4_independent_code_disjoint_cohort': 'PASS',
+              'stage5_clean_reconstruction': 'PASS',
+              'systematic_primary_prior_art_closure': 'PASS',
+              'claim_scope_audit': 'PASS',
+              'stage6_third_code_disjoint_cohort': 'PASS',
+              'stage6_independent_policy_implementation': 'PASS',
+              'stage7_third_cohort_clean_reconstruction': 'PASS',
+          }
+          assert contract['gate_readout'] == expected
+          PY
+
+      - name: Reject semantic forgeries
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import copy, hashlib, json
+          from pathlib import Path
+
+          source = json.loads(Path('fin_rvi_002_g09/final_promotion_v4.json').read_text())
+
+          unsafe = copy.deepcopy(source)
+          unsafe['stage6']['challenger']['unsafe_overpromotions'] = 1
+          Path('/tmp/unsafe_promotion.json').write_text(json.dumps(unsafe))
+
+          expanded = copy.deepcopy(source)
+          expanded['scope']['excluded_claims'].remove('fraud')
+          Path('/tmp/expanded_promotion.json').write_text(json.dumps(expanded))
+
+          receipt = json.loads(Path(source['stage7_python_receipt_file']).read_text())
+          receipt['payload']['gate_readout']['G09'] = 'PASS'
+          canonical = json.dumps(receipt['payload'], sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+          receipt['sha256'] = hashlib.sha256(canonical.encode()).hexdigest()
+          forged_receipt = Path('/tmp/forged_stage7_python.json')
+          forged_receipt.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+
+          manifest = copy.deepcopy(source['stage7']['run_manifest'])
+          manifest['python_receipt_file_sha256'] = hashlib.sha256(forged_receipt.read_bytes()).hexdigest()
+          manifest['python_receipt_sha256'] = receipt['sha256']
+          forged_manifest = Path('/tmp/forged_stage7_manifest.json')
+          forged_manifest.write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
+
+          forged = copy.deepcopy(source)
+          forged['stage7_manifest_file'] = str(forged_manifest)
+          forged['stage7_python_receipt_file'] = str(forged_receipt)
+          forged['stage7']['run_manifest'] = manifest
+          forged['stage7']['legacy_view']['python_receipt_sha256'] = receipt['sha256']
+          Path('/tmp/forged_receipt_promotion.json').write_text(json.dumps(forged))
+          PY
+
+          for forged in /tmp/unsafe_promotion.json /tmp/expanded_promotion.json /tmp/forged_receipt_promotion.json; do
+            if python -m fin_rvi_002_g09.verify_final_promotion_v4 \
+              "$forged" --output-dir /tmp/forged-final-output; then
+              echo "Python accepted forged promotion: $forged" >&2
+              exit 1
+            fi
+          done
+
+          if node fin_rvi_002_g09/verify_final_promotion_v4.mjs \
+            /tmp/unsafe_promotion.json \
+            fin_rvi_002_g09/final_contract_v2.json \
+            fin_rvi_002_g09/evidence/stage7/stage7_python_receipt.json \
+            fin_rvi_002_g09/evidence/stage7/stage7_node_receipt.json \
+            reports/fin_rvi_002_g09_final_v4/final_promotion_receipt.json \
+            reports/fin_rvi_002_g09_final_v4/legacy_node_promotion_receipt.json \
+            /tmp/forged-node-output.json; then
+            echo 'Node accepted unsafe promotion' >&2
+            exit 1
+          fi
+
+      - name: Upload terminal proof package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-rvi-002-g09-final-promotion-v4
+          path: |
+            fin_rvi_002_g09/final_promotion_v4.json
+            fin_rvi_002_g09/evidence/open_contract/
+            fin_rvi_002_g09/evidence/stage7/
+            reports/fin_rvi_002_g09_final_v4/
+          if-no-files-found: error
+          retention-days: 90
