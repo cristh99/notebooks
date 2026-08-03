@@ -1,0 +1,19 @@
+{
+  "payload": {
+    "claim_id": "FIN-RVI-002-C1-BOUNDED",
+    "contract_sha256": "5e1bde35b3cddb0e77a0eb8cb72482d1582e3578854fa4ec959e19f1b444526f",
+    "errors": [],
+    "gate_readout": {
+      "G07": "PASS",
+      "G09": "OPEN",
+      "finance_score": 920
+    },
+    "passed_required_gates": 5,
+    "promotion_allowed": false,
+    "schema": "fin-rvi-002/g09-final-contract-node-receipt/3",
+    "status": "OPEN",
+    "total_required_gates": 8,
+    "valid": true
+  },
+  "sha256": "780d25a90e0e41b333ae49c9b32ce5396c36f4c2d1f54db0a6abe5e882ce87bf"
+}
