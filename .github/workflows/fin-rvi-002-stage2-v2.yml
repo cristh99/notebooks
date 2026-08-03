@@ -1,0 +1,118 @@
+name: FIN-RVI-002 Stage 2 v2 — evidence ladder
+
+on:
+  pull_request:
+    branches:
+      - agent/fin-rvi-002-stage2-strong-baselines
+    paths:
+      - 'fin_rvi_002_stage2/**'
+      - 'README_FIN_RVI_002_STAGE2_V2.md'
+      - '.github/workflows/fin-rvi-002-stage2-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fin-rvi-002-stage2-evidence-ladder-v2
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Python tests and deterministic report
+        run: |
+          python -m compileall -q fin_rvi_002_stage2
+          python -m unittest discover -v -s fin_rvi_002_stage2 -p 'test_stage2_v2.py'
+          rm -rf reports/fin_rvi_002_stage2_v2
+          python -m fin_rvi_002_stage2.run_stage2_v2
+          cd reports/fin_rvi_002_stage2_v2
+          sha256sum -c report.sha256
+
+      - name: Independent Node semantic replay
+        run: |
+          node --version
+          node fin_rvi_002_stage2/verify_stage2_v2.mjs
+          cd reports/fin_rvi_002_stage2_v2
+          sha256sum -c node_independent_receipt.json.sha256
+
+      - name: Negative tamper controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('reports/fin_rvi_002_stage2_v2/report.json').read_text())
+          report['payload']['gate_readout']['G09'] = 'FORGED_PASS'
+          Path('/tmp/tampered_report.json').write_text(json.dumps(report))
+          corpus = json.loads(Path('reports/fin_rvi_002_stage2_v2/frozen_adjudication_corpus_v2.json').read_text())
+          corpus['rows'][0]['gold_expected'] = 'SUPPORTED'
+          Path('/tmp/tampered_corpus.json').write_text(json.dumps(corpus))
+          PY
+          if node fin_rvi_002_stage2/verify_stage2_v2.mjs \
+              reports/fin_rvi_002_stage2_v2/frozen_adjudication_corpus_v2.json \
+              /tmp/tampered_report.json /tmp/forged_receipt.json; then
+            echo 'tampered report was accepted' >&2
+            exit 1
+          fi
+          if node fin_rvi_002_stage2/verify_stage2_v2.mjs \
+              /tmp/tampered_corpus.json \
+              reports/fin_rvi_002_stage2_v2/report.json /tmp/forged_receipt.json; then
+            echo 'tampered corpus was accepted' >&2
+            exit 1
+          fi
+
+      - name: Enforce candidate gate
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('reports/fin_rvi_002_stage2_v2/report.json').read_text())
+          payload = report['payload']
+          if payload['selected_policy'] != 'EVIDENCE_LADDER':
+              raise SystemExit(payload['selected_policy'])
+          if payload['gate_readout']['G07'] != 'PASS_CANDIDATE_PENDING_PUBLIC_CLEAN_REPLAY':
+              raise SystemExit(payload['gate_readout'])
+          if not all(payload['gate_checks'].values()):
+              raise SystemExit(payload['gate_checks'])
+          PY
+
+      - name: Upload evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-rvi-002-stage2-v2-evidence
+          path: reports/fin_rvi_002_stage2_v2/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish bounded evidence to branch
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            reports/fin_rvi_002_stage2_v2/frozen_adjudication_corpus_v2.json \
+            reports/fin_rvi_002_stage2_v2/report.json \
+            reports/fin_rvi_002_stage2_v2/report.md \
+            reports/fin_rvi_002_stage2_v2/report.sha256 \
+            reports/fin_rvi_002_stage2_v2/node_independent_receipt.json \
+            reports/fin_rvi_002_stage2_v2/node_independent_receipt.json.sha256
+          if git diff --cached --quiet; then
+            echo 'Evidence unchanged.'
+          else
+            git commit -m 'Publish FIN-RVI-002 Stage 2 v2 evidence [skip ci]'
+            git push origin HEAD:${GITHUB_HEAD_REF}
+          fi
