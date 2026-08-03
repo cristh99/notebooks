@@ -1,0 +1,136 @@
+{
+  "schema": "fin-rvi-002/g09-prior-art-search-log/1",
+  "cut_date": "2026-08-03",
+  "claim_id": "FIN-RVI-002-C1",
+  "databases_and_tools": [
+    {
+      "name": "Exa",
+      "status": "EXECUTED",
+      "queries": [
+        "public procurement contracts government payment expenditure transactions supplier identity contract identifiers object descriptions document provenance record linkage false positives many-to-many cardinality",
+        "sequential value of information active feature acquisition costly evidence acquisition adaptive submodularity proof-carrying provenance-aware decision support"
+      ]
+    },
+    {
+      "name": "Consensus",
+      "status": "EXECUTED",
+      "queries": [
+        "public procurement record linkage supplier identity payments contract documents false positives year:2010-2026"
+      ]
+    },
+    {
+      "name": "web primary-source search",
+      "status": "EXECUTED",
+      "queries": [
+        "site:doi.org public procurement record linkage supplier names payments contract identifier",
+        "site:arxiv.org costly information acquisition active feature acquisition decision support provenance",
+        "site:open-contracting.org OCDS implementation transactions documents supplier identifier contract",
+        "site:worldbank.org public procurement spending data integration contract payments"
+      ]
+    },
+    {
+      "name": "Elicit",
+      "status": "BLOCKED_PLAN_NO_API_ACCESS",
+      "query": "public procurement payment transaction record linkage contract supplier identity document evidence false positive many-to-many cardinality"
+    },
+    {
+      "name": "Scite",
+      "status": "BLOCKED_MONTHLY_MCP_LIMIT",
+      "query": "public procurement record linkage public payments procurement spending knowledge graph"
+    }
+  ],
+  "additional_primary_sources": [
+    {
+      "title": "Data-Driven Online Decision Making with Costly Information Acquisition",
+      "identifier": "arXiv:1602.03600",
+      "year": 2016,
+      "decision": "INCLUDE_ABSORBED_PRIOR_ART",
+      "absorbs": [
+        "joint_selection_of_costly_observations_and_actions",
+        "sequential_and_simultaneous_information_acquisition",
+        "regret_analysis"
+      ]
+    },
+    {
+      "title": "Reinforcement Learning with Efficient Active Feature Acquisition",
+      "identifier": "arXiv:2011.00825",
+      "year": 2020,
+      "decision": "INCLUDE_ABSORBED_PRIOR_ART",
+      "absorbs": [
+        "cost_efficient_state_information_acquisition_during_policy_execution"
+      ]
+    },
+    {
+      "title": "Active Acquisition for Multimodal Temporal Data: A Challenging Decision-Making Task",
+      "identifier": "arXiv:2211.05039",
+      "year": 2022,
+      "decision": "INCLUDE_ABSORBED_PRIOR_ART",
+      "absorbs": [
+        "cost_reactive_temporal_modality_acquisition",
+        "difficulty_of_adaptive_acquisition"
+      ]
+    },
+    {
+      "title": "A Survey on Active Feature Acquisition Strategies",
+      "identifier": "arXiv:2502.11067",
+      "year": 2025,
+      "decision": "INCLUDE_REVIEW_BOUNDARY_ONLY",
+      "absorbs": [
+        "broad_active_feature_acquisition_field_and_taxonomy"
+      ]
+    },
+    {
+      "title": "Open Contracting Data Standard — Identifiers",
+      "publisher": "Open Contracting Partnership",
+      "decision": "INCLUDE_OFFICIAL_STANDARD",
+      "absorbs": [
+        "common_contracting_process_identifiers_across_systems",
+        "organization_award_contract_and_release_identifiers"
+      ]
+    },
+    {
+      "title": "OCDS change history — combining procurement and financial systems",
+      "publisher": "Open Contracting Partnership",
+      "decision": "INCLUDE_OFFICIAL_STANDARD",
+      "absorbs": [
+        "same_ocid_across_procurement_and_financial_systems",
+        "implementation_transactions_as_payments"
+      ]
+    },
+    {
+      "title": "OCDS transaction related milestones extension",
+      "publisher": "Open Contracting Partnership",
+      "decision": "INCLUDE_OFFICIAL_STANDARD",
+      "absorbs": [
+        "linking_contract_payments_to_implementation_milestones"
+      ]
+    },
+    {
+      "title": "OCDS contract suppliers extension",
+      "publisher": "Open Contracting Partnership",
+      "decision": "INCLUDE_OFFICIAL_STANDARD",
+      "absorbs": [
+        "contract_level_supplier_cardinality_after_multi_supplier_awards"
+      ]
+    }
+  ],
+  "boundary_update": {
+    "not_novel": [
+      "costly_information_acquisition",
+      "active_feature_acquisition",
+      "common_contract_identifiers_across_procurement_and_finance",
+      "transaction_payee_identifiers",
+      "linking_payments_to_contract_implementation_milestones",
+      "multi_supplier_and_multi_contract_cardinality"
+    ],
+    "remaining_candidate": "the preregistered empirical safety-and-recovery comparison on Honduras ONCAE-SEFIN under a maximum-permissible-claim ladder, monetary amount-at-risk metric and cross-language semantic replay"
+  },
+  "completion_status": "IN_PROGRESS",
+  "remaining_searches": [
+    "Google Scholar or comparable scholarly index once available",
+    "SSRN and RePEc for public-finance linkage methods",
+    "Spanish-language procurement/payment linkage literature",
+    "citation chaining from Rahal 2018, CORFU 2015 and Soylu et al. 2022",
+    "patent search for documentary financial attribution workflows"
+  ]
+}
