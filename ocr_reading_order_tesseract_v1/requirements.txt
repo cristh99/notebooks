@@ -1,0 +1,4 @@
+huggingface-hub==1.26.0
+pytesseract==0.3.13
+Pillow==12.2.0
+rapidfuzz==3.14.3
