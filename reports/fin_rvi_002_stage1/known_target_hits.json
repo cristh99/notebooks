@@ -1,0 +1,2348 @@
+{
+  "108877": [
+    {
+      "amounts": [],
+      "buyer_ids": [
+        "RAW:JRDXVRORVDGM",
+        "RAW:ORVDGM",
+        "XHNONCAECE:JRDXVRORVDGM",
+        "XHNONCAECE:ORVDGM"
+      ],
+      "buyer_names": [
+        "RECONSTRUCCION NACIONAL BANCO MUNDIAL",
+        "SECRETARIA ESTADO DESPACHOS DESARROLLO COMUNITARIO AGUA SANEAMIENTO SEDECOAS FHIS"
+      ],
+      "classifications": [
+        "UNSPSC:72131602"
+      ],
+      "codes": [
+        "jRDXVR-HN-SEDECOAS-457799-CS-CQS  -2",
+        "ocds-lcuori-jRDXVR-HN-SEDECOAS-457799-CS-CQS  -2"
+      ],
+      "dates": [
+        "2024-12-13",
+        "2024-12-31"
+      ],
+      "documents": [
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-457799-CS-CQS%20%20100-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-457799-CS-CQS%20%20103-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Pliego o Terminos de Referencia",
+          "documentType": "biddingDocuments",
+          "title": "Pliego o Terminos de Referencia",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-457799-CS-CQS%20%20201-PliegooTerminosdeReferencia.pdf"
+        },
+        {
+          "description": "Enmienda o Adendum",
+          "documentType": "amendment",
+          "title": "Enmienda o Adendum",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-457799-CS-CQS%20%20404-EnmiendaoAdendum.pdf"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-457799-CS-CQS%20%20605-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-457799-CS-CQS%20%201402-AnexosalPliego.docx"
+        }
+      ],
+      "object_text": "HN-SEDECOAS-457799-CS-CQS | Supervisión Reposición/Rehabilitación Sistema de Agua, Línea de Impulsión y Planta de Tratamiento en Cortes Códigos: 108877,109236 108876 y 108709; y Reposición Sistema de Agua Potable en Lempira Código 109256 y en \r\nSanta Bárbara Código 109148 | Aviso de Prensa | tenderNotice | Pliego o Terminos de Referencia | biddingDocuments | Enmienda o Adendum | amendment | Acta de Recepcion y Apertura de Ofertas | recordOpeningTendersReceived | Anexos al Pliego | solicitationDocumentAnnexe | Ver Pliego | Supervisión de proyectos, obras y construcción.",
+      "ocid": "ocds-lcuori-jRDXVR-HN-SEDECOAS-457799-CS-CQS  -2",
+      "release_id": "ocds-lcuori-jRDXVR-HN-SEDECOAS-457799-CS-CQS  -2-2024-12-13T09:06:07.680000-06:00",
+      "source": "ONCAE",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNRTN:08019020233863",
+        "HNRTN:08019021331651",
+        "RAW:HNRTN08019020233863",
+        "RAW:HNRTN08019021331651",
+        "RAW:S2LMJQG",
+        "RAW:SDL9KWR",
+        "XONCAESUPPLIERSHC1:S2LMJQG",
+        "XONCAESUPPLIERSHC1:SDL9KWR"
+      ],
+      "supplier_names": [
+        "ASOCIACION PROFESIONALES A C V ASP",
+        "INYPSA CW INFRASTRUCTURES SL",
+        "SAYBE ASOCIADOS",
+        "VIELCA INGENIEROS A"
+      ]
+    },
+    {
+      "amounts": [
+        3000.0
+      ],
+      "buyer_ids": [
+        "HNDENG:22",
+        "RAW:HNENG22"
+      ],
+      "buyer_names": [
+        "FONDO INVERSION SOCIAL"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2024-22-2-328-1",
+        "C2024-22-2-328-1",
+        "T2024-22-2-TRB-38123",
+        "ocds-lcuori-P2024-22-2-328"
+      ],
+      "dates": [
+        "2024-02-13",
+        "2024-02-15"
+      ],
+      "documents": [],
+      "object_text": "ANTICIPO DE GASTOS DE VIAJE No. 28827 COMBUSTIBLE PARA REALIZAR VISITA TECNICA PARA PROYECTO DE AGUA POTABLE PARA IDENTIFICAR PUNTOS DE IMPORTANCIA Y NECESARIO PARA LA FORMULACION Y DISEÑO DE 108877 108876 108919 EN VILLANUEVA PUERTO CORTES CORTES Y GUAYMURA YORO DEL 12-15 FEBRERO 2024.  Orden de Pago: 261703   Referencia:147074  Ctto:77632",
+      "ocid": "ocds-lcuori-P2024-22-2-328",
+      "release_id": "ocds-lcuori-P2024-22-2-328-2024-02-13T13:21:08Z",
+      "source": "SEFIN",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNDIDCARD:HNTID0801199401922",
+        "RAW:HNTID0801199401922"
+      ],
+      "supplier_names": [
+        "CARLOS LUIS OSEGUERA VALLADARES"
+      ]
+    },
+    {
+      "amounts": [
+        23437072.56
+      ],
+      "buyer_ids": [
+        "RAW:JRDXVRORVDGM",
+        "RAW:ORVDGM",
+        "XHNONCAECE:JRDXVRORVDGM",
+        "XHNONCAECE:ORVDGM"
+      ],
+      "buyer_names": [
+        "RECONSTRUCCION NACIONAL BANCO MUNDIAL",
+        "SECRETARIA ESTADO DESPACHOS DESARROLLO COMUNITARIO AGUA SANEAMIENTO SEDECOAS FHIS"
+      ],
+      "classifications": [
+        "UNSPSC:83101501"
+      ],
+      "codes": [
+        "jRDXVR-HN-SEDECOAS-457536-CW-RFB-2",
+        "jRDXVR-SDO-O-FHIS-16-2025",
+        "ocds-lcuori-jRDXVR-HN-SEDECOAS-457536-CW-RFB-2"
+      ],
+      "dates": [
+        "2025-03-11",
+        "2025-04-08",
+        "2025-08-13"
+      ],
+      "documents": [
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-457536-CW-RFB100-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-457536-CW-RFB103-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Pliego o Terminos de Referencia",
+          "documentType": "biddingDocuments",
+          "title": "Pliego o Terminos de Referencia",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-457536-CW-RFB201-PliegooTerminosdeReferencia.pdf"
+        },
+        {
+          "description": "Enmienda o Adendum",
+          "documentType": "amendment",
+          "title": "Enmienda o Adendum",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-457536-CW-RFB406-EnmiendaoAdendum.pdf"
+        },
+        {
+          "description": "Aclaratoria",
+          "documentType": "clarifications",
+          "title": "Aclaratoria",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-457536-CW-RFB504-Aclaratoria.pdf"
+        },
+        {
+          "description": "Aclaratoria",
+          "documentType": "clarifications",
+          "title": "Aclaratoria",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-457536-CW-RFB505-Aclaratoria.pdf"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-457536-CW-RFB607-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-457536-CW-RFB607-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-457536-CW-RFB1402-AnexosalPliego.pdf"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-457536-CW-RFB807-ResoluciondelaAdjudicacion.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1192SDO-O-FHIS-16-20251200-ContratouOrdendeCompra.pdf"
+        }
+      ],
+      "object_text": "HN-SEDECOAS-457536-CW-RFB | “REPOSICIÓN SISTEMA AGUA POTABLE EN EL MARAÑÓN, MUNICIPIO DE VILLANUEVA EN EL DEPARTAMENTO DE CORTES, CÓDIGO 108877” | Aviso de Prensa | tenderNotice | Pliego o Terminos de Referencia | biddingDocuments | Enmienda o Adendum | amendment | Aclaratoria | clarifications | Acta de Recepcion y Apertura de Ofertas | recordOpeningTendersReceived | Anexos al Pliego | solicitationDocumentAnnexe | Ver Pliego | Abastecimiento de agua | Resolucion de la Adjudicacion | awardNotice | SDO-O-FHIS-16-2025 | Contrato u Orden de Compra | contractSigned",
+      "ocid": "ocds-lcuori-jRDXVR-HN-SEDECOAS-457536-CW-RFB-2",
+      "release_id": "ocds-lcuori-jRDXVR-HN-SEDECOAS-457536-CW-RFB-2-2025-03-11T10:33:00.040000-06:00",
+      "source": "ONCAE",
+      "source_year": 2025,
+      "supplier_ids": [
+        "HNRTN:08019002270552",
+        "HNRTN:08019008173209",
+        "HNRTN:08019009251358",
+        "HNRTN:08019013587149",
+        "RAW:HNRTN08019002270552",
+        "RAW:HNRTN08019008173209",
+        "RAW:HNRTN08019009251358",
+        "RAW:HNRTN08019013587149"
+      ],
+      "supplier_names": [
+        "ENOC A C V",
+        "HJJ A",
+        "LEMPIRA",
+        "OBRAS CONSTRUCCION CONSULTORIA ALVAREZ RESPONSABILIDAD CAPITAL VARIABLE OCCA C V"
+      ]
+    },
+    {
+      "amounts": [
+        4687414.0
+      ],
+      "buyer_ids": [
+        "HNDENG:22",
+        "RAW:HNENG22"
+      ],
+      "buyer_names": [
+        "FONDO INVERSION SOCIAL"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2025-22-2-1514-1",
+        "C2025-22-2-1514-1",
+        "T2025-22-2-TRB-451470",
+        "ocds-lcuori-P2025-22-2-1514"
+      ],
+      "dates": [
+        "2025-08-27",
+        "2025-08-28"
+      ],
+      "documents": [],
+      "object_text": "Pago 20% de anticipo de contrato de inversión del subproyecto 108877- Reposición Sistema Agua Potable El Marañon Villanueva Cortés.  OP: 276493 CTTO: 78715  REF: 153927",
+      "ocid": "ocds-lcuori-P2025-22-2-1514",
+      "release_id": "ocds-lcuori-P2025-22-2-1514-2025-08-27T15:06:45Z",
+      "source": "SEFIN",
+      "source_year": 2025,
+      "supplier_ids": [
+        "HNRTN:HNRTN08019008173209",
+        "RAW:HNRTN08019008173209"
+      ],
+      "supplier_names": [
+        "LEMPIRA"
+      ]
+    },
+    {
+      "amounts": [
+        2000.0
+      ],
+      "buyer_ids": [
+        "HNDENG:22",
+        "RAW:HNENG22"
+      ],
+      "buyer_names": [
+        "FONDO INVERSION SOCIAL"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2025-22-2-1559-1",
+        "C2025-22-2-1559-1",
+        "T2025-22-2-TRB-477144",
+        "ocds-lcuori-P2025-22-2-1559"
+      ],
+      "dates": [
+        "2025-09-05",
+        "2025-09-08"
+      ],
+      "documents": [],
+      "object_text": "ANTICIPO DE GASTOS DE VIAJE No. 34473 COMBUSTIBLE PARA LA VISITA DE SEGUIMIENTO A LA EJECUCIÓN DE LAS ACTIVIDADES DE LOS SUB PROYECTOS 108483 108480 110509 118919 108877 EN OLANCHITO EL NEGRITO YORO Y VILLANUEVA CORTES DEL 8 AL 12 DE SEPTIEMBRE DEL 2025. OP: 276705  CTTO: 81843  REF: 154009",
+      "ocid": "ocds-lcuori-P2025-22-2-1559",
+      "release_id": "ocds-lcuori-P2025-22-2-1559-2025-09-05T10:48:29Z",
+      "source": "SEFIN",
+      "source_year": 2025,
+      "supplier_ids": [
+        "HNDIDCARD:HNTID0615196300003",
+        "RAW:HNTID0615196300003"
+      ],
+      "supplier_names": [
+        "JOSE LUIS PINEDA PONCE"
+      ]
+    },
+    {
+      "amounts": [
+        921.0
+      ],
+      "buyer_ids": [
+        "HNDENG:22",
+        "RAW:HNENG22"
+      ],
+      "buyer_names": [
+        "FONDO INVERSION SOCIAL"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2025-22-2-1690-1",
+        "C2025-22-2-1690-1",
+        "T2025-22-2-TRB-510481",
+        "ocds-lcuori-P2025-22-2-1690"
+      ],
+      "dates": [
+        "2025-09-22",
+        "2025-09-23"
+      ],
+      "documents": [],
+      "object_text": "LIQUIDACION DE GASTOS DE VIAJE No. 41860 COMBUSTIBLE PARA LA VISITA DE SEGUIMIENTO A LA EJECUCIÓN DE LAS ACTIVIDADES DE LOS SUB PROYECTOS 108483 108480 110509 118919 108877 EN OLANCHITO EL NEGRITO YORO Y VILLANUEVA CORTES DEL 8 AL 12 DE SEPTIEMBRE DEL 2025. OP: 277172  CTTO: 81966  REF:154200",
+      "ocid": "ocds-lcuori-P2025-22-2-1690",
+      "release_id": "ocds-lcuori-P2025-22-2-1690-2025-09-22T14:14:12Z",
+      "source": "SEFIN",
+      "source_year": 2025,
+      "supplier_ids": [
+        "HNDIDCARD:HNTID0615196300003",
+        "RAW:HNTID0615196300003"
+      ],
+      "supplier_names": [
+        "JOSE LUIS PINEDA PONCE"
+      ]
+    },
+    {
+      "amounts": [
+        1562.0
+      ],
+      "buyer_ids": [
+        "HNDENG:22",
+        "RAW:HNENG22"
+      ],
+      "buyer_names": [
+        "FONDO INVERSION SOCIAL"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2025-22-2-1693-1",
+        "C2025-22-2-1693-1",
+        "T2025-22-2-TRB-510484",
+        "ocds-lcuori-P2025-22-2-1693"
+      ],
+      "dates": [
+        "2025-09-22",
+        "2025-09-23"
+      ],
+      "documents": [],
+      "object_text": "LIQUIDACION DE GASTOS DE VIAJE No. 41856 COMBUSTIBLE PARA REALIALIZAR APOYO PARA LA SOCIALIZACIÓN DE PROYECTO DE AGUA POTABLE Y ENTREGA DE ORDEN DE INICIO CODIGO 108877 EL MARAÑON VILLANUEVA CORTES DEL 11 AL 12 DE SEPTIEMBRE DEL 2025. OP: 277174  CTTO: 81968  REF: 154202",
+      "ocid": "ocds-lcuori-P2025-22-2-1693",
+      "release_id": "ocds-lcuori-P2025-22-2-1693-2025-09-22T14:13:07Z",
+      "source": "SEFIN",
+      "source_year": 2025,
+      "supplier_ids": [
+        "HNDIDCARD:HNTID1801198903627",
+        "RAW:HNTID1801198903627"
+      ],
+      "supplier_names": [
+        "JORGE ELIUD LINARES MEDINA"
+      ]
+    },
+    {
+      "amounts": [
+        3000.0
+      ],
+      "buyer_ids": [
+        "HNDENG:22",
+        "RAW:HNENG22"
+      ],
+      "buyer_names": [
+        "FONDO INVERSION SOCIAL"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2025-22-2-1935-1",
+        "C2025-22-2-1935-1",
+        "T2025-22-2-TRB-613774",
+        "ocds-lcuori-P2025-22-2-1935"
+      ],
+      "dates": [
+        "2025-11-11",
+        "2025-11-12"
+      ],
+      "documents": [],
+      "object_text": "ANTICIPO DE GASTOS DE VIAJE No. 34529 COMBUSTIBLE PARA LA VISITA DE SEGUIMIENTO A LA EJECUCIÓN DE LAS ACTIVIDADES DE PROYECTOS EN ETAPA DE EJECUCIÓN 108083 108084 108702 110509 108919 108318 108478 108918 108877 108885 108878 110740 EN OLANCHITO EL NEGRITO YORO LA LIMA SAN PEDRO SULA VILLANUEVA SAN ANTONIO SANTA CRUZ DE YOJOA CORTES Y EN MACUALIZO SANTA BARBARA DEL 5 AL 15 DE NOVIEMBRE DEL 2025. OP: 278652  CTTO: 82247  REF: 154862",
+      "ocid": "ocds-lcuori-P2025-22-2-1935",
+      "release_id": "ocds-lcuori-P2025-22-2-1935-2025-11-11T13:24:24Z",
+      "source": "SEFIN",
+      "source_year": 2025,
+      "supplier_ids": [
+        "HNDIDCARD:HNTID0615196300003",
+        "RAW:HNTID0615196300003"
+      ],
+      "supplier_names": [
+        "JOSE LUIS PINEDA PONCE"
+      ]
+    },
+    {
+      "amounts": [
+        2170.0
+      ],
+      "buyer_ids": [
+        "HNDENG:22",
+        "RAW:HNENG22"
+      ],
+      "buyer_names": [
+        "FONDO INVERSION SOCIAL"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2025-22-2-2042-1",
+        "C2025-22-2-2042-1",
+        "T2025-22-2-TRB-676455",
+        "ocds-lcuori-P2025-22-2-2042"
+      ],
+      "dates": [
+        "2025-11-24",
+        "2025-11-25"
+      ],
+      "documents": [],
+      "object_text": "LIQUIDACION DE GASTOS DE VIAJE No. 41939 COMBUSTIBLE PARA LA VISITA DE SEGUIMIENTO A LA EJECUCIÓN DE LAS ACTIVIDADES DE PROYECTOS EN ETAPA DE EJECUCIÓN 108083 108084 108702 110509 108919 108318 108478 108918 108877 108885 108878 110740 EN OLANCHITO EL NEGRITO YORO LA LIMA SAN PEDRO SULA VILLANUEVA SAN ANTONIO SANTA CRUZ DE YOJOA CORTES Y EN MACUALIZO SANTA BARBARA DEL 5 AL 15 DE NOVIEMBRE DEL 2025. OP: 279318  CTTO: 82355  REF: 155143",
+      "ocid": "ocds-lcuori-P2025-22-2-2042",
+      "release_id": "ocds-lcuori-P2025-22-2-2042-2025-11-24T09:33:56Z",
+      "source": "SEFIN",
+      "source_year": 2025,
+      "supplier_ids": [
+        "HNDIDCARD:HNTID0615196300003",
+        "RAW:HNTID0615196300003"
+      ],
+      "supplier_names": [
+        "JOSE LUIS PINEDA PONCE"
+      ]
+    },
+    {
+      "amounts": [
+        1500.0
+      ],
+      "buyer_ids": [
+        "HNDENG:22",
+        "RAW:HNENG22"
+      ],
+      "buyer_names": [
+        "FONDO INVERSION SOCIAL"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2025-22-2-2117-1",
+        "C2025-22-2-2117-1",
+        "T2025-22-2-TRB-708106",
+        "ocds-lcuori-P2025-22-2-2117"
+      ],
+      "dates": [
+        "2025-12-10",
+        "2025-12-11"
+      ],
+      "documents": [],
+      "object_text": "ANTICIPO DE GASTO DE VIAJE No. 34563 COMBSUTIBLE PARA EL DESARROLLO DE ASAMBLEAS INFORMATIVAS CON LOS BENEFICIARIOS PROYECTO EN EJECUCIÓN CODIGO 108885 108878 Y 108877 EN SAN ANTONIO SANTA CRUZ DE YOJOA Y VILLANUEVA CORTES DEL 8 AL 12 DE DICIEMBRE DEL 2025. OP: 279948 CTTO: 82406  REF: 155382",
+      "ocid": "ocds-lcuori-P2025-22-2-2117",
+      "release_id": "ocds-lcuori-P2025-22-2-2117-2025-12-10T14:14:09Z",
+      "source": "SEFIN",
+      "source_year": 2025,
+      "supplier_ids": [
+        "HNDIDCARD:HNTID0401197300933",
+        "RAW:HNTID0401197300933"
+      ],
+      "supplier_names": [
+        "OMAR AVILEZ ZELAYA"
+      ]
+    },
+    {
+      "amounts": [
+        5111031.0
+      ],
+      "buyer_ids": [
+        "HNDENG:22",
+        "RAW:HNENG22"
+      ],
+      "buyer_names": [
+        "FONDO INVERSION SOCIAL"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2025-22-2-2183-1",
+        "C2025-22-2-2183-1",
+        "T2025-22-2-TRB-729890",
+        "ocds-lcuori-P2025-22-2-2183"
+      ],
+      "dates": [
+        "2025-12-16",
+        "2025-12-17"
+      ],
+      "documents": [],
+      "object_text": "Pago primera estimación de inversión del subproyecto 108877- Reposición Sistema Agua Potable El Marañon Villanueva Cortés. OP: 280378  CTTO: 78715  REF: 155573",
+      "ocid": "ocds-lcuori-P2025-22-2-2183",
+      "release_id": "ocds-lcuori-P2025-22-2-2183-2025-12-16T16:10:34Z",
+      "source": "SEFIN",
+      "source_year": 2025,
+      "supplier_ids": [
+        "HNRTN:HNRTN08019008173209",
+        "RAW:HNRTN08019008173209"
+      ],
+      "supplier_names": [
+        "LEMPIRA"
+      ]
+    },
+    {
+      "amounts": [
+        1538.0
+      ],
+      "buyer_ids": [
+        "HNDENG:22",
+        "RAW:HNENG22"
+      ],
+      "buyer_names": [
+        "FONDO INVERSION SOCIAL"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2025-22-2-2187-1",
+        "C2025-22-2-2187-1",
+        "T2025-22-2-TRB-729891",
+        "ocds-lcuori-P2025-22-2-2187"
+      ],
+      "dates": [
+        "2025-12-16",
+        "2025-12-17"
+      ],
+      "documents": [],
+      "object_text": "LIQUIDACION DE GASTOS DE VIAJE No. 45409 COMBSUTIBLE PARA EL DESARROLLO DE ASAMBLEAS INFORMATIVAS CON LOS BENEFICIARIOS PROYECTO EN EJECUCIÓN CODIGO 108885 108878 Y 108877 EN SAN ANTONIO SANTA CRUZ DE YOJOA Y VILLANUEVA CORTES DEL 8 AL 12 DE DICIEMBRE DEL 2025. OP: 280418  CTTO: 82479  REF: 155609",
+      "ocid": "ocds-lcuori-P2025-22-2-2187",
+      "release_id": "ocds-lcuori-P2025-22-2-2187-2025-12-16T14:29:35Z",
+      "source": "SEFIN",
+      "source_year": 2025,
+      "supplier_ids": [
+        "HNDIDCARD:HNTID0401197300933",
+        "RAW:HNTID0401197300933"
+      ],
+      "supplier_names": [
+        "OMAR AVILEZ ZELAYA"
+      ]
+    },
+    {
+      "amounts": [
+        18000.0,
+        216000.0
+      ],
+      "buyer_ids": [
+        "HNDENG:415",
+        "RAW:HNENG415"
+      ],
+      "buyer_names": [
+        "PROGRAMA RED SOLIDARIA"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2025-415-2-30-1",
+        "C2025-415-2-30-1",
+        "T2025-415-2-TRB-108877",
+        "T2025-415-2-TRB-161406",
+        "T2025-415-2-TRB-194174",
+        "T2025-415-2-TRB-272226",
+        "T2025-415-2-TRB-348273",
+        "T2025-415-2-TRB-421601",
+        "T2025-415-2-TRB-483111",
+        "T2025-415-2-TRB-597490",
+        "T2025-415-2-TRB-643143",
+        "T2025-415-2-TRB-70491",
+        "T2025-415-2-TRB-708543",
+        "T2025-415-2-TRB-725401",
+        "ocds-lcuori-P2025-415-2-30"
+      ],
+      "dates": [
+        "2025-03-07",
+        "2025-04-01",
+        "2025-04-30",
+        "2025-05-19",
+        "2025-06-16",
+        "2025-07-16",
+        "2025-08-19",
+        "2025-09-10",
+        "2025-10-31",
+        "2025-11-18",
+        "2025-12-09",
+        "2025-12-11",
+        "2025-12-16"
+      ],
+      "documents": [],
+      "object_text": "Generación de F01/F07 por Contrato: 030/PRS/BM/6401/2025 con resumen: GESTOR SOCIAL LA PAZ - BM. Pago de honorarios profesionales correspondiente al mes de diciembre del 2025. Con cargo a la línea POA 2.1.31 | Generación de F01/F07 por Contrato: 030/PRS/BM/6401/2025 con resumen: GESTOR SOCIAL LA PAZ - BM",
+      "ocid": "ocds-lcuori-P2025-415-2-30",
+      "release_id": "ocds-lcuori-P2025-415-2-30-2025-12-09T19:28:56Z",
+      "source": "SEFIN",
+      "source_year": 2025,
+      "supplier_ids": [
+        "HNDIDCARD:HNTID1203199400139",
+        "RAW:HNTID1203199400139"
+      ],
+      "supplier_names": [
+        "GERSON JONATAN CALIX NOLASCO"
+      ]
+    },
+    {
+      "amounts": [
+        107218.0
+      ],
+      "buyer_ids": [
+        "HNDENG:70",
+        "RAW:HNENG70"
+      ],
+      "buyer_names": [
+        "SECRETARIA SEGURIDAD"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2025-70-1-3029-1",
+        "C2025-70-1-3029-1",
+        "T2025-449-1-TRB-266303",
+        "ocds-lcuori-P2025-70-1-3029"
+      ],
+      "dates": [
+        "2025-05-16",
+        "2025-06-12"
+      ],
+      "documents": [],
+      "object_text": "TRANSFERENCIA DE FONDOS PARA CUBRIR COMBUSTIBLES UTILIZADOS DE LA SEGUNDA QUINCENA DEL MES DE MARZO DEL AÑO 2025POR LA UDEP # 15GASOLINERA AMERICAN CAMPAMENTO.CON FACTURA No.000-001-01-00108877.O/P-03069-2025.",
+      "ocid": "ocds-lcuori-P2025-70-1-3029",
+      "release_id": "ocds-lcuori-P2025-70-1-3029-2025-05-16T16:37:00Z",
+      "source": "SEFIN",
+      "source_year": 2025,
+      "supplier_ids": [
+        "HNDIDCARD:HNTID1502198700305",
+        "RAW:HNTID1502198700305"
+      ],
+      "supplier_names": [
+        "IVIS MARIA SOTO TURCIOS"
+      ]
+    }
+  ],
+  "ENP 05/23": [],
+  "SDO-O-FHIS-16-2025": [
+    {
+      "amounts": [
+        23437072.56
+      ],
+      "buyer_ids": [
+        "RAW:JRDXVRORVDGM",
+        "RAW:ORVDGM",
+        "XHNONCAECE:JRDXVRORVDGM",
+        "XHNONCAECE:ORVDGM"
+      ],
+      "buyer_names": [
+        "RECONSTRUCCION NACIONAL BANCO MUNDIAL",
+        "SECRETARIA ESTADO DESPACHOS DESARROLLO COMUNITARIO AGUA SANEAMIENTO SEDECOAS FHIS"
+      ],
+      "classifications": [
+        "UNSPSC:83101501"
+      ],
+      "codes": [
+        "jRDXVR-HN-SEDECOAS-457536-CW-RFB-2",
+        "jRDXVR-SDO-O-FHIS-16-2025",
+        "ocds-lcuori-jRDXVR-HN-SEDECOAS-457536-CW-RFB-2"
+      ],
+      "dates": [
+        "2025-03-11",
+        "2025-04-08",
+        "2025-08-13"
+      ],
+      "documents": [
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-457536-CW-RFB100-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-457536-CW-RFB103-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Pliego o Terminos de Referencia",
+          "documentType": "biddingDocuments",
+          "title": "Pliego o Terminos de Referencia",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-457536-CW-RFB201-PliegooTerminosdeReferencia.pdf"
+        },
+        {
+          "description": "Enmienda o Adendum",
+          "documentType": "amendment",
+          "title": "Enmienda o Adendum",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-457536-CW-RFB406-EnmiendaoAdendum.pdf"
+        },
+        {
+          "description": "Aclaratoria",
+          "documentType": "clarifications",
+          "title": "Aclaratoria",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-457536-CW-RFB504-Aclaratoria.pdf"
+        },
+        {
+          "description": "Aclaratoria",
+          "documentType": "clarifications",
+          "title": "Aclaratoria",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-457536-CW-RFB505-Aclaratoria.pdf"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-457536-CW-RFB607-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-457536-CW-RFB607-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-457536-CW-RFB1402-AnexosalPliego.pdf"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1192HN-SEDECOAS-457536-CW-RFB807-ResoluciondelaAdjudicacion.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1192SDO-O-FHIS-16-20251200-ContratouOrdendeCompra.pdf"
+        }
+      ],
+      "object_text": "HN-SEDECOAS-457536-CW-RFB | “REPOSICIÓN SISTEMA AGUA POTABLE EN EL MARAÑÓN, MUNICIPIO DE VILLANUEVA EN EL DEPARTAMENTO DE CORTES, CÓDIGO 108877” | Aviso de Prensa | tenderNotice | Pliego o Terminos de Referencia | biddingDocuments | Enmienda o Adendum | amendment | Aclaratoria | clarifications | Acta de Recepcion y Apertura de Ofertas | recordOpeningTendersReceived | Anexos al Pliego | solicitationDocumentAnnexe | Ver Pliego | Abastecimiento de agua | Resolucion de la Adjudicacion | awardNotice | SDO-O-FHIS-16-2025 | Contrato u Orden de Compra | contractSigned",
+      "ocid": "ocds-lcuori-jRDXVR-HN-SEDECOAS-457536-CW-RFB-2",
+      "release_id": "ocds-lcuori-jRDXVR-HN-SEDECOAS-457536-CW-RFB-2-2025-03-11T10:33:00.040000-06:00",
+      "source": "ONCAE",
+      "source_year": 2025,
+      "supplier_ids": [
+        "HNRTN:08019002270552",
+        "HNRTN:08019008173209",
+        "HNRTN:08019009251358",
+        "HNRTN:08019013587149",
+        "RAW:HNRTN08019002270552",
+        "RAW:HNRTN08019008173209",
+        "RAW:HNRTN08019009251358",
+        "RAW:HNRTN08019013587149"
+      ],
+      "supplier_names": [
+        "ENOC A C V",
+        "HJJ A",
+        "LEMPIRA",
+        "OBRAS CONSTRUCCION CONSULTORIA ALVAREZ RESPONSABILIDAD CAPITAL VARIABLE OCCA C V"
+      ]
+    }
+  ],
+  "SIT-CO-057-2024": [
+    {
+      "amounts": [
+        1245614.34
+      ],
+      "buyer_ids": [
+        "RAW:2LMMWL",
+        "RAW:WRVE9R2LMMWL",
+        "XHNONCAECE:2LMMWL",
+        "XHNONCAECE:WRVE9R2LMMWL"
+      ],
+      "buyer_names": [
+        "GERENCIA ADMINISTRATIVA",
+        "SECRETARIA ESTADO DESPACHOS INFRAESTRUCTURA TRANSPORTE SIT"
+      ],
+      "classifications": [
+        "UNSPSC:72102904"
+      ],
+      "codes": [
+        "ocds-lcuori-wrVe9R-COT-SIT-004-2024-2",
+        "wrVe9R-COT-SIT-004-2024-2",
+        "wrVe9R-SIT-CO-057-2024"
+      ],
+      "dates": [
+        "2024-04-03",
+        "2024-04-10",
+        "2024-04-30"
+      ],
+      "documents": [
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211COT-SIT-004-2024101-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Pliego o Terminos de Referencia",
+          "documentType": "biddingDocuments",
+          "title": "Pliego o Terminos de Referencia",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211COT-SIT-004-2024200-PliegooTerminosdeReferencia.docx"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211COT-SIT-004-2024602-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211COT-SIT-004-2024803-ResoluciondelaAdjudicacion.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1211SIT-CO-057-20241200-ContratouOrdendeCompra.pdf"
+        }
+      ],
+      "object_text": "COT-SIT-004-2024 | COT-SIT-004-2024 Proceso Limpieza Vial Ruta CA-13 Oriente, Jutiapa - Límite Deptal. Atlántida/Colón (Est.8+000-Est.27+230) (Inicia en Belaire), con L=19.23 Km; Ruta CA-13 Oriente, Límite Deptal. Atlántida/Colón - Sabá, con L=19.46 Km; Ruta CA-13 Oriente, Límite Deptal. Yoro/Colón - Sabá, con L= 1.37 Km; Ruta 113, Planes - Sonaguera, con L=7.82 Km;  Ruta 113, Sonaguera - Desvío El Coco (Est.0+000 - Est.13+450) (Las Brisas), con L=13.45 Km; Ruta 113, Sonaguera - Desvío El Coco (Est.13+450 - Est.28+420) (Desvio El Coco), con L=14.97 Km; S113 - Río Arriba, con L=3.00 Km; Ruta CA-13 Oriente, Sabá - Tocoa (Est.0+000 - Est.22+850) (Desvio El Guapinol), con L=22.85 Km; con una Longitud Total de 102.15 Km. | Aviso de Prensa | tenderNotice | Pliego o Terminos de Referencia | biddingDocuments | Acta de Recepcion y Apertura de Ofertas | recordOpeningTendersReceived | Ver Pliego | Servicios de barrido de carreteras o aparcamientos | Resolucion de la Adjudicacion | awardNotice | SIT-CO-057-2024 | Contrato u Orden de Compra | contractSigned",
+      "ocid": "ocds-lcuori-wrVe9R-COT-SIT-004-2024-2",
+      "release_id": "ocds-lcuori-wrVe9R-COT-SIT-004-2024-2-2024-04-03T12:35:44.380000-06:00",
+      "source": "ONCAE",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNRTN:02011984005059",
+        "HNRTN:0801196506979",
+        "HNRTN:13121974001988",
+        "RAW:HNRTN02011984005059",
+        "RAW:HNRTN0801196506979",
+        "RAW:HNRTN13121974001988"
+      ],
+      "supplier_names": [
+        "ELMER LOPEZ AYALA MIPYME",
+        "ERIN JAVIER GUEVARA MEJIA MIPYME",
+        "JULIO JAIME MORALES MARTINEZ"
+      ]
+    },
+    {
+      "amounts": [
+        1245614.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2024-411-1-2709-1",
+        "C2024-411-1-2709-1",
+        "T2024-449-1-TRB-358066",
+        "ocds-lcuori-P2024-411-1-2709"
+      ],
+      "dates": [
+        "2024-06-27",
+        "2024-07-15"
+      ],
+      "documents": [],
+      "object_text": "PAGO UNICO CONTRATO DE LIMPIEZA  SIT-CO-057-2024 LIMPIEZA VIAL:RUTA CA-13 ORIENTE JUTIAPA - LIMITE DEPTAL.ATLANTIDA/COLON (EST.8+000-EST.27+230) (INICIA EN BELAIRE) CON L=19.23 KM; RUTA CA-13 ORIENTE LIMITE DEPTAL. ATLANTIDA/COLON-SABA CON L=19.46 KM; RUTA CA-13 ORIENTE LIMITE DEPTAL. YORO/COLON - SABA CON L=1.37 KM; RUTA 113 PLANES - SONAGUERA CON L=7.82 KM; RUTA 113 SONAGUERA - DESVIO EL COCO (EST.0+000 - EST. 13*450) (LAS BRISAS) CON L=13.45 KM; RUTA 113 SONAGUERA - DESVIO EL COCO (EST.13+450 - EST.28+420) (DESVIO EL COCO) CON L=14.97 KM; S113-RIO ARRIBA CON L=3.00 KM; RUTA CA-13 ORIENTE SABA - TOCOA (EST.0+000 - EST.22+850) (DESVIO EL GUAPINOL) CON L=22.85 KM; CON UNA LONGITUD TOTAL DE 102.15 KM | RESERVA DE CREDITO AL CONTRATO DE LIMPIEZA VIAL SIT-CO-057-2024 LIMPIEZA VIAL:RUTA CA-13 ORIENTE JUTIAPA - LIMITE DEPTAL.ATLANTIDA/COLON (EST.8+000-EST.27+230) (INICIA EN BELAIRE) CON L=19.23 KM; RUTA CA-13 ORIENTE LIMITE DEPTAL. ATLANTIDA/COLON-SABA CON L=19.46 KM; RUTA CA-13 ORIENTE LIMITE DEPTAL. YORO/COLON - SABA CON L=1.37 KM; RUTA 113 PLANES - SONAGUERA CON L=7.82 KM; RUTA 113 SONAGUERA - DESVIO EL COCO (EST.0+000 - EST. 13*450) (LAS BRISAS) CON L=13.45 KM; RUTA 113 SONAGUERA - DESVIO EL COCO (EST.13+450 - EST.28+420) (DESVIO EL COCO) CON L=14.97 KM; S113-RIO ARRIBA CON L=3.00 KM; RUTA CA-13 ORIENTE SABA - TOCOA (EST.0+000 - EST.22+850) (DESVIO EL GUAPINOL) CON L=22.85 KM; CON UNA LONGITUD TOTAL DE 102.15 KM",
+      "ocid": "ocds-lcuori-P2024-411-1-2709",
+      "release_id": "ocds-lcuori-P2024-411-1-2709-2024-06-27T15:24:03Z",
+      "source": "SEFIN",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNDIDCARD:HNTID0201198400505",
+        "RAW:HNTID0201198400505"
+      ],
+      "supplier_names": [
+        "ERIN JAVIER GUEVARA MEJIA"
+      ]
+    },
+    {
+      "amounts": [
+        3442234.0,
+        4019935.0,
+        7462170.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2024-411-1-5045-1",
+        "C2024-411-1-5045-1",
+        "T2024-449-1-TRB-592936",
+        "T2024-449-1-TRB-592937",
+        "ocds-lcuori-P2024-411-1-5045"
+      ],
+      "dates": [
+        "2024-10-17",
+        "2024-10-28"
+      ],
+      "documents": [],
+      "object_text": "PAGO ESTIMACION #3 DEL PERIODO 0101/2024 AL 29/02/2024 SEGUN FACTURA 000-001-01-00000064 DEL CONTRATO SIT-CO-057-2024 DEL PROYECTO PAVIMENTACION CON CONCRETO HIDRAULICO 400PSI 16V66000 AGALTECA - EL MOCHITO (EL MOCHITO EL CARRETE DEPARTAMENTO DE SANTA BARBARA 3.00 KM FASE I | RESERVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO SIT-CO-057-2024 DEL PROYECTO PAVIMENTACION CON CONCRETO HIDRAULICO 400PSI 16V66000 AGALTECA - EL MOCHITO (EL MOCHITO EL CARRETE DEPARTAMENTO DE SANTA BARBARA 3.00 KM FASE I",
+      "ocid": "ocds-lcuori-P2024-411-1-5045",
+      "release_id": "ocds-lcuori-P2024-411-1-5045-2024-10-17T16:00:03Z",
+      "source": "SEFIN",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNRTN:HNRTN12089006019199",
+        "RAW:HNRTN12089006019199"
+      ],
+      "supplier_names": [
+        "ORLY B C V"
+      ]
+    }
+  ],
+  "SIT-CO-496-2024": [
+    {
+      "amounts": [
+        39973535.47
+      ],
+      "buyer_ids": [
+        "RAW:2LMMWL",
+        "RAW:WRVE9R2LMMWL",
+        "XHNONCAECE:2LMMWL",
+        "XHNONCAECE:WRVE9R2LMMWL"
+      ],
+      "buyer_names": [
+        "GERENCIA ADMINISTRATIVA",
+        "SECRETARIA ESTADO DESPACHOS INFRAESTRUCTURA TRANSPORTE SIT"
+      ],
+      "classifications": [
+        "UNSPSC:72102903"
+      ],
+      "codes": [
+        "ocds-lcuori-wrVe9R-CDE-SIT-105-2024-2",
+        "wrVe9R-CDE-SIT-105-2024-2",
+        "wrVe9R-SIT-CO-496-2024"
+      ],
+      "dates": [
+        "2024-12-26",
+        "2024-12-28",
+        "2025-12-30"
+      ],
+      "documents": [
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-105-2024102-AvisodePrensa.pdf"
+        },
+        {
+          "description": "Pliego o Terminos de Referencia",
+          "documentType": "biddingDocuments",
+          "title": "Pliego o Terminos de Referencia",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-105-2024200-PliegooTerminosdeReferencia.docx"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-105-2024603-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Anexos al Pliego",
+          "documentType": "solicitationDocumentAnnexe",
+          "title": "Anexos al Pliego",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-105-20241401-AnexosalPliego.docx"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-105-2024804-ResoluciondelaAdjudicacion.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1211SIT-CO-496-20241200-ContratouOrdendeCompra.pdf"
+        }
+      ],
+      "object_text": "CDE-SIT-105-2024 | CDE-SIT-105-2024 PROYECTOS DE EMERGENCIA PARA LA ATENCIÓN DE AFECTACIONES OCASIONADAS POR LA TORMENTA TROPICAL SARA EN LOS MUNICIPIOS DE BONITO ORIENTAL-IRIONA, DEPARTAMENTO DE COLON. | Aviso de Prensa | tenderNotice | Pliego o Terminos de Referencia | biddingDocuments | Acta de Recepcion y Apertura de Ofertas | recordOpeningTendersReceived | Anexos al Pliego | solicitationDocumentAnnexe | Ver Pliego | Mantenimiento y reparación de carreteras o estacionamientos | Resolucion de la Adjudicacion | awardNotice | SIT-CO-496-2024 | Contrato u Orden de Compra | contractSigned",
+      "ocid": "ocds-lcuori-wrVe9R-CDE-SIT-105-2024-2",
+      "release_id": "ocds-lcuori-wrVe9R-CDE-SIT-105-2024-2-2024-12-26T15:53:53.453000-06:00",
+      "source": "ONCAE",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNRTN:08019017910526",
+        "RAW:HNRTN08019017910526"
+      ],
+      "supplier_names": [
+        "INGENIERIA SERVICIOS T G"
+      ]
+    },
+    {
+      "amounts": [
+        7915551.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2024-411-1-8044-1",
+        "C2024-411-1-8044-1",
+        "T2024-449-1-TRB-810854",
+        "ocds-lcuori-P2024-411-1-8044"
+      ],
+      "dates": [
+        "2024-12-30",
+        "2024-12-31"
+      ],
+      "documents": [],
+      "object_text": "PAGO DE ANTICIPO S/FACT.000-001-01-00000679 PARA PAGO DE CONTRAT SIT-CO-496-2024  PROYECTOS DE EMERGENCIA PARA LA ATENCION DE AFECTACIONES OCASIONADAS POR LA TORMENTA TROPICAL SARA EN LOS MUNICIPIOS DE BONITO ORIENTAL-IRIONA COLON | RESERVA DE CREDITO PARA PAGO DE CONTRAT SIT-CO-496-2024  PROYECTOS DE EMERGENCIA PARA LA ATENCION DE AFECTACIONES OCASIONADAS POR LA TORMENTA TROPICAL SARA EN LOS MUNICIPIOS DE BONITO ORIENTAL-IRIONA COLON",
+      "ocid": "ocds-lcuori-P2024-411-1-8044",
+      "release_id": "ocds-lcuori-P2024-411-1-8044-2024-12-30T23:31:08Z",
+      "source": "SEFIN",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNRTN:HNRTN08019017910526",
+        "RAW:HNRTN08019017910526"
+      ],
+      "supplier_names": [
+        "INGENIERIA SERVICIOS T G"
+      ]
+    },
+    {
+      "amounts": [
+        12064606.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2025-411-1-2168-1",
+        "C2025-411-1-2168-1",
+        "T2025-449-1-TRB-226857",
+        "ocds-lcuori-P2025-411-1-2168"
+      ],
+      "dates": [
+        "2025-05-14",
+        "2025-05-30"
+      ],
+      "documents": [],
+      "object_text": "PAGO DE ESTIMACION NO. 2 CORRESPONDIENTE AL PERIODO COMPRENDIDO DEL 15/01/2025 AL 13/02/2025 SEGUN FACTURA: 000-001-01-000000688  PARA EL CONTRATO SIT-CO-496-2024 PROYECTO DE EMERGENCIA PARA LA ATENCION DE AFECTACIONES OCASIONADAS POR LA TORMENTA TROPICAL SARA EN LOS MUNICIPIOS DE BONITO ORIENTAL IRIONA  DEPARTAMENTO DE COLON | RESERVA DE CREDITO PARA EL CONTRATO SIT-CO-496-2024 PROYECTO DE EMERGENCIA PARA LA ATENCION DE AFECTACIONES OCASIONADAS POR LA TORMENTA TROPICAL SARA EN LOS MUNICIPIOS DE BONITO ORIENTAL IRIONA  DEPARTAMENTO DE COLON",
+      "ocid": "ocds-lcuori-P2025-411-1-2168",
+      "release_id": "ocds-lcuori-P2025-411-1-2168-2025-05-14T18:43:10Z",
+      "source": "SEFIN",
+      "source_year": 2025,
+      "supplier_ids": [
+        "HNRTN:HNRTN08019017910526",
+        "RAW:HNRTN08019017910526"
+      ],
+      "supplier_names": [
+        "INGENIERIA SERVICIOS T G"
+      ]
+    },
+    {
+      "amounts": [
+        6890678.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2025-411-1-7883-1",
+        "C2025-411-1-7883-1",
+        "ocds-lcuori-P2025-411-1-7883"
+      ],
+      "dates": [
+        "2025-12-30"
+      ],
+      "documents": [],
+      "object_text": "PAGO ESTIMACIÓN N°2 CORRESPONDIENTE AL PERIODO 14/02/ AL 15/03/2025 DEL SEGÚN FACTURA N°000-001-0100000727 SIT-CO-496-2024PROYECTO DE EMERGENCIA PARA LA ATENCIÓN DE AFECTACIONES DE OCASIONADAS POR LA TORMENTA TROPICAL SARA EN LOS MUNICPIOS DE BONITO ORIENTAL IRIONA DEPARTAMENTO DE COLON. | PAGO DE RESERVA SIT-CO-496-2024PROYECTO DE EMERGENCIA PARA LA ATENCIÓN DE AFECTACIONES DE OCASIONADAS POR LA TORMENTA TROPICAL SARA EN LOS MUNICPIOS DE BONITO ORIENTAL IRIONA DEPARTAMENTO DE COLON.",
+      "ocid": "ocds-lcuori-P2025-411-1-7883",
+      "release_id": "ocds-lcuori-P2025-411-1-7883-2025-12-30T23:12:28Z",
+      "source": "SEFIN",
+      "source_year": 2025,
+      "supplier_ids": [
+        "HNRTN:HNRTN08019017910526",
+        "RAW:HNRTN08019017910526"
+      ],
+      "supplier_names": [
+        "INGENIERIA SERVICIOS T G"
+      ]
+    }
+  ],
+  "SIT-GA-001-2024": [
+    {
+      "amounts": [],
+      "buyer_ids": [
+        "RAW:2LMMWL",
+        "RAW:WRVE9R2LMMWL",
+        "XHNONCAECE:2LMMWL",
+        "XHNONCAECE:WRVE9R2LMMWL"
+      ],
+      "buyer_names": [
+        "GERENCIA ADMINISTRATIVA",
+        "SECRETARIA ESTADO DESPACHOS INFRAESTRUCTURA TRANSPORTE SIT"
+      ],
+      "classifications": [
+        "UNSPSC:55101519"
+      ],
+      "codes": [
+        "ocds-lcuori-wrVe9R-LPN-SIT-GA-001-2024-2",
+        "wrVe9R-LPN-SIT-GA-001-2024-2"
+      ],
+      "dates": [
+        "2024-02-05",
+        "2024-03-18"
+      ],
+      "documents": [
+        {
+          "description": "Aviso de Prensa",
+          "documentType": "tenderNotice",
+          "title": "Aviso de Prensa",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-GA-001-2024100-AvisodePrensa.docx"
+        },
+        {
+          "description": "Pliego o Terminos de Referencia",
+          "documentType": "biddingDocuments",
+          "title": "Pliego o Terminos de Referencia",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-GA-001-2024201-PliegooTerminosdeReferencia.docx"
+        }
+      ],
+      "object_text": "LPN-SIT-GA-001-2024 | ADQUISICIÓN DE SERVICIOS DE PUBLICACIÓN EN DIARIOS DE CIRCULACIÓN A NIVEL NACIONAL, POR UN PERIODO DE UN AÑO | Aviso de Prensa | tenderNotice | Pliego o Terminos de Referencia | biddingDocuments | Ver Pliego | Publicaciones periódicas",
+      "ocid": "ocds-lcuori-wrVe9R-LPN-SIT-GA-001-2024-2",
+      "release_id": "ocds-lcuori-wrVe9R-LPN-SIT-GA-001-2024-2-2024-02-05T16:34:20.760000-06:00",
+      "source": "ONCAE",
+      "source_year": 2024,
+      "supplier_ids": [],
+      "supplier_names": []
+    },
+    {
+      "amounts": [
+        7310.55
+      ],
+      "buyer_ids": [
+        "RAW:2LMMWL",
+        "RAW:WRVE9R2LMMWL",
+        "XHNONCAECE:2LMMWL",
+        "XHNONCAECE:WRVE9R2LMMWL"
+      ],
+      "buyer_names": [
+        "GERENCIA ADMINISTRATIVA",
+        "SECRETARIA ESTADO DESPACHOS INFRAESTRUCTURA TRANSPORTE SIT"
+      ],
+      "classifications": [
+        "UNSPSC:44121604"
+      ],
+      "codes": [
+        "ocds-lcuori-wrVe9R-SIT-GA-001-2024-1",
+        "wrVe9R-SIT-GA-001-2024",
+        "wrVe9R-SIT-GA-001-2024-1"
+      ],
+      "dates": [
+        "2024-02-13",
+        "2024-02-15",
+        "2024-04-11"
+      ],
+      "documents": [
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1211SIT-GA-001-20241200-ContratouOrdendeCompra.pdf"
+        }
+      ],
+      "object_text": "SIT-GA-001-2024 | A) 9 SELLOS REDONDOS AUTOMÁTICOS B) 4 SELLOS RECTANGULARES AUTOMÁTICOS C) 1 SELLO CIRCULAR DE BOLSILLO. Condiciones: *Detallar marca de productos que están ofertando. *Detallar el precio en moneda local (lempiras) *Detallar al precio el 15% de I.S.V. *Detallar costos de materiales de instalación y mano de obra. *Detallar la garantía que aplica al bien o servicio solicitado *Los sobres deberán estar debidamente cerrados, sellados y anotar el # de solicitud y la dirección que lo utilizara, las ofertas que no cumplan con esta condición no serán consideradas. *Crédito 30 días * Entrega inmediata. * Estar inscrito en SIAFI. * Cotizar exactamente lo que se le solicita *Depositar sus ofertas en el buzón ubicado en la Sub- Gerencia de Recursos Materiales y Servicios Generales en el 3er piso del Edificio Administrativo de 9:00 a.m.-5:00 p.m. * Una vez notificada la adjudicación deberá acreditar la inscripción del SIAFI. *Previo a la adjudicación deberán inscribirse en el registro de proveedores de esta secretaria. | Sellos de hule | compra de 14 sellos rectangulares y redondos | Contrato u Orden de Compra | contractSigned",
+      "ocid": "ocds-lcuori-wrVe9R-SIT-GA-001-2024-1",
+      "release_id": "ocds-lcuori-wrVe9R-SIT-GA-001-2024-1-2024-02-13T14:27:03.330000-06:00",
+      "source": "ONCAE",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNRTN:08019015753561",
+        "RAW:HNRTN08019015753561"
+      ],
+      "supplier_names": [
+        "INDUSTRIA LITOGRAFICA PRINT COLOR"
+      ]
+    },
+    {
+      "amounts": [
+        6357.0,
+        7310.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2024-411-1-194-1",
+        "C2024-411-1-194-1",
+        "T2024-449-1-TRB-136228",
+        "ocds-lcuori-P2024-411-1-194"
+      ],
+      "dates": [
+        "2024-03-22",
+        "2024-04-16"
+      ],
+      "documents": [],
+      "object_text": "PAGO DE COMPRA DE 14 SELLOS PARA DIFERENTES UNIDADES DE LA SECRETARIA SEGUN EXP SIT-GA-001-2024 FACT. 000-001-01-00018436 | COMPRA DE 14 SELLOS PARA DIFERENTES UNIDADES DE LA SECRETARIA SEGUN EXP SIT-GA-001-2024",
+      "ocid": "ocds-lcuori-P2024-411-1-194",
+      "release_id": "ocds-lcuori-P2024-411-1-194-2024-03-22T19:19:53Z",
+      "source": "SEFIN",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNRTN:HNRTN08019015753561",
+        "RAW:HNRTN08019015753561"
+      ],
+      "supplier_names": [
+        "INDUSTRIAS LITOGRAFICAS PRINT COLOR"
+      ]
+    },
+    {
+      "amounts": [
+        5604.0,
+        6510.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2024-411-1-97-1",
+        "C2024-411-1-97-1",
+        "T2024-449-1-TRB-88014",
+        "ocds-lcuori-P2024-411-1-97"
+      ],
+      "dates": [
+        "2024-02-22",
+        "2024-03-15"
+      ],
+      "documents": [],
+      "object_text": "PAGO DE PUBLICACION DE LPN-SIT-GA-001-2024 MEDIANTE FACTURA 000-008-01-00025263 Y PROCESO DE COMPRA SIT-GA-RM-007-2024",
+      "ocid": "ocds-lcuori-P2024-411-1-97",
+      "release_id": "ocds-lcuori-P2024-411-1-97-2024-02-22T17:24:40Z",
+      "source": "SEFIN",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNRTN:HNRTN08019995286070",
+        "RAW:HNRTN08019995286070"
+      ],
+      "supplier_names": [
+        "PERIODICOS REVISTAS A C V"
+      ]
+    }
+  ],
+  "SIT-SU-038-2024": [
+    {
+      "amounts": [
+        11417794.88
+      ],
+      "buyer_ids": [
+        "RAW:2LMMWL",
+        "RAW:WRVE9R2LMMWL",
+        "XHNONCAECE:2LMMWL",
+        "XHNONCAECE:WRVE9R2LMMWL"
+      ],
+      "buyer_names": [
+        "GERENCIA ADMINISTRATIVA",
+        "SECRETARIA ESTADO DESPACHOS INFRAESTRUCTURA TRANSPORTE SIT"
+      ],
+      "classifications": [
+        "UNSPSC:98101603"
+      ],
+      "codes": [
+        "ocds-lcuori-wrVe9R-CD-SIT-005-2024-2",
+        "wrVe9R-CD-SIT-005-2024-2",
+        "wrVe9R-SIT-SU-038-2024"
+      ],
+      "dates": [
+        "2024-03-11",
+        "2024-03-12",
+        "2024-03-19",
+        "2024-04-04"
+      ],
+      "documents": [
+        {
+          "description": "Pliego o Terminos de Referencia",
+          "documentType": "biddingDocuments",
+          "title": "Pliego o Terminos de Referencia",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CD-SIT-005-2024200-PliegooTerminosdeReferencia.docx"
+        },
+        {
+          "description": "Acta de Recepcion y Apertura de Ofertas",
+          "documentType": "recordOpeningTendersReceived",
+          "title": "Acta de Recepcion y Apertura de Ofertas",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CD-SIT-005-2024601-ActadeRecepcionyAperturadeOfertas.pdf"
+        },
+        {
+          "description": "Resolucion de la Adjudicacion",
+          "documentType": "awardNotice",
+          "title": "Resolucion de la Adjudicacion",
+          "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CD-SIT-005-2024802-ResoluciondelaAdjudicacion.pdf"
+        },
+        {
+          "description": "Contrato u Orden de Compra",
+          "documentType": "contractSigned",
+          "title": "Contrato u Orden de Compra",
+          "url": "http://h1.honducompras.gob.hn/Docs/Con1211SIT-SU-038-20241200-ContratouOrdendeCompra.pdf"
+        }
+      ],
+      "object_text": "CD-SIT-005-2024 | CD-SIT-005-2024 Contratación Directa: “Servicios de Consultoría para el Diseño, Gestión, Dirección y Supervisión de la Construcción y Puesta en Marcha de los Hospitales Básicos de Ocotepeque y Salamá y el Hospital General de Santa Bárbara” | Pliego o Terminos de Referencia | biddingDocuments | Acta de Recepcion y Apertura de Ofertas | recordOpeningTendersReceived | Ver Pliego | Hospitales y Centros de Salud | Resolucion de la Adjudicacion | awardNotice | SIT-SU-038-2024 | Contrato u Orden de Compra | contractSigned",
+      "ocid": "ocds-lcuori-wrVe9R-CD-SIT-005-2024-2",
+      "release_id": "ocds-lcuori-wrVe9R-CD-SIT-005-2024-2-2024-03-11T23:46:23.037000-06:00",
+      "source": "ONCAE",
+      "source_year": 2024,
+      "supplier_ids": [
+        "RAW:SRXXXAR",
+        "XONCAESUPPLIERSHC1:SRXXXAR"
+      ],
+      "supplier_names": [
+        "1 ASOCIACION CONSULTORES INGENIERIA SERVICIOS GEODESIA TOPOGRAFIA ACI SGT"
+      ]
+    },
+    {
+      "amounts": [
+        5684837.0,
+        8824278.0,
+        14524278.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2024-411-5-10-1",
+        "C2024-411-5-10-1",
+        "T2024-449-1-TRB-236382",
+        "T2024-449-1-TRB-415638",
+        "ocds-lcuori-P2024-411-5-10"
+      ],
+      "dates": [
+        "2024-05-31",
+        "2024-07-31",
+        "2024-08-02"
+      ],
+      "documents": [],
+      "object_text": "PRIMER COMPLEMENTO DE PAGO N°1 DEL INFORME PRELIMINAR DEL PERIODO 05 AL 19/04/2024 SEGUN FACTURA 000-001-01-00001440 CONTRATO SIT-SU-038-2024 DEL PROYECTO (HOSPITAL SANTA BARBARA ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL DENERAL DE SANTA BARBARA | RESERVA DE FONDOS PARA CUBRIR PAGO DEL CONTRATO SIT-SU-038-2024 DEL PROYECTO (HOSPITAL SANTA BARBARA ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL DENERAL DE SANTA BARBARA | Se crea un F07 con ID: F07-C2024-411-5-10-1-1 de tipo AUMENTO el cual afecta el F01 con ID:F01-C2024-411-5-10-1-0",
+      "ocid": "ocds-lcuori-P2024-411-5-10",
+      "release_id": "ocds-lcuori-P2024-411-5-10-2024-07-31T14:02:20Z",
+      "source": "SEFIN",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNRTN:HNRTN05019002265663",
+        "RAW:HNRTN05019002265663"
+      ],
+      "supplier_names": [
+        "ASOCIACION CONSULTORES INGENIERIA"
+      ]
+    },
+    {
+      "amounts": [
+        1051005.0,
+        3145238.0,
+        4222168.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2024-411-5-106-1",
+        "C2024-411-5-106-1",
+        "T2024-449-1-TRB-750293",
+        "T2024-449-1-TRB-750294",
+        "ocds-lcuori-P2024-411-5-106"
+      ],
+      "dates": [
+        "2024-12-13",
+        "2024-12-31"
+      ],
+      "documents": [],
+      "object_text": "Reversión por Cierre -  Gestion :2024 Institución :411 GA :5 F-01: 106-1-0 - RESERVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO SIT-SU-038-2024 (HOSPITAL SANTA BARBARA ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA (CONTRATO EN DOLARES) | RESERVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO SIT-SU-038-2024 (HOSPITAL SANTA BARBARA ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA (CONTRATO EN DOLARES) | Se crea un F07 con ID: F07-C2024-411-5-106-1-2 de tipo REVERSIÓN el cual afecta el F01 con ID:F01-C2024-411-5-106-1-0",
+      "ocid": "ocds-lcuori-P2024-411-5-106",
+      "release_id": "ocds-lcuori-P2024-411-5-106-2024-12-31T00:01:49Z",
+      "source": "SEFIN",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNRTN:HNRTN05019002265663",
+        "RAW:HNRTN05019002265663"
+      ],
+      "supplier_names": [
+        "ASOCIACION CONSULTORES INGENIERIA"
+      ]
+    },
+    {
+      "amounts": [
+        1217260.0,
+        1225296.0,
+        2462840.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2024-411-5-107-1",
+        "C2024-411-5-107-1",
+        "T2024-449-1-TRB-750295",
+        "T2024-449-1-TRB-810258",
+        "ocds-lcuori-P2024-411-5-107"
+      ],
+      "dates": [
+        "2024-12-13",
+        "2024-12-14",
+        "2024-12-31"
+      ],
+      "documents": [],
+      "object_text": "PARCIAL DEL PAGO #8 DEL PERIODO 01 AL 30/11/2024 SEGUN FACTURA 000-001-01-00001586  DEL CONTRATO SIT-SU-038-2024 (HOSPITAL DE SALAMA ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES) | RESERVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO SIT-SU-038-2024 (HOSPITAL DE SALAMA ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES)",
+      "ocid": "ocds-lcuori-P2024-411-5-107",
+      "release_id": "ocds-lcuori-P2024-411-5-107-2024-12-14T16:18:38Z",
+      "source": "SEFIN",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNRTN:HNRTN05019002265663",
+        "RAW:HNRTN05019002265663"
+      ],
+      "supplier_names": [
+        "ASOCIACION CONSULTORES INGENIERIA"
+      ]
+    },
+    {
+      "amounts": [
+        1631646.0,
+        4713723.0,
+        7170409.0,
+        13543957.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2024-411-5-11-1",
+        "C2024-411-5-11-1",
+        "T2024-449-1-TRB-236383",
+        "T2024-449-1-TRB-415639",
+        "T2024-449-1-TRB-415640",
+        "ocds-lcuori-P2024-411-5-11"
+      ],
+      "dates": [
+        "2024-05-31",
+        "2024-07-31",
+        "2024-08-02"
+      ],
+      "documents": [],
+      "object_text": "PARCIAL DEL PAGO #2 DEL PERIODO DEL 05/05 AL 04/06/2024 SEGUN FACTURA 000-001-01-00001521 AL  DEL CONTRATO SIT-SU-038-2024 (HOSPITAL SALAMA ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL DENERAL DE SANTA BARBARA (CONTRATO EN DOLARES) | RESERVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO SIT-SU-038-2024 (HOSPITAL SALAMA ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL DENERAL DE SANTA BARBARA (CONTRATO EN DOLARES) | Se crea un F07 con ID: F07-C2024-411-5-11-1-1 de tipo AUMENTO el cual afecta el F01 con ID:F01-C2024-411-5-11-1-0",
+      "ocid": "ocds-lcuori-P2024-411-5-11",
+      "release_id": "ocds-lcuori-P2024-411-5-11-2024-07-31T17:56:20Z",
+      "source": "SEFIN",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNRTN:HNRTN05019002265663",
+        "RAW:HNRTN05019002265663"
+      ],
+      "supplier_names": [
+        "ASOCIACION CONSULTORES INGENIERIA"
+      ]
+    },
+    {
+      "amounts": [
+        1291646.0,
+        5053723.0,
+        7510410.0,
+        13883957.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2024-411-5-12-1",
+        "C2024-411-5-12-1",
+        "T2024-449-1-TRB-236384",
+        "T2024-449-1-TRB-415641",
+        "T2024-449-1-TRB-415642",
+        "ocds-lcuori-P2024-411-5-12"
+      ],
+      "dates": [
+        "2024-05-31",
+        "2024-07-31",
+        "2024-08-02"
+      ],
+      "documents": [],
+      "object_text": "PARCIAL DE PAGO #2 DEL PERIODO 05/04 AL 04/05/2024 SEGUN FACTURA 000-001-01-00001522 DEL CONTRATO SIT-SU-038-2024 DEL PROYECTO (HOSPITAL OCOTEPEQUE ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES ) | RESERVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO SIT-SU-038-2024 DEL PROYECTO (HOSPITAL OCOTEPEQUE ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES ) | Se crea un F07 con ID: F07-C2024-411-5-12-1-1 de tipo AUMENTO el cual afecta el F01 con ID:F01-C2024-411-5-12-1-0",
+      "ocid": "ocds-lcuori-P2024-411-5-12",
+      "release_id": "ocds-lcuori-P2024-411-5-12-2024-07-31T19:13:42Z",
+      "source": "SEFIN",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNRTN:HNRTN05019002265663",
+        "RAW:HNRTN05019002265663"
+      ],
+      "supplier_names": [
+        "ASOCIACION CONSULTORES INGENIERIA"
+      ]
+    },
+    {
+      "amounts": [
+        8000.0,
+        1734476.0,
+        1744106.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2024-411-5-134-1",
+        "C2024-411-5-134-1",
+        "T2024-449-1-TRB-792812",
+        "T2024-449-1-TRB-798810",
+        "ocds-lcuori-P2024-411-5-134"
+      ],
+      "dates": [
+        "2024-12-21",
+        "2024-12-23",
+        "2024-12-26"
+      ],
+      "documents": [],
+      "object_text": "PAGO PARCIAL DEL INFORME FINAL SEGUN FACTURA 000-001-01-00001540 DEL CONTRATO SIT-SU-038-2024 DEL (HOSPITAL OCOTEPEQUE ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES ) | RESEVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO SIT-SU-038-2024 DEL (HOSPITAL OCOTEPEQUE ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES )",
+      "ocid": "ocds-lcuori-P2024-411-5-134",
+      "release_id": "ocds-lcuori-P2024-411-5-134-2024-12-21T17:45:30Z",
+      "source": "SEFIN",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNRTN:HNRTN05019002265663",
+        "RAW:HNRTN05019002265663"
+      ],
+      "supplier_names": [
+        "ASOCIACION CONSULTORES INGENIERIA"
+      ]
+    },
+    {
+      "amounts": [
+        1211598.0,
+        1213893.0,
+        1214376.0,
+        1215124.0,
+        1219016.0,
+        3029203.0,
+        9178244.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2024-411-5-14-1",
+        "C2024-411-5-14-1",
+        "T2024-449-1-TRB-283094",
+        "T2024-449-1-TRB-348952",
+        "T2024-449-1-TRB-432820",
+        "T2024-449-1-TRB-533716",
+        "T2024-449-1-TRB-533717",
+        "T2024-449-1-TRB-589056",
+        "ocds-lcuori-P2024-411-5-14"
+      ],
+      "dates": [
+        "2024-06-14",
+        "2024-07-09",
+        "2024-08-14",
+        "2024-09-27",
+        "2024-10-25",
+        "2024-12-12"
+      ],
+      "documents": [],
+      "object_text": "REVERSION DE RESERVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO SIT-SU-038-2024 DEL PROYECTO (HOSPITAL DE SALAMA ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES) | RESERVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO SIT-SU-038-2024 DEL PROYECTO (HOSPITAL DE SALAMA ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES) | Se crea un F07 con ID: F07-C2024-411-5-14-1-4 de tipo REVERSIÓN el cual afecta el F01 con ID:F01-C2024-411-5-14-1-0",
+      "ocid": "ocds-lcuori-P2024-411-5-14",
+      "release_id": "ocds-lcuori-P2024-411-5-14-2024-12-12T10:04:53Z",
+      "source": "SEFIN",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNRTN:HNRTN05019002265663",
+        "RAW:HNRTN05019002265663"
+      ],
+      "supplier_names": [
+        "ASOCIACION CONSULTORES INGENIERIA"
+      ]
+    },
+    {
+      "amounts": [
+        18368.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2024-411-5-142-1",
+        "C2024-411-5-142-1",
+        "T2024-449-1-TRB-810250",
+        "ocds-lcuori-P2024-411-5-142"
+      ],
+      "dates": [
+        "2024-12-30",
+        "2024-12-31"
+      ],
+      "documents": [],
+      "object_text": "COMPLEMENTO DEL PAGO #8 DEL PERIODO 01 AL 30/11/2024 SEGUN FACTURA 000-001-01-00001586 DEL CONTRATO SIT-SU-038-2024 (HOSPITAL DE SALAMA ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES) | RESERVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO SIT-SU-038-2024 (HOSPITAL DE SALAMA ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES)",
+      "ocid": "ocds-lcuori-P2024-411-5-142",
+      "release_id": "ocds-lcuori-P2024-411-5-142-2024-12-30T20:43:31Z",
+      "source": "SEFIN",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNRTN:HNRTN05019002265663",
+        "RAW:HNRTN05019002265663"
+      ],
+      "supplier_names": [
+        "ASOCIACION CONSULTORES INGENIERIA"
+      ]
+    },
+    {
+      "amounts": [
+        22463452.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2024-411-5-146-1",
+        "C2024-411-5-146-1",
+        "ocds-lcuori-P2024-411-5-146"
+      ],
+      "dates": [
+        "2024-12-30"
+      ],
+      "documents": [],
+      "object_text": "COMPLEMENTO FINAL DEL PAGO #4 DEL PERIODO 05/04 AL 04/07/2024 SEGUN FACTURA 000-001-01-00001538  DEL CONTRATO SIT-SU-038-2024 (HOSPITAL SANTA BARBARA ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA (CONTRATO EN DOLARES) | RESERVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO SIT-SU-038-2024 (HOSPITAL SANTA BARBARA ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA (CONTRATO EN DOLARES)",
+      "ocid": "ocds-lcuori-P2024-411-5-146",
+      "release_id": "ocds-lcuori-P2024-411-5-146-2024-12-30T20:45:10Z",
+      "source": "SEFIN",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNRTN:HNRTN05019002265663",
+        "RAW:HNRTN05019002265663"
+      ],
+      "supplier_names": [
+        "ASOCIACION CONSULTORES INGENIERIA"
+      ]
+    },
+    {
+      "amounts": [
+        18369.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2024-411-5-147-1",
+        "C2024-411-5-147-1",
+        "T2024-449-1-TRB-810273",
+        "ocds-lcuori-P2024-411-5-147"
+      ],
+      "dates": [
+        "2024-12-30",
+        "2024-12-31"
+      ],
+      "documents": [],
+      "object_text": "COMPLEMENTO PAGO #8 DE PERIODO 01 AL 30/11/2024 SEGUN FACTURA 000-001-01-00001587   DEL CONTRATO SIT-SU-038-2024 (HOSPITAL OCOTEPEQUE ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES ) | RESERVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO SIT-SU-038-2024 (HOSPITAL OCOTEPEQUE ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES )",
+      "ocid": "ocds-lcuori-P2024-411-5-147",
+      "release_id": "ocds-lcuori-P2024-411-5-147-2024-12-30T20:45:33Z",
+      "source": "SEFIN",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNRTN:HNRTN05019002265663",
+        "RAW:HNRTN05019002265663"
+      ],
+      "supplier_names": [
+        "ASOCIACION CONSULTORES INGENIERIA"
+      ]
+    },
+    {
+      "amounts": [
+        1211598.0,
+        1214376.0,
+        3029203.0,
+        5500141.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2024-411-5-15-1",
+        "C2024-411-5-15-1",
+        "T2024-449-1-TRB-283095",
+        "T2024-449-1-TRB-348953",
+        "T2024-449-1-TRB-432821",
+        "ocds-lcuori-P2024-411-5-15"
+      ],
+      "dates": [
+        "2024-06-14",
+        "2024-07-09",
+        "2024-08-07",
+        "2024-08-14"
+      ],
+      "documents": [],
+      "object_text": "REVERSION SOLICITUD DE LA UNIDAD CON MEMORANDO SIT-UEH-039-2024 DE RESERVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO SIT-SU-038-2024 DEL PROYECTO (HOSPITAL DE OCOTEPEQUE ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES) | RESERVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO SIT-SU-038-2024 DEL PROYECTO (HOSPITAL DE OCOTEPEQUE ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES) | Se crea un F07 con ID: F07-C2024-411-5-15-1-3 de tipo REVERSIÓN el cual afecta el F01 con ID:F01-C2024-411-5-15-1-0",
+      "ocid": "ocds-lcuori-P2024-411-5-15",
+      "release_id": "ocds-lcuori-P2024-411-5-15-2024-08-07T15:47:34Z",
+      "source": "SEFIN",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNRTN:HNRTN05019002265663",
+        "RAW:HNRTN05019002265663"
+      ],
+      "supplier_names": [
+        "ASOCIACION CONSULTORES INGENIERIA"
+      ]
+    },
+    {
+      "amounts": [
+        3084067.0,
+        3091140.0,
+        7710698.0,
+        14000361.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2024-411-5-16-1",
+        "C2024-411-5-16-1",
+        "T2024-449-1-TRB-283096",
+        "T2024-449-1-TRB-348954",
+        "T2024-449-1-TRB-432822",
+        "ocds-lcuori-P2024-411-5-16"
+      ],
+      "dates": [
+        "2024-06-14",
+        "2024-07-09",
+        "2024-07-30",
+        "2024-08-14"
+      ],
+      "documents": [],
+      "object_text": "REVERSION DE RESERVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO SIT-SU-038-2024 DEL PROYECTO (HOSPITAL SANTA BARBARA ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA (CONTRATO EN DOLARES) | RESERVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO SIT-SU-038-2024 DEL PROYECTO (HOSPITAL SANTA BARBARA ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA (CONTRATO EN DOLARES) | Se crea un F07 con ID: F07-C2024-411-5-16-1-1 de tipo REVERSIÓN el cual afecta el F01 con ID:F01-C2024-411-5-16-1-0",
+      "ocid": "ocds-lcuori-P2024-411-5-16",
+      "release_id": "ocds-lcuori-P2024-411-5-16-2024-07-30T15:34:31Z",
+      "source": "SEFIN",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNRTN:HNRTN05019002265663",
+        "RAW:HNRTN05019002265663"
+      ],
+      "supplier_names": [
+        "ASOCIACION CONSULTORES INGENIERIA"
+      ]
+    },
+    {
+      "amounts": [
+        303412.0,
+        2067930.0,
+        2786497.0,
+        3093042.0,
+        3102949.0,
+        11456079.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2024-411-5-56-1",
+        "C2024-411-5-56-1",
+        "T2024-449-1-TRB-533712",
+        "T2024-449-1-TRB-533718",
+        "T2024-449-1-TRB-533719",
+        "T2024-449-1-TRB-589057",
+        "T2024-449-1-TRB-675007",
+        "ocds-lcuori-P2024-411-5-56"
+      ],
+      "dates": [
+        "2024-09-27",
+        "2024-10-25",
+        "2024-11-15",
+        "2024-11-29"
+      ],
+      "documents": [],
+      "object_text": "PARCIAL DEL PAGO #7 DEL PERIODO 01 AL 31/10/2024 SEGUN FACTURA 000-001-01-00001562  DEL CONTRATO SIT-SU-038-2024 (HOSPITAL DE SALAMA)CONTRATACION DIRECTA DE EMERGENCIA SELECCIÓN DE UNA EMPRESA PARA EL ESTUDIO Y CONSTRUCCION DE POZO PERFORADO 1 HOSPITAL UBICADO EN EL MUNICIPIO DE SALAMA DEPARTAMENTO DE OLANCHO 2. HOSPITAL UBICADO EN EL MUNICIPIO DE SANTA BARBARA DEPARTAMENTO DE SANTA BARBARA 3. HOSPITAL UBICADO EN EL MUNICIPIO DE OCOTEPEQUE DEPARTAMENTO DE OCOTEPEQUE | RESERVA DE FONCOS PARA CUBRIR PAGOS DEL CONTRATO SIT-SU-038-2024 (HOSPITAL DE SALAMA)CONTRATACION DIRECTA DE EMERGENCIA SELECCIÓN DE UNA EMPRESA PARA EL ESTUDIO Y CONSTRUCCION DE POZO PERFORADO 1 HOSPITAL UBICADO EN EL MUNICIPIO DE SALAMA DEPARTAMENTO DE OLANCHO 2. HOSPITAL UBICADO EN EL MUNICIPIO DE SANTA BARBARA DEPARTAMENTO DE SANTA BARBARA 3. HOSPITAL UBICADO EN EL MUNICIPIO DE OCOTEPEQUE DEPARTAMENTO DE OCOTEPEQUE | Se crea un F07 con ID: F07-C2024-411-5-56-1-1 de tipo AUMENTO el cual afecta el F01 con ID:F01-C2024-411-5-56-1-0",
+      "ocid": "ocds-lcuori-P2024-411-5-56",
+      "release_id": "ocds-lcuori-P2024-411-5-56-2024-11-15T16:22:41Z",
+      "source": "SEFIN",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNRTN:HNRTN05019002265663",
+        "RAW:HNRTN05019002265663"
+      ],
+      "supplier_names": [
+        "ASOCIACION CONSULTORES INGENIERIA"
+      ]
+    },
+    {
+      "amounts": [
+        781298.0,
+        791303.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2024-411-5-59-1",
+        "C2024-411-5-59-1",
+        "T2024-449-1-TRB-533720",
+        "ocds-lcuori-P2024-411-5-59"
+      ],
+      "dates": [
+        "2024-08-28",
+        "2024-09-27"
+      ],
+      "documents": [],
+      "object_text": "PARCIAL DE PAGO #4 (INFORME MENSUAL DE SUPERVISION) DEL PERIODO 01 AL 31/07/2024 SEGUN FACTURA 000-001-01-00001513  DEL CONTRATO SIT-SU-038-2024 DEL PROYECTO (HOSPITAL OCOTEPEQUE ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES ) | RESERVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO SIT-SU-038-2024 DEL PROYECTO (HOSPITAL OCOTEPEQUE ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES )",
+      "ocid": "ocds-lcuori-P2024-411-5-59",
+      "release_id": "ocds-lcuori-P2024-411-5-59-2024-08-28T16:31:59Z",
+      "source": "SEFIN",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNRTN:HNRTN05019002265663",
+        "RAW:HNRTN05019002265663"
+      ],
+      "supplier_names": [
+        "ASOCIACION CONSULTORES INGENIERIA"
+      ]
+    },
+    {
+      "amounts": [
+        16151020.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2024-411-5-76-1",
+        "C2024-411-5-76-1",
+        "T2024-449-1-TRB-504411",
+        "ocds-lcuori-P2024-411-5-76"
+      ],
+      "dates": [
+        "2024-09-19",
+        "2024-12-31"
+      ],
+      "documents": [],
+      "object_text": "Reversión por Cierre -  Gestion :2024 Institución :411 GA :5 F-01: 76-1-0 - RESERVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO  SIT-SU-038-2024 DEL PROYECTO (HOSPITAL OCOTEPEQUE ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES ) | RESERVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO  SIT-SU-038-2024 DEL PROYECTO (HOSPITAL OCOTEPEQUE ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES ) | Se crea un F07 con ID: F07-C2024-411-5-76-1-1 de tipo REVERSIÓN el cual afecta el F01 con ID:F01-C2024-411-5-76-1-0",
+      "ocid": "ocds-lcuori-P2024-411-5-76",
+      "release_id": "ocds-lcuori-P2024-411-5-76-2024-12-31T00:01:48Z",
+      "source": "SEFIN",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNRTN:HNRTN05019002265663",
+        "RAW:HNRTN05019002265663"
+      ],
+      "supplier_names": [
+        "ASOCIACION CONSULTORES INGENIERIA"
+      ]
+    },
+    {
+      "amounts": [
+        432595.0,
+        1215124.0,
+        1217260.0,
+        1219016.0,
+        1225296.0,
+        5349638.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2024-411-5-77-1",
+        "C2024-411-5-77-1",
+        "T2024-449-1-TRB-533728",
+        "T2024-449-1-TRB-551309",
+        "T2024-449-1-TRB-602381",
+        "T2024-449-1-TRB-810254",
+        "T2024-449-1-TRB-810255",
+        "ocds-lcuori-P2024-411-5-77"
+      ],
+      "dates": [
+        "2024-09-27",
+        "2024-10-11",
+        "2024-11-01",
+        "2024-12-16",
+        "2024-12-31"
+      ],
+      "documents": [],
+      "object_text": "PARCIAL DEL PAGO # 8 DEL PERIODO 01 AL 30/11/2024 SEGUN FACTURA 000-001-01-00001587  DEL CONTRATO SIT-SU-038-2024 DEL PROYECTO (HOSPITAL OCOTEPEQUE ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES ) | RESERVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO SIT-SU-038-2024 DEL PROYECTO (HOSPITAL OCOTEPEQUE ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES ) | Se crea un F07 con ID: F07-C2024-411-5-77-1-2 de tipo AUMENTO el cual afecta el F01 con ID:F01-C2024-411-5-77-1-0",
+      "ocid": "ocds-lcuori-P2024-411-5-77",
+      "release_id": "ocds-lcuori-P2024-411-5-77-2024-12-16T16:16:42Z",
+      "source": "SEFIN",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNRTN:HNRTN05019002265663",
+        "RAW:HNRTN05019002265663"
+      ],
+      "supplier_names": [
+        "ASOCIACION CONSULTORES INGENIERIA"
+      ]
+    },
+    {
+      "amounts": [
+        1642734.0,
+        38300223.0,
+        40000000.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2024-411-5-78-1",
+        "C2024-411-5-78-1",
+        "T2024-449-1-TRB-504412",
+        "T2024-449-1-TRB-798808",
+        "ocds-lcuori-P2024-411-5-78"
+      ],
+      "dates": [
+        "2024-09-19",
+        "2024-09-27",
+        "2024-12-26"
+      ],
+      "documents": [],
+      "object_text": "PAGO PARCIAL DE ENTREGA INFORME #4 A LOS 90 DIAS DEL PERIODO 05/04/2024 AL 04/07/2024 SEGUN FACTURA 000-001-01-00001538 DEL PROYECTO SIT-SU-038-2024 DEL PROYECTO (HOSPITAL SANTA BARBARA ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA (CONTRATO EN DOLARES) | RESERVA DE FONDOS DEL PROYECTO SIT-SU-038-2024 DEL PROYECTO (HOSPITAL SANTA BARBARA ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA (CONTRATO EN DOLARES) | Se crea un F07 con ID: F07-C2024-411-5-78-1-1 de tipo AUMENTO el cual afecta el F01 con ID:F01-C2024-411-5-78-1-0",
+      "ocid": "ocds-lcuori-P2024-411-5-78",
+      "release_id": "ocds-lcuori-P2024-411-5-78-2024-09-27T16:14:36Z",
+      "source": "SEFIN",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNRTN:HNRTN05019002265663",
+        "RAW:HNRTN05019002265663"
+      ],
+      "supplier_names": [
+        "ASOCIACION CONSULTORES INGENIERIA"
+      ]
+    },
+    {
+      "amounts": [
+        1730284.0,
+        16501025.0,
+        18232936.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2024-411-5-79-1",
+        "C2024-411-5-79-1",
+        "T2024-449-1-TRB-504413",
+        "T2024-449-1-TRB-798809",
+        "ocds-lcuori-P2024-411-5-79"
+      ],
+      "dates": [
+        "2024-09-19",
+        "2024-12-21",
+        "2024-12-26"
+      ],
+      "documents": [],
+      "object_text": "PAGO PARCIAL INFORME FINAL SEGUN FACTURA 000-001-01-00001539  DEL CONTRATO SIT-SU-038-2024 DEL PROYECTO (HOSPITAL DE SALAMA ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES) | RESERVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO SIT-SU-038-2024 DEL PROYECTO (HOSPITAL DE SALAMA ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES) | Se crea un F07 con ID: F07-C2024-411-5-79-1-1 de tipo AUMENTO el cual afecta el F01 con ID:F01-C2024-411-5-79-1-0",
+      "ocid": "ocds-lcuori-P2024-411-5-79",
+      "release_id": "ocds-lcuori-P2024-411-5-79-2024-12-21T17:43:52Z",
+      "source": "SEFIN",
+      "source_year": 2024,
+      "supplier_ids": [
+        "HNRTN:HNRTN05019002265663",
+        "RAW:HNRTN05019002265663"
+      ],
+      "supplier_names": [
+        "ASOCIACION CONSULTORES INGENIERIA"
+      ]
+    },
+    {
+      "amounts": [
+        1310582.0,
+        2742381.0,
+        4056768.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2025-411-5-2-1",
+        "C2025-411-5-2-1",
+        "T2025-449-1-TRB-29794",
+        "T2025-449-1-TRB-54040",
+        "ocds-lcuori-P2025-411-5-2"
+      ],
+      "dates": [
+        "2025-02-10",
+        "2025-02-21",
+        "2025-02-25"
+      ],
+      "documents": [],
+      "object_text": "PAGO COMPLEMENTARIO INFORME FINAL DEL HOSPITAL DE SANTA BARBARA SEGUN FACTURA 000-001-01-00001589 DEL CONTRATO SIT-SU-038-2024 (HOSPITAL SANTA BARBARA ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA (CONTRATO EN DOLARES) | RESERVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO SIT-SU-038-2024 (HOSPITAL SANTA BARBARA ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA (CONTRATO EN DOLARES)",
+      "ocid": "ocds-lcuori-P2025-411-5-2",
+      "release_id": "ocds-lcuori-P2025-411-5-2-2025-02-21T18:35:30Z",
+      "source": "SEFIN",
+      "source_year": 2025,
+      "supplier_ids": [
+        "HNRTN:HNRTN05019002265663",
+        "RAW:HNRTN05019002265663"
+      ],
+      "supplier_names": [
+        "ASOCIACION CONSULTORES INGENIERIA"
+      ]
+    },
+    {
+      "amounts": [
+        1625.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2025-411-5-4-1",
+        "C2025-411-5-4-1",
+        "T2025-449-1-TRB-29795",
+        "ocds-lcuori-P2025-411-5-4"
+      ],
+      "dates": [
+        "2025-01-31",
+        "2025-02-10"
+      ],
+      "documents": [],
+      "object_text": "PAGO COMPLEMENTARIO INFORME FINAL SEGUN FACTURA 000-001-01-00001539 DEL CONTRATO SIT-SU-038-2024 (HOSPITAL DE SALAMA ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES)",
+      "ocid": "ocds-lcuori-P2025-411-5-4",
+      "release_id": "ocds-lcuori-P2025-411-5-4-2025-01-31T16:00:08Z",
+      "source": "SEFIN",
+      "source_year": 2025,
+      "supplier_ids": [
+        "HNRTN:HNRTN05019002265663",
+        "RAW:HNRTN05019002265663"
+      ],
+      "supplier_names": [
+        "ASOCIACION CONSULTORES INGENIERIA"
+      ]
+    },
+    {
+      "amounts": [
+        1628.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2025-411-5-5-1",
+        "C2025-411-5-5-1",
+        "T2025-449-1-TRB-29796",
+        "ocds-lcuori-P2025-411-5-5"
+      ],
+      "dates": [
+        "2025-01-31",
+        "2025-02-10"
+      ],
+      "documents": [],
+      "object_text": "PAGO COMPLEMENTO  INFORME FINAL SEGUN FACTURA 000-001-01-00001540  DEL CONTRATO SIT-SU-038-2024 (HOSPITAL OCOTEPEQUE ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES ) | RESERVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO SIT-SU-038-2024 (HOSPITAL OCOTEPEQUE ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES )",
+      "ocid": "ocds-lcuori-P2025-411-5-5",
+      "release_id": "ocds-lcuori-P2025-411-5-5-2025-01-31T16:01:11Z",
+      "source": "SEFIN",
+      "source_year": 2025,
+      "supplier_ids": [
+        "HNRTN:HNRTN05019002265663",
+        "RAW:HNRTN05019002265663"
+      ],
+      "supplier_names": [
+        "ASOCIACION CONSULTORES INGENIERIA"
+      ]
+    },
+    {
+      "amounts": [
+        1245611.0,
+        1251808.0,
+        1255881.0,
+        1257512.0,
+        1265374.0,
+        1272064.0,
+        7610493.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2025-411-5-61-1",
+        "C2025-411-5-61-1",
+        "T2025-449-1-TRB-226955",
+        "T2025-449-1-TRB-226957",
+        "T2025-449-1-TRB-226961",
+        "T2025-449-1-TRB-226962",
+        "T2025-449-1-TRB-226964",
+        "T2025-449-1-TRB-282841",
+        "ocds-lcuori-P2025-411-5-61"
+      ],
+      "dates": [
+        "2025-05-30",
+        "2025-06-12",
+        "2025-06-19"
+      ],
+      "documents": [],
+      "object_text": "PARCIAL DEL PAGO #14 DEL PERIODO 01 AL 31/05/2025 SEGUN FACTURA 000-001-01-00001687  DEL CONTRATO SIT-SU-038-2024 (HOSPITAL DE SALAMA ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES) | RESERVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO SIT-SU-038-2024 (HOSPITAL DE SALAMA ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES)",
+      "ocid": "ocds-lcuori-P2025-411-5-61",
+      "release_id": "ocds-lcuori-P2025-411-5-61-2025-06-12T17:21:13Z",
+      "source": "SEFIN",
+      "source_year": 2025,
+      "supplier_ids": [
+        "HNRTN:HNRTN05019002265663",
+        "RAW:HNRTN05019002265663"
+      ],
+      "supplier_names": [
+        "ASOCIACION CONSULTORES INGENIERIA"
+      ]
+    },
+    {
+      "amounts": [
+        3048405.0,
+        3170646.0,
+        3186421.0,
+        3196788.0,
+        3200939.0,
+        3220953.0,
+        19182586.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2025-411-5-62-1",
+        "C2025-411-5-62-1",
+        "T2025-449-1-TRB-226942",
+        "T2025-449-1-TRB-226943",
+        "T2025-449-1-TRB-226944",
+        "T2025-449-1-TRB-226945",
+        "T2025-449-1-TRB-226965",
+        "T2025-449-1-TRB-282842",
+        "ocds-lcuori-P2025-411-5-62"
+      ],
+      "dates": [
+        "2025-05-30",
+        "2025-06-12",
+        "2025-06-19"
+      ],
+      "documents": [],
+      "object_text": "PARCIAL DEL PAGO # 14 DEL PERIODO 01 AL 31/05/2025 SEGUN FACTURA 000-001-01-00001686 DEL CONTRATO SIT-SU-038-2024 (HOSPITAL SANTA BARBARA ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA (CONTRATO EN DOLARES) | RESERVA DE FONDOS PARA CUBRIR PAGOS DEL CONTRATO SIT-SU-038-2024 (HOSPITAL SANTA BARBARA ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA (CONTRATO EN DOLARES) | Se crea un F07 con ID: F07-C2025-411-5-62-1-1 de tipo REVERSIÓN el cual afecta el F01 con ID:F01-C2025-411-5-62-1-0",
+      "ocid": "ocds-lcuori-P2025-411-5-62",
+      "release_id": "ocds-lcuori-P2025-411-5-62-2025-06-12T17:22:18Z",
+      "source": "SEFIN",
+      "source_year": 2025,
+      "supplier_ids": [
+        "HNRTN:HNRTN05019002265663",
+        "RAW:HNRTN05019002265663"
+      ],
+      "supplier_names": [
+        "ASOCIACION CONSULTORES INGENIERIA"
+      ]
+    },
+    {
+      "amounts": [
+        1245611.0,
+        1251808.0,
+        1255881.0,
+        1257512.0,
+        1265374.0,
+        1272064.0,
+        7610493.0
+      ],
+      "buyer_ids": [
+        "HNDENG:411",
+        "RAW:HNENG411"
+      ],
+      "buyer_names": [
+        "SECRETARIA INFRAESTRUCTURA TRANSPORTE"
+      ],
+      "classifications": [],
+      "codes": [
+        "A2025-411-5-63-1",
+        "C2025-411-5-63-1",
+        "T2025-449-1-TRB-226917",
+        "T2025-449-1-TRB-226956",
+        "T2025-449-1-TRB-226958",
+        "T2025-449-1-TRB-226959",
+        "T2025-449-1-TRB-226960",
+        "T2025-449-1-TRB-282843",
+        "ocds-lcuori-P2025-411-5-63"
+      ],
+      "dates": [
+        "2025-05-30",
+        "2025-06-12",
+        "2025-06-19"
+      ],
+      "documents": [],
+      "object_text": "PARCIAL PAGO # 14 DEL PERIODO 01 AL 31/05/2025 SEGUN FACTURA 000-001-01-00001688  DEL CONTRATO SIT-SU-038-2024 (HOSPITAL OCOTEPEQUE ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES ) | RESERVA DE FONDOS PARA CUBIR PAGOS DEL CONTRATO SIT-SU-038-2024 (HOSPITAL OCOTEPEQUE ) SERVICIOS DE CONSULTORIA PARA EL DISEÑO  GESTION  DIRECCION Y SUPERVISION PARA LA CONSTRUCCION Y PUESTA EN MARCHA DE LOS HOSPITALES BASICOS DE OCOTEPEQUE Y SALAMA Y EL HOSPITAL GENERAL DE SANTA BARBARA  (CONTRATO EN DOLARES )",
+      "ocid": "ocds-lcuori-P2025-411-5-63",
+      "release_id": "ocds-lcuori-P2025-411-5-63-2025-06-12T17:16:15Z",
+      "source": "SEFIN",
+      "source_year": 2025,
+      "supplier_ids": [
+        "HNRTN:HNRTN05019002265663",
+        "RAW:HNRTN05019002265663"
+      ],
+      "supplier_names": [
+        "ASOCIACION CONSULTORES INGENIERIA"
+      ]
+    }
+  ]
+}
