@@ -1,0 +1,6 @@
+paddleocr==3.7.0
+paddlepaddle==3.3.1
+huggingface-hub>=0.34,<2
+pytesseract==0.3.13
+Pillow==12.2.0
+psutil>=7,<8
