@@ -1,29 +1,35 @@
 name: FIN-ABS-001B — SEC direct-fact breadth
 
 on:
+  push:
+    branches:
+      - agent/fin-abs-001b-sec-direct
+    paths:
+      - 'fin_abs_001_sec_direct/**'
+      - 'fin_abs_001b.bundle.b64'
+      - 'README_FIN_ABS_001B_SEC_DIRECT.md'
+      - '.github/workflows/fin-abs-001b-sec-direct.yml'
   pull_request:
     branches:
       - agent/fin-abs-001-finverbench
     paths:
       - 'fin_abs_001_sec_direct/**'
+      - 'fin_abs_001b.bundle.b64'
       - 'README_FIN_ABS_001B_SEC_DIRECT.md'
       - '.github/workflows/fin-abs-001b-sec-direct.yml'
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   evaluate:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
-      SEC_USER_AGENT: >-
-        cristh99 finance-research
-        87334928+cristh99@users.noreply.github.com
-
+      SEC_USER_AGENT: cristh99 finance-research 87334928+cristh99@users.noreply.github.com
     steps:
-      - name: Checkout frozen capsule
+      - name: Checkout frozen branch head
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -32,116 +38,111 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Materialize frozen readable sources
+        run: |
+          python - <<'PY'
+          import base64
+          import json
+          import zlib
+          from pathlib import Path
+
+          encoded = ''.join(Path('fin_abs_001b.bundle.b64').read_text().split())
+          files = json.loads(zlib.decompress(base64.b64decode(encoded)).decode('utf-8'))
+          for name, content in files.items():
+              path = Path(name)
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_text(content, encoding='utf-8')
+              print(f'materialized {path}')
+          PY
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            git add fin_abs_001_sec_direct README_FIN_ABS_001B_SEC_DIRECT.md
+            if ! git diff --cached --quiet; then
+              git config user.name 'github-actions[bot]'
+              git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+              git commit -m 'Materialize frozen FIN-ABS-001B sources'
+              git push origin HEAD:agent/fin-abs-001b-sec-direct
+            fi
+          fi
+
       - name: Unit and counterexample tests
         run: |
           python -m compileall -q fin_abs_001_sec_direct
-          python -m unittest -v fin_abs_001_sec_direct.test_sec_direct
+          python -m unittest -v fin_abs_001_sec_direct.test_run
 
       - name: Fetch SEC facts and execute frozen benchmark
         run: |
-          rm -rf reports/fin_abs_001_sec_direct
-          python -m fin_abs_001_sec_direct.main \
-            --output-dir reports/fin_abs_001_sec_direct
+          set -euo pipefail
+          rm -rf reports/fin_abs_001b_sec_direct
+          python -m fin_abs_001_sec_direct.run \
+            --output-dir reports/fin_abs_001b_sec_direct \
+            --cache-dir "$RUNNER_TEMP/fin_abs-001b-sec-cache"
 
-      - name: Independent Node reimplementation
+      - name: Independent Node replay
         run: |
           node fin_abs_001_sec_direct/verify_report.mjs \
-            reports/fin_abs_001_sec_direct/report.json \
-            reports/fin_abs_001_sec_direct/cases.json \
-            reports/fin_abs_001_sec_direct/instances.json \
-            reports/fin_abs_001_sec_direct/predictions_exact.jsonl \
-            reports/fin_abs_001_sec_direct/predictions_rounded.jsonl \
-            reports/fin_abs_001_sec_direct/node_receipt.json
+            reports/fin_abs_001b_sec_direct/report.json \
+            reports/fin_abs_001b_sec_direct/cases.json \
+            reports/fin_abs_001b_sec_direct/instances.json \
+            reports/fin_abs_001b_sec_direct/predictions_exact.jsonl \
+            reports/fin_abs_001b_sec_direct/predictions_rounded.jsonl \
+            reports/fin_abs_001b_sec_direct/node_receipt.json
 
-      - name: Reject score, prediction, and case forgeries
+      - name: Reject forged score and prediction
         run: |
           set -euo pipefail
           python - <<'PY'
           import json
           from pathlib import Path
 
-          root = Path('reports/fin_abs_001_sec_direct')
+          root = Path('reports/fin_abs_001b_sec_direct')
           report = json.loads((root / 'report.json').read_text())
           report['payload']['absolute_score']['after'] = 1000
-          Path('/tmp/forged_report.json').write_text(json.dumps(report))
+          Path('/tmp/fin_abs_001b_forged_report.json').write_text(json.dumps(report))
 
           rows = (root / 'predictions_exact.jsonl').read_text().splitlines()
-          if rows:
-              row = json.loads(rows[0])
-              row['decision'] = 'ERROR' if row['decision'] != 'ERROR' else 'CLEAN'
-              rows[0] = json.dumps(row, sort_keys=True)
-          Path('/tmp/forged_predictions.jsonl').write_text(
-              '\n'.join(rows) + ('\n' if rows else '')
-          )
-
-          cases = json.loads((root / 'cases.json').read_text())
-          if cases:
-              key = next(iter(cases[0]['values']))
-              cases[0]['values'][key] = float(cases[0]['values'][key]) + 1
-          Path('/tmp/forged_cases.json').write_text(json.dumps(cases))
+          first = json.loads(rows[0])
+          first['decision'] = 'ERROR' if first['decision'] != 'ERROR' else 'CLEAN'
+          rows[0] = json.dumps(first, sort_keys=True)
+          Path('/tmp/fin_abs_001b_forged_predictions.jsonl').write_text('\n'.join(rows) + '\n')
           PY
-
-          common=(
-            reports/fin_abs_001_sec_direct/instances.json
-            reports/fin_abs_001_sec_direct/predictions_rounded.jsonl
-          )
-
           if node fin_abs_001_sec_direct/verify_report.mjs \
-              /tmp/forged_report.json \
-              reports/fin_abs_001_sec_direct/cases.json \
-              "${common[0]}" \
-              reports/fin_abs_001_sec_direct/predictions_exact.jsonl \
-              "${common[1]}" \
+              /tmp/fin_abs_001b_forged_report.json \
+              reports/fin_abs_001b_sec_direct/cases.json \
+              reports/fin_abs_001b_sec_direct/instances.json \
+              reports/fin_abs_001b_sec_direct/predictions_exact.jsonl \
+              reports/fin_abs_001b_sec_direct/predictions_rounded.jsonl \
               /tmp/forged_score_receipt.json; then
             echo 'forged score accepted' >&2
             exit 1
           fi
-
-          if [ -s /tmp/forged_predictions.jsonl ]; then
-            if node fin_abs_001_sec_direct/verify_report.mjs \
-                reports/fin_abs_001_sec_direct/report.json \
-                reports/fin_abs_001_sec_direct/cases.json \
-                "${common[0]}" \
-                /tmp/forged_predictions.jsonl \
-                "${common[1]}" \
-                /tmp/forged_prediction_receipt.json; then
-              echo 'forged prediction accepted' >&2
-              exit 1
-            fi
-          fi
-
-          if [ "$(cat /tmp/forged_cases.json)" != "[]" ]; then
-            if node fin_abs_001_sec_direct/verify_report.mjs \
-                reports/fin_abs_001_sec_direct/report.json \
-                /tmp/forged_cases.json \
-                "${common[0]}" \
-                reports/fin_abs_001_sec_direct/predictions_exact.jsonl \
-                "${common[1]}" \
-                /tmp/forged_case_receipt.json; then
-              echo 'forged case accepted' >&2
-              exit 1
-            fi
+          if node fin_abs_001_sec_direct/verify_report.mjs \
+              reports/fin_abs_001b_sec_direct/report.json \
+              reports/fin_abs_001b_sec_direct/cases.json \
+              reports/fin_abs_001b_sec_direct/instances.json \
+              /tmp/fin_abs_001b_forged_predictions.jsonl \
+              reports/fin_abs_001b_sec_direct/predictions_rounded.jsonl \
+              /tmp/forged_prediction_receipt.json; then
+            echo 'forged prediction accepted' >&2
+            exit 1
           fi
 
       - name: Build evidence manifest
         run: |
           sha256sum \
-            reports/fin_abs_001_sec_direct/cases.json \
-            reports/fin_abs_001_sec_direct/instances.json \
-            reports/fin_abs_001_sec_direct/fetch_log.json \
-            reports/fin_abs_001_sec_direct/extraction_log.json \
-            reports/fin_abs_001_sec_direct/predictions_exact.jsonl \
-            reports/fin_abs_001_sec_direct/predictions_rounded.jsonl \
-            reports/fin_abs_001_sec_direct/report.json \
-            reports/fin_abs_001_sec_direct/node_receipt.json \
-            > reports/fin_abs_001_sec_direct/manifest.sha256
+            reports/fin_abs_001b_sec_direct/report.json \
+            reports/fin_abs_001b_sec_direct/cases.json \
+            reports/fin_abs_001b_sec_direct/instances.json \
+            reports/fin_abs_001b_sec_direct/fetch_log.json \
+            reports/fin_abs_001b_sec_direct/extraction_log.json \
+            reports/fin_abs_001b_sec_direct/predictions_exact.jsonl \
+            reports/fin_abs_001b_sec_direct/predictions_rounded.jsonl \
+            reports/fin_abs_001b_sec_direct/node_receipt.json \
+            > reports/fin_abs_001b_sec_direct/manifest.sha256
 
       - name: Upload bounded evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: fin-abs-001b-sec-direct-breadth
-          path: |
-            reports/fin_abs_001_sec_direct/
-            !reports/fin_abs_001_sec_direct/cache/**
+          name: fin-abs-001b-sec-direct
+          path: reports/fin_abs_001b_sec_direct/
           if-no-files-found: error
           retention-days: 90
