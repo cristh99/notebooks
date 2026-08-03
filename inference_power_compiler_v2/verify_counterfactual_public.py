@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Iterable, Mapping
 
 ROOT = Path(__file__).resolve().parent
+Model = dict[str, object]
 
 
 def canonical(value: object) -> str:
@@ -27,8 +28,8 @@ def law_signature(values: Iterable[Fraction]) -> str:
     return "|".join(f"{value.numerator}/{value.denominator}" for value in values)
 
 
-def enumerate_models() -> list[dict[str, object]]:
-    models: list[dict[str, object]] = []
+def enumerate_models() -> list[Model]:
+    models: list[Model] = []
     for treatment in product((0, 1), repeat=2):
         for outcome in product((0, 1), repeat=4):
             name = "A" + "".join(map(str, treatment)) + "_Y" + "".join(map(str, outcome))
@@ -47,7 +48,6 @@ def enumerate_models() -> list[dict[str, object]]:
                 do0[y(0, latent)] += Fraction(1, 2)
                 do1[y(1, latent)] += Fraction(1, 2)
                 joint[2 * y(0, latent) + y(1, latent)] += Fraction(1, 2)
-            ace = do1[1] - do0[1]
             models.append(
                 {
                     "name": name,
@@ -56,59 +56,58 @@ def enumerate_models() -> list[dict[str, object]]:
                     "do1": tuple(do1),
                     "joint": tuple(joint),
                     "pns": joint[1],
-                    "ace": ace,
-                    "monotone": all(y(1, latent) >= y(0, latent) for latent in (0, 1)),
+                    "ace": do1[1] - do0[1],
+                    "monotone": all(
+                        y(1, latent) >= y(0, latent) for latent in (0, 1)
+                    ),
                 }
             )
     return models
 
 
 def partition(
-    models: Iterable[dict[str, object]], fields: tuple[str, ...]
-) -> dict[tuple[str, ...], list[dict[str, object]]]:
-    groups: dict[tuple[str, ...], list[dict[str, object]]] = {}
+    models: Iterable[Model], fields: tuple[str, ...]
+) -> dict[tuple[str, ...], list[Model]]:
+    groups: dict[tuple[str, ...], list[Model]] = {}
     for model in models:
-        key = tuple(law_signature(model[field]) for field in fields)
+        key = tuple(law_signature(model[field]) for field in fields)  # type: ignore[arg-type]
         groups.setdefault(key, []).append(model)
     return dict(sorted(groups.items()))
 
 
-def target_values(group: Iterable[dict[str, object]]) -> tuple[Fraction, ...]:
-    return tuple(sorted({model["pns"] for model in group}))
+def target_values(group: Iterable[Model]) -> tuple[Fraction, ...]:
+    return tuple(sorted({model["pns"] for model in group}))  # type: ignore[type-var]
 
 
-def width(group: Iterable[dict[str, object]]) -> Fraction:
+def width(group: Iterable[Model]) -> Fraction:
     values = target_values(group)
     if not values:
         raise ValueError("group must be nonempty")
     return values[-1] - values[0]
 
 
-def frontier(
-    models: list[dict[str, object]], fields: tuple[str, ...]
-) -> dict[str, object]:
+def frontier(models: list[Model], fields: tuple[str, ...]) -> dict[str, object]:
     groups = partition(models, fields)
     expected = Fraction(0)
     worst = Fraction(0)
-    point = 0
+    point_identified = 0
     for group in groups.values():
         group_width = width(group)
         expected += Fraction(len(group), len(models)) * group_width
         worst = max(worst, group_width)
-        if group_width == 0:
-            point += 1
+        point_identified += group_width == 0
     return {
         "evidence": list(fields),
         "signature_classes": len(groups),
-        "point_identified_classes": point,
-        "ambiguous_classes": len(groups) - point,
+        "point_identified_classes": point_identified,
+        "ambiguous_classes": len(groups) - point_identified,
         "expected_width": q(expected),
         "worst_width": q(worst),
     }
 
 
 def experiment_width(
-    belief: list[dict[str, object]], field: str
+    belief: list[Model], field: str
 ) -> tuple[Fraction, Fraction]:
     groups = partition(belief, (field,))
     expected = sum(
@@ -122,17 +121,16 @@ def experiment_width(
     return worst, expected
 
 
-def adaptive_after_observation(models: list[dict[str, object]]) -> dict[str, object]:
+def adaptive_after_observation(models: list[Model]) -> dict[str, object]:
     observation_groups = partition(models, ("observational",))
     expected = Fraction(0)
     selected_strata = {"do0": 0, "do1": 0}
     selected_worlds = {"do0": 0, "do1": 0}
     strata: list[dict[str, object]] = []
     for observation, belief in observation_groups.items():
-        candidates = []
-        for field in ("do0", "do1"):
-            worst, conditional_expected = experiment_width(belief, field)
-            candidates.append((worst, conditional_expected, field))
+        candidates = [
+            (*experiment_width(belief, field), field) for field in ("do0", "do1")
+        ]
         selected = min(candidates)
         expected += Fraction(len(belief), len(models)) * selected[1]
         selected_strata[selected[2]] += 1
@@ -163,8 +161,9 @@ def adaptive_after_observation(models: list[dict[str, object]]) -> dict[str, obj
     }
 
 
-def find_obstruction(models: list[dict[str, object]]) -> dict[str, object]:
+def find_obstruction(models: list[Model]) -> dict[str, object]:
     groups = partition(models, ("observational", "do0", "do1"))
+    candidates: list[dict[str, object]] = []
     for evidence, group in groups.items():
         values = target_values(group)
         if len(values) <= 1:
@@ -174,18 +173,29 @@ def find_obstruction(models: list[dict[str, object]]) -> dict[str, object]:
             for right in ordered:
                 if left["name"] >= right["name"] or left["pns"] == right["pns"]:
                     continue
-                return {
-                    "available_evidence": ["observational", "do0", "do1"],
-                    "evidence_signature": list(evidence),
-                    "left": left["name"],
-                    "right": right["name"],
-                    "left_pns": q(left["pns"]),
-                    "right_pns": q(right["pns"]),
-                    "left_joint_Y0_Y1": [q(value) for value in left["joint"]],
-                    "right_joint_Y0_Y1": [q(value) for value in right["joint"]],
-                    "identified_values": [q(value) for value in values],
-                }
-    raise AssertionError("counterfactual obstruction was not found")
+                candidates.append(
+                    {
+                        "available_evidence": ["observational", "do0", "do1"],
+                        "evidence_signature": list(evidence),
+                        "left": left["name"],
+                        "right": right["name"],
+                        "left_pns": q(left["pns"]),  # type: ignore[arg-type]
+                        "right_pns": q(right["pns"]),  # type: ignore[arg-type]
+                        "left_joint_Y0_Y1": [
+                            q(value) for value in left["joint"]  # type: ignore[union-attr]
+                        ],
+                        "right_joint_Y0_Y1": [
+                            q(value) for value in right["joint"]  # type: ignore[union-attr]
+                        ],
+                        "identified_values": [q(value) for value in values],
+                    }
+                )
+    if not candidates:
+        raise AssertionError("counterfactual obstruction was not found")
+    return min(
+        candidates,
+        key=lambda candidate: (candidate["left"], candidate["right"]),
+    )
 
 
 def build_payload() -> dict[str, object]:
@@ -194,7 +204,7 @@ def build_payload() -> dict[str, object]:
     histogram: dict[str, int] = {}
     for model in models:
         value = model["pns"]
-        key = f"{value.numerator}/{value.denominator}"
+        key = f"{value.numerator}/{value.denominator}"  # type: ignore[union-attr]
         histogram[key] = histogram.get(key, 0) + 1
 
     observation = frontier(models, ("observational",))
@@ -257,8 +267,8 @@ def build_payload() -> dict[str, object]:
         "private_binding": {
             "repository": "cristh99/my_first_repository",
             "pull_request": 68,
-            "head": "26ccc743f42df497102851e259cbbbcecefc8f0d",
-            "compiler_blob": "df310d848a2981d17221c170ad3a9d5397d08cbb",
+            "head": "008adb81f93e9b350582bc6d2ae8d0d345521931",
+            "compiler_blob": "0c4a5881e0f3875ab6a9a1bcd04e6baffe1a091b",
             "runner_blob": "110dc77e63f4bda8c74940289823c1aaedf860f8",
             "lean_blob": "d52bc41dc71c7fcb9721c0fd8f09d3e556c00105",
         },
@@ -293,12 +303,16 @@ def build_payload() -> dict[str, object]:
         "models": [
             {
                 "name": model["name"],
-                "observational": [q(value) for value in model["observational"]],
-                "do0": [q(value) for value in model["do0"]],
-                "do1": [q(value) for value in model["do1"]],
-                "joint_Y0_Y1": [q(value) for value in model["joint"]],
-                "pns": q(model["pns"]),
-                "ace": q(model["ace"]),
+                "observational": [
+                    q(value) for value in model["observational"]  # type: ignore[union-attr]
+                ],
+                "do0": [q(value) for value in model["do0"]],  # type: ignore[union-attr]
+                "do1": [q(value) for value in model["do1"]],  # type: ignore[union-attr]
+                "joint_Y0_Y1": [
+                    q(value) for value in model["joint"]  # type: ignore[union-attr]
+                ],
+                "pns": q(model["pns"]),  # type: ignore[arg-type]
+                "ace": q(model["ace"]),  # type: ignore[arg-type]
                 "monotone": model["monotone"],
             }
             for model in models
