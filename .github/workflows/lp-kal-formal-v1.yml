@@ -30,7 +30,7 @@ jobs:
           assert b['schema']=='logic-power-knowledge-action-loop/formal-source-binding/1'
           assert b['private_repository']=='cristh99/my_first_repository'
           assert b['private_branch']=='agent/logic-power-knowledge-action-loop-v1'
-          assert b['private_head']=='c3861f4153da3f28814b4fe823fc4c45e55e784a'
+          assert b['private_head']=='fb9a1ea1ab73c6b8c696305161aa6b0a13d848da'
           assert b['private_pull_request']==90
           assert b['private_issue']==89
           PY
@@ -116,7 +116,7 @@ jobs:
             'schema':'logic-power-knowledge-action-loop/public-formal-receipt/1',
             'status':'PASS',
             'private_repository':'cristh99/my_first_repository',
-            'private_head':'c3861f4153da3f28814b4fe823fc4c45e55e784a',
+            'private_head':'fb9a1ea1ab73c6b8c696305161aa6b0a13d848da',
             'private_pull_request':90,
             'public_repository':'cristh99/notebooks',
             'public_head':os.environ['PUBLIC_HEAD_SHA'],
