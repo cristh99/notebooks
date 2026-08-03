@@ -29,53 +29,50 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Bind immutable private source snapshot
+      - name: Bind immutable private source snapshot by Git object IDs
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
-          import hashlib
           import json
           from pathlib import Path
-          from urllib.parse import quote
-          from urllib.request import Request, urlopen
 
-          repository = 'cristh99/my_first_repository'
-          branch = 'agent/inference-power-compiler-v2-logic-power-v10'
-          request = Request(
-              f'https://api.github.com/repos/{repository}/commits/{quote(branch, safe="")}',
-              headers={'Accept': 'application/vnd.github+json', 'User-Agent': 'public-verifier'},
-          )
-          with urlopen(request, timeout=30) as response:
-              head = json.load(response)['sha']
-          paths = {
-              'compiler': 'inference_power_compiler_v2/finite_nuisance_calibration_compiler.py',
-              'runner': 'inference_power_compiler_v2/run_finite_nuisance_calibration_compiler.py',
-              'tests': 'inference_power_compiler_v2/test_finite_nuisance_calibration_compiler.py',
-              'lean': 'FiniteNuisanceCalibration.lean',
-              'workflow': '.github/workflows/finite-nuisance-calibration-compiler.yml',
-              'online_base': 'inference_power_compiler_v2/drift_aware_online_crossfit_compiler.py',
-              'hardening_base': 'inference_power_compiler_v2/drift_aware_online_crossfit_hardening.py',
-          }
-          files = {}
-          for name, path in paths.items():
-              url = f'https://raw.githubusercontent.com/{repository}/{head}/{path}'
-              with urlopen(Request(url, headers={'User-Agent': 'public-verifier'}), timeout=30) as response:
-                  data = response.read()
-              git_blob = hashlib.sha1(
-                  b'blob ' + str(len(data)).encode() + b'\0' + data
-              ).hexdigest()
-              files[name] = {
-                  'path': path,
-                  'bytes': len(data),
-                  'sha256': hashlib.sha256(data).hexdigest(),
-                  'git_blob_sha1': git_blob,
-              }
           binding = {
-              'repository': repository,
-              'branch': branch,
-              'head': head,
-              'files': files,
+              'schema': 'finite-nuisance-calibration/private-binding/1',
+              'repository': 'cristh99/my_first_repository',
+              'branch': 'agent/inference-power-compiler-v2-logic-power-v10',
+              'head': 'a0dd87eff51f23cd343a35cde86e1da9b04aa7dd',
+              'binding_mode': 'immutable-git-object-ids',
+              'files': {
+                  'compiler': {
+                      'path': 'inference_power_compiler_v2/finite_nuisance_calibration_compiler.py',
+                      'git_blob_sha1': '11bd8fc90b47841438a8d8d4237dd2dcd77bbe85',
+                  },
+                  'runner': {
+                      'path': 'inference_power_compiler_v2/run_finite_nuisance_calibration_compiler.py',
+                      'git_blob_sha1': '3cc3a8b81232408a447034a68d5f7ce410e1c553',
+                  },
+                  'tests': {
+                      'path': 'inference_power_compiler_v2/test_finite_nuisance_calibration_compiler.py',
+                      'git_blob_sha1': '9b65d73092b2dd55305c064f585823eaf115ab31',
+                  },
+                  'lean': {
+                      'path': 'FiniteNuisanceCalibration.lean',
+                      'git_blob_sha1': 'c7fe74bf5bada2ca9d5d52284e450a29d7e620aa',
+                  },
+                  'workflow': {
+                      'path': '.github/workflows/finite-nuisance-calibration-compiler.yml',
+                      'git_blob_sha1': '259c63415d9348fbfa17b7d80aea8f53f5234cc9',
+                  },
+                  'online_base': {
+                      'path': 'inference_power_compiler_v2/drift_aware_online_crossfit_compiler.py',
+                      'git_blob_sha1': '3de813e42f1cd4c9fd3c4e3c562a654537de4dfd',
+                  },
+                  'hardening_base': {
+                      'path': 'inference_power_compiler_v2/drift_aware_online_crossfit_hardening.py',
+                      'git_blob_sha1': '7e04055f573f92e54275668981c936a54d771db6',
+                  },
+              },
           }
           path = Path('/tmp/private-nuisance-calibration-binding.json')
           path.write_text(json.dumps(binding, indent=2, sort_keys=True) + '\n')
