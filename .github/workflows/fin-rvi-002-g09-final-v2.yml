@@ -1,0 +1,108 @@
+name: FIN-RVI-002 G09 v2 — fail-closed final contract
+
+on:
+  pull_request:
+    branches:
+      - agent/fin-rvi-002-g09-prior-art-replication
+    paths:
+      - 'fin_rvi_002_g09/final_contract_v2.json'
+      - 'fin_rvi_002_g09/prior_art_closure_20260803_v2.json'
+      - 'fin_rvi_002_g09/verify_final_contract_v2.py'
+      - 'fin_rvi_002_g09/verify_final_contract_v3.py'
+      - 'fin_rvi_002_g09/verify_final_contract_v3.mjs'
+      - 'fin_rvi_002_g09/test_final_contract_v3.py'
+      - '.github/workflows/fin-rvi-002-g09-final-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fin-rvi-002-g09-final-v2
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Python contract and adversarial tests
+        run: |
+          python -m compileall -q fin_rvi_002_g09
+          python -m unittest -v fin_rvi_002_g09.test_final_contract_v3
+          rm -rf reports/fin_rvi_002_g09_v3
+          python -m fin_rvi_002_g09.verify_final_contract_v3
+
+      - name: Independent Node contract verification
+        run: |
+          node fin_rvi_002_g09/verify_final_contract_v3.mjs \
+            fin_rvi_002_g09/final_contract_v2.json \
+            reports/fin_rvi_002_g09_v3/node_final_contract_receipt.json
+
+      - name: Cross-check current fail-closed state
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('reports/fin_rvi_002_g09_v3')
+          py = json.loads((root / 'final_contract_receipt.json').read_text())
+          node = json.loads((root / 'node_final_contract_receipt.json').read_text())
+          for receipt in (py, node):
+              payload = receipt['payload']
+              assert payload['valid'] is True, payload
+              assert payload['promotion_allowed'] is False, payload
+              assert payload['gate_readout'] == {
+                  'G07': 'PASS', 'G09': 'OPEN', 'finance_score': 920
+              }, payload
+          assert py['payload']['passed_required_gates'] == 5
+          assert node['payload']['passed_required_gates'] == 5
+          PY
+
+      - name: Reject premature promotion and scope expansion
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import copy, json
+          from pathlib import Path
+          from fin_rvi_002_g09.verify_final_contract_v3 import verify
+          source = json.loads(Path('fin_rvi_002_g09/final_contract_v2.json').read_text())
+
+          premature = copy.deepcopy(source)
+          premature['status'] = 'PASS'
+          premature['gate_readout'] = {
+              'G07': 'PASS', 'G09': 'PASS', 'finance_score': 1000
+          }
+          errors = verify(premature, Path('.'))
+          assert 'premature-pass' in errors
+          assert 'stage6-missing' in errors
+          assert 'stage7-missing' in errors
+
+          expanded = copy.deepcopy(source)
+          expanded['scope']['excluded_claims'].remove('fraud')
+          assert 'excluded-claims' in verify(expanded, Path('.'))
+
+          forged = copy.deepcopy(source)
+          forged['empirical_evidence']['stage4']['challenger']['unsafe_overpromotions'] = 1
+          assert 'stage4-challenger' in verify(forged, Path('.'))
+          Path('/tmp/forged-g09-v2.json').write_text(json.dumps(forged))
+          PY
+          if node fin_rvi_002_g09/verify_final_contract_v3.mjs \
+              /tmp/forged-g09-v2.json /tmp/forged-node-receipt.json; then
+            echo 'Node accepted forged Stage 4 evidence' >&2
+            exit 1
+          fi
+
+      - name: Upload current receipts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-rvi-002-g09-final-v2-open-receipts
+          path: reports/fin_rvi_002_g09_v3/
+          if-no-files-found: error
+          retention-days: 90
