@@ -1,0 +1,64 @@
+name: Finance 1000 Problem Solver — public replay
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'finance_1000_problem_solver/**'
+      - '.github/workflows/finance-1000-problem-solver-public.yml'
+      - 'README_FINANCE_1000_PROBLEM_SOLVER.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: Python replay
+        run: |
+          python -m compileall -q finance_1000_problem_solver
+          python -m unittest -v finance_1000_problem_solver.test_solver
+          rm -rf reports/finance_1000_problem_solver
+          python -m finance_1000_problem_solver.solver
+      - name: Independent Node semantic replay
+        run: |
+          node finance_1000_problem_solver/verify.js \
+            reports/finance_1000_problem_solver/report.json
+      - name: Negative controls
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from finance_1000_problem_solver.solver import digest
+          source = Path('reports/finance_1000_problem_solver/report.json')
+          report = json.loads(source.read_text())
+          report['certificate']['payload']['result']['strict_score'] = 1000
+          Path('/tmp/raw-forgery.json').write_text(json.dumps(report))
+          report['certificate']['payload_sha256'] = digest(report['certificate']['payload'])
+          unsigned = {k: report[k] for k in report if k != 'report_sha256'}
+          report['report_sha256'] = digest(unsigned)
+          Path('/tmp/semantic-forgery.json').write_text(json.dumps(report))
+          PY
+          if node finance_1000_problem_solver/verify.js /tmp/raw-forgery.json; then
+            echo 'raw forgery accepted'; exit 1
+          fi
+          if node finance_1000_problem_solver/verify.js /tmp/semantic-forgery.json; then
+            echo 'semantic forgery accepted'; exit 1
+          fi
+      - name: Upload evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: finance-1000-problem-solver-public-replay
+          path: reports/finance_1000_problem_solver/
+          if-no-files-found: error
+          retention-days: 90
