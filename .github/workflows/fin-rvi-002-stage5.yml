@@ -1,0 +1,161 @@
+name: FIN-RVI-002 Stage 5 — clean reconstruction
+
+on:
+  pull_request:
+    branches:
+      - agent/fin-rvi-002-stage4-independent-policy-v3
+    paths:
+      - 'fin_rvi_002_stage5/**'
+      - 'README_FIN_RVI_002_STAGE5.md'
+      - '.github/workflows/fin-rvi-002-stage5.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fin-rvi-002-stage5-clean-reconstruction
+  cancel-in-progress: true
+
+jobs:
+  reconstruct:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Prove Stage 4 source is unchanged
+        run: |
+          set -euo pipefail
+          git diff --exit-code \
+            9e6686204fce20bc21d17f041d506a2a9c92761d HEAD -- \
+            fin_rvi_002_stage1 fin_rvi_002_stage3 fin_rvi_002_stage4
+
+      - name: Ensure PDF text extractor
+        run: |
+          if ! command -v pdftotext >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y poppler-utils
+          fi
+
+      - name: Source and verifier tests
+        run: |
+          python -m compileall -q \
+            fin_rvi_002_stage1 fin_rvi_002_stage3 \
+            fin_rvi_002_stage4 fin_rvi_002_stage5
+          python -m unittest -v fin_rvi_002_stage4.test_stage4
+
+      - name: Clean reconstruction from official packages
+        run: |
+          rm -rf reports/fin_rvi_002_stage5 .cache/fin_rvi_002_stage5
+          python -m fin_rvi_002_stage4.run_stage4 \
+            --output reports/fin_rvi_002_stage5/stage4 \
+            --cache .cache/fin_rvi_002_stage5 \
+            --years 2023 2024 2025 \
+            --amount-tolerance 0.05 \
+            --max-days 366 \
+            --holdout-size 120
+
+      - name: Verify original Stage 4 semantics
+        run: |
+          node fin_rvi_002_stage4/verify_stage4.mjs \
+            reports/fin_rvi_002_stage5/stage4/report.json
+
+      - name: Python independent clean-replay receipt
+        run: |
+          python -m fin_rvi_002_stage5.verify_clean_replay \
+            reports/fin_rvi_002_stage5/stage4/report.json \
+            reports/fin_rvi_002_stage5/stage4/stage4_compact_rows.jsonl \
+            reports/fin_rvi_002_stage5/stage4/stage4_confirmed_labels.jsonl \
+            --output reports/fin_rvi_002_stage5/python_clean_replay_receipt.json
+
+      - name: Node independent clean-replay receipt
+        run: |
+          node fin_rvi_002_stage5/verify_clean_replay.mjs \
+            reports/fin_rvi_002_stage5/stage4/report.json \
+            reports/fin_rvi_002_stage5/stage4/stage4_compact_rows.jsonl \
+            reports/fin_rvi_002_stage5/stage4/stage4_confirmed_labels.jsonl \
+            reports/fin_rvi_002_stage5/node_clean_replay_receipt.json
+
+      - name: Cross-check independent receipts
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('reports/fin_rvi_002_stage5')
+          py = json.loads((root / 'python_clean_replay_receipt.json').read_text())
+          node = json.loads((root / 'node_clean_replay_receipt.json').read_text())
+          for receipt in (py, node):
+              gate = receipt['payload']['gate_readout']
+              assert gate['G07'] == 'PASS', gate
+              assert gate['G09'] == 'OPEN_PRIOR_ART_AND_INDEPENDENT_REPLICATION_REQUIRED', gate
+              assert gate['finance_score'] == 920, gate
+              assert receipt['payload']['policy_metrics']['POLICY_DOCUMENTARY']['unsafe_overpromotions'] == 0
+              assert receipt['payload']['policy_metrics']['POLICY_DOCUMENTARY']['supported_recovered'] == 58
+              assert receipt['payload']['policy_metrics']['B1_CODE_SUPPLIER']['unsafe_overpromotions'] == 20
+          assert py['payload']['policy_metrics'] == node['payload']['policy_metrics']
+          assert py['payload']['label_counts'] == node['payload']['label_counts']
+          assert py['payload']['permutation_control'] == node['payload']['permutation_control']
+          PY
+
+      - name: Negative tamper controls
+        run: |
+          set -euo pipefail
+          cp reports/fin_rvi_002_stage5/stage4/stage4_compact_rows.jsonl /tmp/tampered_rows.jsonl
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('/tmp/tampered_rows.jsonl')
+          rows = path.read_text().splitlines()
+          row = json.loads(rows[0])
+          row['policy_decision'] = 'REJECTED' if row['policy_decision'] == 'SUPPORTED' else 'SUPPORTED'
+          rows[0] = json.dumps(row, sort_keys=True)
+          path.write_text('\n'.join(rows) + '\n')
+          PY
+          if python -m fin_rvi_002_stage5.verify_clean_replay \
+              reports/fin_rvi_002_stage5/stage4/report.json \
+              /tmp/tampered_rows.jsonl \
+              reports/fin_rvi_002_stage5/stage4/stage4_confirmed_labels.jsonl \
+              --output /tmp/forged_python.json; then
+            echo 'Python verifier accepted tampered rows' >&2
+            exit 1
+          fi
+          if node fin_rvi_002_stage5/verify_clean_replay.mjs \
+              reports/fin_rvi_002_stage5/stage4/report.json \
+              /tmp/tampered_rows.jsonl \
+              reports/fin_rvi_002_stage5/stage4/stage4_confirmed_labels.jsonl \
+              /tmp/forged_node.json; then
+            echo 'Node verifier accepted tampered rows' >&2
+            exit 1
+          fi
+
+      - name: Verify artifact files
+        run: |
+          set -euo pipefail
+          test -s reports/fin_rvi_002_stage5/stage4/report.json
+          test -s reports/fin_rvi_002_stage5/stage4/stage4_compact_rows.jsonl
+          test -s reports/fin_rvi_002_stage5/stage4/stage4_confirmed_labels.jsonl
+          test -s reports/fin_rvi_002_stage5/python_clean_replay_receipt.json
+          test -s reports/fin_rvi_002_stage5/python_clean_replay_receipt.md
+          test -s reports/fin_rvi_002_stage5/node_clean_replay_receipt.json
+          sha256sum \
+            reports/fin_rvi_002_stage5/stage4/report.json \
+            reports/fin_rvi_002_stage5/stage4/stage4_compact_rows.jsonl \
+            reports/fin_rvi_002_stage5/stage4/stage4_confirmed_labels.jsonl \
+            reports/fin_rvi_002_stage5/python_clean_replay_receipt.json \
+            reports/fin_rvi_002_stage5/node_clean_replay_receipt.json \
+            > reports/fin_rvi_002_stage5/manifest.sha256
+
+      - name: Upload clean reconstruction evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-rvi-002-stage5-clean-reconstruction
+          path: reports/fin_rvi_002_stage5/
+          if-no-files-found: error
+          retention-days: 90
