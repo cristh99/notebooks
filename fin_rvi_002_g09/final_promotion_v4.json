@@ -78,7 +78,7 @@
       "UNRESOLVED": 29
     },
     "labels_sha256": "fc3a33ba87ecc29a909717e4702ea3e281d5461fa2c5d45e242f9be8a4dc7f2a",
-    "node_receipt_sha256": "81d8cd3bb35c7b5f30f823cdbc28b72bc05728d7717c10acf9de72881b6b4",
+    "node_receipt_sha256": "81d8cd3bb35c7b5f30d50f823cdbc28b72bc05728d7717c10acf9de72881b6b4",
     "permutation": {
       "supported_recovered": 41,
       "unsafe_overpromotions": 22
