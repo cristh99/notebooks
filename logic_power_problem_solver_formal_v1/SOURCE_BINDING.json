@@ -2,7 +2,7 @@
   "schema": "logic-power-problem-solver/formal-source-binding/1",
   "private_repository": "cristh99/my_first_repository",
   "private_branch": "agent/logic-power-problem-solver-v1",
-  "private_head": "b8c2be7c1d9dff6aa6b9f966d52b1933e3049d03",
+  "private_head": "b3f8ad67d6fea28eaa4dfba7d156c87b92fe9b00",
   "tla_sha256": "4317f1112d33afc13959ad705730394340dd098cdb4cc3cadb258e4992597cb1",
-  "lean_sha256": "4c21d5fd034c47c46d5cd11c904039991a213341cba76a98eaa70bbfe8df8616"
+  "lean_sha256": "be47f419ec06e5a4647f826a437c9067a5ca52d5190f3cd15c8e18b8032336e3"
 }
