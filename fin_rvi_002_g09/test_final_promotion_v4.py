@@ -35,8 +35,8 @@ class FinalPromotionV4Tests(unittest.TestCase):
                 else "fin-rvi-002/stage7-clean-reconstruction/1"
             ),
             "gates": {"all_exact": True, "tamper_rejected": True},
-            "label_counts": EXPECTED_LABEL_COUNTS,
-            "policy_metrics": EXPECTED_METRICS,
+            "label_counts": copy.deepcopy(EXPECTED_LABEL_COUNTS),
+            "policy_metrics": copy.deepcopy(EXPECTED_METRICS),
             "gate_readout": {
                 "G07": "PASS",
                 "G09_REPLICATION": "PASS",
