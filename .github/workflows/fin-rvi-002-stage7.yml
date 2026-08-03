@@ -1,0 +1,224 @@
+name: FIN-RVI-002 Stage 7 — clean third-cohort reconstruction
+
+on:
+  pull_request:
+    branches:
+      - agent/fin-rvi-002-stage6-third-sealed-cohort
+    paths:
+      - 'fin_rvi_002_stage7/**'
+      - 'README_FIN_RVI_002_STAGE7.md'
+      - '.github/workflows/fin-rvi-002-stage7.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fin-rvi-002-stage7-clean-reconstruction
+  cancel-in-progress: true
+
+jobs:
+  reconstruct:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Prove frozen Stage 6 source is unchanged
+        run: |
+          set -euo pipefail
+          git diff --exit-code \
+            9beb7ec13e09674ea95d7a517f038acb37b9653b HEAD -- \
+            fin_rvi_002_stage1 fin_rvi_002_stage3 \
+            fin_rvi_002_stage4 fin_rvi_002_stage6
+
+      - name: Ensure PDF text extractor
+        run: |
+          if ! command -v pdftotext >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y poppler-utils
+          fi
+
+      - name: Compile and test replay verifiers
+        run: |
+          python -m compileall -q \
+            fin_rvi_002_stage1 fin_rvi_002_stage3 \
+            fin_rvi_002_stage4 fin_rvi_002_stage6 \
+            fin_rvi_002_stage7
+          python -m unittest -v fin_rvi_002_stage6.test_stage6
+          python -m unittest -v fin_rvi_002_stage7.test_stage7
+
+      - name: Reconstruct Stage 6 from empty caches and official packages
+        run: |
+          set -euo pipefail
+          rm -rf \
+            reports/fin_rvi_002_stage6 \
+            reports/fin_rvi_002_stage7 \
+            .cache/fin_rvi_002_stage3 \
+            .cache/fin_rvi_002_stage6 \
+            .cache/fin_rvi_002_stage7
+          python -m fin_rvi_002_stage6.run_stage6_fixed \
+            --output reports/fin_rvi_002_stage6 \
+            --cache .cache/fin_rvi_002_stage6 \
+            --years 2023 2024 2025 \
+            --amount-tolerance 0.05 \
+            --max-days 366 \
+            --holdout-size 120
+          cd reports/fin_rvi_002_stage6
+          sha256sum -c report.sha256
+
+      - name: Re-run frozen Stage 6 independent Node policy
+        run: |
+          node fin_rvi_002_stage6/verify_stage6.mjs \
+            reports/fin_rvi_002_stage6/report.json
+
+      - name: Independent Python clean-replay verification
+        run: |
+          python -m fin_rvi_002_stage7.verify_clean_replay_strict \
+            reports/fin_rvi_002_stage6/report.json \
+            reports/fin_rvi_002_stage6/stage6_compact_rows.jsonl \
+            reports/fin_rvi_002_stage6/stage6_confirmed_labels.jsonl \
+            reports/fin_rvi_002_stage6/stage6_node_receipt.json \
+            reports/fin_rvi_002_stage6/stage34_exclusion_manifest.json \
+            --output reports/fin_rvi_002_stage7/stage7_python_receipt.json
+
+      - name: Independent Node clean-replay verification
+        run: |
+          node fin_rvi_002_stage7/verify_clean_replay.mjs \
+            reports/fin_rvi_002_stage6/report.json \
+            reports/fin_rvi_002_stage6/stage6_compact_rows.jsonl \
+            reports/fin_rvi_002_stage6/stage6_confirmed_labels.jsonl \
+            reports/fin_rvi_002_stage6/stage6_node_receipt.json \
+            reports/fin_rvi_002_stage6/stage34_exclusion_manifest.json \
+            reports/fin_rvi_002_stage7/stage7_python_receipt.json \
+            "$PWD/reports/fin_rvi_002_stage7/stage7_node_receipt.json"
+
+      - name: Cross-check both Stage 7 receipts
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path('reports/fin_rvi_002_stage7')
+          py = json.loads((root / 'stage7_python_receipt.json').read_text())
+          node = json.loads((root / 'stage7_node_receipt.json').read_text())
+          expected = {
+              'G07': 'PASS',
+              'G09_REPLICATION': 'PASS',
+              'G09': 'OPEN_FINAL_CONTRACT_PROMOTION_REQUIRED',
+              'finance_score': 920,
+          }
+          for receipt in (py, node):
+              payload = receipt['payload']
+              assert all(payload['gates'].values()), payload['gates']
+              assert payload['gate_readout'] == expected, payload['gate_readout']
+              assert payload['policy_metrics']['POLICY_DOCUMENTARY'] == {
+                  'labeled_rows': 91,
+                  'promotions': 63,
+                  'supported_recovered': 63,
+                  'unsafe_overpromotions': 0,
+                  'missed_supported': 0,
+                  'correct_rejections': 28,
+              }
+          assert py['payload']['replay']['compact_file_sha256'] == node['payload']['replay']['compact_file_sha256']
+          assert py['payload']['replay']['labels_file_sha256'] == node['payload']['replay']['labels_file_sha256']
+          assert py['payload']['replay']['candidate_ids_sha256'] == node['payload']['replay']['candidate_ids_sha256']
+          assert py['payload']['replay']['independent_node_policy_decisions_sha256'] == node['payload']['replay']['independent_policy_decisions_sha256']
+          PY
+
+      - name: Reject tampered cohort, report, and receipt
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          source = Path('reports/fin_rvi_002_stage6/stage6_compact_rows.jsonl')
+          rows = [json.loads(line) for line in source.read_text().splitlines() if line]
+          rows[0]['policy_decision'] = 'SUPPORTED' if rows[0]['policy_decision'] != 'SUPPORTED' else 'REJECTED'
+          Path('/tmp/tampered_rows.jsonl').write_text(
+              '\n'.join(json.dumps(row, sort_keys=True) for row in rows) + '\n'
+          )
+
+          report = json.loads(Path('reports/fin_rvi_002_stage6/report.json').read_text())
+          report['payload']['stage6']['policy_metrics']['POLICY_DOCUMENTARY']['unsafe_overpromotions'] = 1
+          canonical = json.dumps(report['payload'], sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+          report['sha256'] = hashlib.sha256(canonical.encode()).hexdigest()
+          Path('/tmp/tampered_report.json').write_text(json.dumps(report))
+
+          receipt = json.loads(Path('reports/fin_rvi_002_stage7/stage7_python_receipt.json').read_text())
+          receipt['payload']['gate_readout']['G09'] = 'PASS'
+          canonical = json.dumps(receipt['payload'], sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+          receipt['sha256'] = hashlib.sha256(canonical.encode()).hexdigest()
+          Path('/tmp/tampered_python_receipt.json').write_text(json.dumps(receipt))
+          PY
+
+          if python -m fin_rvi_002_stage7.verify_clean_replay_strict \
+            reports/fin_rvi_002_stage6/report.json \
+            /tmp/tampered_rows.jsonl \
+            reports/fin_rvi_002_stage6/stage6_confirmed_labels.jsonl \
+            reports/fin_rvi_002_stage6/stage6_node_receipt.json \
+            reports/fin_rvi_002_stage6/stage34_exclusion_manifest.json \
+            --output /tmp/tampered_rows_receipt.json; then
+            echo 'tampered cohort was accepted' >&2
+            exit 1
+          fi
+
+          if python -m fin_rvi_002_stage7.verify_clean_replay_strict \
+            /tmp/tampered_report.json \
+            reports/fin_rvi_002_stage6/stage6_compact_rows.jsonl \
+            reports/fin_rvi_002_stage6/stage6_confirmed_labels.jsonl \
+            reports/fin_rvi_002_stage6/stage6_node_receipt.json \
+            reports/fin_rvi_002_stage6/stage34_exclusion_manifest.json \
+            --output /tmp/tampered_report_receipt.json; then
+            echo 'tampered report was accepted' >&2
+            exit 1
+          fi
+
+          if node fin_rvi_002_stage7/verify_clean_replay.mjs \
+            reports/fin_rvi_002_stage6/report.json \
+            reports/fin_rvi_002_stage6/stage6_compact_rows.jsonl \
+            reports/fin_rvi_002_stage6/stage6_confirmed_labels.jsonl \
+            reports/fin_rvi_002_stage6/stage6_node_receipt.json \
+            reports/fin_rvi_002_stage6/stage34_exclusion_manifest.json \
+            /tmp/tampered_python_receipt.json \
+            /tmp/tampered_node_receipt.json; then
+            echo 'tampered Python receipt was accepted' >&2
+            exit 1
+          fi
+
+      - name: Verify bounded artifact files
+        run: |
+          set -euo pipefail
+          test -s reports/fin_rvi_002_stage6/report.json
+          test -s reports/fin_rvi_002_stage6/stage6_compact_rows.jsonl
+          test -s reports/fin_rvi_002_stage6/stage6_confirmed_labels.jsonl
+          test -s reports/fin_rvi_002_stage6/stage34_exclusion_manifest.json
+          test -s reports/fin_rvi_002_stage6/stage6_node_receipt.json
+          test -s reports/fin_rvi_002_stage7/stage7_python_receipt.json
+          test -s reports/fin_rvi_002_stage7/stage7_python_receipt.md
+          test -s reports/fin_rvi_002_stage7/stage7_node_receipt.json
+
+      - name: Upload Stage 7 clean-replay evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-rvi-002-stage7-clean-reconstruction
+          path: |
+            reports/fin_rvi_002_stage6/report.json
+            reports/fin_rvi_002_stage6/report.sha256
+            reports/fin_rvi_002_stage6/stage6_compact_rows.jsonl
+            reports/fin_rvi_002_stage6/stage6_confirmed_labels.jsonl
+            reports/fin_rvi_002_stage6/stage34_exclusion_manifest.json
+            reports/fin_rvi_002_stage6/stage6_node_receipt.json
+            reports/fin_rvi_002_stage7/stage7_python_receipt.json
+            reports/fin_rvi_002_stage7/stage7_python_receipt.md
+            reports/fin_rvi_002_stage7/stage7_node_receipt.json
+          if-no-files-found: error
+          retention-days: 90
