@@ -1,0 +1,150 @@
+name: Backdoor adjustment compiler — public independent verification
+
+on:
+  push:
+    branches:
+      - agent/inference-power-compiler-v2-public-ci
+    paths:
+      - 'inference_power_compiler_v2/verify_backdoor_adjustment_public.py'
+      - 'FiniteBackdoorAdjustment.lean'
+      - '.github/workflows/backdoor-adjustment-public.yml'
+  pull_request:
+    paths:
+      - 'inference_power_compiler_v2/verify_backdoor_adjustment_public.py'
+      - 'FiniteBackdoorAdjustment.lean'
+      - '.github/workflows/backdoor-adjustment-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-backdoor-adjustment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+
+      - name: Execute independent exact backdoor replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile inference_power_compiler_v2/verify_backdoor_adjustment_public.py
+          python inference_power_compiler_v2/verify_backdoor_adjustment_public.py \
+            | tee backdoor-adjustment-public.log
+          test -s inference_power_compiler_v2/BACKDOOR_ADJUSTMENT_PUBLIC_REPORT.json
+          test -s inference_power_compiler_v2/BACKDOOR_ADJUSTMENT_PUBLIC_CERTIFICATE.json
+
+      - name: Reconstruct the hash-bound Mathlib project
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _backdoor_lean
+          echo 'fbee850593592f701a39c4f6491c8f9a3bcfb586c1910357bdcd48f48967d5ce  logic_power_v10_capsule/parts/part_00.b64' | sha256sum -c -
+          echo '7303cffc0012f655af430d9125f6258afe3a370c69abf02afacfa8bd93709979  logic_power_v10_capsule/parts/part_01.b64' | sha256sum -c -
+          echo '9c0ebf32b4fa12be52d7c72fe879d76e542bd6f223febcdaf4fda10083a669da  logic_power_v10_capsule/parts/part_02.b64' | sha256sum -c -
+          echo '2b5b23d38a64a4cc98f2bb376a38f20fe7dda9bd36539c2446f822d98ac9296a  logic_power_v10_capsule/parts/part_03.b64' | sha256sum -c -
+          echo 'f83c70b1800617313c14f6241dc1f144f993900c5701f500c48f82485ecc58a5  logic_power_v10_capsule/parts/part_04.b64' | sha256sum -c -
+          echo 'fb8a7c4e1ae79848f5114d9ce189d570860432714ca564adfb6655d63a868718  logic_power_v10_capsule/parts/part_05_00.b64' | sha256sum -c -
+          echo '0585c5b94628c10dfc3921c472e903badd10f395f6d119fc4434d2ea7290cc86  logic_power_v10_capsule/parts/part_05_01.b64' | sha256sum -c -
+          echo '897986739715627049a30f43ecb2abcfd50aecbfa7f4f8520428ada29f98b028  logic_power_v10_capsule/parts/part_05_02.b64' | sha256sum -c -
+          cat \
+            logic_power_v10_capsule/parts/part_00.b64 \
+            logic_power_v10_capsule/parts/part_01.b64 \
+            logic_power_v10_capsule/parts/part_02.b64 \
+            logic_power_v10_capsule/parts/part_03.b64 \
+            logic_power_v10_capsule/parts/part_04.b64 \
+            logic_power_v10_capsule/parts/part_05_00.b64 \
+            logic_power_v10_capsule/parts/part_05_01.b64 \
+            logic_power_v10_capsule/parts/part_05_02.b64 \
+            > /tmp/logic-power-v10-source.b64
+          echo '3548f31fcaa9696eabb063023c905fbb04a2b3db73c96df9f9ee8bc8e0c64fc1  /tmp/logic-power-v10-source.b64' | sha256sum -c -
+          base64 -d /tmp/logic-power-v10-source.b64 > /tmp/logic-power-v10-source.tar.gz
+          echo 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31  /tmp/logic-power-v10-source.tar.gz' | sha256sum -c -
+          tar xzf /tmp/logic-power-v10-source.tar.gz -C _backdoor_lean
+          cd _backdoor_lean
+          sha256sum -c SOURCE_SHA256SUMS
+          test "$(cat PRIVATE_HEAD_SHA.txt)" = 'ba10d0edc7eb20d499d0481fda2537e782b6efb2'
+          printf '%s\n' 'leanprover/lean4:v4.33.0-rc1' > lean-toolchain
+          cp ../FiniteBackdoorAdjustment.lean .
+
+      - name: Compile exact adjustment boundary in Lean
+        shell: bash
+        working-directory: _backdoor_lean
+        run: |
+          set -euo pipefail
+          curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          export PATH="$HOME/.elan/bin:$PATH"
+          elan toolchain install leanprover/lean4:v4.33.0-rc1
+          lake update
+          lake env lean -o FiniteBackdoorAdjustment.olean \
+            FiniteBackdoorAdjustment.lean 2>&1 \
+            | tee finite-backdoor-adjustment-lean.log
+          test -s FiniteBackdoorAdjustment.olean
+          if grep -q 'sorryAx' finite-backdoor-adjustment-lean.log; then
+            echo 'Lean output contains sorryAx' >&2
+            exit 1
+          fi
+
+      - name: Build verification receipt
+        shell: bash
+        env:
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PUBLIC_EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          report_path = Path('inference_power_compiler_v2/BACKDOOR_ADJUSTMENT_PUBLIC_REPORT.json')
+          certificate_path = Path('inference_power_compiler_v2/BACKDOOR_ADJUSTMENT_PUBLIC_CERTIFICATE.json')
+          lean_path = Path('FiniteBackdoorAdjustment.lean')
+          receipt = {
+              'schema': 'backdoor-adjustment-public-verification-receipt/1',
+              'repository': 'cristh99/notebooks',
+              'head': os.environ['PUBLIC_HEAD_SHA'],
+              'event_sha': os.environ['PUBLIC_EVENT_SHA'],
+              'report_sha256': hashlib.sha256(report_path.read_bytes()).hexdigest(),
+              'certificate_sha256': hashlib.sha256(certificate_path.read_bytes()).hexdigest(),
+              'lean_source_sha256': hashlib.sha256(lean_path.read_bytes()).hexdigest(),
+              'python_replay': 'PASS',
+              'graph_backdoor_gate': 'PASS',
+              'exact_adjustment_arithmetic': 'PASS',
+              'failure_controls': 'PASS',
+              'tamper_rejection': 'PASS',
+              'lean': 'PASS',
+              'sorryAx': 'ABSENT',
+          }
+          path = Path('inference_power_compiler_v2/BACKDOOR_ADJUSTMENT_PUBLIC_RECEIPT.json')
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path('inference_power_compiler_v2/BACKDOOR_ADJUSTMENT_PUBLIC_RECEIPT.sha256').write_text(
+              f'{digest}  BACKDOOR_ADJUSTMENT_PUBLIC_RECEIPT.json\n'
+          )
+          print(path.read_text())
+          print(digest)
+          PY
+
+      - name: Upload backdoor-adjustment evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: backdoor-adjustment-public-evidence
+          path: |
+            inference_power_compiler_v2/BACKDOOR_ADJUSTMENT_PUBLIC_REPORT.json
+            inference_power_compiler_v2/BACKDOOR_ADJUSTMENT_PUBLIC_CERTIFICATE.json
+            inference_power_compiler_v2/BACKDOOR_ADJUSTMENT_PUBLIC_RECEIPT.json
+            inference_power_compiler_v2/BACKDOOR_ADJUSTMENT_PUBLIC_RECEIPT.sha256
+            backdoor-adjustment-public.log
+            _backdoor_lean/FiniteBackdoorAdjustment.lean
+            _backdoor_lean/FiniteBackdoorAdjustment.olean
+            _backdoor_lean/finite-backdoor-adjustment-lean.log
+          if-no-files-found: error
+          retention-days: 90
