@@ -1,0 +1,158 @@
+{
+  "base_contract_file": "fin_rvi_002_g09/final_contract_v2.json",
+  "claim": "Across multiple preregistered, mutually shared-code-disjoint public Honduras ONCAE-SEFIN cohorts from 2023-2025, after exact contract/project-code blocking and compatible supplier identity, a fixed fail-closed documentary policy for the maximum claim CONTRACTOR_PAYMENT reduces unsupported payment attribution relative to CODE+SUPPLIER without reducing recovery of supported payments, while preserving one-to-many contract-payment cardinality; the result is evaluated with strong baselines, monetary amount at risk, permutation controls, an independent policy implementation, and clean public reconstruction.",
+  "claim_id": "FIN-RVI-002-C1-BOUNDED",
+  "final_gates": {
+    "claim_scope_audit": "PASS",
+    "g07_operational_utility": "PASS",
+    "stage4_independent_code_disjoint_cohort": "PASS",
+    "stage5_clean_reconstruction": "PASS",
+    "stage6_independent_policy_implementation": "PASS",
+    "stage6_third_code_disjoint_cohort": "PASS",
+    "stage7_third_cohort_clean_reconstruction": "PASS",
+    "systematic_primary_prior_art_closure": "PASS"
+  },
+  "gate_points": 80,
+  "gate_readout": {
+    "G07": "PASS",
+    "G09": "PASS",
+    "finance_score": 1000
+  },
+  "novelty_boundary": "The systematic search found no exact hit in the searched corpora, but this is not proof of global novelty or historical priority; promotion is limited to the declared empirical Honduras ONCAE-SEFIN result and finance gate rubric.",
+  "open_contract": {
+    "artifact_id": 8869425757,
+    "artifact_sha256": "4467ebf198d15e199afc64180bf456d2ee0166b3520b01c9f4f9dccb1d60417b",
+    "contract_sha256": "5e1bde35b3cddb0e77a0eb8cb72482d1582e3578854fa4ec959e19f1b444526f",
+    "head_sha": "27c35d6833d8ff3cdc73f8a308eae4fe50422eec",
+    "node_receipt_sha256": "780d25a90e0e41b333ae49c9b32ce5396c36f4c2d1f54db0a6abe5e882ce87bf",
+    "python_receipt_sha256": "ea9edeb832608cf9f30806c00abba9c09cdfe77a3c88aa463afd8456bd0b9919",
+    "run_id": 30847916495,
+    "scope_audit_receipt_sha256": "e1fd5faae0ec3e7aa5a52de151f188101d84f43692e515709b1f6cb2f36e9add"
+  },
+  "schema": "fin-rvi-002/g09-final-promotion/4",
+  "scope": {
+    "claim_level": "CONTRACTOR_PAYMENT",
+    "country": "Honduras",
+    "excluded_claims": [
+      "legality",
+      "fraud",
+      "corruption",
+      "physical receipt",
+      "quality",
+      "liquidation",
+      "causal impact",
+      "global universality",
+      "novelty of entity resolution",
+      "novelty of procurement knowledge graphs",
+      "novelty of active evidence acquisition"
+    ],
+    "period": "2023-2025",
+    "sources": [
+      "ONCAE OCP publication 122",
+      "SEFIN OCP publication 123"
+    ]
+  },
+  "score_after": 1000,
+  "score_before": 920,
+  "stage6": {
+    "artifact_id": 8869552099,
+    "artifact_sha256": "ad221e7cafb7fc8d11afb5e53f486842788f0fa5a423fbdb9891f9dc7824dfaf",
+    "baseline": {
+      "supported_recovered": 63,
+      "unsafe_overpromotions": 19
+    },
+    "candidate_ids_sha256": "d259ec1f3cccae2dc0756ce6b318253359970ca759e89fce92d36b5336ca1aa4",
+    "challenger": {
+      "missed_supported": 0,
+      "supported_recovered": 63,
+      "unsafe_overpromotions": 0
+    },
+    "cohort_rows": 120,
+    "compact_rows_sha256": "90e26745ced9dafd81249edb39ffbd4c10f0b64a5c6855eadf6053c4abf503e3",
+    "head_sha": "9beb7ec13e09674ea95d7a517f038acb37b9653b",
+    "independent_policy_decisions_sha256": "3f4999ae8d4282f6a71c25fe790ca28cad1fd7549fdb07f17a2bbdd209bbff0b",
+    "independent_policy_mismatches": 0,
+    "labels": {
+      "REJECTED": 28,
+      "SUPPORTED": 63,
+      "UNRESOLVED": 29
+    },
+    "labels_sha256": "fc3a33ba87ecc29a909717e4702ea3e281d5461fa2c5d45e242f9be8a4dc7f2a",
+    "node_receipt_sha256": "81d8cd3bb35c7b5f30f823cdbc28b72bc05728d7717c10acf9de72881b6b4",
+    "permutation": {
+      "supported_recovered": 41,
+      "unsafe_overpromotions": 22
+    },
+    "prior_shared_codes_excluded": 237,
+    "prior_shared_codes_sha256": "927ca1f2b780b6d34e37cd2d482a766c33a58781eacf121ac581a73ad2960984",
+    "report_payload_sha256": "92c5e556cd0688dfdf5fa9a993c47506267ad171a9033da85702a57a9763a40b",
+    "run_id": 30847688470,
+    "status": "PASS"
+  },
+  "stage7": {
+    "legacy_view": {
+      "artifact_sha256": "c516aeeb268db349bd0869b4d754b527929185e1abf295caf0a646face82810f",
+      "candidate_ids_sha256": "d259ec1f3cccae2dc0756ce6b318253359970ca759e89fce92d36b5336ca1aa4",
+      "cohort_rows": 120,
+      "compact_rows_sha256": "90e26745ced9dafd81249edb39ffbd4c10f0b64a5c6855eadf6053c4abf503e3",
+      "g09_replication": "PASS",
+      "labels_sha256": "fc3a33ba87ecc29a909717e4702ea3e281d5461fa2c5d45e242f9be8a4dc7f2a",
+      "node_receipt_sha256": "bce76f4c08fcac63093e8d52a39523bc9c82d8bff79c1200e677307cd448a83b",
+      "policy_missed_supported": 0,
+      "policy_unsafe_overpromotions": 0,
+      "python_node_agreement": true,
+      "python_receipt_sha256": "b1ad04f82a5ba71a9c892aee70e6ceb4581fffebfea471283527efd456225063",
+      "status": "PASS",
+      "tamper_controls_rejected": true
+    },
+    "run_manifest": {
+      "artifact_id": 8871125855,
+      "artifact_sha256": "c516aeeb268db349bd0869b4d754b527929185e1abf295caf0a646face82810f",
+      "artifact_size_bytes": 59933,
+      "baseline": {
+        "supported_recovered": 63,
+        "unsafe_overpromotions": 19
+      },
+      "boundary": "Stage 7 closes the clean-reconstruction gate only; the terminal G09 contract separately authorizes the last 80 points.",
+      "candidate_ids_sha256": "d259ec1f3cccae2dc0756ce6b318253359970ca759e89fce92d36b5336ca1aa4",
+      "challenger": {
+        "missed_supported": 0,
+        "supported_recovered": 63,
+        "unsafe_overpromotions": 0
+      },
+      "compact_rows_sha256": "90e26745ced9dafd81249edb39ffbd4c10f0b64a5c6855eadf6053c4abf503e3",
+      "gate_readout": {
+        "G07": "PASS",
+        "G09": "OPEN_FINAL_CONTRACT_PROMOTION_REQUIRED",
+        "G09_REPLICATION": "PASS",
+        "finance_score": 920
+      },
+      "head_sha": "5b99f3ae709854c216d5433af0a235c5cd219d2d",
+      "independent_policy_decisions_sha256": "3f4999ae8d4282f6a71c25fe790ca28cad1fd7549fdb07f17a2bbdd209bbff0b",
+      "labels": {
+        "REJECTED": 28,
+        "SUPPORTED": 63,
+        "UNRESOLVED": 29
+      },
+      "labels_sha256": "fc3a33ba87ecc29a909717e4702ea3e281d5461fa2c5d45e242f9be8a4dc7f2a",
+      "node_receipt_file_sha256": "5b3ed979bea8884f6cc076e975a05274a9193c5acccfac9f1396f553522f7074",
+      "node_receipt_sha256": "bce76f4c08fcac63093e8d52a39523bc9c82d8bff79c1200e677307cd448a83b",
+      "python_node_agreement": true,
+      "python_receipt_file_sha256": "fc82a5a5ffc7f85e7466cacf7df1fde6c0dca659e8a421087bfa932bad356422",
+      "python_receipt_sha256": "b1ad04f82a5ba71a9c892aee70e6ceb4581fffebfea471283527efd456225063",
+      "report_payload_sha256": "af4134b577ce455c33382866b51187455426e18c740aa39c08b4ba734a9ac11e",
+      "run_id": 30851861346,
+      "schema": "fin-rvi-002/stage7-run-manifest/1",
+      "source_stage6_artifact_id": 8869552099,
+      "source_stage6_artifact_sha256": "ad221e7cafb7fc8d11afb5e53f486842788f0fa5a423fbdb9891f9dc7824dfaf",
+      "source_stage6_head": "9beb7ec13e09674ea95d7a517f038acb37b9653b",
+      "source_stage6_run_id": 30847688470,
+      "status": "PASS",
+      "tamper_controls_rejected": true
+    }
+  },
+  "stage7_manifest_file": "fin_rvi_002_g09/evidence/stage7/stage7_run_manifest.json",
+  "stage7_node_receipt_file": "fin_rvi_002_g09/evidence/stage7/stage7_node_receipt.json",
+  "stage7_python_receipt_file": "fin_rvi_002_g09/evidence/stage7/stage7_python_receipt.json",
+  "status": "PASS"
+}
