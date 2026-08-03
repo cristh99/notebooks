@@ -1,0 +1,90 @@
+{
+  "schema": "ocr-reading-order-honduras-v1/manifest/1",
+  "selection_frozen_before_page_review": true,
+  "selection_rule": "five pre-existing FIN-RVI-002 holdout processes; two PDF documents per process chosen by fixed rotating type slots",
+  "source": {
+    "repository": "cristh99/notebooks",
+    "branch": "agent/fin-rvi-002-stage1-public-data",
+    "file": "reports/fin_rvi_002_stage1/holdout_decisions.jsonl",
+    "public_pr": 8
+  },
+  "documents": [
+    {
+      "id": "HN01_tender_notice_CDE-SIT-063-2024",
+      "process": "CDE-SIT-063-2024",
+      "source_record_line": 1,
+      "document_type": "tenderNotice",
+      "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-063-2024102-AvisodePrensa.pdf"
+    },
+    {
+      "id": "HN02_opening_act_CDE-SIT-063-2024",
+      "process": "CDE-SIT-063-2024",
+      "source_record_line": 1,
+      "document_type": "recordOpeningTendersReceived",
+      "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-063-2024603-ActadeRecepcionyAperturadeOfertas.pdf"
+    },
+    {
+      "id": "HN03_bidding_docs_CPN-SIT-042-2023",
+      "process": "CPN-SIT-042-2023",
+      "source_record_line": 2,
+      "document_type": "biddingDocuments",
+      "url": "http://h1.honducompras.gob.hn/Docs/Lic1230CPN-SIT-042-2023201-PliegooTerminosdeReferencia.pdf"
+    },
+    {
+      "id": "HN04_clarification_CPN-SIT-042-2023",
+      "process": "CPN-SIT-042-2023",
+      "source_record_line": 2,
+      "document_type": "clarifications",
+      "url": "http://h1.honducompras.gob.hn/Docs/Lic1230CPN-SIT-042-2023502-Aclaratoria.pdf"
+    },
+    {
+      "id": "HN05_opening_act_CDE-SIT-102-2024",
+      "process": "CDE-SIT-102-2024",
+      "source_record_line": 3,
+      "document_type": "recordOpeningTendersReceived",
+      "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-102-2024603-ActadeRecepcionyAperturadeOfertas.pdf"
+    },
+    {
+      "id": "HN06_award_notice_CDE-SIT-102-2024",
+      "process": "CDE-SIT-102-2024",
+      "source_record_line": 3,
+      "document_type": "awardNotice",
+      "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-102-2024804-ResoluciondelaAdjudicacion.pdf"
+    },
+    {
+      "id": "HN07_tender_notice_CDE-SIT-002-2024",
+      "process": "CDE-SIT-002-2024",
+      "source_record_line": 4,
+      "document_type": "tenderNotice",
+      "url": "http://h1.honducompras.gob.hn/Docs/Lic1211CDE-SIT-002-2024102-AvisodePrensa.pdf"
+    },
+    {
+      "id": "HN08_contract_CDE-SIT-002-2024",
+      "process": "CDE-SIT-002-2024",
+      "source_record_line": 4,
+      "document_type": "contractSigned",
+      "url": "http://h1.honducompras.gob.hn/Docs/Con1211SIT-CO-429-20241200-ContratouOrdendeCompra.pdf"
+    },
+    {
+      "id": "HN09_opening_act_LPN-SIT-052-2024",
+      "process": "LPN-SIT-052-2024",
+      "source_record_line": 5,
+      "document_type": "recordOpeningTendersReceived",
+      "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-052-2024603-ActadeRecepcionyAperturadeOfertas.pdf"
+    },
+    {
+      "id": "HN10_award_notice_LPN-SIT-052-2024",
+      "process": "LPN-SIT-052-2024",
+      "source_record_line": 5,
+      "document_type": "awardNotice",
+      "url": "http://h1.honducompras.gob.hn/Docs/Lic1211LPN-SIT-052-2024804-ResoluciondelaAdjudicacion.pdf"
+    }
+  ],
+  "constraints": {
+    "external_spend_usd": 0,
+    "gcloud_used": false,
+    "paid_api_used": false,
+    "gpu_used": false,
+    "production_path_modified": false
+  }
+}
