@@ -30,7 +30,7 @@ jobs:
           assert b['schema']=='logic-power-knowledge-action-loop/formal-source-binding/1'
           assert b['private_repository']=='cristh99/my_first_repository'
           assert b['private_branch']=='agent/logic-power-knowledge-action-loop-v1'
-          assert b['private_head']=='77295210797e1e14977181b9ac0be67c539da324'
+          assert b['private_head']=='fa340227cdfa30c4cdcbe78a3249b9a47ef3ec51'
           assert b['private_pull_request']==90
           assert b['private_issue']==89
           PY
@@ -83,7 +83,7 @@ jobs:
               "reports/lp-kal-tlc-${scenario}-v1.log"
           done
 
-      - name: Compile seventeen Lean boundary theorems without axioms
+      - name: Compile eighteen Lean boundary theorems without axioms
         shell: bash
         run: |
           set -euo pipefail
@@ -98,7 +98,7 @@ jobs:
           if grep -q 'sorryAx' reports/lp-kal-lean-v1.log; then
             echo 'Lean reported sorryAx'; exit 1
           fi
-          test "$(grep -c 'does not depend on any axioms' reports/lp-kal-lean-v1.log)" -eq 17
+          test "$(grep -c 'does not depend on any axioms' reports/lp-kal-lean-v1.log)" -eq 18
 
       - name: Build formal receipt
         shell: bash
@@ -116,7 +116,7 @@ jobs:
             'schema':'logic-power-knowledge-action-loop/public-formal-receipt/1',
             'status':'PASS',
             'private_repository':'cristh99/my_first_repository',
-            'private_head':'77295210797e1e14977181b9ac0be67c539da324',
+            'private_head':'fa340227cdfa30c4cdcbe78a3249b9a47ef3ec51',
             'private_pull_request':90,
             'public_repository':'cristh99/notebooks',
             'public_head':os.environ['PUBLIC_HEAD_SHA'],
@@ -125,7 +125,7 @@ jobs:
             'tlc_scenarios':scenarios,
             'tlc_scenario_count':len(scenarios),
             'lean_compiled':True,
-            'lean_theorem_count':17,
+            'lean_theorem_count':18,
             'lean_axiom_count':0,
             'lean_sorry_ax':False,
             'tla_sha256':sha('lp_kal_formal_v1/KnowledgeActionLoop.tla'),
