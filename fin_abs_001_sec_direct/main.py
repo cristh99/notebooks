@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import time
 from pathlib import Path
 from typing import Any
 
@@ -10,14 +9,11 @@ from .benchmark import (
     build_instances,
     evaluate_instances,
 )
-from .constants import (
-    REQUEST_INTERVAL_SECONDS,
-    UNIVERSE,
-)
+from .constants import UNIVERSE
 from .policy import predict
 from .report import build_report
 from .sec_extract import extract_case
-from .sec_fetch import fetch_companyfacts
+from .sec_fetch import fetch_bulk_companyfacts
 from .utils import sha256_file
 
 
@@ -39,22 +35,30 @@ def main() -> int:
     output.mkdir(parents=True, exist_ok=True)
 
     cases: list[dict[str, Any]] = []
-    fetch_log: list[dict[str, Any]] = []
     extraction_log: list[dict[str, Any]] = []
 
-    for index, company in enumerate(UNIVERSE):
-        companyfacts, fetch_record = (
-            fetch_companyfacts(
-                company,
-                cache,
-            )
+    companyfacts_by_ticker, fetch_log = fetch_bulk_companyfacts(
+        UNIVERSE,
+        cache,
+    )
+    fetch_by_ticker = {
+        str(record.get("ticker")): record
+        for record in fetch_log
+    }
+    for company in UNIVERSE:
+        companyfacts = companyfacts_by_ticker.get(
+            company["ticker"]
         )
-        fetch_log.append(fetch_record)
+        fetch_record = fetch_by_ticker.get(
+            company["ticker"],
+            {},
+        )
         if companyfacts is None:
             extraction_log.append(
                 {
                     "ticker": company["ticker"],
                     "status": "FETCH_FAILED",
+                    "error": fetch_record.get("error"),
                 }
             )
         else:
@@ -66,9 +70,7 @@ def main() -> int:
                 extraction_log.append(
                     {
                         "ticker": company["ticker"],
-                        "status": (
-                            "NO_DIRECT_RELATION_CASE"
-                        ),
+                        "status": "NO_DIRECT_RELATION_CASE",
                     }
                 )
             else:
@@ -78,18 +80,12 @@ def main() -> int:
                         "ticker": company["ticker"],
                         "status": "ELIGIBLE",
                         "accession": case["accession"],
-                        "report_end": (
-                            case["report_end"]
-                        ),
+                        "report_end": case["report_end"],
                         "relations": predict(case)[
                             "relation_count"
                         ],
                     }
                 )
-        if index + 1 < len(UNIVERSE):
-            time.sleep(
-                REQUEST_INTERVAL_SECONDS
-            )
 
     instances = build_instances(cases)
     exact_rows = evaluate_instances(
@@ -161,6 +157,14 @@ def main() -> int:
     payload = report["payload"]
     exact = payload["exact_metrics"]
     rounded = payload["rounded_metrics"]
+
+    def metric_text(value: object) -> str:
+        return (
+            "NULL"
+            if value is None
+            else f"{float(value):.4f}"
+        )
+
     (output / "report.md").write_text(
         "\n".join(
             [
@@ -183,13 +187,13 @@ def main() -> int:
                 ),
                 (
                     f"- Exact recall / FPR: "
-                    f"**{exact['recall']:.4f} / "
-                    f"{exact['false_positive_rate']:.4f}**"
+                    f"**{metric_text(exact['recall'])} / "
+                    f"{metric_text(exact['false_positive_rate'])}**"
                 ),
                 (
                     f"- Rounded recall / FPR: "
-                    f"**{rounded['recall']:.4f} / "
-                    f"{rounded['false_positive_rate']:.4f}**"
+                    f"**{metric_text(rounded['recall'])} / "
+                    f"{metric_text(rounded['false_positive_rate'])}**"
                 ),
                 (
                     f"- Absolute score: "
