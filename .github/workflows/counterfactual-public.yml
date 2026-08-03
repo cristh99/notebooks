@@ -96,7 +96,7 @@ jobs:
               'event_sha': os.environ['PUBLIC_EVENT_SHA'],
               'private_repository': 'cristh99/my_first_repository',
               'private_pull_request': 68,
-              'private_head': '26ccc743f42df497102851e259cbbbcecefc8f0d',
+              'private_head': '008adb81f93e9b350582bc6d2ae8d0d345521931',
               'report_sha256': hashlib.sha256(report.read_bytes()).hexdigest(),
               'certificate_sha256': hashlib.sha256(certificate.read_bytes()).hexdigest(),
               'lean_source_sha256': hashlib.sha256(lean.read_bytes()).hexdigest(),
