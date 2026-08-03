@@ -23,10 +23,46 @@ const excluded = new Set(stage6.source_stage34_manifest?.shared_codes || []);
 const codeCounts = new Map();
 for (const row of rows) codeCounts.set(row.shared_code, (codeCounts.get(row.shared_code) || 0) + 1);
 
+function independentPolicyV3(row) {
+  const hardConflict = Boolean(row.hard_category_conflict);
+  const classificationSupport = Array.isArray(row.shared_classifications) && row.shared_classifications.length > 0;
+  const tokenCount = Number(row.shared_object_token_count || 0);
+  if (row.numeric_conflict) {
+    return {decision:'REJECTED', reason:'V3_NUMERIC_SUPPLIER_CONFLICT_VETO'};
+  }
+  if (
+    row.exact_numeric_support && row.payment_language && !hardConflict &&
+    (tokenCount >= 2 || classificationSupport)
+  ) {
+    return {decision:'SUPPORTED', reason:'V3_EXACT_ID_PAYMENT_AND_OBJECT_SUPPORT'};
+  }
+  if (
+    row.base_v2_decision === 'SUPPORTED' && row.name_support &&
+    row.payment_language && !hardConflict &&
+    (tokenCount >= 6 || classificationSupport)
+  ) {
+    return {decision:'SUPPORTED', reason:'V3_NAME_PAYMENT_AND_STRONG_OBJECT_SUPPORT'};
+  }
+  if (hardConflict) {
+    return {decision:'REJECTED', reason:'V3_HARD_OBJECT_CONFLICT'};
+  }
+  return {decision:'UNRESOLVED', reason:'V3_INSUFFICIENT_JOINT_EVIDENCE'};
+}
+
+const independentPolicyRows = rows.map(row => ({
+  candidate_id: row.candidate_id,
+  expected_decision: row.policy_decision,
+  expected_reason: row.policy_reason,
+  ...independentPolicyV3(row),
+}));
+const independentPolicyMismatches = independentPolicyRows.filter(
+  row => row.decision !== row.expected_decision || row.reason !== row.expected_reason
+);
+
 function metrics(policy) {
   const promotes = policy === 'B1_CODE_SUPPLIER'
     ? row => Boolean(row.baseline_supplier_support)
-    : row => row.policy_decision === 'SUPPORTED';
+    : row => independentPolicyV3(row).decision === 'SUPPORTED';
   const promoted = labeled.filter(promotes);
   return {
     labeled_rows: labeled.length,
@@ -62,6 +98,8 @@ const gates = {
   cohort_size: rows.length === 120,
   enough_supported: (labelCounts.SUPPORTED || 0) >= 20,
   enough_rejected: (labelCounts.REJECTED || 0) >= 5,
+  independent_policy_facts_present: rows.every(row => typeof row.base_v2_decision === 'string'),
+  independent_policy_exact_match: independentPolicyMismatches.length === 0,
   metrics_match: canonical(calculated) === canonical(stage6.policy_metrics),
   all_source_gates: Object.values(gateChecks).every(Boolean),
   zero_unsafe: calculated.POLICY_DOCUMENTARY.unsafe_overpromotions === 0,
@@ -71,24 +109,25 @@ const gates = {
   excluded_prior_codes: excluded.size === 237 && rows.every(row=>!excluded.has(row.shared_code)),
   exclusion_hash: stage6.source_stage34_manifest?.shared_codes_sha256 === '927ca1f2b780b6d34e37cd2d482a766c33a58781eacf121ac581a73ad2960984',
   code_cardinality_cap: Math.max(...codeCounts.values()) <= 2,
-  independence_contract: independence.stage3_and_stage4_shared_codes_excluded === true && independence.policy_v3_unchanged_from_stage4 === true && independence.labeler_unchanged_from_stage3 === true && independence.selection_seed_new === true && independence.exclusions_derived_without_outcome_access === true,
+  independence_contract: independence.stage3_and_stage4_shared_codes_excluded === true && independence.policy_v3_unchanged_from_stage4 === true && independence.labeler_unchanged_from_stage3 === true && independence.selection_seed_new === true && independence.exclusions_derived_without_outcome_access === true && independence.independent_policy_facts_exported === true,
   gate_candidate: stage6.gate_status === 'PASS_CANDIDATE_PENDING_CLEAN_RECONSTRUCTION',
   g09_not_premature: payload.gate_readout?.G09 === 'OPEN_PRIOR_ART_AND_CLEAN_REPLAY_REQUIRED',
 };
 if (!Object.values(gates).every(Boolean)) {
-  console.error(JSON.stringify({valid:false,gates,labelCounts,calculated},null,2));
+  console.error(JSON.stringify({valid:false,gates,labelCounts,calculated,independentPolicyMismatches},null,2));
   process.exit(2);
 }
 const receiptPayload = {
-  schema:'fin-rvi-002/stage6-node-receipt/1',
+  schema:'fin-rvi-002/stage6-node-independent-policy-receipt/2',
   report_payload_sha256: report.sha256,
   compact_rows_sha256: digest(rows),
   excluded_codes_sha256: stage6.source_stage34_manifest?.shared_codes_sha256,
   label_counts: labelCounts,
   policy_metrics: calculated,
+  independent_policy_decisions_sha256: digest(independentPolicyRows),
   gates,
 };
 const receipt = {payload:receiptPayload,sha256:digest(receiptPayload)};
 const output = reportPath.replace(/report\.json$/, 'stage6_node_receipt.json');
 fs.writeFileSync(output, `${JSON.stringify(receipt,null,2)}\n`);
-console.log(JSON.stringify({valid:true,receipt_sha256:receipt.sha256,label_counts:labelCounts,policy_metrics:calculated}));
+console.log(JSON.stringify({valid:true,receipt_sha256:receipt.sha256,label_counts:labelCounts,policy_metrics:calculated,independent_policy_sha256:receiptPayload.independent_policy_decisions_sha256}));
