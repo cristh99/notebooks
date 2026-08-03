@@ -63,7 +63,7 @@ jobs:
           "$HOME/.elan/bin/elan" toolchain install leanprover/lean4:v4.33.0-rc1
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
 
-      - name: Compile public transportability boundary
+      - name: Compile public transportability boundary without axioms
         shell: bash
         run: |
           set -euo pipefail
@@ -74,6 +74,10 @@ jobs:
           test -s FiniteTransportabilityPublic.olean
           if grep -q 'sorryAx' finite-transportability-public-lean.log; then
             echo 'Unexpected sorryAx' >&2
+            exit 1
+          fi
+          if grep -q 'depends on axioms' finite-transportability-public-lean.log; then
+            echo 'Unexpected Lean axiom dependency' >&2
             exit 1
           fi
 
@@ -101,13 +105,13 @@ jobs:
               'event_sha': os.environ['PUBLIC_EVENT_SHA'],
               'private_repository': 'cristh99/my_first_repository',
               'private_pull_request': 68,
-              'private_head': '573210c5ce12a28b6f01441586caf6d2e65f7ae7',
+              'private_head': 'fdced3e872c2e8486005957d56ec3eeddf7d2f55',
               'private_blobs': {
                   'compiler': '9a42aabdf07f02d8385980ebe056b2dc960cdff9',
                   'runner': 'b4ec440db3074bf4cdf1e711cc13c3a6b8b1ee35',
                   'tests': '2531c34701e02c4d489cb5d2209031c249524cc7',
-                  'lean': '35ce7dce9bbfbeac3afeb1a1ca6461fba8913d45',
-                  'workflow': '348763893bb24affe62258095f5c24a5f8221e94',
+                  'lean': '6bd01fca82eb231accf6d44ecfbb74eb3a3d6e2d',
+                  'workflow': '7a56d34c65986c3a421e84f0e495eee1e869820f',
               },
               'report_sha256': hashlib.sha256(report.read_bytes()).hexdigest(),
               'certificate_sha256': hashlib.sha256(certificate.read_bytes()).hexdigest(),
@@ -126,6 +130,7 @@ jobs:
               'deterministic_rebuild': 'PASS',
               'lean': 'PASS',
               'sorryAx': 'ABSENT',
+              'axiom_dependencies': 'ABSENT',
           }
           path = Path('inference_power_compiler_v2/TRANSPORTABILITY_PUBLIC_RECEIPT.json')
           path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
