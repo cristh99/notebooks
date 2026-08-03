@@ -17,8 +17,6 @@ jobs:
   audit:
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    env:
-      KAGGLEHUB_CACHE: ${{ runner.temp }}/kagglehub
 
     steps:
       - name: Checkout frozen PR head
@@ -43,6 +41,8 @@ jobs:
           node --check fin_abs_004_v4_credit/verify_audit.mjs
 
       - name: Acquire and audit canonical public dataset
+        env:
+          KAGGLEHUB_CACHE: ${{ runner.temp }}/kagglehub
         run: |
           set -euo pipefail
           rm -rf reports/fin_abs_004_v4_credit_audit
