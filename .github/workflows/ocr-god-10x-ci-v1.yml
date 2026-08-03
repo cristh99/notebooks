@@ -2,8 +2,6 @@ name: OCR God 10X CI v1
 
 on:
   pull_request:
-    branches:
-      - main
     paths:
       - 'ocr_god_10x_v1/**'
       - '.github/workflows/ocr-god-10x-ci-v1.yml'
