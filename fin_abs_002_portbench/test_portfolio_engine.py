@@ -24,7 +24,7 @@ class PortBenchEngineTests(unittest.TestCase):
         contributions = weights * (cov @ weights)
         self.assertAlmostEqual(float(contributions[0]), float(contributions[1]), places=5)
 
-    def test_caps_are_respected(self) -> None:
+    def _six_class_universe(self) -> tuple[list[str], dict[str, str]]:
         assets = [
             *(f"equities_SYN_{index}" for index in range(10)),
             *(f"bonds_SYN_{index}" for index in range(10)),
@@ -41,8 +41,14 @@ class PortBenchEngineTests(unittest.TestCase):
             )
             for asset in assets
         }
-        raw = np.linspace(1.0, 3.0, len(assets))
-        weights = capped_weights(raw, assets, class_map)
+        return assets, class_map
+
+    def _assert_caps(
+        self,
+        weights: np.ndarray,
+        assets: list[str],
+        class_map: dict[str, str],
+    ) -> None:
         self.assertAlmostEqual(float(weights.sum()), 1.0, places=9)
         self.assertLessEqual(float(weights.max()), 0.10000001)
         for name in set(class_map.values()):
@@ -52,6 +58,26 @@ class PortBenchEngineTests(unittest.TestCase):
                 if class_map[asset] == name
             )
             self.assertLessEqual(float(total), 0.35000001)
+
+    def test_caps_are_respected(self) -> None:
+        assets, class_map = self._six_class_universe()
+        raw = np.linspace(1.0, 3.0, len(assets))
+        weights = capped_weights(raw, assets, class_map)
+        self._assert_caps(weights, assets, class_map)
+
+    def test_caps_fill_exactly_under_extreme_concentration(self) -> None:
+        assets, class_map = self._six_class_universe()
+        raw = np.full(len(assets), 1e-15)
+        raw[0] = 1.0
+        raw[1] = 0.5
+        weights = capped_weights(raw, assets, class_map)
+        self._assert_caps(weights, assets, class_map)
+        equity_total = sum(
+            weights[index]
+            for index, asset in enumerate(assets)
+            if class_map[asset] == "equities"
+        )
+        self.assertAlmostEqual(float(equity_total), 0.35, places=9)
 
     def test_bootstrap_is_deterministic(self) -> None:
         differences = [0.01, -0.005, 0.02, 0.004, 0.003, -0.001]
