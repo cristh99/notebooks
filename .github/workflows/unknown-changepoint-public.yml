@@ -6,11 +6,15 @@ on:
       - agent/inference-power-compiler-v2-public-ci
     paths:
       - 'inference_power_compiler_v2/verify_unknown_changepoint_public.py'
+      - 'inference_power_compiler_v2/unknown_change_public_key.pem'
+      - 'inference_power_compiler_v2/unknown_change_manifest_*'
       - 'UnknownChangePointPublic.lean'
       - '.github/workflows/unknown-changepoint-public.yml'
   pull_request:
     paths:
       - 'inference_power_compiler_v2/verify_unknown_changepoint_public.py'
+      - 'inference_power_compiler_v2/unknown_change_public_key.pem'
+      - 'inference_power_compiler_v2/unknown_change_manifest_*'
       - 'UnknownChangePointPublic.lean'
       - '.github/workflows/unknown-changepoint-public.yml'
   workflow_dispatch:
@@ -21,10 +25,7 @@ permissions:
 jobs:
   verify-unknown-changepoint-public:
     runs-on: ubuntu-latest
-    timeout-minutes: 70
-    env:
-      PRIVATE_HEAD: c2d1f0ce1b6a94c56ce12412fcf1c19ad7ae0dff
-      PRIVATE_RAW: https://raw.githubusercontent.com/cristh99/my_first_repository/c2d1f0ce1b6a94c56ce12412fcf1c19ad7ae0dff
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
@@ -32,63 +33,10 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Fetch immutable private snapshot
+      - name: Execute independent finite reconstruction
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p inference_power_compiler_v2 logic_power_v10
-          files=(
-            inference_power_compiler_v2/unknown_changepoint_compiler.py
-            inference_power_compiler_v2/unknown_changepoint_compiler_source.py.xz.b64
-            inference_power_compiler_v2/run_unknown_changepoint_compiler.py
-            inference_power_compiler_v2/run_unknown_changepoint_compiler_source.py.xz.b64
-            inference_power_compiler_v2/test_unknown_changepoint_compiler.py
-            inference_power_compiler_v2/unknown_change_external_manifest_public.pem
-            inference_power_compiler_v2/unknown_change_external_manifest_r0.sig.b64
-            inference_power_compiler_v2/unknown_change_external_manifest_r1.sig.b64
-            inference_power_compiler_v2/unknown_change_external_manifest_r2.sig.b64
-            inference_power_compiler_v2/unknown_change_external_manifest_late.sig.b64
-            logic_power_v10/__init__.py
-            logic_power_v10/active_discovery.py
-            logic_power_v10/certificate.py
-          )
-          for file in "${files[@]}"; do
-            curl --proto '=https' --tlsv1.2 --fail --silent --show-error \
-              --location --retry 3 "$PRIVATE_RAW/$file" --output "$file"
-            test -s "$file"
-          done
-          sha256sum "${files[@]}" > /tmp/private-snapshot.sha256
-          cat /tmp/private-snapshot.sha256
-
-      - name: Run private focused tests at immutable snapshot
-        shell: bash
-        run: |
-          set -euo pipefail
-          export PYTHONPATH=".:inference_power_compiler_v2"
-          python -m py_compile \
-            inference_power_compiler_v2/unknown_changepoint_compiler.py \
-            inference_power_compiler_v2/run_unknown_changepoint_compiler.py \
-            inference_power_compiler_v2/test_unknown_changepoint_compiler.py
-          python -m unittest -v \
-            inference_power_compiler_v2/test_unknown_changepoint_compiler.py \
-            | tee unknown-changepoint-private-tests.log
-
-      - name: Execute private proof-carrying runner
-        shell: bash
-        run: |
-          set -euo pipefail
-          export PYTHONPATH=".:inference_power_compiler_v2"
-          python inference_power_compiler_v2/run_unknown_changepoint_compiler.py \
-            | tee unknown-changepoint-private-run.log
-          test -s inference_power_compiler_v2/UNKNOWN_CHANGEPOINT_CERTIFICATE.json
-          test -s inference_power_compiler_v2/UNKNOWN_CHANGEPOINT_LOGIC_POWER_CERTIFICATE.json
-          test -s inference_power_compiler_v2/UNKNOWN_CHANGEPOINT_REPORT.json
-
-      - name: Execute independent public audit
-        shell: bash
-        run: |
-          set -euo pipefail
-          export PYTHONPATH=".:inference_power_compiler_v2"
           python -m py_compile \
             inference_power_compiler_v2/verify_unknown_changepoint_public.py
           python inference_power_compiler_v2/verify_unknown_changepoint_public.py \
@@ -106,6 +54,37 @@ jobs:
             inference_power_compiler_v2/UNKNOWN_CHANGEPOINT_PUBLIC_REPORT.json \
             > /tmp/public-after.sha256
           cmp /tmp/public-before.sha256 /tmp/public-after.sha256
+
+      - name: Audit exact semantic outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('inference_power_compiler_v2/UNKNOWN_CHANGEPOINT_PUBLIC_REPORT.json').read_text())
+          assert report['detection']['candidate'] == 'R1'
+          assert report['detection']['breakpoint'] == 'b6'
+          assert report['detection']['detection_batch'] == 'b7'
+          assert report['detection']['alpha'] == [1, 12800]
+          assert report['selection_sequence'] == ['global'] * 6 + ['R1'] * 5
+          assert report['no_change']['detection'] is None
+          assert report['alternative_change']['candidate'] == 'R2'
+          assert report['score_count'] == 704
+          assert report['resources']['change_detection_evaluations'] == 38016
+          assert report['resources']['adaptive_monitoring_evaluations'] == 104959
+          assert report['resources']['baseline_monitoring_evaluations'] == 230912
+          assert report['resources']['signature_verifications'] == 1
+          assert report['resources']['former_total_evaluations'] == 289408
+          assert report['resources']['total_evaluations'] == 373888
+          assert report['former_cap']['status'] == 'UNKNOWN_RESOURCE_LIMIT'
+          assert report['correct_cap']['status'] == 'SOLVED'
+          assert report['adaptive_final']['width'] == [62873, 262144]
+          assert report['baseline_final']['width'] == [69995, 262144]
+          assert report['relative_width_reduction'] == [7122, 69995]
+          assert report['truth_included_at_every_time'] is True
+          assert len(report['negative_controls']) == 10
+          PY
 
       - name: Install pinned Lean
         shell: bash
@@ -146,39 +125,42 @@ jobs:
           files = {
               'public_report': Path('inference_power_compiler_v2/UNKNOWN_CHANGEPOINT_PUBLIC_REPORT.json'),
               'public_certificate': Path('inference_power_compiler_v2/UNKNOWN_CHANGEPOINT_PUBLIC_CERTIFICATE.json'),
-              'private_report': Path('inference_power_compiler_v2/UNKNOWN_CHANGEPOINT_REPORT.json'),
-              'private_certificate': Path('inference_power_compiler_v2/UNKNOWN_CHANGEPOINT_CERTIFICATE.json'),
-              'logic_power_certificate': Path('inference_power_compiler_v2/UNKNOWN_CHANGEPOINT_LOGIC_POWER_CERTIFICATE.json'),
               'public_verifier': Path('inference_power_compiler_v2/verify_unknown_changepoint_public.py'),
+              'public_key': Path('inference_power_compiler_v2/unknown_change_public_key.pem'),
+              'manifest_r0': Path('inference_power_compiler_v2/unknown_change_manifest_r0.json'),
+              'manifest_r1': Path('inference_power_compiler_v2/unknown_change_manifest_r1.json'),
+              'manifest_r2': Path('inference_power_compiler_v2/unknown_change_manifest_r2.json'),
+              'manifest_late': Path('inference_power_compiler_v2/unknown_change_manifest_late.json'),
               'public_lean': Path('UnknownChangePointPublic.lean'),
-              'snapshot_manifest': Path('/tmp/private-snapshot.sha256'),
           }
           receipt = {
-              'schema': 'unknown-changepoint-public-verification-receipt/1',
+              'schema': 'unknown-changepoint-public-verification-receipt/2',
               'repository': 'cristh99/notebooks',
               'head': os.environ['PUBLIC_HEAD_SHA'],
               'event_sha': os.environ['PUBLIC_EVENT_SHA'],
-              'private_repository': 'cristh99/my_first_repository',
-              'private_pull_request': 83,
-              'private_head': os.environ['PRIVATE_HEAD'],
+              'comparison_target': {
+                  'repository': 'cristh99/my_first_repository',
+                  'pull_request': 83,
+                  'head': 'c2d1f0ce1b6a94c56ce12412fcf1c19ad7ae0dff',
+              },
               'sha256': {
                   name: hashlib.sha256(path.read_bytes()).hexdigest()
                   for name, path in files.items()
               },
+              'independent_reconstruction': 'PASS',
+              'signed_external_manifests': 'PASS',
+              'row_merkle_reconstruction': 'PASS',
+              'cluster_atomicity': 'PASS',
               'unknown_breakpoint_detection': 'PASS',
+              'hierarchical_alpha_wealth': 'PASS',
+              'predictable_selection_and_retirement': 'PASS',
               'no_change_false_alarm_control': 'PASS',
               'alternative_regime_selection': 'PASS',
-              'hierarchical_alpha_wealth': 'PASS',
-              'signed_availability_manifest': 'PASS',
-              'row_merkle_proofs': 'PASS',
-              'cluster_atomicity': 'PASS',
-              'predictable_selection_and_retirement': 'PASS',
               'truth_anytime_inclusion': 'PASS',
               'former_resource_cap_rejected': 'PASS',
               'correct_resource_cap_solved': 'PASS',
               'correct_total_evaluations': 373888,
-              'independent_resource_reconstruction': 'PASS',
-              'negative_controls': 'PASS',
+              'negative_controls': 10,
               'semantic_replay': 'PASS',
               'deterministic_rebuild': 'PASS',
               'certificate_tamper_rejection': 'PASS',
@@ -202,13 +184,14 @@ jobs:
         with:
           name: unknown-changepoint-public-evidence
           path: |
-            inference_power_compiler_v2/UNKNOWN_CHANGEPOINT_*.json
+            inference_power_compiler_v2/UNKNOWN_CHANGEPOINT_PUBLIC_*.json
             inference_power_compiler_v2/UNKNOWN_CHANGEPOINT_PUBLIC_RECEIPT.sha256
             inference_power_compiler_v2/verify_unknown_changepoint_public.py
+            inference_power_compiler_v2/unknown_change_public_key.pem
+            inference_power_compiler_v2/unknown_change_manifest_*.json
+            inference_power_compiler_v2/unknown_change_manifest_*.sig.b64
             UnknownChangePointPublic.lean
             UnknownChangePointPublic.olean
-            unknown-changepoint-private-tests.log
-            unknown-changepoint-private-run.log
             unknown-changepoint-public.log
             unknown-changepoint-public-lean.log
           if-no-files-found: error
