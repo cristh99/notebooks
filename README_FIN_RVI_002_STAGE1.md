@@ -19,6 +19,10 @@ This capsule applies Logic Power v10 as a **meta-controller**: it executes the r
    - evidence policy: promote only supplier- and object-supported pairs; reject or abstain otherwise.
 8. Attempt one public document download per holdout pair and record URL, bytes, time, content type, and SHA-256.
 
+## G09 research track
+
+The prior-art gate is handled separately in [`fin_rvi_002_stage1/PRIOR_ART_G09.md`](fin_rvi_002_stage1/PRIOR_ART_G09.md). Search lanes include Exa, Consensus, Elicit, Crossref and primary papers. The broad components—max-min ambiguity, adaptive submodularity, active entity resolution and provenance—are treated as known. No novelty is claimed unless the residual integrated protocol survives exhaustive search, sealed comparison and independent replication.
+
 ## Hard boundary
 
 An automated object-consistency decision is not a human label and does not prove legal payment, delivery, receipt, legality, or physical result. G07 can only become a candidate pass pending independent replay; G09 remains open until prior-art and replication gates close.
