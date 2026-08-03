@@ -15,6 +15,8 @@ from typing import Any
 from fin_rvi_002_stage1.identity_v2 import adjudicate_object_v2
 from fin_rvi_002_stage1.ocds import ReleaseSummary, closest_amount
 
+from .evidence_ladder import POLICY_FIELDS
+
 CORPUS_SCHEMA = "fin-rvi-002/frozen-adjudication-corpus/2"
 MANIFEST_SCHEMA = "fin-rvi-002/frozen-pair-manifest/2"
 
@@ -115,6 +117,16 @@ def build_corpus(
         )
 
     rows.sort(key=lambda row: row["candidate_id"])
+    selected_policy_evidence = [
+        {field: row[field] for field in POLICY_FIELDS} for row in rows
+    ]
+    selected_policy_evidence_sha256 = sha256_bytes(
+        canonical_json(selected_policy_evidence).encode("utf-8")
+    )
+    expected_hash_path = manifest_path.parent / "frozen_selected_policy_evidence.sha256"
+    expected_policy_evidence_sha256 = expected_hash_path.read_text(
+        encoding="utf-8"
+    ).split()[0]
     corpus = {
         "schema": CORPUS_SCHEMA,
         "source_hashes": {
@@ -126,9 +138,23 @@ def build_corpus(
             "stage0_cases_file_sha256": manifest["stage0_cases_file_sha256"],
             "stage0_report_file_sha256": manifest["stage0_report_file_sha256"],
         },
-        "source_hash_match": (
+        "source_file_hash_match": (
             sha256_bytes(source_bytes)
             == manifest["source_known_target_hits_file_sha256"]
+        ),
+        "selected_policy_evidence_sha256": selected_policy_evidence_sha256,
+        "selected_policy_evidence_expected_sha256": (
+            expected_policy_evidence_sha256
+        ),
+        "selected_policy_evidence_hash_match": (
+            selected_policy_evidence_sha256
+            == expected_policy_evidence_sha256
+        ),
+        # Backward-compatible gate name: the frozen object is the selected
+        # 42-row policy evidence, not the mutable Stage 1 container file.
+        "source_hash_match": (
+            selected_policy_evidence_sha256
+            == expected_policy_evidence_sha256
         ),
         "gold_sources": manifest["gold_sources"],
         "derivation": manifest["derivation"],
@@ -151,7 +177,10 @@ def main() -> None:
         json.dumps(
             {
                 "rows": len(corpus["rows"]),
-                "source_hash_match": corpus["source_hash_match"],
+                "source_file_hash_match": corpus["source_file_hash_match"],
+                "selected_policy_evidence_hash_match": corpus[
+                    "selected_policy_evidence_hash_match"
+                ],
                 "corpus_sha256": hashlib.sha256(
                     canonical_json(corpus).encode("utf-8")
                 ).hexdigest(),
