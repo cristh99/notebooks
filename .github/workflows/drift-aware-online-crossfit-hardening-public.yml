@@ -1,0 +1,175 @@
+name: Public drift-aware online cross-fit hardening
+
+on:
+  push:
+    branches:
+      - agent/inference-power-compiler-v2-public-ci
+    paths:
+      - 'inference_power_compiler_v2/verify_drift_aware_online_crossfit_public.py'
+      - 'inference_power_compiler_v2/verify_drift_aware_online_crossfit_hardening_public.py'
+      - 'DriftAwareOnlineCrossFitHardeningPublic.lean'
+      - '.github/workflows/drift-aware-online-crossfit-hardening-public.yml'
+  pull_request:
+    paths:
+      - 'inference_power_compiler_v2/verify_drift_aware_online_crossfit_public.py'
+      - 'inference_power_compiler_v2/verify_drift_aware_online_crossfit_hardening_public.py'
+      - 'DriftAwareOnlineCrossFitHardeningPublic.lean'
+      - '.github/workflows/drift-aware-online-crossfit-hardening-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-drift-aware-hardening-public:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+
+      - name: Bind private hardening sources and compile verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          verifier=inference_power_compiler_v2/verify_drift_aware_online_crossfit_hardening_public.py
+          for digest in \
+            1f5241b157976caeeaaec3ed8cef5d20bde60fb1 \
+            3de813e42f1cd4c9fd3c4e3c562a654537de4dfd \
+            7e04055f573f92e54275668981c936a54d771db6 \
+            7084cd1b925e0ea19c7584045311ad01ef13911c \
+            b32dcb811954f70cde472476142609e780e677df \
+            2cd1c5c0407b62fe73cfe7c07b27c1390516c723 \
+            3f5d05bfa8edcee717b729f22d3d0344b21ab871 \
+            9d1e77f95df346279957ce60ef4079f616d9b110
+          do
+            test "$(grep -c "$digest" "$verifier")" = "1"
+          done
+          python -m py_compile \
+            inference_power_compiler_v2/verify_drift_aware_online_crossfit_public.py \
+            "$verifier"
+
+      - name: Execute independent hardening replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PYTHONPATH=".:inference_power_compiler_v2"
+          python inference_power_compiler_v2/verify_drift_aware_online_crossfit_hardening_public.py \
+            | tee drift-aware-online-hardening-public.log
+          test -s inference_power_compiler_v2/DRIFT_AWARE_ONLINE_HARDENING_PUBLIC_CERTIFICATE.json
+          test -s inference_power_compiler_v2/DRIFT_AWARE_ONLINE_HARDENING_PUBLIC_REPORT.json
+          sha256sum inference_power_compiler_v2/DRIFT_AWARE_ONLINE_HARDENING_PUBLIC_*.json \
+            > /tmp/hardening-public-before.sha256
+          python inference_power_compiler_v2/verify_drift_aware_online_crossfit_hardening_public.py \
+            > /tmp/hardening-public-rebuild.log
+          sha256sum inference_power_compiler_v2/DRIFT_AWARE_ONLINE_HARDENING_PUBLIC_*.json \
+            > /tmp/hardening-public-after.sha256
+          cmp /tmp/hardening-public-before.sha256 /tmp/hardening-public-after.sha256
+
+      - name: Install pinned Lean
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -sSf \
+            https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          "$HOME/.elan/bin/elan" toolchain install leanprover/lean4:v4.33.0-rc1
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Compile public hardening boundary without axioms
+        shell: bash
+        run: |
+          set -euo pipefail
+          elan run leanprover/lean4:v4.33.0-rc1 lean \
+            -o DriftAwareOnlineCrossFitHardeningPublic.olean \
+            DriftAwareOnlineCrossFitHardeningPublic.lean \
+            2>&1 | tee drift-aware-online-hardening-public-lean.log
+          test -s DriftAwareOnlineCrossFitHardeningPublic.olean
+          if grep -q 'sorryAx' drift-aware-online-hardening-public-lean.log; then
+            echo 'Unexpected sorryAx' >&2
+            exit 1
+          fi
+          if grep -q 'depends on axioms:' drift-aware-online-hardening-public-lean.log; then
+            echo 'Unexpected axiom dependency' >&2
+            exit 1
+          fi
+
+      - name: Build public hardening receipt
+        shell: bash
+        env:
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PUBLIC_EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          files = {
+              'report': Path('inference_power_compiler_v2/DRIFT_AWARE_ONLINE_HARDENING_PUBLIC_REPORT.json'),
+              'certificate': Path('inference_power_compiler_v2/DRIFT_AWARE_ONLINE_HARDENING_PUBLIC_CERTIFICATE.json'),
+              'verifier': Path('inference_power_compiler_v2/verify_drift_aware_online_crossfit_hardening_public.py'),
+              'lean': Path('DriftAwareOnlineCrossFitHardeningPublic.lean'),
+          }
+          receipt = {
+              'schema': 'drift-aware-online-hardening-public-verification-receipt/1',
+              'repository': 'cristh99/notebooks',
+              'head': os.environ['PUBLIC_HEAD_SHA'],
+              'event_sha': os.environ['PUBLIC_EVENT_SHA'],
+              'private_repository': 'cristh99/my_first_repository',
+              'private_pull_request': 68,
+              'private_head': '1f5241b157976caeeaaec3ed8cef5d20bde60fb1',
+              'private_blobs': {
+                  'base_compiler': '3de813e42f1cd4c9fd3c4e3c562a654537de4dfd',
+                  'hardening': '7e04055f573f92e54275668981c936a54d771db6',
+                  'runner': '7084cd1b925e0ea19c7584045311ad01ef13911c',
+                  'tests': 'b32dcb811954f70cde472476142609e780e677df',
+                  'lean': '2cd1c5c0407b62fe73cfe7c07b27c1390516c723',
+                  'workflow': '3f5d05bfa8edcee717b729f22d3d0344b21ab871',
+              },
+              'sha256': {
+                  name: hashlib.sha256(path.read_bytes()).hexdigest()
+                  for name, path in files.items()
+              },
+              'base_regression': 'PASS',
+              'within_batch_cluster_uniqueness': 'PASS',
+              'monitoring_predecessor': 'PASS',
+              'conservative_resource_accounting': 'PASS',
+              'former_resource_gap': 'REJECTED',
+              'truth_anytime_inclusion': 'PASS',
+              'semantic_replay': 'PASS',
+              'deterministic_rebuild': 'PASS',
+              'certificate_tamper_rejection': 'PASS',
+              'semantic_forgery_rejection': 'PASS',
+              'lean': 'PASS',
+              'axioms': 'ABSENT',
+          }
+          path = Path('inference_power_compiler_v2/DRIFT_AWARE_ONLINE_HARDENING_PUBLIC_RECEIPT.json')
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path('inference_power_compiler_v2/DRIFT_AWARE_ONLINE_HARDENING_PUBLIC_RECEIPT.sha256').write_text(
+              f'{digest}  DRIFT_AWARE_ONLINE_HARDENING_PUBLIC_RECEIPT.json\n'
+          )
+          print(path.read_text())
+          print(digest)
+          PY
+
+      - name: Upload public hardening evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: drift-aware-online-hardening-public-evidence
+          path: |
+            inference_power_compiler_v2/DRIFT_AWARE_ONLINE_HARDENING_PUBLIC_*.json
+            inference_power_compiler_v2/DRIFT_AWARE_ONLINE_HARDENING_PUBLIC_RECEIPT.sha256
+            inference_power_compiler_v2/verify_drift_aware_online_crossfit_hardening_public.py
+            DriftAwareOnlineCrossFitHardeningPublic.lean
+            DriftAwareOnlineCrossFitHardeningPublic.olean
+            drift-aware-online-hardening-public.log
+            drift-aware-online-hardening-public-lean.log
+          if-no-files-found: error
+          retention-days: 90
