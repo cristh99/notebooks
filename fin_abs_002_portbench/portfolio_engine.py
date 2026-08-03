@@ -269,6 +269,25 @@ def proportional_with_caps(
     return output
 
 
+def bounded_capacity(
+    assets: Sequence[str],
+    class_map: Mapping[str, str],
+    *,
+    asset_cap: float = ASSET_CAP,
+    class_cap: float = CLASS_CAP,
+) -> float:
+    classes = sorted(set(class_map[asset] for asset in assets))
+    return float(
+        sum(
+            min(
+                class_cap,
+                sum(class_map[asset] == name for asset in assets) * asset_cap,
+            )
+            for name in classes
+        )
+    )
+
+
 def capped_weights(
     raw: np.ndarray,
     assets: Sequence[str],
@@ -277,6 +296,10 @@ def capped_weights(
     asset_cap: float = ASSET_CAP,
     class_cap: float = CLASS_CAP,
 ) -> np.ndarray:
+    if bounded_capacity(
+        assets, class_map, asset_cap=asset_cap, class_cap=class_cap
+    ) < 1.0 - 1e-10:
+        raise ValueError("eligible universe cannot satisfy declared caps")
     target = normalize(raw)
     classes = sorted(set(class_map[asset] for asset in assets))
     class_indices = {
@@ -383,6 +406,9 @@ def target_weights(
     eligible = eligible_assets(history)
     if not eligible:
         return previous_full.copy()
+    robust = name in {"robust_erc", "robust_erc_ntb", "robust_survival"}
+    if robust and bounded_capacity(eligible, class_map) < 1.0 - 1e-10:
+        return previous_full.copy()
     selected = _base_target(name, history, eligible, class_map)
     previous = align_previous(previous_full, all_assets, eligible)
     if name in {"robust_erc_ntb", "robust_survival"}:
@@ -394,12 +420,12 @@ def target_weights(
                 PARTIAL_ADJUSTMENT * selected
                 + (1.0 - PARTIAL_ADJUSTMENT) * previous
             )
-    full = expand_weights(selected, eligible, all_assets)
+        selected = capped_weights(selected, eligible, class_map)
     if name == "robust_survival":
         prior = history[list(all_assets)].fillna(0.0).tail(60)
         prior_weights = previous_full.copy()
         if float(prior_weights.sum()) <= 0:
-            prior_weights = full.copy()
+            prior_weights = expand_weights(selected, eligible, all_assets)
         portfolio_returns = prior.to_numpy(dtype=float) @ prior_weights
         wealth = np.cumprod(1.0 + portfolio_returns)
         peaks = np.maximum.accumulate(wealth) if len(wealth) else np.array([1.0])
@@ -411,18 +437,15 @@ def target_weights(
         )
         if drawdown <= SURVIVAL_DRAWDOWN_TRIGGER or volatility >= SURVIVAL_VOL_TRIGGER:
             cash_indices = np.array(
-                [class_map[asset] == "cash" for asset in all_assets], dtype=bool
+                [class_map[asset] == "cash" for asset in eligible], dtype=bool
             )
-            eligible_cash = cash_indices & np.array(
-                [asset in eligible for asset in all_assets], dtype=bool
-            )
-            if eligible_cash.any():
-                full *= 1.0 - SURVIVAL_CASH_SHIFT
-                full[eligible_cash] += SURVIVAL_CASH_SHIFT / int(
-                    eligible_cash.sum()
+            if cash_indices.any():
+                selected *= 1.0 - SURVIVAL_CASH_SHIFT
+                selected[cash_indices] += SURVIVAL_CASH_SHIFT / int(
+                    cash_indices.sum()
                 )
-                full = normalize(full)
-    return full
+                selected = capped_weights(selected, eligible, class_map)
+    return expand_weights(selected, eligible, all_assets)
 
 
 def first_month_dates(index: pd.DatetimeIndex) -> set[pd.Timestamp]:
