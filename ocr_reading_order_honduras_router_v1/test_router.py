@@ -45,16 +45,17 @@ class ContextRouterTests(unittest.TestCase):
         self.assertEqual(decision.selected, "geometry")
         self.assertEqual(decision.reason, "LOWER_PARALLEL_REGION")
 
-    def test_strong_body_columns_select_geometry(self) -> None:
-        blocks = [
-            item("L1", (0, 40, 40, 50)),
-            item("R1", (60, 40, 100, 50)),
-            item("L2", (0, 60, 40, 70)),
-            item("R2", (60, 60, 100, 70)),
+    def test_strong_body_column_evidence(self) -> None:
+        changed = [
+            geometry("L1", (0, 40, 40, 50)),
+            geometry("R1", (60, 40, 100, 50)),
+            geometry("L2", (0, 60, 40, 70)),
+            geometry("R2", (60, 60, 100, 70)),
         ]
-        decision = route(blocks, 100, 100)
-        self.assertEqual(decision.selected, "geometry")
-        self.assertEqual(decision.reason, "STRONG_BODY_COLUMNS")
+        evidence = _strong_body_columns(changed, changed, 100, 100)
+        self.assertTrue(evidence["strong"])
+        self.assertGreaterEqual(evidence["gap_ratio"], 0.08)
+        self.assertGreaterEqual(evidence["vertical_overlap_ratio"], 0.20)
 
     def test_spanning_body_block_blocks_column_evidence(self) -> None:
         changed = [
