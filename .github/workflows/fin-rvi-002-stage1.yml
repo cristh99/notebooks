@@ -26,7 +26,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      - uses: actions/setup-python@a26af69be951213d495a4c3e4e4022e16d87065
         with:
           python-version: '3.12'
 
@@ -46,7 +46,7 @@ jobs:
             --max-days 366 \
             --holdout-size 20
 
-      - name: Verify evidence package
+      - name: Verify Python evidence package
         run: |
           set -euo pipefail
           test -s reports/fin_rvi_002_stage1/report.json
@@ -56,6 +56,14 @@ jobs:
           cd reports/fin_rvi_002_stage1
           sha256sum -c report.sha256
           gzip -9 -f candidates.jsonl
+
+      - name: Independent Node semantic verification
+        run: |
+          node --version
+          node fin_rvi_002_stage1/verify_stage1_v2.mjs \
+            reports/fin_rvi_002_stage1
+          cd reports/fin_rvi_002_stage1
+          sha256sum -c node_independent_receipt.sha256
 
       - name: Upload full evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -71,14 +79,16 @@ jobs:
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.email '4189826+github-actions[bot]@users.noreply.github.com'
           git add \
             reports/fin_rvi_002_stage1/report.json \
             reports/fin_rvi_002_stage1/report.md \
             reports/fin_rvi_002_stage1/report.sha256 \
             reports/fin_rvi_002_stage1/holdout_decisions.jsonl \
             reports/fin_rvi_002_stage1/known_target_hits.json \
-            reports/fin_rvi_002_stage1/deterministic_replay.json
+            reports/fin_rvi_002_stage1/deterministic_replay.json \
+            reports/fin_rvi_002_stage1/node_independent_receipt.json \
+            reports/fin_rvi_002_stage1/node_independent_receipt.sha256
           if git diff --cached --quiet; then
             echo 'Evidence unchanged.'
           else
