@@ -1,60 +1,99 @@
 from __future__ import annotations
 
-from typing import Any
+import re
+from typing import Any, Iterable
 
 from fin_rvi_002_stage1.identity_v2 import adjudicate_object_v2
+from fin_rvi_002_stage1.ocds import normalize_name, normalize_text
 
 POLICY_ID = "FIN-RVI-002-DOCUMENTARY-V3"
+PAYMENT_MARKERS = (
+    "PAGO",
+    "PAGADO",
+    "ESTIMACION",
+    "ANTICIPO",
+    "DESEMBOLSO",
+    "CANCELACION",
+    "FACTURA",
+    "ORDEN DE PAGO",
+    "RESERVA DE CREDITO",
+    "RESERVA DE FONDOS",
+)
+
+
+def _numeric_ids(values: Iterable[str]) -> set[str]:
+    output: set[str] = set()
+    for value in values:
+        digits = "".join(re.findall(r"\d", str(value)))
+        if len(digits) >= 8:
+            output.add(digits)
+    return output
+
+
+def _names(values: Iterable[str]) -> set[str]:
+    return {normalize_name(value) for value in values if normalize_name(value)}
+
+
+def _identity_facts(left, right) -> dict[str, Any]:
+    left_ids = _numeric_ids(left.supplier_ids)
+    right_ids = _numeric_ids(right.supplier_ids)
+    shared_ids = left_ids & right_ids
+    left_names = _names(left.supplier_names)
+    right_names = _names(right.supplier_names)
+    shared_names = left_names & right_names
+    contained_names = {
+        (a, b)
+        for a in left_names
+        for b in right_names
+        if min(len(a), len(b)) >= 8 and (a in b or b in a)
+    }
+    return {
+        "numeric_conflict": bool(left_ids and right_ids and not shared_ids),
+        "exact_numeric_support": bool(shared_ids),
+        "name_support": bool(shared_names or contained_names),
+        "shared_numeric_ids": sorted(shared_ids),
+        "shared_names": sorted(shared_names),
+    }
 
 
 def adjudicate_policy_v3(left, right) -> dict[str, Any]:
-    """Promote only when identity and object evidence jointly support payment.
+    """Counterexample-guided policy fixed before the Stage 4 cohort.
 
-    The two additions are fixed from Stage 3 counterexamples before Stage 4:
-
-    1. incompatible non-empty numeric supplier identifiers are a hard veto;
-    2. exact numeric identity plus payment language and strong document/object
-       support can promote a row that the broad object taxonomy abstains on.
+    Stage 3 produced 17 unsafe promotions, all with incompatible non-empty
+    numeric supplier identifiers, and one missed supported payment with an
+    exact numeric identifier plus exact code and two specific object tokens.
     """
-    result = adjudicate_object_v2(left, right)
-    numeric_conflict = bool(result.get("numeric_conflict"))
-    exact_numeric = bool(result.get("exact_numeric_support"))
-    name_support = bool(result.get("name_support"))
-    payment = bool(result.get("payment_language"))
-    document_available = bool(result.get("document_available"))
-    hard_conflict = bool(result.get("hard_category_conflict"))
-    shared_tokens = int(result.get("shared_object_token_count", 0))
-    shared_classifications = bool(result.get("shared_classifications"))
-    base_decision = str(result.get("decision", "UNRESOLVED"))
+    base = adjudicate_object_v2(left, right)
+    identity = _identity_facts(left, right)
+    numeric_conflict = identity["numeric_conflict"]
+    exact_numeric = identity["exact_numeric_support"]
+    name_support = identity["name_support"]
+    payment = any(marker in normalize_text(right.object_text) for marker in PAYMENT_MARKERS)
+    hard_conflict = bool(base.get("hard_category_conflict"))
+    shared_tokens = len(base.get("shared_tokens", ()))
+    shared_classifications = bool(base.get("shared_classifications"))
+    base_decision = str(base.get("decision", "UNRESOLVED"))
 
     if numeric_conflict:
         decision = "REJECTED"
         reason = "V3_NUMERIC_SUPPLIER_CONFLICT_VETO"
-    elif exact_numeric and payment and not hard_conflict and (
-        shared_classifications
-        or shared_tokens >= 6
-        or (document_available and shared_tokens >= 4)
+    elif (
+        exact_numeric
+        and payment
+        and not hard_conflict
+        and (shared_tokens >= 2 or shared_classifications)
     ):
         decision = "SUPPORTED"
-        reason = "V3_EXACT_ID_PAYMENT_AND_DOCUMENT_OBJECT_SUPPORT"
+        reason = "V3_EXACT_ID_PAYMENT_AND_OBJECT_SUPPORT"
     elif (
         base_decision == "SUPPORTED"
-        and not hard_conflict
-        and (exact_numeric or name_support)
+        and name_support
         and payment
+        and not hard_conflict
         and (shared_tokens >= 6 or shared_classifications)
     ):
         decision = "SUPPORTED"
-        reason = "V3_BASE_SUPPORT_WITH_IDENTITY_AND_PAYMENT_GATE"
-    elif (
-        name_support
-        and payment
-        and document_available
-        and not hard_conflict
-        and shared_tokens >= 8
-    ):
-        decision = "SUPPORTED"
-        reason = "V3_NAME_PAYMENT_AND_STRONG_DOCUMENT_SUPPORT"
+        reason = "V3_NAME_PAYMENT_AND_STRONG_OBJECT_SUPPORT"
     elif hard_conflict:
         decision = "REJECTED"
         reason = "V3_HARD_OBJECT_CONFLICT"
@@ -62,17 +101,20 @@ def adjudicate_policy_v3(left, right) -> dict[str, Any]:
         decision = "UNRESOLVED"
         reason = "V3_INSUFFICIENT_JOINT_EVIDENCE"
 
-    result = dict(result)
+    result = dict(base)
+    result.update(identity)
     result.update(
         {
             "policy_id": POLICY_ID,
             "base_v2_decision": base_decision,
+            "payment_language": payment,
+            "shared_object_token_count": shared_tokens,
             "decision": decision,
             "reason": reason,
             "v3_numeric_conflict_veto": numeric_conflict,
             "v3_exact_id_rescue": (
                 decision == "SUPPORTED"
-                and reason == "V3_EXACT_ID_PAYMENT_AND_DOCUMENT_OBJECT_SUPPORT"
+                and reason == "V3_EXACT_ID_PAYMENT_AND_OBJECT_SUPPORT"
             ),
         }
     )
