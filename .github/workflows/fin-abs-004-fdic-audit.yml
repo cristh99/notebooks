@@ -41,12 +41,12 @@ jobs:
           python -m compileall -q fin_abs_004_fdic
           python -m unittest -v fin_abs_004_fdic.test_audit
 
-      - name: Audit official taxonomy, failures and representative quarters
+      - name: Audit live official API contracts and representative history
         run: |
           set -u
           rm -rf reports/fin_abs_004_fdic_audit
           set +e
-          python -m fin_abs_004_fdic.audit \
+          python -m fin_abs_004_fdic.audit_v2 \
             --output-dir reports/fin_abs_004_fdic_audit
           audit_exit=$?
           set -e
@@ -55,9 +55,9 @@ jobs:
             exit "$audit_exit"
           fi
 
-      - name: Independent Node replay including STOP state
+      - name: Independent Node replay of redesigned contract
         run: |
-          node fin_abs_004_fdic/verify_audit_v2.mjs \
+          node fin_abs_004_fdic/verify_audit_v3.mjs \
             reports/fin_abs_004_fdic_audit/report.json \
             reports/fin_abs_004_fdic_audit/node_audit_receipt.json
 
@@ -75,7 +75,7 @@ jobs:
           source['sha256'] = hashlib.sha256(canonical.encode()).hexdigest()
           Path('/tmp/forged_score.json').write_text(json.dumps(source, indent=2, sort_keys=True) + '\n')
           PY
-          if node fin_abs_004_fdic/verify_audit_v2.mjs \
+          if node fin_abs_004_fdic/verify_audit_v3.mjs \
               /tmp/forged_score.json /tmp/forged_receipt.json; then
             echo 'forged FDIC score accepted' >&2
             exit 1
@@ -89,7 +89,7 @@ jobs:
       - name: Upload bounded Stage 0 evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: fin-abs-004-fdic-stage0-audit
+          name: fin-abs-004-fdic-stage0-audit-v2
           path: reports/fin_abs_004_fdic_audit/
           if-no-files-found: error
           retention-days: 90
