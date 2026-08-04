@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import unittest
 
+import pandas as pd
+
 from fin_abs_004_fdic import entity_split as base_split
 
+from .panel_cli import canonical_with_dates
 from .protocol import (
     ENTITY_SPLIT_SEED,
     EXPECTED_BUCKET_RULE,
@@ -33,6 +36,14 @@ class UntouchedFdicProtocolTests(unittest.TestCase):
         ):
             self.assertLess(fetch_start, WINDOWS[split][0])
             self.assertEqual(fetch_end, WINDOWS[split][1])
+
+    def test_timestamp_canonicalization_is_stable(self) -> None:
+        value = {"date": pd.Timestamp("2012-03-31"), "amount": 7}
+        self.assertEqual(
+            canonical_with_dates(value),
+            '{"amount":7,"date":"2012-03-31T00:00:00"}',
+        )
+        self.assertEqual(canonical_with_dates(value), canonical_with_dates(value))
 
     def test_bucket_contract_is_complete_and_disjoint(self) -> None:
         self.assertEqual(EXPECTED_BUCKET_RULE["train"], [0, 19])
