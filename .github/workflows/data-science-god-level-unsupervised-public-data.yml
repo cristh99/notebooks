@@ -1,0 +1,39 @@
+name: Data Science God-Level — export public anomaly development data
+
+on:
+  push:
+    branches:
+      - agent/data-science-god-level-unsupervised-anomaly
+    paths:
+      - '.github/workflows/data-science-god-level-unsupervised-public-data.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  export-public-data:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Download only the public ADBench development suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p public-data
+          ref='3dac8221081e190f157d78e93bfa8867f90d0965'
+          base="https://raw.githubusercontent.com/Minqi824/ADBench/${ref}/adbench/datasets/Classical"
+          curl -fsSL "$base/6_cardio.npz" -o public-data/p01.npz
+          curl -fsSL "$base/14_glass.npz" -o public-data/p02.npz
+          curl -fsSL "$base/23_mammography.npz" -o public-data/p03.npz
+          curl -fsSL "$base/27_PageBlocks.npz" -o public-data/p04.npz
+          curl -fsSL "$base/36_speech.npz" -o public-data/p05.npz
+          curl -fsSL "$base/41_Waveform.npz" -o public-data/p06.npz
+          test "$(find public-data -type f -name '*.npz' | wc -l)" -eq 6
+
+      - name: Upload public development data
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-god-level-unsupervised-public-data
+          retention-days: 7
+          compression-level: 0
+          path: public-data/**
