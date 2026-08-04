@@ -7,7 +7,7 @@ on:
     paths:
       - 'fin_abs_004b_fdic/model.py'
       - 'fin_abs_004b_fdic/benchmark.py'
-      - 'fin_abs_004b_fdic/verify_benchmark.mjs'
+      - 'fin_abs_004b_fdic/verify_benchmark_v2.mjs'
       - 'fin_abs_004b_fdic/test_model.py'
       - 'fin_abs_004b_fdic/test_benchmark.py'
       - '.github/workflows/fin-abs-004b-model-tests.yml'
@@ -43,7 +43,7 @@ jobs:
           python -m unittest -v fin_abs_004b_fdic.test_benchmark
 
       - name: Static verifier syntax check
-        run: node --check fin_abs_004b_fdic/verify_benchmark.mjs
+        run: node --check fin_abs_004b_fdic/verify_benchmark_v2.mjs
 
       - name: Confirm no external test was opened
         run: |
