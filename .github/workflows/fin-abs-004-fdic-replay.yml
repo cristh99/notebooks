@@ -73,10 +73,9 @@ jobs:
           Path('/tmp/forged_predictions.jsonl').write_text('\n'.join(rows) + '\n')
           PY
 
-          cp replay_artifact/result/report.json /tmp/report_with_forged_predictions.json
           cp /tmp/forged_predictions.jsonl replay_artifact/result/predictions.jsonl
           if node fin_abs_004_fdic_replay/verify_metrics.mjs \
-              /tmp/report_with_forged_predictions.json \
+              replay_artifact/result/report.json \
               /tmp/forged_prediction_receipt.json; then
             echo 'forged predictions accepted' >&2
             exit 1
