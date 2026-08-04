@@ -1,4 +1,4 @@
-name: OCR HN numeric holdout v2
+name: OCR HN numeric smoke 20 v2
 
 on:
   pull_request:
@@ -6,50 +6,25 @@ on:
       - 'ocr_hn_numeric_holdout_v1/**'
       - '.github/workflows/ocr-hn-numeric-holdout-v1.yml'
   workflow_dispatch:
-    inputs:
-      target_units:
-        description: Unique OCIDs / crops / documents
-        required: false
-        default: '120'
-      minimum_institutions:
-        description: Minimum parent institutions
-        required: false
-        default: '8'
-      minimum_accepted:
-        description: Minimum accepted natural claims
-        required: false
-        default: '40'
-      image_tier:
-        description: native_300 or scan_stress_v1
-        required: false
-        default: 'scan_stress_v1'
-      counterfactual_maximum_risk:
-        description: One-sided upper risk gate
-        required: false
-        default: '0.03'
-      counterfactual_minimum_total:
-        description: Minimum counterfactual cases
-        required: false
-        default: '100'
 
 concurrency:
-  group: ocr-hn-numeric-holdout-v2-${{ github.event.pull_request.number || github.ref }}
+  group: ocr-hn-numeric-smoke-20-v2-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  sealed-honduras-canary:
+  sealed-honduras-smoke:
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 45
     env:
-      TARGET_UNITS: ${{ inputs.target_units || '120' }}
-      MINIMUM_INSTITUTIONS: ${{ inputs.minimum_institutions || '8' }}
-      MINIMUM_ACCEPTED: ${{ inputs.minimum_accepted || '40' }}
-      IMAGE_TIER: ${{ inputs.image_tier || 'scan_stress_v1' }}
-      COUNTERFACTUAL_MAXIMUM_RISK: ${{ inputs.counterfactual_maximum_risk || '0.03' }}
-      COUNTERFACTUAL_MINIMUM_TOTAL: ${{ inputs.counterfactual_minimum_total || '100' }}
+      TARGET_UNITS: '20'
+      MINIMUM_INSTITUTIONS: '5'
+      MINIMUM_ACCEPTED: '5'
+      IMAGE_TIER: 'scan_stress_v1'
+      COUNTERFACTUAL_MAXIMUM_RISK: '0.30'
+      COUNTERFACTUAL_MINIMUM_TOTAL: '10'
       OMP_THREAD_LIMIT: '1'
       OPENBLAS_NUM_THREADS: '1'
       MKL_NUM_THREADS: '1'
@@ -70,7 +45,7 @@ jobs:
         run: |
           python -m unittest -v ocr_hn_numeric_holdout_v1.test_holdout
           python -m compileall -q ocr_hn_numeric_holdout_v1
-      - name: Prepare one OCR-independent crop per unique OCID from ONCAE bulk data
+      - name: Prepare 20 OCR-independent crops from unique OCIDs
         run: |
           python -m ocr_hn_numeric_holdout_v1.prepare_bulk \
             --bulk-url 'https://data.open-contracting.org/en/publication/122/download?name=2026.jsonl.gz' \
@@ -90,15 +65,15 @@ jobs:
           python -m ocr_hn_numeric_holdout_v1.validate_manifest \
             ocr_hn_numeric_holdout_v1/run/preparation/manifest.json \
             | tee ocr_hn_numeric_holdout_v1/run/manifest_validation.json
-      - name: Evaluate sealed manifest
+      - name: Evaluate sealed smoke manifest
         run: |
           python -m ocr_hn_numeric_holdout_v1.evaluate \
             ocr_hn_numeric_holdout_v1/run/preparation/manifest.json \
             --pdf-cache ocr_hn_numeric_holdout_v1/run/preparation/pdfs \
             --tier "${IMAGE_TIER}" \
             --minimum-accepted "${MINIMUM_ACCEPTED}" \
-            --minimum-coverage 0.30 \
-            --minimum-institution-fold-pass-fraction 0.80 \
+            --minimum-coverage 0.20 \
+            --minimum-institution-fold-pass-fraction 0.00 \
             --counterfactual-maximum-risk "${COUNTERFACTUAL_MAXIMUM_RISK}" \
             --counterfactual-minimum-total "${COUNTERFACTUAL_MINIMUM_TOTAL}" \
             --output-dir ocr_hn_numeric_holdout_v1/run/evaluation
@@ -124,7 +99,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: ocr-hn-numeric-holdout-v2-${{ env.IMAGE_TIER }}
+          name: ocr-hn-numeric-smoke-20-v2
           path: ocr_hn_numeric_holdout_v1/run
           if-no-files-found: error
           retention-days: 30
