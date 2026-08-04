@@ -69,7 +69,7 @@ jobs:
             ocr_reading_order_honduras_router_v1/run/overlays
           retention-days: 30
 
-  ppocrv6-tiny-resolution-frontier:
+  ppocrv6-direct-batch-benchmark:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -101,24 +101,24 @@ jobs:
           paddleocr==3.7.0 Pillow==12.2.0 pytesseract==0.3.13
       - name: Install official CPU high-performance inference dependencies
         run: paddleocr install_hpi_deps cpu
-      - name: Metric and gate unit tests
-        run: python -m unittest -v ocr_god_10x_v2.test_benchmark
-      - name: Execute frozen resolution frontier
-        run: python -m ocr_god_10x_v2.speed_frontier --output-dir ocr_god_10x_v2/run/speed_frontier
+      - name: Unit and adversarial tests
+        run: python -m unittest -v ocr_god_10x_v2.test_benchmark ocr_god_10x_v2.test_direct_batch
+      - name: Execute frozen direct-module batch benchmark
+        run: python -m ocr_god_10x_v2.direct_batch --output-dir ocr_god_10x_v2/run/direct_batch
       - name: Independent semantic replay
-        run: python -m ocr_god_10x_v2.verify_speed_frontier ocr_god_10x_v2/run/speed_frontier/speed_frontier.json
+        run: python -m ocr_god_10x_v2.verify_direct_batch ocr_god_10x_v2/run/direct_batch/direct_batch.json
       - name: Hash environment and evidence
         if: always()
         run: |
-          mkdir -p ocr_god_10x_v2/run/speed_frontier
-          python -m pip freeze | LC_ALL=C sort > ocr_god_10x_v2/run/speed_frontier/pip-freeze.txt
-          tesseract --version > ocr_god_10x_v2/run/speed_frontier/tesseract-version.txt
-          find ocr_god_10x_v2/run/speed_frontier -maxdepth 1 -type f ! -name SHA256SUMS.txt -print0 \
-            | sort -z | xargs -0 sha256sum > ocr_god_10x_v2/run/speed_frontier/SHA256SUMS.txt
+          mkdir -p ocr_god_10x_v2/run/direct_batch
+          python -m pip freeze | LC_ALL=C sort > ocr_god_10x_v2/run/direct_batch/pip-freeze.txt
+          tesseract --version > ocr_god_10x_v2/run/direct_batch/tesseract-version.txt
+          find ocr_god_10x_v2/run/direct_batch -maxdepth 1 -type f ! -name SHA256SUMS.txt -print0 \
+            | sort -z | xargs -0 sha256sum > ocr_god_10x_v2/run/direct_batch/SHA256SUMS.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: ocr-god-10x-v2-speed-frontier
-          path: ocr_god_10x_v2/run/speed_frontier
+          name: ocr-god-10x-v2-direct-batch
+          path: ocr_god_10x_v2/run/direct_batch
           if-no-files-found: error
           retention-days: 30
