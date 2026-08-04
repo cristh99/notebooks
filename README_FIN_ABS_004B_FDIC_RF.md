@@ -6,7 +6,7 @@ FIN-ABS-004 was honestly falsified on 2009–2011: monotonic boosting improved r
 
 Logic Power remains the meta-controller. It is not part of any bank-risk model.
 
-## Why a new experiment is required
+## Strong external baseline requirement
 
 Published U.S. bank-failure research identifies Random Forest and cost-sensitive forests as strong comparators, while logistic regression remains a strong interpretable baseline. They were not added retroactively to FIN-ABS-004 because its test had already opened.
 
@@ -18,28 +18,27 @@ Published U.S. bank-failure research identifies Random Forest and cost-sensitive
 - validation observations: 2007-03-31 through 2009-12-31;
 - untouched test observations: 2012-03-31 through 2014-12-31.
 
-No 2012–2014 model result has been observed.
+## Stage 0 history — all before prediction
 
-## Stage 0 power audit — before any prediction
+- v1, seed V1, buckets `20/10/70`: positives `22/37/64`; STOP.
+- v2, seed V2, buckets `30/20/50`: positives `34/76/47`; STOP.
+- v3 final, same seed/data/dates, buckets `30/15/55`: **PASS**.
 
-### v1 — stopped
+Final official entity-disjoint cohort:
 
-Seed `FIN-ABS-004B-ENTITY-SPLIT-V1`, buckets `20% / 10% / 70%` produced positive entities `22 / 37 / 64`; train failed the minimum 30.
+| Split | Rows | Banks | Positive entities | Positive rows |
+|---|---:|---:|---:|---:|
+| Train | 164,319 | 4,880 | 34 | 164 |
+| Validation | 15,361 | 1,369 | 54 | 322 |
+| Test 2012–2014 | 45,693 | 4,032 | 50 | 208 |
 
-### v2 — stopped
+- zero entity overlap and zero bank-quarter duplicates;
+- panel SHA-256 `31426e433230999f9ce5fca0c08ce0664716e24fee508e584b053e0ecf4bf3da`;
+- Stage 0 run `30874478494` — SUCCESS;
+- artifact `8879238673`, SHA-256 `60e24c2c418763c817134ff568872a95a43bc0d00fc4376ecd89b174c33de874`;
+- Node receipt valid: `0125833ce7716e9f46bc3dd12dd6a4375bdf73723e1233ef31da92ff87fb2764`.
 
-The test was extended through 2014, seed changed once to `FIN-ABS-004B-ENTITY-SPLIT-V2`, and buckets `30% / 20% / 50%` produced `34 / 76 / 47`; test failed the minimum 50.
-
-### v3 — final design
-
-Without changing seed, dates, source rows or labels, five surplus validation buckets move to test:
-
-- train buckets 0–29;
-- validation buckets 30–44;
-- test buckets 45–99;
-- minima `30 / 10 / 50` positive entities.
-
-Every redesign used only aggregate event counts. No model, feature importance, threshold, probability or performance existed. If v3 fails, the route stops.
+Stage 0 authorizes one sealed evaluation; it awards zero points.
 
 ## Frozen baseline family
 
@@ -58,14 +57,14 @@ Validation entities are separated by hash into calibration and selection. Platt 
 
 ## Non-compensable gates
 
-A full result must beat the strongest baseline, including Random Forest, by at least 5% relative AUPRC; strictly improve recall at 1% FPR; not worsen Brier or calibration; reduce expected cost by at least 5%; improve 2012, 2013 and 2014 separately; pass an entity-bootstrap; and reproduce independently with forgery rejection.
+A full result must beat the strongest baseline, including Random Forest, by at least 5% relative AUPRC; strictly improve recall at 1% FPR; not worsen Brier or calibration; reduce expected cost by at least 5%; improve 2012, 2013 and 2014 separately; pass an entity-bootstrap; and reproduce independently with source, split, metric, year-gate and score forgeries rejected.
 
 ## Score boundary
 
 Stage 0, code, synthetic tests, model fitting, a favorable Python result or partial gates add zero. A complete independent PASS may add at most 20 absolute points.
 
 ```text
-absolute Finance score: 423/1000
+absolute Finance score before sealed execution: 423/1000
 ```
 
 US$0, official FDIC data, draft, no merge.
