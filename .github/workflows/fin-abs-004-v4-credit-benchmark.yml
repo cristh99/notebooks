@@ -1,0 +1,170 @@
+name: FIN-ABS-004 — sealed V4 credit calibration benchmark
+
+on:
+  push:
+    branches:
+      - agent/fin-abs-004-v4-credit-benchmark
+    paths:
+      - 'fin_abs_004_v4_credit/benchmark.py'
+      - 'fin_abs_004_v4_credit/test_benchmark.py'
+      - 'fin_abs_004_v4_credit/verify_benchmark.mjs'
+      - 'fin_abs_004_v4_credit/BENCHMARK_PROTOCOL.md'
+      - 'README_FIN_ABS_004_V4_CREDIT_BENCHMARK.md'
+      - '.github/workflows/fin-abs-004-v4-credit-benchmark.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+      MKL_NUM_THREADS: '2'
+      NUMEXPR_NUM_THREADS: '2'
+
+    steps:
+      - name: Checkout frozen benchmark capsule
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned benchmark runtime
+        run: |
+          python -m pip install --disable-pip-version-check \
+            kagglehub==1.0.2 \
+            pyarrow==25.0.0 \
+            numpy==2.3.3 \
+            pandas==2.3.3 \
+            scikit-learn==1.7.2 \
+            xgboost==3.0.4 \
+            lightgbm==4.6.0
+
+      - name: Unit and counterexample tests
+        run: |
+          python -m compileall -q fin_abs_004_v4_credit
+          python -m unittest -v fin_abs_004_v4_credit.test_benchmark
+          node --check fin_abs_004_v4_credit/verify_benchmark.mjs
+
+      - name: Execute five-fold sealed benchmark
+        env:
+          KAGGLEHUB_CACHE: ${{ runner.temp }}/kagglehub
+        run: |
+          set -euo pipefail
+          rm -rf reports/fin_abs_004_v4_credit_benchmark
+          python -m fin_abs_004_v4_credit.benchmark \
+            --output-dir reports/fin_abs_004_v4_credit_benchmark
+
+      - name: Independent Node replay on deterministic sample
+        run: |
+          node fin_abs_004_v4_credit/verify_benchmark.mjs \
+            reports/fin_abs_004_v4_credit_benchmark/report.json \
+            reports/fin_abs_004_v4_credit_benchmark/verification_sample.jsonl.gz \
+            reports/fin_abs_004_v4_credit_benchmark/node_receipt.json
+
+      - name: Reject rehashed score, status, and sample forgeries
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import gzip
+          import hashlib
+          import json
+          import re
+          from pathlib import Path
+
+          def digest(value):
+              encoded = json.dumps(
+                  value,
+                  sort_keys=True,
+                  separators=(',', ':'),
+                  ensure_ascii=False,
+              ).encode('utf-8')
+              return hashlib.sha256(encoded).hexdigest()
+
+          root = Path('reports/fin_abs_004_v4_credit_benchmark')
+          report = json.loads((root / 'report.json').read_text())
+
+          score = json.loads(json.dumps(report))
+          score['payload']['absolute_score']['after'] = 1000
+          score['payload']['absolute_score']['delta'] = 577
+          score['sha256'] = digest(score['payload'])
+          Path('/tmp/fin_abs_004_credit_forged_score.json').write_text(json.dumps(score))
+
+          status = json.loads(json.dumps(report))
+          status['payload']['status'] = (
+              'FALSIFIED_CREDIT_CALIBRATION'
+              if report['payload']['status'] == 'PASS_CREDIT_CALIBRATION'
+              else 'PASS_CREDIT_CALIBRATION'
+          )
+          status['sha256'] = digest(status['payload'])
+          Path('/tmp/fin_abs_004_credit_forged_status.json').write_text(json.dumps(status))
+
+          sample = root / 'verification_sample.jsonl.gz'
+          with gzip.open(sample, 'rt', encoding='utf-8') as handle:
+              text = handle.read()
+          pattern = re.compile(
+              r'("challenger_probability":\s*)'
+              r'(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)'
+          )
+          match = pattern.search(text)
+          if match is None:
+              raise RuntimeError('no finite challenger probability found to forge')
+          old_value = float(match.group(2))
+          new_value = min(0.999999, max(0.000001, old_value + 0.01))
+          forged_text = (
+              text[:match.start(2)]
+              + repr(new_value)
+              + text[match.end(2):]
+          )
+          with gzip.open(
+              '/tmp/fin_abs_004_credit_forged_sample.jsonl.gz',
+              'wt',
+              encoding='utf-8',
+          ) as handle:
+              handle.write(forged_text)
+          PY
+
+          for forged in score status; do
+            if node fin_abs_004_v4_credit/verify_benchmark.mjs \
+                "/tmp/fin_abs_004_credit_forged_${forged}.json" \
+                reports/fin_abs_004_v4_credit_benchmark/verification_sample.jsonl.gz \
+                "/tmp/fin_abs_004_credit_forged_${forged}_receipt.json"; then
+              echo "rehashed ${forged} forgery accepted" >&2
+              exit 1
+            fi
+          done
+
+          if node fin_abs_004_v4_credit/verify_benchmark.mjs \
+              reports/fin_abs_004_v4_credit_benchmark/report.json \
+              /tmp/fin_abs_004_credit_forged_sample.jsonl.gz \
+              /tmp/fin_abs_004_credit_forged_sample_receipt.json; then
+            echo 'forged sample accepted' >&2
+            exit 1
+          fi
+
+      - name: Build evidence manifest
+        if: always()
+        run: |
+          sha256sum \
+            reports/fin_abs_004_v4_credit_benchmark/report.json \
+            reports/fin_abs_004_v4_credit_benchmark/report.md \
+            reports/fin_abs_004_v4_credit_benchmark/oof_predictions.parquet \
+            reports/fin_abs_004_v4_credit_benchmark/verification_sample.jsonl.gz \
+            reports/fin_abs_004_v4_credit_benchmark/node_receipt.json \
+            > reports/fin_abs_004_v4_credit_benchmark/manifest.sha256
+
+      - name: Upload benchmark evidence only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-abs-004-v4-credit-calibration-benchmark
+          path: reports/fin_abs_004_v4_credit_benchmark/
+          if-no-files-found: error
+          retention-days: 90
