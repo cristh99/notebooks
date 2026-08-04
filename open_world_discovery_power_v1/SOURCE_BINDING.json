@@ -1,0 +1,11 @@
+{
+  "schema": "open-world-discovery-power/public-source-binding/1",
+  "private_repository": "cristh99/my_first_repository",
+  "private_branch": "agent/open-world-discovery-power-v1",
+  "private_pull_request": 105,
+  "private_issue": 104,
+  "private_base": "agent/adversarial-coalition-power-v1",
+  "private_freeze_marker": "open_world_discovery_power_v1/FREEZE_MARKER.json",
+  "binding_mode": "public source is canonical executable evidence; private branch and freeze marker provide provenance",
+  "scope": "finite canonical discovery, unseen-mass estimation, adaptive source selection, honest stopping, drift, impossibility and IAIP aggregate diagnosis only"
+}
