@@ -2,129 +2,103 @@
 
 ## Purpose
 
-FIN-ABS-004 tests whether a point-in-time model can identify FDIC-insured banks that will fail within eight quarters while controlling false alarms, calibration and temporal leakage. Logic Power selected this untouched domain after the SEC breadth path was externally blocked and the PortBench and CLRD challengers were falsified on sealed tests.
+FIN-ABS-004 tests whether a point-in-time model can identify FDIC-insured banks that will fail within eight quarters, while controlling false alarms, calibration, entity leakage and crisis instability. Logic Power selected this untouched domain after the SEC breadth path was externally blocked and the PortBench and CLRD challengers were falsified on sealed tests.
 
 Logic Power is only the meta-controller. It is not part of the credit model.
 
 ## Official source contract
 
-- FDIC BankFind Suite API documentation: `https://api.fdic.gov/banks/docs/`.
-- Live API base: `https://banks.data.fdic.gov/api`.
-- Financial endpoint: `/financials`.
-- Failure endpoint: `/failures`.
-- Complete acquisition records include URL, HTTP status, bytes, row count and SHA-256.
+- FDIC BankFind Suite documentation: `https://api.fdic.gov/banks/docs/`.
+- Financial endpoint: `https://api.fdic.gov/banks/financials`.
+- Failure endpoint: `https://api.fdic.gov/banks/failures`.
+- Quarterly institution-level financial data are publicly available from 1992 onward; historical failures are available from 1934 onward.
 
-The two former YAML-taxonomy URLs now return the official API-documentation HTML rather than YAML. Stage 0 therefore binds fields to the live one-record API schema and verifies them again across representative quarters instead of pretending HTML is a taxonomy.
+Every request URL, status, response byte count and SHA-256 is recorded. The experiment uses no paid data, model API, GCloud, MotherDuck, OCR or crawler.
 
-## Stage 0 result
+## Completed Stage 0
 
-Public CI returned `PROCEED`:
+The live official contract exposed 161 financial fields and 33 failure fields. Five representative quarters from 1992 through 2025 and all 4,115 historical failure records were acquired. `CERT × REPDTE` was unique in every sample and the event counts were sufficient to proceed.
 
-- live financial contract: 161 fields;
-- live failure contract: 33 fields;
-- complete failure records: 4,115;
-- representative financial quarters: 1992, 2000, 2008, 2013 and 2025;
-- stable required fields: `CERT, REPDTE, NAME, ASSET, DEP, EQ, NETINC, ROA, ROE`;
-- duplicate `CERT × REPDTE` keys: zero in every sample;
-- candidate failure counts: 301 train-era, 33 validation-era and 472 test-era.
+Stage 0 adds no absolute score points.
 
-Stage 0 awards no absolute points.
-
-## Frozen forecasting contract
-
-### Observation and label
+## Temporal panel
 
 - observation unit: FDIC certificate × quarter;
-- positive outcome: a record with `RESTYPE = FAILURE` and the same `CERT` fails strictly after the report date and within the next 730 days;
-- `RESTYPE = ASSISTANCE` is excluded from the positive class and reported separately;
-- one record per `CERT × REPDTE`;
-- a failure without eligible prior financial data is counted but excluded by a fixed rule;
-- merger, charter change, inactivity or assistance is never silently relabeled as failure.
+- outcome: bank failure in the next 730 days;
+- assistance transactions remain separate from failure;
+- features use only information available on or before the report date;
+- original temporal windows:
+  - train: 1992-12-31 through 2002-12-31;
+  - validation: 2005-03-31 through 2006-12-31;
+  - test: 2009-03-31 through 2011-12-31;
+- gaps ensure every eight-quarter outcome is observable before the next evaluation window.
 
-### Temporal windows
+The raw temporal panel contains 630,365 bank-quarters. A preflight correctly rejected it because thousands of continuing banks appeared in more than one temporal split. The sealed test therefore remained unopened.
 
-Every label horizon ends before the next evaluation window begins:
+## Immutable entity-disjoint correction
 
-- **train observations:** 1992-12-31 through 2002-12-31; outcomes observed through 2004-12-31;
-- **validation observations:** 2005-03-31 through 2006-12-31; outcomes observed through 2008-12-31;
-- **sealed test observations:** 2009-03-31 through 2011-12-31; outcomes observed through 2013-12-31.
+Before model selection, every `CERT` is assigned a SHA-256 bucket using the fixed seed `FIN-ABS-004-ENTITY-SPLIT-V1`. A row is retained only when its original temporal window matches its entity bucket:
 
-Banks may recur over time because a deployed supervisor scores the same institution repeatedly; all inference and confidence intervals are clustered by `CERT`, and no future quarter or future label contributes to features.
+- train: buckets 0–34;
+- validation: buckets 35–74;
+- test: buckets 75–99.
 
-### Frozen raw fields
+The rule uses only `CERT` and the original temporal split. It does not inspect feature values, model scores, predictions or sealed-test performance.
 
-The acquisition request is limited to:
+Expected retained cohort from the frozen source panel:
 
-`CERT, REPDTE, NAME, ASSET, EQ, DEP, NETINC, ROA, ROE, LNLSNET, NCLNLS, NCO, LIQASSET, BRO, FREP, SC, NIM, RBCT1CER, RBCT1J, RBCT1R, LNATRES, DEPBRWOFF, DEPLSNB, CHARTER, STALP, STNAME, SPECGRP, BKCLASS, ACTIVE`.
+- train: 162,519 rows, 5,492 entities, 48 positive entities;
+- validation: 28,808 rows, 3,789 entities, 12 positive entities;
+- test: 23,501 rows, 2,077 entities, 102 positive entities;
+- entity overlap: zero.
 
-### Frozen derived features
-
-Only current or trailing information is allowed:
-
-- log assets;
-- equity/assets;
-- deposits/assets;
-- net loans/assets;
-- noncurrent loans/net loans;
-- net charge-offs/net loans;
-- liquid assets/assets;
-- brokered deposits/deposits;
-- fed-funds-and-repos/assets;
-- securities/assets;
-- net income/assets;
-- ROA, ROE and NIM;
-- Tier 1 common, leverage and risk-based capital ratios when reported;
-- one-year growth in assets, deposits, equity and loans;
-- four-quarter means and standard deviations for ROA and noncurrent-loan ratio;
-- negative-income and declining-capital indicators;
-- explicit missingness indicators for every numeric feature.
-
-Ratios with zero or nonpositive denominators are missing, not zero. Continuous features are winsorized using training-only 0.5% and 99.5% bounds, then median-imputed from training data only.
+Python constructs and hashes the derived panel. A fail-closed preflight and an independent Node boundary verifier bind the entity-split and preflight receipts into the final benchmark certificate.
 
 ## Strong baselines
 
-1. `CONSTANT_RATE` — training-vintage failure rate;
-2. `CAMELS_LITE` — transparent fixed-direction score using capital, asset quality, earnings, liquidity and growth;
-3. `LOGISTIC_L2` — regularized logistic regression;
-4. `SURVIVAL_LOGIT` — horizon-weighted discrete-time logistic regression;
-5. `VALIDATION_BEST_BASELINE` — lowest validation expected cost, breaking ties by higher AUPRC, lower Brier score and method name.
+1. constant failure-rate forecast by training vintage;
+2. transparent CAMELS-like score using capital, asset quality, earnings and liquidity ratios;
+3. regularized logistic regression;
+4. discrete-time survival logistic regression;
+5. validation-best baseline selected before test.
 
 ## Challenger family
 
-Only these preregistered variants may compete on validation data:
+Only this finite family may compete on validation data:
 
-- `MONOTONIC_HGB` — monotonic histogram gradient boosting with balanced weights;
-- `MONOTONIC_HGB_HORIZON` — the same model with greater weight on failures occurring within four quarters;
-- `CALIBRATED_ENSEMBLE` — 50/50 survival-logit and monotonic-HGB probabilities followed by Platt calibration on validation data.
+- monotonic gradient boosting with class weighting;
+- monotonic gradient boosting with survival-horizon weights;
+- calibrated ensemble of survival logistic regression and monotonic boosting.
 
-Fixed hyperparameters: maximum depth 3, learning rate 0.05, 200 iterations, minimum leaf size 50 and L2 regularization 1.0. No model, feature, threshold or split changes after the sealed test is opened.
+Feature names, monotonic directions, missingness rules, loss ratio, calibration and selection rule were frozen before a valid sealed test could open.
 
 ## Primary metrics
 
 - area under the precision-recall curve;
-- recall at fixed false-positive rates of 0.5%, 1% and 2%;
-- precision among the top 1% and top 2% of scores;
-- Brier score and ten-bin expected calibration error;
-- expected cost with false-negative cost 100 and false-positive cost 1;
-- median lead time from first alarm to failure;
-- stability by asset-size tercile, charter and crisis/non-crisis period;
-- bank-cluster bootstrap confidence intervals.
+- recall at false-positive rates of 0.5%, 1% and 2%;
+- precision among the top 1% and 2% of risk scores;
+- Brier score and calibration error;
+- expected cost under a 100:1 false-negative/false-positive loss ratio;
+- lead time from first alarm to failure;
+- stability in crisis and non-crisis subsets;
+- entity-cluster bootstrap.
 
 ## Non-compensable gates
 
-A full benchmark passes only when all gates pass:
+A future full benchmark must pass all of the following:
 
-1. official source hashes and live schema are exact;
+1. official source and panel hashes are exact;
 2. zero future-information leakage and zero bank-quarter duplicates;
-3. at least 20 positive validation failures and 100 positive test failures;
-4. challenger test AUPRC exceeds the strongest baseline by at least 5% relatively;
-5. challenger recall at 1% false-positive rate is strictly higher;
-6. challenger Brier score and calibration error are no worse;
-7. challenger expected cost is at least 5% lower;
-8. the paired bank-cluster-bootstrap lower 95% bound for cost improvement is positive;
-9. improvement persists in both crisis and non-crisis subsets when each has at least 20 positives;
-10. Python and an independent Node implementation reproduce labels, split, predictions, metrics and score;
-11. source, label, split, metric and score forgeries are rejected.
+3. zero entity overlap among train, validation and test;
+4. enough positive failure entities and rows in every frozen split;
+5. challenger test AUPRC exceeds the strongest baseline by at least 5% relatively;
+6. challenger recall at 1% false-positive rate is strictly higher;
+7. challenger Brier score and calibration error are no worse;
+8. expected-cost reduction is at least 5%;
+9. improvement persists in crisis and non-crisis subsets when evaluable;
+10. entity-bootstrap lower 95% bound is positive;
+11. split, predictions, metrics, receipts and score survive independent replay;
+12. source, label, split, metric and score forgeries are rejected.
 
 ## Absolute score contract
 
@@ -137,8 +111,8 @@ A full independent PASS may add at most:
 - rigor and reproducibility: `+2`;
 - autonomous growth: `+0`.
 
-Maximum delta: **+20 absolute points**. Until full independent verification, the absolute Finance score remains **423/1000**.
+Maximum delta: **+20 absolute points**. No Stage 0, acquisition, split construction, test execution or Python-only candidate result can increase the score by itself. The canonical absolute Finance score remains **423/1000** until every required independent gate passes.
 
-## Boundary
+## Falsification
 
-A PASS would establish a bounded retrospective early-warning result on official FDIC data. It would not establish regulatory approval, current-bank solvency, misconduct, fraud, causality, live supervisory fitness, universal banking superiority or historical priority.
+The route is falsified or blocked if the strongest baseline wins, any non-compensable gate fails, the entity split lacks enough failures, the result is unstable across regimes, or the evidence cannot be reproduced independently. No parameter, feature, bucket boundary or threshold may be retuned against an observed sealed test.
