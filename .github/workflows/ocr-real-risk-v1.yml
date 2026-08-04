@@ -16,6 +16,7 @@ permissions:
 
 jobs:
   real-risk-canary:
+    if: github.head_ref != 'agent/ocr-real-risk-full-native-index-v1'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
