@@ -13,7 +13,7 @@ permissions:
 jobs:
   official-sealed-gate:
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 90
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -64,6 +64,84 @@ jobs:
               '006cf32ab7cf6926c762fa10cebd11aa884cee3ab017408e63f45a6962e554e2'
           )
           assert all(row['gate'] == 'pass' for row in receipt['rows'])
+          PY
+
+      - name: Prove attempt 1 never evaluated the official model
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p prior-attempt
+          curl --fail --silent --show-error --location \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/8875963672/zip" \
+            -o /tmp/resnet-bitflip-official-attempt1.zip
+          echo '7da24017f9c954ca24b8779e66d0e79e64fdb4a6660fb01affe86b4eca696412  /tmp/resnet-bitflip-official-attempt1.zip' | sha256sum -c -
+          unzip -q /tmp/resnet-bitflip-official-attempt1.zip -d prior-attempt
+          echo '69534da8357157a320448f557770dff428637f6f06703376f881430ec2884a3a  prior-attempt/official-logs/freeze-receipt.json' | sha256sum -c -
+          echo '17d5e9eb7119d4c0fcedf2964b82ba218b8e3c3aaf4caa17857942255dc407ab  prior-attempt/official-logs/official-gate-receipt.json' | sha256sum -c -
+          python - <<'PY'
+          import hashlib
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          root = Path('prior-attempt/official-logs')
+          freeze = json.loads((root / 'freeze-receipt.json').read_text())
+          reported = json.loads((root / 'official-gate-receipt.json').read_text())
+          eval_path = root / 'eval-42.txt'
+          exit_path = root / 'eval-exit-status.txt'
+          train_path = root / 'train-42.txt'
+
+          assert freeze['official_evaluation_count_before_this_run'] == 0
+          assert freeze['solve_sha256'] == (
+              'd9ba5be9caff03d7b73478ae008760d3ae723708a62071d90a6fdf85c93cc902'
+          )
+          assert not exit_path.exists()
+          assert not eval_path.exists() or eval_path.stat().st_size == 0
+          assert not train_path.exists() or train_path.stat().st_size == 0
+          assert reported['evaluation']['parsed'] is False
+          assert reported['evaluation']['process_exit_status'] is None
+          assert reported['evaluation']['raw_sha256'] is None
+          assert reported['cifar10_archive_sha256_line'] is None
+
+          corrected = {
+              'schema': 'data-science-god-level/resnet-bitflip-retry-authorization/1',
+              'created_at_utc': datetime.now(timezone.utc).isoformat(),
+              'prior_attempt': {
+                  'run_id': 30863689442,
+                  'artifact_id': 8875963672,
+                  'artifact_sha256': (
+                      '7da24017f9c954ca24b8779e66d0e79e64fdb4a6660fb01affe86b4eca696412'
+                  ),
+                  'head_sha': '8ac31d1d2f4b0e064fb97810c20af365d05b76fb',
+                  'reported_verdict': reported['verdict'],
+                  'corrected_verdict': 'NOT_RUN',
+                  'evaluation_started': False,
+                  'evaluation_count': 0,
+                  'failure_stage': 'official seed-42 training / dataset acquisition',
+                  'receipt_bug': (
+                      'attempt 1 hard-coded evaluation_count=1 and FAIL even though '
+                      'there was no evaluation log, exit status, parsed result, or dataset hash'
+                  ),
+              },
+              'candidate_unchanged': True,
+              'solve_sha256': freeze['solve_sha256'],
+              'official_evaluation_count_before_retry': 0,
+              'safe_retry_authorized': True,
+              'post_hoc_retuning_permitted': False,
+          }
+          payload = json.dumps(corrected, indent=2, sort_keys=True) + '\n'
+          output = Path('official-logs/retry-authorization-receipt.json')
+          output.write_text(payload)
+          Path('official-logs/retry-authorization-receipt.sha256').write_text(
+              hashlib.sha256(payload.encode()).hexdigest()
+              + '  retry-authorization-receipt.json\n'
+          )
+          print(payload)
           PY
 
       - name: Reconstruct original hash-bound Logic Power v10
@@ -117,7 +195,45 @@ jobs:
           cp task/model.py task/train_model.py task/main.py /app/
           cp frozen/data_science_god_level/resnet_bitflip/solve.py /app/solve.py
 
-      - name: Seal the candidate before official evaluation
+      - name: Prefetch and verify the exact CIFAR-10 archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive='/data/cifar10/cifar-10-python.tar.gz'
+          rm -f "$archive"
+          urls=(
+            'https://zenodo.org/records/10089977/files/cifar-10-python.tar.gz?download=1'
+            'https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz'
+          )
+          downloaded=false
+          for url in "${urls[@]}"; do
+            echo "Trying verified CIFAR-10 source: ${url%%\?*}"
+            if curl --fail --location --retry 4 --retry-all-errors \
+              --connect-timeout 20 --speed-time 60 --speed-limit 50000 \
+              --output "$archive" "$url"; then
+              if echo 'c58f30108f718f92721af3b95e74349a  /data/cifar10/cifar-10-python.tar.gz' | md5sum -c -; then
+                downloaded=true
+                break
+              fi
+            fi
+            rm -f "$archive"
+          done
+          test "$downloaded" = true
+          tar xzf "$archive" -C /data/cifar10
+          cat > /tmp/cifar10-md5sums <<'EOF'
+          c99cafc152244af753f735de768cd75f  /data/cifar10/cifar-10-batches-py/data_batch_1
+          d4bba439e000b95fd0a9bffe97cbabec  /data/cifar10/cifar-10-batches-py/data_batch_2
+          54ebc095f3ab1f0389bbae665268c751  /data/cifar10/cifar-10-batches-py/data_batch_3
+          634d18415352ddfa80567beed471001a  /data/cifar10/cifar-10-batches-py/data_batch_4
+          482c414d41f54cd18b22e5b47cb7c3cb  /data/cifar10/cifar-10-batches-py/data_batch_5
+          40351d587109b95175f43aff81a1287e  /data/cifar10/cifar-10-batches-py/test_batch
+          5ff9c542aee3614f3951f8cda6e48888  /data/cifar10/cifar-10-batches-py/batches.meta
+          EOF
+          md5sum -c /tmp/cifar10-md5sums
+          sha256sum "$archive" | tee official-logs/cifar10-archive.sha256
+          md5sum "$archive" | tee official-logs/cifar10-archive.md5
+
+      - name: Seal the unchanged candidate before official evaluation
         shell: bash
         env:
           PUBLIC_ARTIFACT_ID: '8874857536'
@@ -153,8 +269,16 @@ jobs:
           if forbidden_calls:
               raise SystemExit(f'forbidden calls: {forbidden_calls}')
 
+          retry = json.loads(
+              Path('official-logs/retry-authorization-receipt.json').read_text()
+          )
+          assert retry['safe_retry_authorized'] is True
+          assert retry['official_evaluation_count_before_retry'] == 0
+          assert retry['solve_sha256'] == solve_sha
+
           receipt = {
-              'schema': 'data-science-god-level/resnet-bitflip-freeze/1',
+              'schema': 'data-science-god-level/resnet-bitflip-freeze/2',
+              'attempt_number': 2,
               'public_artifact_id': int(os.environ['PUBLIC_ARTIFACT_ID']),
               'public_run_id': int(os.environ['PUBLIC_RUN_ID']),
               'public_head_sha': os.environ['PUBLIC_HEAD_SHA'],
@@ -169,6 +293,10 @@ jobs:
               'forbidden_calls': forbidden_calls,
               'official_seed': 42,
               'official_evaluation_count_before_this_run': 0,
+              'retry_authorization_sha256': hashlib.sha256(
+                  Path('official-logs/retry-authorization-receipt.json').read_bytes()
+              ).hexdigest(),
+              'candidate_modified_after_public_freeze': False,
               'post_hoc_retuning_permitted': False,
           }
           output = Path('official-logs/freeze-receipt.json')
@@ -184,8 +312,8 @@ jobs:
         run: |
           set -euo pipefail
           python /app/train_model.py | tee official-logs/train-42.txt
-          sha256sum /data/cifar10/cifar-10-python.tar.gz \
-            | tee official-logs/cifar10-archive.sha256
+          test -s /app/model.pth
+          sha256sum /app/model.pth | tee official-logs/model-42.sha256
 
       - name: Evaluate the frozen candidate exactly once
         shell: bash
@@ -193,6 +321,26 @@ jobs:
           OMP_NUM_THREADS: '4'
           MKL_NUM_THREADS: '4'
         run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          marker = {
+              'schema': 'data-science-god-level/resnet-bitflip-evaluation-start/1',
+              'started_at_utc': datetime.now(timezone.utc).isoformat(),
+              'official_seed': 42,
+              'attempt_number': 2,
+              'evaluation_ordinal': 1,
+              'solve_sha256': hashlib.sha256(Path('/app/solve.py').read_bytes()).hexdigest(),
+              'model_sha256': hashlib.sha256(Path('/app/model.pth').read_bytes()).hexdigest(),
+          }
+          Path('official-logs/evaluation-started.json').write_text(
+              json.dumps(marker, indent=2, sort_keys=True) + '\n'
+          )
+          PY
           set +e
           python /app/main.py --benchmark 2>&1 | tee official-logs/eval-42.txt
           status=${PIPESTATUS[0]}
@@ -212,14 +360,16 @@ jobs:
           from pathlib import Path
 
           eval_path = Path('official-logs/eval-42.txt')
+          start_path = Path('official-logs/evaluation-started.json')
+          exit_status_path = Path('official-logs/eval-exit-status.txt')
           text = eval_path.read_text() if eval_path.exists() else ''
+          evaluation_started = start_path.exists()
           match = re.search(
               r'^result=(\w+) accuracy=([0-9.]+) bits_flipped=([0-9]+) '
               r'gate=(\w+) solve_time=([0-9.]+) eval_time=([0-9.]+)',
               text,
               re.MULTILINE,
           )
-          exit_status_path = Path('official-logs/eval-exit-status.txt')
           exit_status = (
               int(exit_status_path.read_text().strip())
               if exit_status_path.exists()
@@ -227,14 +377,17 @@ jobs:
           )
 
           evaluation = {
+              'started': evaluation_started,
               'parsed': bool(match),
               'process_exit_status': exit_status,
               'raw_sha256': (
                   hashlib.sha256(eval_path.read_bytes()).hexdigest()
-                  if eval_path.exists()
+                  if eval_path.exists() and eval_path.stat().st_size > 0
                   else None
               ),
           }
+          if start_path.exists():
+              evaluation['start_marker'] = json.loads(start_path.read_text())
           if match:
               evaluation.update(
                   {
@@ -248,19 +401,40 @@ jobs:
               )
 
           passed = bool(
-              match
+              evaluation_started
+              and match
               and match.group(1) == 'ok'
               and match.group(4) == 'pass'
               and float(match.group(2)) < 0.12
               and int(match.group(3)) <= 40
           )
-          cifar_hash_path = Path('official-logs/cifar10-archive.sha256')
+          if not evaluation_started:
+              verdict = 'NOT_RUN'
+          elif not match:
+              verdict = 'INVALID_RUN'
+          elif passed:
+              verdict = 'PASS'
+          else:
+              verdict = 'FAIL'
+
+          cifar_sha_path = Path('official-logs/cifar10-archive.sha256')
+          cifar_md5_path = Path('official-logs/cifar10-archive.md5')
+          model_sha_path = Path('official-logs/model-42.sha256')
+          retry_path = Path('official-logs/retry-authorization-receipt.json')
+          freeze_path = Path('official-logs/freeze-receipt.json')
           receipt = {
-              'schema': 'data-science-god-level/resnet-bitflip-official/1',
+              'schema': 'data-science-god-level/resnet-bitflip-official/2',
               'adjudicated_at_utc': datetime.now(timezone.utc).isoformat(),
+              'attempt_number': 2,
               'autolab_commit': '7aff5fe71dfbe152fb0b8e8ac8087210b4bc27d5',
               'official_seed': 42,
-              'official_evaluation_count': 1,
+              'official_evaluation_count': 1 if evaluation_started else 0,
+              'prior_attempt': {
+                  'run_id': 30863689442,
+                  'artifact_id': 8875963672,
+                  'corrected_verdict': 'NOT_RUN',
+                  'evaluation_count': 0,
+              },
               'candidate_source': {
                   'artifact_id': 8874857536,
                   'run_id': 30859954376,
@@ -281,16 +455,31 @@ jobs:
               'reference_gate': {
                   'accuracy_strictly_below': 0.12,
                   'bits_flipped_at_most': 40,
+                  'human_reference_bits': 40,
               },
               'evaluation': evaluation,
               'cifar10_archive_sha256_line': (
-                  cifar_hash_path.read_text().strip()
-                  if cifar_hash_path.exists()
+                  cifar_sha_path.read_text().strip() if cifar_sha_path.exists() else None
+              ),
+              'cifar10_archive_md5_line': (
+                  cifar_md5_path.read_text().strip() if cifar_md5_path.exists() else None
+              ),
+              'model_sha256_line': (
+                  model_sha_path.read_text().strip() if model_sha_path.exists() else None
+              ),
+              'retry_authorization_sha256': (
+                  hashlib.sha256(retry_path.read_bytes()).hexdigest()
+                  if retry_path.exists()
+                  else None
+              ),
+              'freeze_receipt_sha256': (
+                  hashlib.sha256(freeze_path.read_bytes()).hexdigest()
+                  if freeze_path.exists()
                   else None
               ),
               'candidate_modified_after_public_freeze': False,
               'post_hoc_retuning_permitted': False,
-              'verdict': 'PASS' if passed else 'FAIL',
+              'verdict': verdict,
           }
           output = Path('official-logs/official-gate-receipt.json')
           payload = json.dumps(receipt, indent=2, sort_keys=True) + '\n'
@@ -307,10 +496,12 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: data-science-god-level-resnet-bitflip-official
+          name: data-science-god-level-resnet-bitflip-official-attempt-2
           retention-days: 90
           path: |
             official-logs/**
+            prior-attempt/official-logs/freeze-receipt.json
+            prior-attempt/official-logs/official-gate-receipt.json
             frozen/data_science_god_level/resnet_bitflip/solve.py
             frozen/data_science_god_level/resnet_bitflip/logic-plan-receipt.json
             frozen/public-logs/public-gate-receipt.json
@@ -326,10 +517,16 @@ jobs:
           if not path.exists():
               raise SystemExit('official receipt missing')
           receipt = json.loads(path.read_text())
-          if receipt['verdict'] != 'PASS':
+          verdict = receipt['verdict']
+          if verdict == 'PASS':
+              print('official seed-42 gate: PASS')
+          elif verdict == 'FAIL':
               raise SystemExit(
-                  'official seed-42 gate failed; candidate remains frozen and '
-                  'the negative result is preserved'
+                  'official seed-42 gate: FAIL; frozen negative result preserved'
               )
-          print('official seed-42 gate: PASS')
+          else:
+              raise SystemExit(
+                  f'official seed-42 gate: {verdict}; infrastructure result, '
+                  'not a candidate verdict'
+              )
           PY
