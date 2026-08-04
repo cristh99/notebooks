@@ -1,0 +1,209 @@
+name: Public cluster-dependent multiscale v21 verification
+
+on:
+  push:
+    branches:
+      - agent/cluster-dependent-multiscale-v21-public
+    paths:
+      - 'inference_power_compiler_v2/verify_cluster_dependent_multiscale_v21_public.py'
+      - 'inference_power_compiler_v2/cluster_dependent_multiscale_v21_public_source.py.xz.b64'
+      - 'ClusterDependentMultiscalePublic.lean'
+      - '.github/workflows/cluster-dependent-multiscale-v21-public.yml'
+  pull_request:
+    paths:
+      - 'inference_power_compiler_v2/verify_cluster_dependent_multiscale_v21_public.py'
+      - 'inference_power_compiler_v2/cluster_dependent_multiscale_v21_public_source.py.xz.b64'
+      - 'ClusterDependentMultiscalePublic.lean'
+      - '.github/workflows/cluster-dependent-multiscale-v21-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-cluster-dependent-multiscale-v21-public:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+
+      - name: Decode and execute independent verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          bootstrap='inference_power_compiler_v2/verify_cluster_dependent_multiscale_v21_public.py'
+          decoded='inference_power_compiler_v2/verify_cluster_dependent_multiscale_v21_public_decoded.py'
+          compressed='inference_power_compiler_v2/cluster_dependent_multiscale_v21_public_source.py.xz.b64'
+          test "$(sha256sum "$compressed" | cut -d' ' -f1)" = \
+            '09a971d6edc3764c449a1174b162cd64dfd3e5d6242b5679ee0afa6487485591'
+          python -m py_compile "$bootstrap"
+          python "$bootstrap" --emit-source "$decoded"
+          test "$(sha256sum "$decoded" | cut -d' ' -f1)" = \
+            '5ce9648d4876f735dcfc3559f2385c240d369744fc16d93e1616d72c6328909f'
+          python -m py_compile "$decoded"
+          python "$decoded" | tee cluster-dependent-v21-public.log
+          test -s inference_power_compiler_v2/CLUSTER_DEPENDENT_MULTISCALE_PUBLIC_CERTIFICATE.json
+          test -s inference_power_compiler_v2/CLUSTER_DEPENDENT_MULTISCALE_PUBLIC_REPORT.json
+          sha256sum \
+            inference_power_compiler_v2/CLUSTER_DEPENDENT_MULTISCALE_PUBLIC_CERTIFICATE.json \
+            inference_power_compiler_v2/CLUSTER_DEPENDENT_MULTISCALE_PUBLIC_REPORT.json \
+            > /tmp/cluster-v21-public-before.sha256
+          python "$decoded" > /tmp/cluster-v21-public-rebuild.log
+          sha256sum \
+            inference_power_compiler_v2/CLUSTER_DEPENDENT_MULTISCALE_PUBLIC_CERTIFICATE.json \
+            inference_power_compiler_v2/CLUSTER_DEPENDENT_MULTISCALE_PUBLIC_REPORT.json \
+            > /tmp/cluster-v21-public-after.sha256
+          cmp /tmp/cluster-v21-public-before.sha256 /tmp/cluster-v21-public-after.sha256
+
+      - name: Audit exact public outputs and private binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path(
+              'inference_power_compiler_v2/CLUSTER_DEPENDENT_MULTISCALE_PUBLIC_REPORT.json'
+          ).read_text())
+          assert report['status'] == 'SOLVED'
+          assert report['comparison_target'] == {
+              'repository': 'cristh99/my_first_repository',
+              'pull_request': 94,
+              'head': '6bed14a05cbe22dd5b196d8cfb29b9b0be2e931a',
+          }
+          assert report['canonical']['raw_paths'] == 65536
+          assert report['canonical']['states'] == 81
+          assert report['canonical']['joint']['event_mass'] == [4004639, 4194304]
+          assert report['canonical']['joint']['radii'] == [
+              [3, 64], [3, 32], [5, 32], [7, 32], [3, 8]
+          ]
+          assert report['canonical']['bonferroni']['radii'] == [
+              [3, 64], [3, 32], [3, 16], [9, 32], [15, 32]
+          ]
+          assert report['canonical']['oracle_risk_reduction_fraction'] == [1, 10]
+          assert report['probability_bridge']['guarantee_mass'] == [31, 32]
+          assert report['probability_bridge']['violation_mass'] == [1, 32]
+          assert report['probability_bridge']['maximum_ratio'] == [31, 1]
+          logic = report['logic_power_v10_independent_reconstruction']
+          assert logic['hypotheses'] == 512
+          assert logic['conflict_pairs'] == 511
+          assert logic['fixed_cost'] == [84, 1]
+          assert report['negative_controls'] == {
+              'unknown_cluster_dependence': 'UNKNOWN_CLUSTER_DEPENDENCE',
+              'distribution_resource_limit': 'UNKNOWN_RESOURCE_LIMIT',
+              'radius_search_resource_limit': 'UNKNOWN_RESOURCE_LIMIT',
+              'invalid_bias_envelope': 'INVALID_BIAS_ENVELOPE',
+          }
+          assert report['semantic_replay'] == 'PASS'
+          assert report['tampered_certificate'] == 'REJECTED:payload-hash'
+          assert report['forged_certificate'] == 'REJECTED:semantic-replay'
+          PY
+
+      - name: Install pinned Lean
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -sSf \
+            https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          "$HOME/.elan/bin/elan" toolchain install leanprover/lean4:v4.33.0-rc1
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Compile public formal boundary without axioms
+        shell: bash
+        run: |
+          set -euo pipefail
+          elan run leanprover/lean4:v4.33.0-rc1 lean \
+            -o ClusterDependentMultiscalePublic.olean \
+            ClusterDependentMultiscalePublic.lean \
+            2>&1 | tee cluster-dependent-v21-public-lean.log
+          test -s ClusterDependentMultiscalePublic.olean
+          if grep -Eq 'sorryAx|depends on axioms:' cluster-dependent-v21-public-lean.log; then
+            echo 'Unexpected Lean axiom dependency' >&2
+            exit 1
+          fi
+
+      - name: Build public verification receipt
+        shell: bash
+        env:
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PUBLIC_EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          files = {
+              'report': Path('inference_power_compiler_v2/CLUSTER_DEPENDENT_MULTISCALE_PUBLIC_REPORT.json'),
+              'certificate': Path('inference_power_compiler_v2/CLUSTER_DEPENDENT_MULTISCALE_PUBLIC_CERTIFICATE.json'),
+              'bootstrap': Path('inference_power_compiler_v2/verify_cluster_dependent_multiscale_v21_public.py'),
+              'compressed_source': Path('inference_power_compiler_v2/cluster_dependent_multiscale_v21_public_source.py.xz.b64'),
+              'decoded_source': Path('inference_power_compiler_v2/verify_cluster_dependent_multiscale_v21_public_decoded.py'),
+              'lean': Path('ClusterDependentMultiscalePublic.lean'),
+          }
+          receipt = {
+              'schema': 'cluster-dependent-multiscale-v21-public-receipt/1',
+              'repository': 'cristh99/notebooks',
+              'head': os.environ['PUBLIC_HEAD_SHA'],
+              'event_sha': os.environ['PUBLIC_EVENT_SHA'],
+              'comparison_target': {
+                  'repository': 'cristh99/my_first_repository',
+                  'pull_request': 94,
+                  'head': '6bed14a05cbe22dd5b196d8cfb29b9b0be2e931a',
+              },
+              'sha256': {
+                  name: hashlib.sha256(path.read_bytes()).hexdigest()
+                  for name, path in files.items()
+              },
+              'decoded_source_sha256': '5ce9648d4876f735dcfc3559f2385c240d369744fc16d93e1616d72c6328909f',
+              'independent_reconstruction': 'PASS',
+              'exact_cluster_convolution': 'PASS',
+              'within_cluster_dependence_preserved': 'PASS',
+              'joint_simultaneous_coverage': 'PASS',
+              'bonferroni_comparison': 'PASS',
+              'factor_five_probability_bridge': 'PASS',
+              'nonvacuous_outside_event_failure': 'PASS',
+              'logic_power_independent_reconstruction': 'PASS',
+              'negative_controls_executed': 'PASS',
+              'semantic_replay': 'PASS',
+              'deterministic_rebuild': 'PASS',
+              'certificate_tamper_rejection': 'PASS',
+              'semantic_forgery_rejection': 'PASS',
+              'lean': 'PASS',
+              'sorryAx': 'ABSENT',
+              'axiom_dependencies': 'ABSENT',
+          }
+          path = Path('inference_power_compiler_v2/CLUSTER_DEPENDENT_MULTISCALE_PUBLIC_RECEIPT.json')
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path('inference_power_compiler_v2/CLUSTER_DEPENDENT_MULTISCALE_PUBLIC_RECEIPT.sha256').write_text(
+              f'{digest}  CLUSTER_DEPENDENT_MULTISCALE_PUBLIC_RECEIPT.json\n'
+          )
+          print(path.read_text())
+          print(digest)
+          PY
+
+      - name: Upload public evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cluster-dependent-multiscale-v21-public-evidence
+          path: |
+            inference_power_compiler_v2/CLUSTER_DEPENDENT_MULTISCALE_PUBLIC_*.json
+            inference_power_compiler_v2/CLUSTER_DEPENDENT_MULTISCALE_PUBLIC_RECEIPT.sha256
+            inference_power_compiler_v2/verify_cluster_dependent_multiscale_v21_public.py
+            inference_power_compiler_v2/cluster_dependent_multiscale_v21_public_source.py.xz.b64
+            inference_power_compiler_v2/verify_cluster_dependent_multiscale_v21_public_decoded.py
+            ClusterDependentMultiscalePublic.lean
+            ClusterDependentMultiscalePublic.olean
+            cluster-dependent-v21-public.log
+            cluster-dependent-v21-public-lean.log
+          if-no-files-found: error
+          retention-days: 90
