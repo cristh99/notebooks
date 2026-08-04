@@ -6,9 +6,11 @@ from .core import Candidate
 from .evaluate_dual_anchor import (
     canonical_dual_truth,
     filter_words_by_anchor,
+    partition_process_disjoint_candidates,
     prepare_process_disjoint_candidates,
     quantile_pages,
 )
+from .final_partition import process_key
 
 
 def candidate(
@@ -42,8 +44,6 @@ class DualAnchorEvaluationTests(unittest.TestCase):
         self.assertEqual(filtered[0]["text"], "Proyecto")
         self.assertEqual(filtered[1]["text"], "110509")
         self.assertEqual(filtered[2]["text"], "")
-        # Years are outside the measured truth protocol and remain irrelevant
-        # without being counted as an anchor rejection.
         self.assertEqual(filtered[3]["text"], "2025")
         self.assertEqual(counts["anchored_numeric_words"], 1)
         self.assertEqual(counts["unanchored_numeric_words_excluded"], 1)
@@ -126,6 +126,44 @@ class DualAnchorEvaluationTests(unittest.TestCase):
         )
         self.assertEqual(census["excluded_out_of_vector_truth_scope"], 1)
         self.assertFalse(census["selection_uses_ocr"])
+
+    def test_canary_and_final_are_process_disjoint_after_document_selection(self) -> None:
+        values: list[Candidate] = []
+        for index in range(100):
+            process = f"P{index}"
+            values.extend(
+                [
+                    candidate(
+                        f"https://example.test/{index}-contract.pdf",
+                        process,
+                        "contractSigned",
+                    ),
+                    candidate(
+                        f"https://example.test/{index}-bid.pdf",
+                        process,
+                        "biddingDocuments",
+                    ),
+                ]
+            )
+        canary, canary_census = partition_process_disjoint_candidates(
+            values,
+            frozenset(range(0, 10)),
+        )
+        final, final_census = partition_process_disjoint_candidates(
+            values,
+            frozenset(range(10, 100)),
+        )
+        canary_keys = {process_key(row) for row in canary}
+        final_keys = {process_key(row) for row in final}
+        self.assertFalse(canary_keys & final_keys)
+        self.assertEqual(len(canary_keys | final_keys), 100)
+        self.assertEqual(
+            canary_census["unique_processes"],
+            final_census["unique_processes"],
+        )
+        self.assertTrue(
+            all(row.document_type == "biddingDocuments" for row in canary + final)
+        )
 
 
 if __name__ == "__main__":
