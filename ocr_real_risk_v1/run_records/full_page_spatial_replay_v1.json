@@ -1,0 +1,13 @@
+{
+  "artifact_digest": "23442df82eefbe4706265c6182456eeb04fcfd1031009d0c9320e3197e2710f7",
+  "artifact_id": 8911627777,
+  "commit_sha": "fa9588d2c184b3890d5aa599726d77730208eb61",
+  "job": "replay-sealed-full-pages",
+  "report_file_sha256": "3796565867e76d4c94049bf76d265d6c7365cb21ad10f3b07570ec78151b8c16",
+  "run_id": 30956219549,
+  "schema": "ocr-real-risk-run-record/1",
+  "source_validation_run_id": 30953079172,
+  "stable_payload_sha256": "7ff3c5e641db59b7d793f96efccaef819442832155a13a8eb0bbdb928a623519",
+  "verdict": "FULL_PAGE_BASELINE_TOO_CLEAN_TO_CERTIFY",
+  "workflow": "OCR full-page spatial replay v1"
+}
