@@ -1,0 +1,211 @@
+name: Public graphical dependent multiscale v22 verification
+
+on:
+  push:
+    branches:
+      - agent/graphical-dependent-multiscale-v22-public
+    paths:
+      - 'inference_power_compiler_v2/verify_graphical_dependent_multiscale_v22_public.py'
+      - 'inference_power_compiler_v2/graphical_dependent_multiscale_v22_public_source.py.xz.b64'
+      - 'GraphicalDependentMultiscalePublic.lean'
+      - '.github/workflows/graphical-dependent-multiscale-v22-public.yml'
+  pull_request:
+    paths:
+      - 'inference_power_compiler_v2/verify_graphical_dependent_multiscale_v22_public.py'
+      - 'inference_power_compiler_v2/graphical_dependent_multiscale_v22_public_source.py.xz.b64'
+      - 'GraphicalDependentMultiscalePublic.lean'
+      - '.github/workflows/graphical-dependent-multiscale-v22-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-graphical-dependent-multiscale-v22-public:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+
+      - name: Decode and execute independent verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          bootstrap='inference_power_compiler_v2/verify_graphical_dependent_multiscale_v22_public.py'
+          decoded='inference_power_compiler_v2/verify_graphical_dependent_multiscale_v22_public_decoded.py'
+          compressed='inference_power_compiler_v2/graphical_dependent_multiscale_v22_public_source.py.xz.b64'
+          test "$(sha256sum "$compressed" | cut -d' ' -f1)" = \
+            '88cdf0dbe5d6a3b9a04190b7ec27df6303e772b99622d5eab5e5b6ae5b264a16'
+          python -m py_compile "$bootstrap"
+          python "$bootstrap" --emit-source "$decoded"
+          test "$(sha256sum "$decoded" | cut -d' ' -f1)" = \
+            'b01df9b5b27edf23b10cbe7f4d9d4e51e22a094bf7b24ccd3b5cc38108e28677'
+          python -m py_compile "$decoded"
+          python "$decoded" | tee graphical-dependent-v22-public.log
+          test -s inference_power_compiler_v2/GRAPHICAL_DEPENDENT_MULTISCALE_PUBLIC_CERTIFICATE.json
+          test -s inference_power_compiler_v2/GRAPHICAL_DEPENDENT_MULTISCALE_PUBLIC_REPORT.json
+          sha256sum \
+            inference_power_compiler_v2/GRAPHICAL_DEPENDENT_MULTISCALE_PUBLIC_CERTIFICATE.json \
+            inference_power_compiler_v2/GRAPHICAL_DEPENDENT_MULTISCALE_PUBLIC_REPORT.json \
+            > /tmp/v22-public-before.sha256
+          python "$decoded" > /tmp/v22-public-rebuild.log
+          sha256sum \
+            inference_power_compiler_v2/GRAPHICAL_DEPENDENT_MULTISCALE_PUBLIC_CERTIFICATE.json \
+            inference_power_compiler_v2/GRAPHICAL_DEPENDENT_MULTISCALE_PUBLIC_REPORT.json \
+            > /tmp/v22-public-after.sha256
+          cmp /tmp/v22-public-before.sha256 /tmp/v22-public-after.sha256
+
+      - name: Audit exact public outputs and private binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path(
+              'inference_power_compiler_v2/GRAPHICAL_DEPENDENT_MULTISCALE_PUBLIC_REPORT.json'
+          ).read_text())
+          canonical = report['canonical']
+          obstruction = report['matched_marginal_obstruction']
+          assert report['status'] == 'SOLVED'
+          assert report['comparison_target'] == {
+              'repository': 'cristh99/my_first_repository',
+              'pull_request': 101,
+              'head': 'f0f21f9be2b75f084cd2bf4fb47871c72f226dd5',
+          }
+          assert canonical['assignments'] == 131072
+          assert canonical['states'] == 81
+          assert canonical['joint']['radii'] == [
+              [1, 16], [1, 8], [5, 32], [7, 32], [3, 8]
+          ]
+          assert canonical['joint']['mass'] == [2040535305, 2147483648]
+          assert canonical['joint']['examined'] == 11277
+          assert obstruction['naive_radii'] == [
+              [3, 64], [3, 32], [5, 32], [7, 32], [3, 8]
+          ]
+          assert obstruction['naive_actual_mass_under_dependency'] == [
+              1018398879, 1073741824
+          ]
+          assert obstruction['graphical_mass'] == [2040535305, 2147483648]
+          assert obstruction['coverage_recovery'] == [3737547, 2147483648]
+          assert report['logic_power']['hypotheses'] == 1024
+          assert report['logic_power']['conflicts'] == 1023
+          assert report['logic_power']['fixed_cost'] == [95, 1]
+          assert report['monte_carlo']['violations'] == 0
+          assert report['chaos_stress']['violations'] == 0
+          assert report['negative_controls'] == {
+              'assignment_resource': 'UNKNOWN_RESOURCE_LIMIT',
+              'bias_envelope': 'INVALID_BIAS_ENVELOPE',
+              'graphical_factorization': 'UNKNOWN_GRAPHICAL_FACTORIZATION',
+              'radius_resource': 'UNKNOWN_RESOURCE_LIMIT',
+          }
+          assert report['semantic_replay'] == 'PASS'
+          assert report['tampered_certificate'] == 'REJECTED:payload-hash'
+          assert report['forged_certificate'] == 'REJECTED:semantic-replay'
+          PY
+
+      - name: Install pinned Lean
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -sSf \
+            https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          "$HOME/.elan/bin/elan" toolchain install leanprover/lean4:v4.33.0-rc1
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Compile public formal boundary without axioms
+        shell: bash
+        run: |
+          set -euo pipefail
+          elan run leanprover/lean4:v4.33.0-rc1 lean \
+            -o GraphicalDependentMultiscalePublic.olean \
+            GraphicalDependentMultiscalePublic.lean \
+            2>&1 | tee graphical-dependent-v22-public-lean.log
+          test -s GraphicalDependentMultiscalePublic.olean
+          if grep -Eq 'sorryAx|depends on axioms:' graphical-dependent-v22-public-lean.log; then
+            echo 'Unexpected Lean axiom dependency' >&2
+            exit 1
+          fi
+
+      - name: Build public verification receipt
+        shell: bash
+        env:
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PUBLIC_EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          files = {
+              'report': Path('inference_power_compiler_v2/GRAPHICAL_DEPENDENT_MULTISCALE_PUBLIC_REPORT.json'),
+              'certificate': Path('inference_power_compiler_v2/GRAPHICAL_DEPENDENT_MULTISCALE_PUBLIC_CERTIFICATE.json'),
+              'bootstrap': Path('inference_power_compiler_v2/verify_graphical_dependent_multiscale_v22_public.py'),
+              'compressed_source': Path('inference_power_compiler_v2/graphical_dependent_multiscale_v22_public_source.py.xz.b64'),
+              'decoded_source': Path('inference_power_compiler_v2/verify_graphical_dependent_multiscale_v22_public_decoded.py'),
+              'lean': Path('GraphicalDependentMultiscalePublic.lean'),
+          }
+          receipt = {
+              'schema': 'graphical-dependent-multiscale-v22-public-receipt/1',
+              'repository': 'cristh99/notebooks',
+              'head': os.environ['PUBLIC_HEAD_SHA'],
+              'event_sha': os.environ['PUBLIC_EVENT_SHA'],
+              'comparison_target': {
+                  'repository': 'cristh99/my_first_repository',
+                  'pull_request': 101,
+                  'head': 'f0f21f9be2b75f084cd2bf4fb47871c72f226dd5',
+              },
+              'sha256': {
+                  name: hashlib.sha256(path.read_bytes()).hexdigest()
+                  for name, path in files.items()
+              },
+              'decoded_source_sha256': 'b01df9b5b27edf23b10cbe7f4d9d4e51e22a094bf7b24ccd3b5cc38108e28677',
+              'independent_reconstruction': 'PASS',
+              'graphical_factorization': 'PASS',
+              'matched_marginal_undercoverage_falsifier': 'PASS',
+              'exact_joint_enumeration': 'PASS',
+              'joint_radius_optimization': 'PASS',
+              'simultaneous_coverage': 'PASS',
+              'logic_power_independent_reconstruction': 'PASS',
+              'negative_controls_executed': 'PASS',
+              'semantic_replay': 'PASS',
+              'deterministic_rebuild': 'PASS',
+              'tamper_rejection': 'PASS',
+              'semantic_forgery_rejection': 'PASS',
+              'lean': 'PASS',
+              'sorryAx': 'ABSENT',
+              'axiom_dependencies': 'ABSENT',
+          }
+          path = Path('inference_power_compiler_v2/GRAPHICAL_DEPENDENT_MULTISCALE_PUBLIC_RECEIPT.json')
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path('inference_power_compiler_v2/GRAPHICAL_DEPENDENT_MULTISCALE_PUBLIC_RECEIPT.sha256').write_text(
+              f'{digest}  GRAPHICAL_DEPENDENT_MULTISCALE_PUBLIC_RECEIPT.json\n'
+          )
+          print(path.read_text())
+          print(digest)
+          PY
+
+      - name: Upload public evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: graphical-dependent-multiscale-v22-public-evidence
+          path: |
+            inference_power_compiler_v2/GRAPHICAL_DEPENDENT_MULTISCALE_PUBLIC_*.json
+            inference_power_compiler_v2/GRAPHICAL_DEPENDENT_MULTISCALE_PUBLIC_RECEIPT.sha256
+            inference_power_compiler_v2/verify_graphical_dependent_multiscale_v22_public.py
+            inference_power_compiler_v2/graphical_dependent_multiscale_v22_public_source.py.xz.b64
+            inference_power_compiler_v2/verify_graphical_dependent_multiscale_v22_public_decoded.py
+            GraphicalDependentMultiscalePublic.lean
+            GraphicalDependentMultiscalePublic.olean
+            graphical-dependent-v22-public.log
+            graphical-dependent-v22-public-lean.log
+          if-no-files-found: error
+          retention-days: 90
