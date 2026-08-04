@@ -30,6 +30,9 @@ from .protocol import ABSOLUTE_SCORE, ENTITY_SPLIT_SEED, EXPECTED_BUCKET_RULE, W
 SCHEMA = "fin-abs-004b/fdic-sealed-rf-benchmark/1"
 FALSE_NEGATIVE_COST = 100.0
 FALSE_POSITIVE_COST = 1.0
+TEST_YEARS = tuple(
+    range(WINDOWS["test"][0].year, WINDOWS["test"][1].year + 1)
+)
 
 
 def sha_file(path: Path) -> str:
@@ -58,7 +61,12 @@ def subset_metrics(
     threshold: float,
 ) -> dict[str, Any]:
     if frame.empty:
-        return {"rows": 0, "positive_rows": 0, "positive_entities": 0, "metrics": None}
+        return {
+            "rows": 0,
+            "positive_rows": 0,
+            "positive_entities": 0,
+            "metrics": None,
+        }
     return {
         "rows": int(len(frame)),
         "positive_rows": int(frame["label"].sum()),
@@ -138,7 +146,7 @@ def benchmark(
     challenger_threshold = float(selection_thresholds[selected_challenger]["threshold"])
 
     by_year: dict[str, dict[str, Any]] = {}
-    for year in (2012, 2013):
+    for year in TEST_YEARS:
         mask = (test["REPDTE"].dt.year == year).to_numpy()
         by_year[str(year)] = {
             "baseline": subset_metrics(
@@ -185,7 +193,7 @@ def benchmark(
         )
 
     entity_overlap = preflight_contract["entity_overlap_counts"]
-    gates = {
+    gates: dict[str, bool] = {
         "entity_report_hash_exact": preflight_contract["panel_report_sha256"]
         == panel_report["sha256"],
         "official_panel_hash_exact": panel_sha
@@ -194,7 +202,9 @@ def benchmark(
             panel.duplicated(["CERT", "REPDTE"]).sum()
         )
         == 0,
-        "zero_entity_overlap": all(int(value) == 0 for value in entity_overlap.values()),
+        "zero_entity_overlap": all(
+            int(value) == 0 for value in entity_overlap.values()
+        ),
         "zero_calibration_selection_entity_overlap": int(
             calibration_split["entity_overlap"]
         )
@@ -233,8 +243,6 @@ def benchmark(
         "challenger_expected_cost_reduction_at_least_5pct": (
             cost_reduction is not None and cost_reduction >= 0.05
         ),
-        "year_2012_cost_improves": year_cost_improves(by_year["2012"]),
-        "year_2013_cost_improves": year_cost_improves(by_year["2013"]),
         "bank_cluster_bootstrap_lower_bound_positive": float(
             bootstrap["lower_95"]
             if bootstrap["lower_95"] is not None
@@ -242,6 +250,14 @@ def benchmark(
         )
         > 0.0,
     }
+    gates.update(
+        {
+            f"year_{year}_cost_improves": year_cost_improves(
+                by_year[str(year)]
+            )
+            for year in TEST_YEARS
+        }
+    )
     candidate_pass = all(gates.values())
 
     prediction_rows: list[dict[str, Any]] = []
@@ -282,7 +298,9 @@ def benchmark(
                 item["CERT"],
             ),
         ):
-            handle.write(json.dumps(row, sort_keys=True, separators=(",", ":")) + "\n")
+            handle.write(
+                json.dumps(row, sort_keys=True, separators=(",", ":")) + "\n"
+            )
 
     calibration_assignments = (
         validation[["CERT"]]
@@ -338,6 +356,7 @@ def benchmark(
                 name: [start.date().isoformat(), end.date().isoformat()]
                 for name, (start, end) in WINDOWS.items()
             },
+            "test_years": list(TEST_YEARS),
             "entity_split_seed": ENTITY_SPLIT_SEED,
             "entity_bucket_rule": EXPECTED_BUCKET_RULE,
             "calibration_split": calibration_split,
@@ -383,7 +402,7 @@ def benchmark(
         "status": (
             "CANDIDATE_PASS_PENDING_INDEPENDENT_MODEL_REPLAY"
             if candidate_pass
-            else "FALSIFIED_OR_OPEN_ON_FDIC_2012_2013"
+            else "FALSIFIED_OR_OPEN_ON_FDIC_2012_2014"
         ),
         "absolute_score": {
             "before": ABSOLUTE_SCORE,
