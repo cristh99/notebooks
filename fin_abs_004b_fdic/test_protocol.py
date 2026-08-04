@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 
+import numpy as np
 import pandas as pd
 
 from fin_abs_004_fdic import entity_split as base_split
@@ -37,11 +38,21 @@ class UntouchedFdicProtocolTests(unittest.TestCase):
             self.assertLess(fetch_start, WINDOWS[split][0])
             self.assertEqual(fetch_end, WINDOWS[split][1])
 
-    def test_timestamp_canonicalization_is_stable(self) -> None:
-        value = {"date": pd.Timestamp("2012-03-31"), "amount": 7}
+    def test_timestamp_and_missing_canonicalization_is_stable(self) -> None:
+        value = {
+            "date": pd.Timestamp("2012-03-31"),
+            "amount": 7,
+            "missing_float": float("nan"),
+            "missing_numpy": np.float64(np.nan),
+            "missing_date": pd.NaT,
+        }
         self.assertEqual(
             canonical_with_dates(value),
-            '{"amount":7,"date":"2012-03-31T00:00:00"}',
+            (
+                '{"amount":7,"date":"2012-03-31T00:00:00",'
+                '"missing_date":null,"missing_float":null,'
+                '"missing_numpy":null}'
+            ),
         )
         self.assertEqual(canonical_with_dates(value), canonical_with_dates(value))
 
