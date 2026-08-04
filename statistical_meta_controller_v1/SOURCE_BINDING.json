@@ -1,0 +1,20 @@
+{
+  "schema": "statistical-meta-controller/public-source-binding/1",
+  "private_repository": "cristh99/my_first_repository",
+  "private_branch": "agent/statistical-meta-controller-v1",
+  "private_head": "41df2ce6319eac75e0ebf4e176da0fee43fa8bf7",
+  "private_pull_request": 107,
+  "private_issue": 106,
+  "private_base": "agent/logic-power-problem-solver-v1",
+  "encoded_bundle_sha256": "dd3842131dee55ab5ac23ca77f6c2427901f3395d7e7e5b7382a1655b9d1c21b",
+  "gzip_bundle_sha256": "0071e3ceb00542a4bcf71bbdaa7bff1d193416c83cdc53741192f48e484d5cd4",
+  "expected_source_sha256": {
+    "README.md": "2c665f7af6b77d735d9e5ea48602b21f28c995c03f8f5f2b5187eaeba23120e6",
+    "__init__.py": "697ce7224f65c20c4ff56f8288183309835274b51ceb2e1d13d763b27d6f95a1",
+    "benchmark.py": "f6f21974e782dcb83aff6030a8cfe5018c940df4f549e825c9aa2774120c89a5",
+    "meta_controller.py": "e4cdf92e6606ecdf4540879e55f9c3d1277d42341885ed732a0c6f4af159383c",
+    "preregistration.json": "7b3897e8534bf6265da32ea0b4335b8caca6ba1d7bdde66a0ad271fa6358a8c9",
+    "test_meta_controller.py": "13f1a2e6cd120b8dbd5398ee854d81faf2dc0131543f7d138f0bf1e797360557",
+    "verify_receipt.js": "f1006e1b934115768c428570c0901c07e6b0c004b9fe7041bcc882a234be1991"
+  }
+}
