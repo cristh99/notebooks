@@ -136,5 +136,13 @@
     "python_compile": "PASS",
     "external_dataset_bytes_accessed_before_freeze": false,
     "candidate_or_baselines_evaluated_before_activation": false
+  },
+  "environment": {
+    "python": "3.11",
+    "numpy": "1.26.4",
+    "scipy": "1.14.1",
+    "scikit_learn": "1.5.2",
+    "cpu_only": true,
+    "paid_compute": false
   }
 }
