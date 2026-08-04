@@ -12,6 +12,7 @@ on:
       - 'ocr_reading_order_honduras_router_v1/verify_preparation.py'
       - 'ocr_reading_order_honduras_router_v1/requirements.txt'
       - 'ocr_god_10x_quality_v1/**'
+      - 'ocr_god_10x_latin_v1/**'
       - '.github/workflows/ocr-reading-order-honduras-router-v1.yml'
   workflow_dispatch:
 
@@ -121,18 +122,86 @@ jobs:
             --stage1-report stage1/real_benchmark.json \
             --annotation "${ANNOTATION}" \
             --artifact-sha256 "${STAGE1_ARTIFACT_SHA256}"
-      - name: Hash evidence
-        if: always()
-        run: |
-          mkdir -p ocr_god_10x_quality_v1/run
-          cp annotation_path.txt ocr_god_10x_quality_v1/run/annotation_path.txt || true
-          python -m pip freeze | LC_ALL=C sort > ocr_god_10x_quality_v1/run/pip-freeze.txt
-          find ocr_god_10x_quality_v1/run -maxdepth 1 -type f ! -name SHA256SUMS.txt -print0 \
-            | sort -z | xargs -0 sha256sum > ocr_god_10x_quality_v1/run/SHA256SUMS.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        if: always()
         with:
           name: ocr-god-10x-full-content-quality
           path: ocr_god_10x_quality_v1/run
+          if-no-files-found: error
+          retention-days: 30
+
+  latin-specialized-benchmark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK: 'True'
+      PADDLE_PDX_MODEL_SOURCE: 'BOS'
+      PADDLE_OCR_BASE_DIR: ${{ github.workspace }}/.paddleocr
+      OMP_NUM_THREADS: '10'
+      OPENBLAS_NUM_THREADS: '10'
+      MKL_NUM_THREADS: '10'
+      OMP_THREAD_LIMIT: '10'
+      STAGE1_ARTIFACT_ID: '8875749570'
+      STAGE1_ARTIFACT_SHA256: 'f9164ebf8fda6d50f67cae29b8f6e6352c47bcfa555b72573c78cddfa378e1b6'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Install Tesseract baseline
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng
+      - name: Install official PaddlePaddle and PaddleOCR
+        run: |
+          python -m pip install --disable-pip-version-check \
+            paddlepaddle==3.2.0 \
+            -i https://www.paddlepaddle.org.cn/packages/stable/cpu/
+          python -m pip install --disable-pip-version-check \
+            paddleocr==3.7.0 Pillow==12.2.0 pytesseract==0.3.13 huggingface-hub==1.26.0
+          paddleocr install_hpi_deps cpu
+      - name: Unit and gate tests
+        run: python -m unittest -v ocr_god_10x_quality_v1.test_full_content ocr_god_10x_latin_v1.test_benchmark
+      - name: Download exact frozen Stage 1 evidence
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${STAGE1_ARTIFACT_ID}/zip" > stage1.zip
+          echo "${STAGE1_ARTIFACT_SHA256}  stage1.zip" | sha256sum --check --strict
+          mkdir stage1
+          unzip -q stage1.zip -d stage1
+          test -f stage1/real_benchmark.json
+      - name: Materialize pinned annotation
+        run: |
+          python - <<'PY' > annotation_path.txt
+          from huggingface_hub import hf_hub_download
+          print(hf_hub_download(
+              'opendatalab/OmniDocBench',
+              'OmniDocBench.json',
+              repo_type='dataset',
+              revision='aa1ee96d106dbe53d0ae59474d75c6e6d9b53fec',
+          ))
+          PY
+      - name: Execute Latin recognizer benchmark
+        run: |
+          python -m ocr_god_10x_latin_v1.benchmark \
+            --stage1-report stage1/real_benchmark.json \
+            --annotation "$(cat annotation_path.txt)" \
+            --artifact-sha256 "${STAGE1_ARTIFACT_SHA256}" \
+            --output-dir ocr_god_10x_latin_v1/run
+      - name: Independent semantic replay
+        run: python -m ocr_god_10x_latin_v1.verify ocr_god_10x_latin_v1/run/latin_benchmark.json
+      - name: Hash evidence
+        if: always()
+        run: |
+          mkdir -p ocr_god_10x_latin_v1/run
+          python -m pip freeze | LC_ALL=C sort > ocr_god_10x_latin_v1/run/pip-freeze.txt
+          tesseract --version > ocr_god_10x_latin_v1/run/tesseract-version.txt
+          find ocr_god_10x_latin_v1/run -maxdepth 1 -type f ! -name SHA256SUMS.txt -print0 \
+            | sort -z | xargs -0 sha256sum > ocr_god_10x_latin_v1/run/SHA256SUMS.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: ocr-god-10x-latin-v1
+          path: ocr_god_10x_latin_v1/run
           if-no-files-found: error
           retention-days: 30
