@@ -1,11 +1,11 @@
 {
-  "conclusion": "failure",
-  "created_at": "2026-08-04T22:13:32Z",
-  "html_url": "https://github.com/cristh99/notebooks/actions/runs/30955567023",
+  "conclusion": "success",
+  "created_at": "2026-08-04T22:23:36Z",
+  "html_url": "https://github.com/cristh99/notebooks/actions/runs/30956219549",
   "jobs": [
     {
-      "conclusion": "failure",
-      "id": 92147648107,
+      "conclusion": "success",
+      "id": 92149768638,
       "name": "replay-sealed-full-pages",
       "status": "completed",
       "steps": [
@@ -34,43 +34,43 @@
           "status": "completed"
         },
         {
-          "conclusion": "failure",
+          "conclusion": "success",
           "name": "Full-page matching and eligibility tests",
           "number": 5,
           "status": "completed"
         },
         {
-          "conclusion": "skipped",
+          "conclusion": "success",
           "name": "Recover and verify all source validation shards",
           "number": 6,
           "status": "completed"
         },
         {
-          "conclusion": "skipped",
+          "conclusion": "success",
           "name": "OCR every sealed location from its full natural page",
           "number": 7,
           "status": "completed"
         },
         {
-          "conclusion": "skipped",
+          "conclusion": "success",
           "name": "Independent replay integrity gates",
           "number": 8,
           "status": "completed"
         },
         {
-          "conclusion": "skipped",
+          "conclusion": "success",
           "name": "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
           "number": 9,
           "status": "completed"
         },
         {
-          "conclusion": "skipped",
+          "conclusion": "success",
           "name": "Record the successful replay run and artifact",
           "number": 10,
           "status": "completed"
         },
         {
-          "conclusion": "skipped",
+          "conclusion": "success",
           "name": "Post Run actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b",
           "number": 19,
           "status": "completed"
@@ -90,12 +90,12 @@
       ]
     }
   ],
-  "run_id": 30955567023,
-  "run_number": 1,
+  "run_id": 30956219549,
+  "run_number": 2,
   "schema": "ocr-real-risk-monitor-record/1",
   "status": "completed",
   "target_branch": "agent/ocr-real-risk-full-page-spatial-replay-v1",
-  "target_head_sha": "69d3274ef1943aaae54b7beb3d97cbfd7492a31f",
+  "target_head_sha": "fa9588d2c184b3890d5aa599726d77730208eb61",
   "target_workflow": "ocr-real-risk-full-page-spatial-replay-v1.yml",
-  "updated_at": "2026-08-04T22:14:03Z"
+  "updated_at": "2026-08-04T22:44:41Z"
 }
