@@ -2,7 +2,7 @@
 
 ## Purpose
 
-FIN-ABS-004 was honestly falsified on 2009–2011: monotonic boosting improved ranking and crisis cost but worsened Brier calibration and lost in the non-crisis year. FIN-ABS-004B uses that result only as development evidence and moves to an **untouched 2012–2013 test period**.
+FIN-ABS-004 was honestly falsified on 2009–2011: monotonic boosting improved ranking and crisis cost but worsened Brier calibration and lost in the non-crisis year. FIN-ABS-004B uses that result only as development evidence and moves to an **untouched 2012–2014 test period**.
 
 Logic Power remains the meta-controller. It is not part of any bank-risk model.
 
@@ -18,66 +18,50 @@ Outcome: FDIC failure strictly after the report date and within 730 days. Assist
 
 - train observations: 1992-12-31 through 2004-12-31; outcomes visible through 2006-12-31;
 - validation observations: 2007-03-31 through 2009-12-31; outcomes visible through 2011-12-31;
-- untouched test observations: 2012-03-31 through 2013-12-31; outcomes visible through 2015-12-31.
+- untouched test observations: 2012-03-31 through 2014-12-31; outcomes visible through 2016-12-31.
 
-The prior experiment used observations only through 2011. No 2012–2013 model result has been observed.
+The prior experiment used observations only through 2011. No 2012–2014 model result has been observed.
 
-## Entity-disjoint rare-event design
+## Stage 0 power redesign — before any prediction
 
-Every FDIC certificate receives one immutable SHA-256 bucket using seed `FIN-ABS-004B-ENTITY-SPLIT-V1`.
+The original Stage 0 used seed `FIN-ABS-004B-ENTITY-SPLIT-V1` and buckets `20% / 10% / 70%`. It reconstructed `697,255` official bank-quarter rows and proved the untouched test contained signal, but stopped because the entity-disjoint training bucket contained only `22` failed banks versus the preregistered minimum of `30`.
 
-- train: buckets 0–19;
-- validation: buckets 20–29;
-- test: buckets 30–99.
+No model, feature importance, threshold, probability or test-performance metric existed. Logic Power therefore selected a pure information-design correction using only aggregate event counts:
 
-The large test share is preregistered because only 75 raw failures occurred in 2012–2013. The rule uses only `CERT` and original temporal window; it cannot inspect features, labels, predictions or performance.
+- extend the untouched test through 2014;
+- replace the seed with `FIN-ABS-004B-ENTITY-SPLIT-V2`;
+- train buckets 0–29;
+- validation buckets 30–49;
+- test buckets 50–99.
 
-## Stage 0
+The new `30% / 20% / 50%` split increases training and validation power while retaining a large independent test. Assignment still uses only `CERT`, source window, seed and hash; it cannot inspect financial features, labels, predictions or performance.
 
-Before model construction, CI must:
+## Stage 0 gates
 
-1. reconstruct all official bank-quarter rows required by the three windows;
-2. construct 730-day failure labels and separate assistance;
-3. freeze the entity-disjoint cohort;
-4. prove strict temporal order, zero `CERT × REPDTE` duplicates and zero entity overlap;
-5. require at least 30 positive train entities, 10 validation entities and 50 test entities;
-6. independently verify all hashes and counts in Node;
-7. preserve the absolute score at 423.
+Before model construction, CI must reconstruct official rows, construct 730-day labels, separate assistance, prove temporal order, zero duplicates and zero entity overlap, and retain at least `30 / 10 / 50` positive train/validation/test entities. Python and Node must agree. Stage 0 cannot award points.
 
-Stage 0 returns `PROCEED` or `STOP`. It cannot award points.
+## Frozen baseline family
 
-## Frozen baseline family if Stage 0 passes
+- constant vintage rate;
+- CAMELS-lite;
+- L2 logistic regression and survival logistic regression, raw and Platt-calibrated;
+- balanced Random Forest and cost-sensitive Random Forest, raw and Platt-calibrated.
 
-1. constant vintage rate;
-2. CAMELS-lite transparent score;
-3. L2 logistic regression;
-4. discrete-time survival logistic regression;
-5. balanced Random Forest;
-6. cost-sensitive Random Forest.
+## Frozen challenger family
 
-## Frozen challenger family if Stage 0 passes
+- monotonic horizon-weighted boosting, raw and Platt-calibrated;
+- Platt-calibrated Random Forest / monotonic-boosting ensemble;
+- Platt-calibrated survival-logit / Random Forest / monotonic-boosting ensemble.
 
-1. monotonic horizon-weighted gradient boosting;
-2. Platt-calibrated Random Forest / monotonic-boosting ensemble;
-3. Platt-calibrated survival-logit / Random Forest / monotonic-boosting ensemble.
+Validation entities are separated by hash into calibration and selection. Platt calibration uses natural prevalence rather than class weights. Thresholds and method selection use only the selection subset; the test is opened once.
 
-Calibration and method selection use only a hash-defined validation-calibration subset and a disjoint validation-selection subset. The test is opened once.
+## Non-compensable gates
 
-## Non-compensable performance gates
-
-A future full result must:
-
-- beat the strongest validation-selected baseline, including Random Forest, by at least 5% relative AUPRC;
-- strictly improve recall at 1% FPR;
-- not worsen Brier score or calibration error;
-- reduce preregistered expected cost by at least 5%;
-- improve both 2012 and 2013 when each subset is evaluable;
-- have a positive entity-bootstrap lower 95% bound;
-- reproduce independently with source, split, prediction, metric and score forgeries rejected.
+The challenger must beat the strongest validation-selected baseline, including Random Forest, by at least 5% relative AUPRC; strictly improve recall at 1% FPR; not worsen Brier or calibration; reduce expected cost by at least 5%; improve 2012, 2013 and 2014 separately; pass an entity-bootstrap; and reproduce independently with forgery rejection.
 
 ## Score boundary
 
-A complete independent PASS may add at most 20 absolute points. Stage 0, training, a favorable Python result or a partial gate pass adds zero.
+A complete independent PASS may add at most 20 absolute points. Stage 0, code, training, synthetic tests, a favorable Python result or a partial gate pass adds zero.
 
 ```text
 absolute Finance score before Stage 0: 423/1000
