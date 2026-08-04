@@ -19,8 +19,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
-      OCR_VERIFIER_REPOSITORY: cristh99/my_first_repository
       OCR_VERIFIER_COMMIT: d48de2f44c3a2b6447c3a712adb263715f569dee
+      OCR_VERIFIER_VENDOR_BLOB: 34180d164f3f5b05542217fd750ca26cbdd08e62
       OMP_THREAD_LIMIT: '1'
       OMP_NUM_THREADS: '1'
       OPENBLAS_NUM_THREADS: '1'
@@ -32,6 +32,8 @@ jobs:
       - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
         with:
           python-version: '3.11'
+      - name: Initialize evidence directory
+        run: mkdir -p ocr_real_risk_v1/run
       - name: Install free local OCR and PDF tools
         run: |
           sudo apt-get update
@@ -42,7 +44,10 @@ jobs:
             Pillow==12.2.0 pytesseract==0.3.13 \
             numpy==2.2.6 opencv-python-headless==4.10.0.84
       - name: Unit and exact-bound tests
-        run: python -m unittest -v ocr_real_risk_v1.test_holdout
+        run: |
+          python -m unittest -v \
+            ocr_real_risk_v1.test_holdout \
+            ocr_real_risk_v1.test_exact_bounds
       - name: Download and seal public ONCAE snapshots
         run: |
           mkdir -p ocr_real_risk_v1/source
@@ -68,7 +73,10 @@ jobs:
           root = Path('ocr_real_risk_v1/source')
           for name, (url, expected) in sources.items():
               path = root / name
-              request = urllib.request.Request(url, headers={'User-Agent': 'OCR-Real-Risk-Holdout/1.0'})
+              request = urllib.request.Request(
+                  url,
+                  headers={'User-Agent': 'OCR-Real-Risk-Holdout/1.0'},
+              )
               with urllib.request.urlopen(request, timeout=90) as response, path.open('wb') as output:
                   while chunk := response.read(1024 * 1024):
                       output.write(chunk)
@@ -77,20 +85,35 @@ jobs:
                   raise SystemExit(f'hash mismatch for {name}: {observed}')
               print(name, path.stat().st_size, observed)
           PY
-      - name: Materialize frozen pixel verifier
+      - name: Validate vendored frozen pixel verifier
         run: |
-          git clone --filter=blob:none --no-checkout \
-            "https://github.com/${OCR_VERIFIER_REPOSITORY}.git" /tmp/ocr-verifier
-          git -C /tmp/ocr-verifier checkout --detach "${OCR_VERIFIER_COMMIT}"
-          cp /tmp/ocr-verifier/ocr_power_v1/pixel_digit_alignment.py \
-            ocr_real_risk_v1/pixel_digit_alignment.py
-          test "$(git -C /tmp/ocr-verifier rev-parse HEAD)" = "${OCR_VERIFIER_COMMIT}"
-          sha256sum ocr_real_risk_v1/pixel_digit_alignment.py
+          test "$(git hash-object ocr_real_risk_v1/pixel_digit_alignment.py)" = \
+            "${OCR_VERIFIER_VENDOR_BLOB}"
+          PYTHONPATH="${GITHUB_WORKSPACE}/ocr_real_risk_v1:${GITHUB_WORKSPACE}" \
+          python - <<'PY'
+          import json
+          import pixel_digit_alignment as verifier
+
+          assert verifier.SOURCE_COMMIT == 'd48de2f44c3a2b6447c3a712adb263715f569dee'
+          aligner = verifier.PixelDigitAligner()
+          configuration = aligner.configuration()
+          assert configuration['source_commit'] == verifier.SOURCE_COMMIT
+          assert configuration['thresholds'] == {
+              'aligned_absolute': 0.69,
+              'aligned_margin': 0.012,
+              'mismatch_absolute': 0.74,
+              'mismatch_delta': 0.08,
+              'mismatch_margin': 0.015,
+          }
+          print(json.dumps(configuration, indent=2, sort_keys=True))
+          PY
+          sha256sum ocr_real_risk_v1/pixel_digit_alignment.py \
+            | tee ocr_real_risk_v1/run/verifier.sha256
       - name: Execute untouched 10-percent canary partition
         env:
           PYTHONPATH: ${{ github.workspace }}/ocr_real_risk_v1:${{ github.workspace }}
         run: |
-          python -m ocr_real_risk_v1.run_holdout \
+          python -m ocr_real_risk_v1.run_holdout_exact \
             --source ocr_real_risk_v1/source/oncae_2023.jsonl.gz \
             --source ocr_real_risk_v1/source/oncae_2024.jsonl.gz \
             --source ocr_real_risk_v1/source/oncae_2025.jsonl.gz \
@@ -102,8 +125,10 @@ jobs:
       - name: Independent integrity checks
         run: |
           python - <<'PY'
-          import hashlib, json
+          import hashlib
+          import json
           from pathlib import Path
+
           path = Path('ocr_real_risk_v1/run/reports/real_numeric_risk_holdout.json')
           data = json.loads(path.read_text())
           assert data['schema'] == 'ocr-real-risk-holdout/2'
