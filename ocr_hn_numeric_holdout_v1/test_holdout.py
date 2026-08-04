@@ -20,6 +20,7 @@ from .core import (
 )
 from .evaluate import apply_page_tier, eligibility, png_bytes
 from .prepare import build_ocid_units, round_robin_units
+from .verify import semantic_equal
 
 
 class HoldoutTests(unittest.TestCase):
@@ -135,6 +136,11 @@ class HoldoutTests(unittest.TestCase):
         second = apply_page_tier(image, "scan_stress_v1")
         self.assertEqual(first.size, image.size)
         self.assertEqual(png_bytes(first), png_bytes(second))
+
+    def test_semantic_replay_ignores_only_json_numeric_spelling(self) -> None:
+        self.assertTrue(semantic_equal({"factor": 10, "rows": [1, 0.5]}, {"factor": 10.0, "rows": [1.0, 0.5]}))
+        self.assertFalse(semantic_equal({"pass": True}, {"pass": 1}))
+        self.assertFalse(semantic_equal({"factor": 10}, {"factor": 10.1}))
 
 
 if __name__ == "__main__":
