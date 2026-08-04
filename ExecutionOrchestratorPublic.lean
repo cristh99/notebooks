@@ -41,11 +41,11 @@ theorem impossible_blocks_solved
   exact hdisjoint himpossible
 
 /-- An unsafe adapter result excludes a safe terminal. -/
-theorem unsafe_propagates
-    (unsafe safe : Prop)
-    (hunsafe : unsafe)
-    (hdisjoint : unsafe → ¬ safe) :
-    ¬ safe := by
+theorem unsafe_result_propagates
+    (unsafeState safeState : Prop)
+    (hunsafe : unsafeState)
+    (hdisjoint : unsafeState → ¬ safeState) :
+    ¬ safeState := by
   exact hdisjoint hunsafe
 
 /-- Missing required input blocks adapter execution. -/
@@ -80,9 +80,9 @@ theorem anytime_threshold_scaled :
     1 * 9 = 9 := by
   decide
 
-/-- The exact packing control gives lower bound 9/320; positivity is recorded
+/-- The canonical lower bound 9/320 is strictly positive; positivity is recorded
 by the cleared numerator. -/
-theorem packing_lower_bound_positive :
+theorem certified_lower_bound_positive :
     0 < 9 := by
   decide
 
@@ -119,13 +119,13 @@ theorem promotion_fixed_cost :
 #print axioms ExecutionOrchestratorPublic.route_then_adapter
 #print axioms ExecutionOrchestratorPublic.three_adapter_chain
 #print axioms ExecutionOrchestratorPublic.impossible_blocks_solved
-#print axioms ExecutionOrchestratorPublic.unsafe_propagates
+#print axioms ExecutionOrchestratorPublic.unsafe_result_propagates
 #print axioms ExecutionOrchestratorPublic.absent_input_blocks_adapter
 #print axioms ExecutionOrchestratorPublic.output_closure
 #print axioms ExecutionOrchestratorPublic.full_causal_chain_cost
 #print axioms ExecutionOrchestratorPublic.lower_bound_execution_cost
 #print axioms ExecutionOrchestratorPublic.anytime_threshold_scaled
-#print axioms ExecutionOrchestratorPublic.packing_lower_bound_positive
+#print axioms ExecutionOrchestratorPublic.certified_lower_bound_positive
 #print axioms ExecutionOrchestratorPublic.crossfit_estimate_scaled
 #print axioms ExecutionOrchestratorPublic.crossfit_variance_scaled
 #print axioms ExecutionOrchestratorPublic.adapter_registry_size
