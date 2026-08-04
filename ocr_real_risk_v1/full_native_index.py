@@ -4,7 +4,7 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable, Sequence
+from typing import Callable, Iterable, Mapping, Sequence
 
 from .core import canonical_json, sha256_bytes
 from .pdf_pipeline import MIN_NATIVE_WORDS
@@ -77,6 +77,46 @@ def location_selection_key(
     return sha256_bytes(canonical_json(payload).encode("utf-8"))
 
 
+def _same_location(
+    word: Mapping[str, object],
+    selected: Mapping[str, object],
+    canonicalizer: Callable[[str], str | None],
+) -> bool:
+    truth = canonicalizer(str(word.get("text") or ""))
+    if truth != selected.get("truth"):
+        return False
+    try:
+        observed = tuple(round(float(value), 4) for value in word["bbox_pt"])
+        expected = tuple(round(float(value), 4) for value in selected["bbox_pt"])
+    except (KeyError, TypeError, ValueError):
+        return False
+    return observed == expected
+
+
+def isolate_selected_location(
+    page: IndexedPage,
+    selected: Mapping[str, object],
+    canonicalizer: Callable[[str], str | None],
+) -> list[dict[str, object]]:
+    """Leave exactly one eligible numeric word while preserving page word count."""
+    if int(selected["page_number"]) != page.page_number:
+        raise ValueError("selected location belongs to another page")
+    isolated: list[dict[str, object]] = []
+    matches = 0
+    for word in page.words:
+        copied = dict(word)
+        truth = canonicalizer(str(word.get("text") or ""))
+        if _same_location(word, selected, canonicalizer):
+            copied["text"] = str(selected["truth"])
+            matches += 1
+        elif truth is not None:
+            copied["text"] = ""
+        isolated.append(copied)
+    if matches != 1:
+        raise RuntimeError(f"selected native location matched {matches} words")
+    return isolated
+
+
 def select_dual_anchored_location(
     source_sha256: str,
     pages: Iterable[IndexedPage],
@@ -127,6 +167,12 @@ def select_dual_anchored_location(
             )
         if found_on_page:
             metrics["pages_with_dual_candidates"] += 1
-    candidates.sort(key=lambda row: str(row["selection_rank_sha256"]))
+    candidates.sort(
+        key=lambda row: (
+            str(row["selection_rank_sha256"]),
+            int(row["page_number"]),
+            tuple(float(value) for value in row["bbox_pt"]),
+        )
+    )
     metrics["dual_candidate_locations"] = len(candidates)
     return (candidates[0] if candidates else None), metrics
