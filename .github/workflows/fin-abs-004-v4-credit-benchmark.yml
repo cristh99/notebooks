@@ -76,6 +76,7 @@ jobs:
           import gzip
           import hashlib
           import json
+          import re
           from pathlib import Path
 
           def digest(value):
@@ -107,14 +108,27 @@ jobs:
 
           sample = root / 'verification_sample.jsonl.gz'
           with gzip.open(sample, 'rt', encoding='utf-8') as handle:
-              rows = [json.loads(line) for line in handle if line.strip()]
-          rows[0]['challenger_probability'] = min(
-              0.999999,
-              float(rows[0]['challenger_probability']) + 0.01,
+              text = handle.read()
+          pattern = re.compile(
+              r'("challenger_probability":\s*)'
+              r'(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)'
           )
-          with gzip.open('/tmp/fin_abs_004_credit_forged_sample.jsonl.gz', 'wt', encoding='utf-8') as handle:
-              for row in rows:
-                  handle.write(json.dumps(row, sort_keys=True) + '\n')
+          match = pattern.search(text)
+          if match is None:
+              raise RuntimeError('no finite challenger probability found to forge')
+          old_value = float(match.group(2))
+          new_value = min(0.999999, max(0.000001, old_value + 0.01))
+          forged_text = (
+              text[:match.start(2)]
+              + repr(new_value)
+              + text[match.end(2):]
+          )
+          with gzip.open(
+              '/tmp/fin_abs_004_credit_forged_sample.jsonl.gz',
+              'wt',
+              encoding='utf-8',
+          ) as handle:
+              handle.write(forged_text)
           PY
 
           for forged in score status; do
@@ -136,6 +150,7 @@ jobs:
           fi
 
       - name: Build evidence manifest
+        if: always()
         run: |
           sha256sum \
             reports/fin_abs_004_v4_credit_benchmark/report.json \
@@ -146,6 +161,7 @@ jobs:
             > reports/fin_abs_004_v4_credit_benchmark/manifest.sha256
 
       - name: Upload benchmark evidence only
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: fin-abs-004-v4-credit-calibration-benchmark
