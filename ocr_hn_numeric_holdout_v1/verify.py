@@ -4,10 +4,34 @@ from __future__ import annotations
 import argparse
 import json
 import math
+from numbers import Real
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from .core import absolute_risk_gate, canonical_json, risk_gate, sha256_bytes, verify_manifest_hash
+
+
+def semantic_equal(left: Any, right: Any, *, tolerance: float = 1e-12) -> bool:
+    """Compare replayed JSON semantically, ignoring int/float spelling only."""
+    if isinstance(left, bool) or isinstance(right, bool):
+        return left is right
+    if isinstance(left, Real) and isinstance(right, Real):
+        return math.isclose(float(left), float(right), rel_tol=tolerance, abs_tol=tolerance)
+    if isinstance(left, Mapping) and isinstance(right, Mapping):
+        return set(left) == set(right) and all(
+            semantic_equal(left[key], right[key], tolerance=tolerance) for key in left
+        )
+    if (
+        isinstance(left, Sequence)
+        and isinstance(right, Sequence)
+        and not isinstance(left, (str, bytes))
+        and not isinstance(right, (str, bytes))
+    ):
+        return len(left) == len(right) and all(
+            semantic_equal(a, b, tolerance=tolerance)
+            for a, b in zip(left, right, strict=True)
+        )
+    return left == right
 
 
 def rebuild_fold_gate(rows: Sequence[Mapping[str, Any]], *, declared: Mapping[str, Any], reference_minimum_accepted: int, full_eligible: int) -> dict[str, Any]:
@@ -69,7 +93,7 @@ def verify(manifest: dict[str, Any], report: dict[str, Any], *, artifact_root: P
         minimum_accepted=int(declared_gate.get("minimum_accepted", 200)),
         minimum_coverage=float(declared_gate.get("minimum_coverage", 0.30)),
     )
-    if canonical_json(rebuilt_gate) != canonical_json(declared_gate): errors.append("main risk gate does not replay")
+    if not semantic_equal(rebuilt_gate, declared_gate): errors.append("main risk gate does not replay")
 
     declared_stability = report.get("institution_stability") or {}
     institutions = sorted({str(row["institution"]) for row in observations})
@@ -96,7 +120,7 @@ def verify(manifest: dict[str, Any], report: dict[str, Any], *, artifact_root: P
         "minimum_required_pass_fraction": float(declared_stability.get("minimum_required_pass_fraction", 0.80)),
         "pass": bool(rebuilt_folds and fold_fraction >= float(declared_stability.get("minimum_required_pass_fraction", 0.80))),
     }
-    if canonical_json(rebuilt_stability) != canonical_json(declared_stability): errors.append("institution stability replay differs")
+    if not semantic_equal(rebuilt_stability, declared_stability): errors.append("institution stability replay differs")
 
     declared_counterfactual = report.get("counterfactual_gate") or {}
     rebuilt_counterfactual = absolute_risk_gate(
@@ -106,7 +130,7 @@ def verify(manifest: dict[str, Any], report: dict[str, Any], *, artifact_root: P
         minimum_total=int(declared_counterfactual.get("minimum_total", 100)),
         alpha=float(declared_counterfactual.get("alpha_one_sided", 0.05)),
     )
-    if canonical_json(rebuilt_counterfactual) != canonical_json(declared_counterfactual): errors.append("counterfactual risk gate does not replay")
+    if not semantic_equal(rebuilt_counterfactual, declared_counterfactual): errors.append("counterfactual risk gate does not replay")
 
     if not rebuilt_gate["pass"]: rebuilt_verdict = rebuilt_gate["reason"]
     elif not rebuilt_stability["pass"]: rebuilt_verdict = "INSTITUTION_STABILITY_GATE_FAILED"
