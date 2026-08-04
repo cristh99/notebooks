@@ -1,0 +1,242 @@
+name: Data Science God-Level — one-shot complete SRBench 2025 symbolic V2 gate
+
+on:
+  push:
+    branches:
+      - agent/data-science-god-level-symbolic-v2-srbench
+    paths:
+      - '.github/workflows/data-science-god-level-symbolic-v2-srbench.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  complete-srbench-2025-symbolic-v2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove workflow-only activation after the complete freeze
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_EVENT_NAME}" = 'push'
+          test "${GITHUB_RUN_ATTEMPT}" = '1'
+          test "$(git rev-parse HEAD^)" = '394341b8fc70c602132e880e05cb65ca8f53d0fb'
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/data-science-god-level-symbolic-v2-srbench.yml'
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install pinned free CPU environment
+        run: |
+          mkdir -p srbench-cache srbench-logs _logic_power_v10
+          python -m pip install --disable-pip-version-check \
+            'numpy==1.26.4' 'scipy==1.14.1' 'pandas==2.2.3' \
+            'scikit-learn==1.5.2' 'pmlb==1.0.1.post3'
+          python -m pip freeze | sort > srbench-logs/pip-freeze.txt
+
+      - name: Reconstruct and verify the frozen candidate and harness before data access
+        shell: bash
+        run: |
+          set -euo pipefail
+          root='data_science_god_level/symbolic_discovery_v2'
+          echo 'b7e26035511e841ef9e52c660650a26659e690f3f9f544e964832e2ff4019368  data_science_god_level/symbolic_discovery_v2/SOURCE_MANIFEST.json' | sha256sum -c -
+          echo 'b2a2f9604165f60b869d41c8913442f4d1f52598f746d213247970fa8380bd06  data_science_god_level/symbolic_discovery_v2/symbolic_v2_code.tar.gz.b64' | sha256sum -c -
+          base64 -d "$root/symbolic_v2_code.tar.gz.b64" > /tmp/symbolic_v2_code.tar.gz
+          echo '103e282beb5a59898b4be34334e8449e572271b20063029b47dda1267e72bd0f  /tmp/symbolic_v2_code.tar.gz' | sha256sum -c -
+          tar xzf /tmp/symbolic_v2_code.tar.gz -C "$root"
+          echo '4e80f120c08581d10497e916a86464062df157d99ec6215ad6f7bfd1b7ea557d  data_science_god_level/symbolic_discovery_v2/estimator.py' | sha256sum -c -
+          echo '852d4cb46ea2aa8d4df402ffb296132b582e99b7220013cd5bf1f23df55c3fa1  data_science_god_level/symbolic_discovery_v2/test_estimator.py' | sha256sum -c -
+          echo '140e65b2570245964f0f5f4352d51edce56e7c62b106c8ac65c0213865e18050  data_science_god_level/symbolic_discovery_v2/SRBENCH_2025_GATE_MANIFEST.json' | sha256sum -c -
+          echo '69dd5976661dffb5bcc6b1c755864046ee16eeec4e26e996a5f30725d855d0ed  data_science_god_level/symbolic_discovery_v2/EXTERNAL_HARNESS_MANIFEST.json' | sha256sum -c -
+          echo '9d670d554eaef804d16f054dbad027bc9526ed2e83aa25eb14796bcbd0c8f0ed  data_science_god_level/symbolic_discovery_v2/srbench_harness.tar.gz.b64' | sha256sum -c -
+          base64 -d "$root/srbench_harness.tar.gz.b64" > /tmp/srbench_harness.tar.gz
+          echo '8978fd6210be7539e7212ae1009f48a14bbcb521225dcc0f8d01054f30238328  /tmp/srbench_harness.tar.gz' | sha256sum -c -
+          tar xzf /tmp/srbench_harness.tar.gz -C "$root"
+          echo '85d012b88161da056b840859ada642763554dcde7a8b21dc7987194e019d44c7  data_science_god_level/symbolic_discovery_v2/srbench_external_plan.py' | sha256sum -c -
+          echo '5d9dd4ab1223ccb1d8fa67ff7eb1dc77261fdaa56f430b607ca76e54e3deb4f4  data_science_god_level/symbolic_discovery_v2/srbench_external_runner.py' | sha256sum -c -
+          echo 'bff97f1549a4d6b1b5b2e2be716bc84928788c5b619b108ec98a7ed7c1234e09  data_science_god_level/symbolic_discovery_v2/test_srbench_external.py' | sha256sum -c -
+          python -m py_compile "$root"/{estimator,srbench_external_plan,srbench_external_runner,test_estimator,test_srbench_external}.py
+
+          python - <<'PY'
+          import ast
+          import hashlib
+          import json
+          from pathlib import Path
+
+          root = Path('data_science_god_level/symbolic_discovery_v2')
+          tree = ast.parse((root / 'estimator.py').read_text(encoding='utf-8'))
+          imports, calls, names = set(), set(), set()
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                  imports.update(alias.name.split('.')[0] for alias in node.names)
+              elif isinstance(node, ast.ImportFrom) and node.level == 0:
+                  imports.add((node.module or '').split('.')[0])
+              elif isinstance(node, ast.Call):
+                  if isinstance(node.func, ast.Name):
+                      calls.add(node.func.id)
+                  elif isinstance(node.func, ast.Attribute):
+                      calls.add(node.func.attr)
+              elif isinstance(node, ast.Name):
+                  names.add(node.id)
+              elif isinstance(node, ast.Attribute):
+                  names.add(node.attr)
+          assert not (imports - {'__future__', 'dataclasses', 'itertools', 'typing', 'numpy'})
+          assert not (calls & {'open', 'eval', 'exec', 'compile', '__import__', 'system', 'popen', 'run', 'urlopen', 'request', 'read_csv', 'read_json', 'load'})
+          assert not (names & {'Path', 'dataset_name', 'filename', 'truth', 'labels', 'requests', 'socket', 'subprocess', 'pandas'})
+          source = json.loads((root / 'SOURCE_MANIFEST.json').read_text())
+          gate = json.loads((root / 'SRBENCH_2025_GATE_MANIFEST.json').read_text())
+          harness = json.loads((root / 'EXTERNAL_HARNESS_MANIFEST.json').read_text())
+          assert source['candidate']['sha256'] == '4e80f120c08581d10497e916a86464062df157d99ec6215ad6f7bfd1b7ea557d'
+          assert source['external_gate_contract']['dataset_values_accessed_before_candidate_freeze'] is False
+          assert gate['evaluation']['actual_external_evaluations_authorized'] == 1
+          assert len(gate['categories']['blackbox']) == 12
+          assert len(gate['categories']['firstprinciples']) == 12
+          assert harness['pre_data_proof']['dataset_values_accessed'] is False
+          audit = {
+              'schema': 'data-science-god-level/symbolic-v2-srbench-static-audit/1',
+              'candidate_sha256': hashlib.sha256((root / 'estimator.py').read_bytes()).hexdigest(),
+              'candidate_truth_access': False,
+              'candidate_dataset_identifier_access': False,
+              'candidate_filesystem_network_process_access': False,
+              'dataset_values_accessed_yet': False,
+              'complete_acquisition_required_before_candidate_access': True,
+          }
+          Path('srbench-logs/static-audit.json').write_text(
+              json.dumps(audit, indent=2, sort_keys=True) + '\n', encoding='utf-8'
+          )
+          print(json.dumps(audit, indent=2, sort_keys=True))
+          PY
+
+      - name: Replay original Logic Power v10 and all pre-data tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat logic_power_v10_capsule/parts/part_00.b64 \
+              logic_power_v10_capsule/parts/part_01.b64 \
+              logic_power_v10_capsule/parts/part_02.b64 \
+              logic_power_v10_capsule/parts/part_03.b64 \
+              logic_power_v10_capsule/parts/part_04.b64 \
+              logic_power_v10_capsule/parts/part_05_00.b64 \
+              logic_power_v10_capsule/parts/part_05_01.b64 \
+              logic_power_v10_capsule/parts/part_05_02.b64 > /tmp/lp.b64
+          echo '3548f31fcaa9696eabb063023c905fbb04a2b3db73c96df9f9ee8bc8e0c64fc1  /tmp/lp.b64' | sha256sum -c -
+          base64 -d /tmp/lp.b64 > /tmp/lp.tar.gz
+          echo 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31  /tmp/lp.tar.gz' | sha256sum -c -
+          tar xzf /tmp/lp.tar.gz -C _logic_power_v10
+          (cd _logic_power_v10 && sha256sum -c SOURCE_SHA256SUMS && test "$(cat PRIVATE_HEAD_SHA.txt)" = 'ba10d0edc7eb20d499d0481fda2537e782b6efb2')
+          root='data_science_god_level/symbolic_discovery_v2'
+          (cd "$root" && PYTHONPATH="${GITHUB_WORKSPACE}/_logic_power_v10" python srbench_external_plan.py) \
+            2>&1 | tee srbench-logs/logic-plan-output.txt
+          (cd "$root" && PYTHONPATH="${GITHUB_WORKSPACE}/$root" python -m unittest -v test_estimator.py test_srbench_external.py) \
+            2>&1 | tee srbench-logs/unit-tests.txt
+
+      - name: Run the first and only complete SRBench 2025 external evaluation
+        env:
+          OMP_NUM_THREADS: '4'
+          MKL_NUM_THREADS: '4'
+          OPENBLAS_NUM_THREADS: '4'
+        shell: bash
+        run: |
+          set +e
+          test "${GITHUB_RUN_ATTEMPT}" = '1' || exit 99
+          root='data_science_god_level/symbolic_discovery_v2'
+          PYTHONPATH="${GITHUB_WORKSPACE}/$root" \
+          python "$root/srbench_external_runner.py" \
+            --gate "$root/SRBENCH_2025_GATE_MANIFEST.json" \
+            --cache "${GITHUB_WORKSPACE}/srbench-cache" \
+            --logs "${GITHUB_WORKSPACE}/srbench-logs" \
+            2>&1 | tee srbench-logs/runner-output.txt
+          status=${PIPESTATUS[0]}
+          echo "$status" > srbench-logs/runner-exit-status.txt
+          exit 0
+
+      - name: Seal complete chain of custody
+        if: always()
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path('data_science_god_level/symbolic_discovery_v2')
+          logs = Path('srbench-logs')
+          def digest(path):
+              path = Path(path)
+              return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+          status_path = logs / 'runner-exit-status.txt'
+          chain = {
+              'schema': 'data-science-god-level/symbolic-v2-srbench-chain/1',
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_run_attempt': int(os.environ['GITHUB_RUN_ATTEMPT']),
+              'github_sha': os.environ['GITHUB_SHA'],
+              'activation_parent_sha': '394341b8fc70c602132e880e05cb65ca8f53d0fb',
+              'runner_exit_status': int(status_path.read_text().strip()) if status_path.exists() else None,
+              'candidate_frozen_before_dataset_values': True,
+              'complete_acquisition_required_before_candidate_access': True,
+              'dataset_selection_post_hoc': False,
+              'post_hoc_retuning_permitted': False,
+              'actual_external_evaluations_authorized': 1,
+              'hashes': {
+                  'SOURCE_MANIFEST.json': digest(root / 'SOURCE_MANIFEST.json'),
+                  'SRBENCH_2025_GATE_MANIFEST.json': digest(root / 'SRBENCH_2025_GATE_MANIFEST.json'),
+                  'EXTERNAL_HARNESS_MANIFEST.json': digest(root / 'EXTERNAL_HARNESS_MANIFEST.json'),
+                  'estimator.py': digest(root / 'estimator.py'),
+                  'srbench_external_plan.py': digest(root / 'srbench_external_plan.py'),
+                  'srbench_external_runner.py': digest(root / 'srbench_external_runner.py'),
+                  'srbench-logic-plan-receipt.json': digest(root / 'srbench-logic-plan-receipt.json'),
+                  'static-audit.json': digest(logs / 'static-audit.json'),
+                  'data-manifest.json': digest(logs / 'data-manifest.json'),
+                  'srbench-report.json': digest(logs / 'srbench-report.json'),
+                  'srbench-freeze-receipt.json': digest(logs / 'srbench-freeze-receipt.json'),
+              },
+          }
+          payload = json.dumps(chain, indent=2, sort_keys=True) + '\n'
+          (logs / 'chain-receipt.json').write_text(payload, encoding='utf-8')
+          (logs / 'chain-receipt.sha256').write_text(
+              hashlib.sha256(payload.encode()).hexdigest() + '  chain-receipt.json\n', encoding='utf-8'
+          )
+          print(payload)
+          PY
+
+      - name: Upload immutable SRBench evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-god-level-symbolic-v2-srbench-2025
+          retention-days: 90
+          path: |
+            data_science_god_level/symbolic_discovery_v2/SOURCE_MANIFEST.json
+            data_science_god_level/symbolic_discovery_v2/SRBENCH_2025_GATE_MANIFEST.json
+            data_science_god_level/symbolic_discovery_v2/EXTERNAL_HARNESS_MANIFEST.json
+            data_science_god_level/symbolic_discovery_v2/symbolic_v2_code.tar.gz.b64
+            data_science_god_level/symbolic_discovery_v2/srbench_harness.tar.gz.b64
+            data_science_god_level/symbolic_discovery_v2/estimator.py
+            data_science_god_level/symbolic_discovery_v2/srbench_external_plan.py
+            data_science_god_level/symbolic_discovery_v2/srbench_external_runner.py
+            data_science_god_level/symbolic_discovery_v2/srbench-logic-plan-receipt.json
+            srbench-logs/**
+
+      - name: Enforce the one-shot external verdict
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt_path = Path('srbench-logs/srbench-freeze-receipt.json')
+          if not receipt_path.exists():
+              raise SystemExit('SRBench evaluation invalid or incomplete; evidence preserved')
+          receipt = json.loads(receipt_path.read_text())
+          if receipt['actual_external_evaluation_count'] != 1:
+              raise SystemExit('SRBench external evaluation count is not exactly one')
+          if receipt['verdict'] != 'PASS':
+              raise SystemExit(f"SRBench external gate: {receipt['verdict']}; evidence preserved; no retuning")
+          print('SRBench external gate: PASS; no retuning permitted')
+          PY
