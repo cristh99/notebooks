@@ -1,0 +1,146 @@
+name: OCR real risk dual-anchor development v1
+
+on:
+  push:
+    branches:
+      - agent/ocr-real-risk-dual-anchor-v1
+  workflow_dispatch:
+
+concurrency:
+  group: ocr-real-risk-dual-anchor-v1-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  dual-anchor-development:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      OCR_VERIFIER_VENDOR_BLOB: 34180d164f3f5b05542217fd750ca26cbdd08e62
+      OMP_THREAD_LIMIT: '1'
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Initialize evidence directory
+        run: mkdir -p ocr_real_risk_v1/run
+      - name: Install free local OCR and PDF tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            poppler-utils tesseract-ocr tesseract-ocr-eng \
+            fonts-dejavu-core fonts-lato
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 pytesseract==0.3.13 \
+            numpy==2.2.6 opencv-python-headless==4.10.0.84
+      - name: Dual-source, partition and exact-bound tests
+        run: |
+          python -m unittest -v \
+            ocr_real_risk_v1.test_raw_truth_anchor \
+            ocr_real_risk_v1.test_evaluate_dual_anchor \
+            ocr_real_risk_v1.test_truth_anchor \
+            ocr_real_risk_v1.test_final_partition \
+            ocr_real_risk_v1.test_exact_bounds
+      - name: Download and seal public ONCAE snapshots
+        run: |
+          mkdir -p ocr_real_risk_v1/source
+          python - <<'PY'
+          import hashlib
+          import urllib.request
+          from pathlib import Path
+
+          sources = {
+              'oncae_2023.jsonl.gz': (
+                  'https://data.open-contracting.org/en/publication/122/download?name=2023.jsonl.gz',
+                  'db9a76958a069ff5fc47b6f68caf59a74174efcbebcca0458d0f4a08cf00683d',
+              ),
+              'oncae_2024.jsonl.gz': (
+                  'https://data.open-contracting.org/en/publication/122/download?name=2024.jsonl.gz',
+                  '43e12ce76ba1fcd3bf1240ffea4e246126bdcc2832d3d77bcb7415d8a1195c37',
+              ),
+              'oncae_2025.jsonl.gz': (
+                  'https://data.open-contracting.org/en/publication/122/download?name=2025.jsonl.gz',
+                  'aa33b9b591fabce5f2397b5966b67ba7fc6471bf8b394ceb5c2aeec707f6cb06',
+              ),
+          }
+          root = Path('ocr_real_risk_v1/source')
+          for name, (url, expected) in sources.items():
+              path = root / name
+              request = urllib.request.Request(
+                  url,
+                  headers={'User-Agent': 'OCR-Real-Risk-Dual-Anchor/1.0'},
+              )
+              with urllib.request.urlopen(request, timeout=90) as response, path.open('wb') as output:
+                  while chunk := response.read(1024 * 1024):
+                      output.write(chunk)
+              observed = hashlib.sha256(path.read_bytes()).hexdigest()
+              if observed != expected:
+                  raise SystemExit(f'hash mismatch for {name}: {observed}')
+              print(name, path.stat().st_size, observed)
+          PY
+      - name: Validate frozen verifier artifact
+        run: |
+          test "$(git hash-object ocr_real_risk_v1/pixel_digit_alignment.py)" = \
+            "${OCR_VERIFIER_VENDOR_BLOB}"
+          sha256sum ocr_real_risk_v1/pixel_digit_alignment.py \
+            | tee ocr_real_risk_v1/run/verifier.sha256
+      - name: Execute dual-source development canary
+        env:
+          PYTHONPATH: ${{ github.workspace }}/ocr_real_risk_v1:${{ github.workspace }}
+        run: |
+          python -m ocr_real_risk_v1.run_holdout_dual_anchor \
+            --source ocr_real_risk_v1/source/oncae_2023.jsonl.gz \
+            --source ocr_real_risk_v1/source/oncae_2024.jsonl.gz \
+            --source ocr_real_risk_v1/source/oncae_2025.jsonl.gz \
+            --partitions 0-9 \
+            --stage canary \
+            --output-dir ocr_real_risk_v1/run \
+            --max-documents 80 \
+            --target-tokens 30
+      - name: Independent protocol and identity checks
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          path = Path('ocr_real_risk_v1/run/reports/real_numeric_risk_holdout.json')
+          data = json.loads(path.read_text())
+          assert data['schema'] == 'ocr-real-risk-holdout/2'
+          assert data['source']['stage'] == 'canary'
+          assert data['decision']['pass_statistical_10x'] is False
+          assert data['protocol']['dual_source_anchor']['required'] is True
+          assert data['protocol']['page_selection']['uses_text_or_ocr'] is False
+          assert data['protocol']['document_scope']['selection_uses_ocr'] is False
+          documents = data['documents']
+          processes = [row['candidate']['process'] for row in documents]
+          assert len(processes) == len(set(processes))
+          locations = {
+              (row['source_sha256'], row['page_number'], tuple(row['bbox_pt']))
+              for row in data['observations']
+          }
+          assert len(locations) == len(data['observations'])
+          print(json.dumps({
+              'decision': data['decision'],
+              'execution': data['execution'],
+              'baseline': data['baseline'],
+              'verifier': data['verifier'],
+              'anchor_census': data['anchor_census'],
+              'report_sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+          }, indent=2, sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: ocr-real-risk-dual-anchor-development-v1
+          path: ocr_real_risk_v1/run
+          if-no-files-found: error
+          retention-days: 30
