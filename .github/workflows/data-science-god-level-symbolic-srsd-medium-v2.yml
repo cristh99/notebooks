@@ -1,0 +1,147 @@
+name: Data Science God-Level — one-shot all-40 SRSD Medium symbolic gate v2
+
+on:
+  push:
+    branches:
+      - agent/data-science-god-level-symbolic-srsd-medium
+    paths:
+      - '.github/workflows/data-science-god-level-symbolic-srsd-medium-v2.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  all-40-srsd-medium-v2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove workflow-only activation after repaired frozen sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_EVENT_NAME}" = 'push'
+          test "${GITHUB_RUN_ATTEMPT}" = '1'
+          test "$(git rev-parse HEAD^)" = '4e37ae8573261f3deb6c2232a4b9e7477077ea03'
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/data-science-god-level-symbolic-srsd-medium-v2.yml'
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install pinned CPU environment
+        run: |
+          mkdir -p srsd-medium-data/{train,test,true_eq} srsd-medium-logs _logic_power_v10
+          python -m pip install --disable-pip-version-check \
+            'numpy==1.26.4' 'scipy==1.14.1' 'scikit-learn==1.5.2'
+          python -m pip freeze | sort > srsd-medium-logs/pip-freeze.txt
+
+      - name: Reconstruct candidate and verify every repaired frozen source before data access
+        shell: bash
+        run: |
+          set -euo pipefail
+          root='data_science_god_level/symbolic_discovery'
+          echo '679973d8f1a5de408901e01a9696ce92e5c52c5a4aa808745a38e333e0cdde58  data_science_god_level/symbolic_discovery/SOURCE_MANIFEST.json' | sha256sum -c -
+          echo '6344ca2a918636817c4983207289e1515fecd1b851f4c4fede6cbbb9c9be0f4b  data_science_god_level/symbolic_discovery/symbolic_code.tar.gz.b64' | sha256sum -c -
+          base64 -d "$root/symbolic_code.tar.gz.b64" > /tmp/symbolic_code.tar.gz
+          echo '026919c635f6f04d082d3b2a74276fef150a331dcceeea461be1e3553ae9d027  /tmp/symbolic_code.tar.gz' | sha256sum -c -
+          tar xzf /tmp/symbolic_code.tar.gz -C "$root"
+          echo '97c9fd1a3f371ca30bd29b924ac0e6d1ea21d985e513df8b5de977f0a70be381  data_science_god_level/symbolic_discovery/estimator.py' | sha256sum -c -
+          echo '131f0b27102b35ebee93a3079669837bb584c1b583d1de0699cc7a2fc5b7a94c  data_science_god_level/symbolic_discovery/SRSD_MEDIUM_MANIFEST.json' | sha256sum -c -
+          echo '73aa5719f131b7fc2b2fd878afcab8320edad7e4829fb1a1e22ceaeae7e54f7f  data_science_god_level/symbolic_discovery/srsd_medium_runner.py' | sha256sum -c -
+          echo 'cea0f518b9a519310dc0f699d8e91bf7b80b0d29afc4fff8f43c3521464773c9  data_science_god_level/symbolic_discovery/srsd_medium_plan.py' | sha256sum -c -
+          echo 'a99b4a93a7949482a9bcb7fa5465d89ce2b5479c52c69655793153400bfd89c0  data_science_god_level/symbolic_discovery/test_srsd_medium_runner.py' | sha256sum -c -
+          echo 'd76273d224e272c6441652269c57aa273daab9c3ee8cd301abc172df8c056bfb  data_science_god_level/symbolic_discovery/srsd_medium_ci.py' | sha256sum -c -
+          python -m py_compile "$root"/{estimator,srsd_medium_runner,srsd_medium_plan,test_srsd_medium_runner,srsd_medium_ci}.py
+          python "$root/srsd_medium_ci.py" preflight \
+            --code-root "$root" --logs-dir srsd-medium-logs
+
+      - name: Replay original Logic Power v10 and run all pre-data tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat logic_power_v10_capsule/parts/part_00.b64 \
+              logic_power_v10_capsule/parts/part_01.b64 \
+              logic_power_v10_capsule/parts/part_02.b64 \
+              logic_power_v10_capsule/parts/part_03.b64 \
+              logic_power_v10_capsule/parts/part_04.b64 \
+              logic_power_v10_capsule/parts/part_05_00.b64 \
+              logic_power_v10_capsule/parts/part_05_01.b64 \
+              logic_power_v10_capsule/parts/part_05_02.b64 > /tmp/lp.b64
+          echo '3548f31fcaa9696eabb063023c905fbb04a2b3db73c96df9f9ee8bc8e0c64fc1  /tmp/lp.b64' | sha256sum -c -
+          base64 -d /tmp/lp.b64 > /tmp/lp.tar.gz
+          echo 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31  /tmp/lp.tar.gz' | sha256sum -c -
+          tar xzf /tmp/lp.tar.gz -C _logic_power_v10
+          (cd _logic_power_v10 && sha256sum -c SOURCE_SHA256SUMS && test "$(cat PRIVATE_HEAD_SHA.txt)" = 'ba10d0edc7eb20d499d0481fda2537e782b6efb2')
+          root='data_science_god_level/symbolic_discovery'
+          (cd "$root" && PYTHONPATH="${GITHUB_WORKSPACE}/_logic_power_v10" python srsd_medium_plan.py)
+          (cd "$root" && PYTHONPATH="${GITHUB_WORKSPACE}/$root" python -m unittest -v test_srsd_medium_runner.py) \
+            2>&1 | tee srsd-medium-logs/unit-tests.txt
+
+      - name: Download and seal all 40 pinned SRSD-Feynman Medium Dummy tasks
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_RUN_ATTEMPT}" = '1'
+          root='data_science_god_level/symbolic_discovery'
+          python "$root/srsd_medium_ci.py" download \
+            --code-root "$root" \
+            --data-root srsd-medium-data \
+            --logs-dir srsd-medium-logs
+
+      - name: Run the first and only valid Medium external evaluation
+        env:
+          OMP_NUM_THREADS: '4'
+          MKL_NUM_THREADS: '4'
+          OPENBLAS_NUM_THREADS: '4'
+        shell: bash
+        run: |
+          set +e
+          test "${GITHUB_RUN_ATTEMPT}" = '1' || exit 99
+          root='data_science_god_level/symbolic_discovery'
+          python "$root/srsd_medium_runner.py" \
+            --data-root "${GITHUB_WORKSPACE}/srsd-medium-data" \
+            --logs-dir "${GITHUB_WORKSPACE}/srsd-medium-logs" \
+            --code-root "${GITHUB_WORKSPACE}/$root" \
+            2>&1 | tee srsd-medium-logs/runner-output.txt
+          status=${PIPESTATUS[0]}
+          echo "$status" > srsd-medium-logs/runner-exit-status.txt
+          exit 0
+
+      - name: Seal complete chain of custody
+        if: always()
+        env:
+          SRSD_MEDIUM_ACTIVATION_PARENT_SHA: 4e37ae8573261f3deb6c2232a4b9e7477077ea03
+        run: |
+          root='data_science_god_level/symbolic_discovery'
+          python "$root/srsd_medium_ci.py" chain \
+            --code-root "$root" --logs-dir srsd-medium-logs
+
+      - name: Upload immutable Medium evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-god-level-symbolic-srsd-medium-v2
+          retention-days: 90
+          path: |
+            data_science_god_level/symbolic_discovery/SOURCE_MANIFEST.json
+            data_science_god_level/symbolic_discovery/SRSD_MEDIUM_MANIFEST.json
+            data_science_god_level/symbolic_discovery/symbolic_code.tar.gz.b64
+            data_science_god_level/symbolic_discovery/estimator.py
+            data_science_god_level/symbolic_discovery/srsd_medium_runner.py
+            data_science_god_level/symbolic_discovery/srsd_medium_plan.py
+            data_science_god_level/symbolic_discovery/srsd-medium-plan-receipt.json
+            data_science_god_level/symbolic_discovery/test_srsd_medium_runner.py
+            data_science_god_level/symbolic_discovery/srsd_medium_ci.py
+            srsd-medium-logs/**
+
+      - name: Enforce the one-shot Medium verdict
+        if: always()
+        run: |
+          root='data_science_god_level/symbolic_discovery'
+          python "$root/srsd_medium_ci.py" enforce \
+            --code-root "$root" --logs-dir srsd-medium-logs
