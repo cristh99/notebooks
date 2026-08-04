@@ -1,13 +1,14 @@
 name: OCR real risk dual-anchor development v1
 
 on:
-  push:
-    branches:
-      - agent/ocr-real-risk-dual-anchor-v1
+  pull_request:
+    paths:
+      - 'ocr_real_risk_v1/**'
+      - '.github/workflows/ocr-real-risk-dual-anchor-v1.yml'
   workflow_dispatch:
 
 concurrency:
-  group: ocr-real-risk-dual-anchor-v1-${{ github.ref }}
+  group: ocr-real-risk-dual-anchor-v1-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
