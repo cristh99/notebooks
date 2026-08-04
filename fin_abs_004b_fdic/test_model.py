@@ -37,18 +37,38 @@ def synthetic_frame(rows: int, *, start_cert: int = 1) -> pd.DataFrame:
     return frame
 
 
+def balanced_validation_rows(per_cell: int = 8) -> list[dict[str, float | int]]:
+    counts = {
+        ("calibration", 0): 0,
+        ("calibration", 1): 0,
+        ("selection", 0): 0,
+        ("selection", 1): 0,
+    }
+    rows: list[dict[str, float | int]] = []
+    cert = 20000
+    while min(counts.values()) < per_cell:
+        subset = "calibration" if entity_calibration_bucket(cert) < 50 else "selection"
+        label = 1 if counts[(subset, 1)] < per_cell else 0
+        if counts[(subset, label)] < per_cell:
+            row: dict[str, float | int] = {
+                column: float(label) for column in FEATURE_COLUMNS
+            }
+            row.update(
+                {
+                    "CERT": cert,
+                    "label": label,
+                    "days_to_failure": 365.0 if label else np.nan,
+                }
+            )
+            rows.append(row)
+            counts[(subset, label)] += 1
+        cert += 1
+    return rows
+
+
 class FdicRandomForestModelTests(unittest.TestCase):
     def test_calibration_split_is_entity_disjoint_and_deterministic(self) -> None:
-        calibration_certs = [
-            cert for cert in range(1, 10000) if entity_calibration_bucket(cert) < 50
-        ][:12]
-        selection_certs = [
-            cert for cert in range(1, 10000) if entity_calibration_bucket(cert) >= 50
-        ][:12]
-        rows = []
-        for index, cert in enumerate((*calibration_certs, *selection_certs)):
-            rows.append({"CERT": cert, "label": int(index % 2 == 0)})
-        validation = pd.DataFrame(rows)
+        validation = pd.DataFrame(balanced_validation_rows())
         first_cal, first_sel, first_report = split_validation_entities(validation)
         second_cal, second_sel, second_report = split_validation_entities(validation)
         self.assertEqual(first_report, second_report)
@@ -57,6 +77,8 @@ class FdicRandomForestModelTests(unittest.TestCase):
         self.assertFalse(set(first_cal["CERT"]) & set(first_sel["CERT"]))
         self.assertGreaterEqual(first_report["calibration_positive_entities"], 5)
         self.assertGreaterEqual(first_report["selection_positive_entities"], 5)
+        self.assertEqual(set(first_cal["label"]), {0, 1})
+        self.assertEqual(set(first_sel["label"]), {0, 1})
 
     def test_random_forest_probability_is_finite(self) -> None:
         rng = np.random.default_rng(17)
@@ -70,32 +92,7 @@ class FdicRandomForestModelTests(unittest.TestCase):
 
     def test_full_family_trains_calibrates_and_predicts(self) -> None:
         train = synthetic_frame(480, start_cert=1000)
-        candidates = []
-        calibration_positive = 0
-        selection_positive = 0
-        cert = 20000
-        while calibration_positive < 8 or selection_positive < 8:
-            bucket = entity_calibration_bucket(cert)
-            label = 1 if (
-                bucket < 50 and calibration_positive < 8
-            ) or (
-                bucket >= 50 and selection_positive < 8
-            ) else 0
-            if label and bucket < 50:
-                calibration_positive += 1
-            elif label:
-                selection_positive += 1
-            row = {column: float(label) for column in FEATURE_COLUMNS}
-            row.update(
-                {
-                    "CERT": cert,
-                    "label": label,
-                    "days_to_failure": 365.0 if label else np.nan,
-                }
-            )
-            candidates.append(row)
-            cert += 1
-        validation = pd.DataFrame(candidates)
+        validation = pd.DataFrame(balanced_validation_rows())
         calibration, selection, _ = split_validation_entities(validation)
         bundle = train_models(train, rf_trees=10)
         bundle = fit_calibrators(bundle, calibration)
