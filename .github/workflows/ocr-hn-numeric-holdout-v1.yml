@@ -1,0 +1,121 @@
+name: OCR HN numeric holdout v2
+
+on:
+  pull_request:
+    paths:
+      - 'ocr_hn_numeric_holdout_v1/**'
+      - '.github/workflows/ocr-hn-numeric-holdout-v1.yml'
+  workflow_dispatch:
+    inputs:
+      target_units:
+        description: Unique OCIDs / crops / documents
+        required: false
+        default: '120'
+      minimum_institutions:
+        description: Minimum parent institutions
+        required: false
+        default: '8'
+      minimum_accepted:
+        description: Minimum accepted natural claims
+        required: false
+        default: '40'
+      image_tier:
+        description: native_300 or scan_stress_v1
+        required: false
+        default: 'scan_stress_v1'
+      counterfactual_maximum_risk:
+        description: One-sided upper risk gate
+        required: false
+        default: '0.03'
+      counterfactual_minimum_total:
+        description: Minimum counterfactual cases
+        required: false
+        default: '100'
+
+concurrency:
+  group: ocr-hn-numeric-holdout-v2-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  sealed-honduras-canary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      TARGET_UNITS: ${{ inputs.target_units || '120' }}
+      MINIMUM_INSTITUTIONS: ${{ inputs.minimum_institutions || '8' }}
+      MINIMUM_ACCEPTED: ${{ inputs.minimum_accepted || '40' }}
+      IMAGE_TIER: ${{ inputs.image_tier || 'scan_stress_v1' }}
+      COUNTERFACTUAL_MAXIMUM_RISK: ${{ inputs.counterfactual_maximum_risk || '0.03' }}
+      COUNTERFACTUAL_MINIMUM_TOTAL: ${{ inputs.counterfactual_minimum_total || '100' }}
+      OMP_THREAD_LIMIT: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: ocr_hn_numeric_holdout_v1/requirements.txt
+      - name: Install free CPU document tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            tesseract-ocr tesseract-ocr-spa fonts-dejavu-core fonts-lato
+          python -m pip install --disable-pip-version-check -r ocr_hn_numeric_holdout_v1/requirements.txt
+      - name: Unit, adversarial and determinism tests
+        run: |
+          python -m unittest -v ocr_hn_numeric_holdout_v1.test_holdout
+          python -m compileall -q ocr_hn_numeric_holdout_v1
+      - name: Prepare one OCR-independent crop per unique OCID
+        run: |
+          python -m ocr_hn_numeric_holdout_v1.prepare \
+            --target-crops "${TARGET_UNITS}" \
+            --target-documents "${TARGET_UNITS}" \
+            --minimum-institutions "${MINIMUM_INSTITUTIONS}" \
+            --maximum-api-pages 150 \
+            --candidate-pool-multiplier 6 \
+            --maximum-pages-per-document 15 \
+            --maximum-documents-per-ocid 3 \
+            --minimum-digits 4 \
+            --maximum-digits 12 \
+            --output-dir ocr_hn_numeric_holdout_v1/run/preparation
+      - name: Evaluate sealed manifest
+        run: |
+          python -m ocr_hn_numeric_holdout_v1.evaluate \
+            ocr_hn_numeric_holdout_v1/run/preparation/manifest.json \
+            --pdf-cache ocr_hn_numeric_holdout_v1/run/preparation/pdfs \
+            --tier "${IMAGE_TIER}" \
+            --minimum-accepted "${MINIMUM_ACCEPTED}" \
+            --minimum-coverage 0.30 \
+            --minimum-institution-fold-pass-fraction 0.80 \
+            --counterfactual-maximum-risk "${COUNTERFACTUAL_MAXIMUM_RISK}" \
+            --counterfactual-minimum-total "${COUNTERFACTUAL_MINIMUM_TOTAL}" \
+            --output-dir ocr_hn_numeric_holdout_v1/run/evaluation
+      - name: Independent semantic, statistical and crop-hash replay
+        run: |
+          python -m ocr_hn_numeric_holdout_v1.verify \
+            ocr_hn_numeric_holdout_v1/run/preparation/manifest.json \
+            ocr_hn_numeric_holdout_v1/run/evaluation/evaluation.json \
+            --artifact-root ocr_hn_numeric_holdout_v1/run/evaluation \
+            | tee ocr_hn_numeric_holdout_v1/run/verification.json
+      - name: Remove source PDF cache before artifact upload
+        if: always()
+        run: rm -rf ocr_hn_numeric_holdout_v1/run/preparation/pdfs
+      - name: Hash retained evidence
+        if: always()
+        run: |
+          python -m pip freeze | LC_ALL=C sort > ocr_hn_numeric_holdout_v1/run/pip-freeze.txt
+          tesseract --version > ocr_hn_numeric_holdout_v1/run/tesseract-version.txt
+          find ocr_hn_numeric_holdout_v1/run -type f ! -name SHA256SUMS.txt -print0 \
+            | sort -z | xargs -0 sha256sum > ocr_hn_numeric_holdout_v1/run/SHA256SUMS.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: ocr-hn-numeric-holdout-v2-${{ env.IMAGE_TIER }}
+          path: ocr_hn_numeric_holdout_v1/run
+          if-no-files-found: error
+          retention-days: 30
