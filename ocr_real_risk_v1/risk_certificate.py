@@ -8,14 +8,14 @@ The certifier separates three quantities:
 
 A tenfold claim is issued only when a simultaneous one-sided confidence bound
 proves baseline_risk / retained_risk >= 10 while coverage clears a predeclared
-floor.  This prevents an almost-always-abstaining policy from looking strong.
+floor. This prevents an almost-always-abstaining policy from looking strong.
 """
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from typing import Any
 
-from .core import clopper_pearson_lower, clopper_pearson_upper
+from .exact_bounds import clopper_pearson_lower, clopper_pearson_upper
 
 
 SCHEMA = "ocr-real-risk-certificate/1"
@@ -53,7 +53,10 @@ class SelectiveRiskCounts:
         BinomialObservation(self.baseline_errors, self.eligible_locations)
         BinomialObservation(self.accepted_locations, self.eligible_locations)
         BinomialObservation(self.accepted_errors, self.accepted_locations)
-        BinomialObservation(self.counterfactual_accepts, self.counterfactual_trials)
+        BinomialObservation(
+            self.counterfactual_accepts,
+            self.counterfactual_trials,
+        )
 
 
 @dataclass(frozen=True)
@@ -72,10 +75,16 @@ class CertificateConfig:
         if not 0.0 <= self.minimum_coverage <= 1.0:
             raise ValueError("minimum_coverage must lie in [0, 1]")
         if not 0.0 <= self.maximum_counterfactual_accept_risk <= 1.0:
-            raise ValueError("maximum_counterfactual_accept_risk must lie in [0, 1]")
+            raise ValueError(
+                "maximum_counterfactual_accept_risk must lie in [0, 1]"
+            )
 
 
-def _alpha_legs(config: CertificateConfig, counts: SelectiveRiskCounts) -> int:
+def _alpha_legs(
+    config: CertificateConfig,
+    counts: SelectiveRiskCounts,
+) -> int:
+    del counts
     # Baseline lower risk, retained upper risk and coverage lower bound are
     # always simultaneous. Counterfactual risk is a fourth leg when required.
     return 4 if config.require_counterfactual_gate else 3
@@ -88,9 +97,18 @@ def build_certificate(
     legs = _alpha_legs(config, counts)
     leg_alpha = config.alpha / legs
 
-    baseline = BinomialObservation(counts.baseline_errors, counts.eligible_locations)
-    retained = BinomialObservation(counts.accepted_errors, counts.accepted_locations)
-    coverage = BinomialObservation(counts.accepted_locations, counts.eligible_locations)
+    baseline = BinomialObservation(
+        counts.baseline_errors,
+        counts.eligible_locations,
+    )
+    retained = BinomialObservation(
+        counts.accepted_errors,
+        counts.accepted_locations,
+    )
+    coverage = BinomialObservation(
+        counts.accepted_locations,
+        counts.eligible_locations,
+    )
     counterfactual = BinomialObservation(
         counts.counterfactual_accepts,
         counts.counterfactual_trials,
@@ -134,7 +152,8 @@ def build_certificate(
     coverage_gate = coverage_lower >= config.minimum_coverage
     counterfactual_gate = bool(
         not config.require_counterfactual_gate
-        or counterfactual_upper <= config.maximum_counterfactual_accept_risk
+        or counterfactual_upper
+        <= config.maximum_counterfactual_accept_risk
     )
     pass_gate = bool(
         enough_denominators
@@ -148,7 +167,9 @@ def build_certificate(
         "config": asdict(config),
         "counts": asdict(counts),
         "multiplicity_control": {
-            "method": "Bonferroni simultaneous one-sided Clopper-Pearson bounds",
+            "method": (
+                "Bonferroni simultaneous one-sided Clopper-Pearson bounds"
+            ),
             "family_alpha": config.alpha,
             "legs": legs,
             "alpha_per_leg": leg_alpha,
