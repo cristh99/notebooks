@@ -1,0 +1,108 @@
+name: OCR numeric isolated process 10X v1
+
+on:
+  pull_request:
+    paths:
+      - 'ocr_numeric_isolated_v1/**'
+      - '.github/workflows/ocr-numeric-isolated-v1.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ocr-numeric-isolated-v1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  spawned-disjoint-cpu-verifier:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      GH_TOKEN: ${{ github.token }}
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK: 'True'
+      PADDLE_PDX_MODEL_SOURCE: 'BOS'
+      PADDLE_OCR_BASE_DIR: ${{ github.workspace }}/.paddleocr
+      OMP_NUM_THREADS: '10'
+      OPENBLAS_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      OMP_THREAD_LIMIT: '10'
+      QUALITY_ARTIFACT_ID: '8876470754'
+      QUALITY_ARTIFACT_SHA256: '18d74ddb48536cb645e3a5fd90e3aa6ddeed081b4671b07fdd03898bba0e9ce0'
+      SPEED_ARTIFACT_ID: '8876029321'
+      SPEED_ARTIFACT_SHA256: 'a5fb4ae22f54b8784045e05c5de30bf6f73cc04acb864a29c9c1bcc190d4f557'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Install Tesseract baseline and affinity tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng util-linux
+      - name: Install official PaddlePaddle CPU
+        run: >-
+          python -m pip install --disable-pip-version-check
+          paddlepaddle==3.2.0
+          -i https://www.paddlepaddle.org.cn/packages/stable/cpu/
+      - name: Install OCR runtime dependencies
+        run: >-
+          python -m pip install --disable-pip-version-check
+          paddleocr==3.7.0 Pillow==12.2.0 pytesseract==0.3.13
+          huggingface-hub==1.26.0
+      - name: Unit and adversarial tests
+        run: python -m unittest -v ocr_numeric_isolated_v1.test_benchmark
+      - name: Verify runner CPU surface
+        run: |
+          python - <<'PY'
+          import os
+          cpus = sorted(os.sched_getaffinity(0))
+          print({'logical_cpu_count': os.cpu_count(), 'allowed_cpus': cpus})
+          if len(cpus) < 4:
+              raise SystemExit('at least four allowed CPUs are required')
+          PY
+      - name: Download exact frozen evidence
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${QUALITY_ARTIFACT_ID}/zip" > quality.zip
+          echo "${QUALITY_ARTIFACT_SHA256}  quality.zip" | sha256sum --check --strict
+          mkdir quality
+          unzip -q quality.zip -d quality
+          test -f quality/full_content_quality.json
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${SPEED_ARTIFACT_ID}/zip" > speed.zip
+          echo "${SPEED_ARTIFACT_SHA256}  speed.zip" | sha256sum --check --strict
+          mkdir speed
+          unzip -q speed.zip -d speed
+          test -f speed/speed_frontier.json
+      - name: Execute spawned disjoint-CPU verifier
+        run: |
+          python -m ocr_numeric_isolated_v1.benchmark \
+            --quality-report quality/full_content_quality.json \
+            --speed-frontier-report speed/speed_frontier.json \
+            --quality-artifact-sha256 "${QUALITY_ARTIFACT_SHA256}" \
+            --speed-artifact-sha256 "${SPEED_ARTIFACT_SHA256}" \
+            --output-dir ocr_numeric_isolated_v1/run
+      - name: Independent semantic replay
+        run: |
+          python -m ocr_numeric_isolated_v1.verify \
+            ocr_numeric_isolated_v1/run/isolated_numeric_benchmark.json \
+            --quality-report quality/full_content_quality.json \
+            --speed-frontier-report speed/speed_frontier.json \
+            --quality-artifact-sha256 "${QUALITY_ARTIFACT_SHA256}" \
+            --speed-artifact-sha256 "${SPEED_ARTIFACT_SHA256}"
+      - name: Hash environment and evidence
+        if: always()
+        run: |
+          mkdir -p ocr_numeric_isolated_v1/run
+          python -m pip freeze | LC_ALL=C sort > ocr_numeric_isolated_v1/run/pip-freeze.txt
+          tesseract --version > ocr_numeric_isolated_v1/run/tesseract-version.txt
+          find ocr_numeric_isolated_v1/run -maxdepth 1 -type f ! -name SHA256SUMS.txt -print0 \
+            | sort -z | xargs -0 sha256sum > ocr_numeric_isolated_v1/run/SHA256SUMS.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: ocr-numeric-isolated-v1
+          path: ocr_numeric_isolated_v1/run
+          if-no-files-found: error
+          retention-days: 30
