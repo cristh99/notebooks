@@ -85,6 +85,11 @@ jobs:
             --maximum-digits 12 \
             --pdf-timeout 30 \
             --output-dir ocr_hn_numeric_holdout_v1/run/preparation
+      - name: Fail closed on duplicate OCIDs, PDFs, crops, or broken bindings
+        run: |
+          python -m ocr_hn_numeric_holdout_v1.validate_manifest \
+            ocr_hn_numeric_holdout_v1/run/preparation/manifest.json \
+            | tee ocr_hn_numeric_holdout_v1/run/manifest_validation.json
       - name: Evaluate sealed manifest
         run: |
           python -m ocr_hn_numeric_holdout_v1.evaluate \
