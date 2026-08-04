@@ -68,7 +68,9 @@ jobs:
           python -m pip install --disable-pip-version-check -r ocr_hn_numeric_holdout_v1/requirements.txt
       - name: Unit, adversarial and determinism tests
         run: |
-          python -m unittest -v ocr_hn_numeric_holdout_v1.test_holdout
+          python -m unittest -v \
+            ocr_hn_numeric_holdout_v1.test_holdout \
+            ocr_hn_numeric_holdout_v1.test_evaluate_robust
           python -m compileall -q ocr_hn_numeric_holdout_v1
       - name: Prepare one OCR-independent crop per unique OCID from ONCAE bulk data
         run: |
@@ -90,9 +92,9 @@ jobs:
           python -m ocr_hn_numeric_holdout_v1.validate_manifest \
             ocr_hn_numeric_holdout_v1/run/preparation/manifest.json \
             | tee ocr_hn_numeric_holdout_v1/run/manifest_validation.json
-      - name: Evaluate sealed manifest
+      - name: Evaluate sealed manifest with fail-closed OCR boxes
         run: |
-          python -m ocr_hn_numeric_holdout_v1.evaluate \
+          python -m ocr_hn_numeric_holdout_v1.evaluate_robust \
             ocr_hn_numeric_holdout_v1/run/preparation/manifest.json \
             --pdf-cache ocr_hn_numeric_holdout_v1/run/preparation/pdfs \
             --tier "${IMAGE_TIER}" \
