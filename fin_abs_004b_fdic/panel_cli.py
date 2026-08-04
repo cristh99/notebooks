@@ -4,6 +4,8 @@ import json
 import math
 from typing import Any
 
+import pandas as pd
+
 from fin_abs_004_fdic import panel as base
 
 from .protocol import FETCH_RANGES, WINDOWS
@@ -16,15 +18,14 @@ def _json_safe(value: object) -> object:
         return {str(key): _json_safe(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
         return [_json_safe(item) for item in value]
+    try:
+        missing = pd.isna(value)
+        if isinstance(missing, (bool, type(pd.NA))) and bool(missing):
+            return None
+    except (TypeError, ValueError, OverflowError):
+        pass
     if isinstance(value, float):
         return value if math.isfinite(value) else None
-    isna = getattr(value, "isna", None)
-    if callable(isna):
-        try:
-            if bool(isna()):
-                return None
-        except (TypeError, ValueError):
-            pass
     isoformat = getattr(value, "isoformat", None)
     if callable(isoformat):
         try:
