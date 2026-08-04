@@ -34,7 +34,7 @@ class DualAnchorEvaluationTests(unittest.TestCase):
         words = [
             {"text": "Proyecto", "bbox_pt": [0, 0, 10, 10]},
             {"text": "110509", "bbox_pt": [11, 0, 20, 10]},
-            {"text": "999999", "bbox_pt": [21, 0, 30, 10]},
+            {"text": "987654", "bbox_pt": [21, 0, 30, 10]},
             {"text": "2025", "bbox_pt": [31, 0, 40, 10]},
         ]
         filtered, counts = filter_words_by_anchor(words, {"110509"})
@@ -49,12 +49,22 @@ class DualAnchorEvaluationTests(unittest.TestCase):
         self.assertEqual(counts["unanchored_numeric_words_excluded"], 1)
         self.assertEqual(counts["non_numeric_words_preserved"], 2)
 
+    def test_repeated_digit_junk_never_enters_anchor_rejection_counts(self) -> None:
+        filtered, counts = filter_words_by_anchor(
+            [{"text": "999999"}],
+            set(),
+        )
+        self.assertEqual(filtered[0]["text"], "999999")
+        self.assertEqual(counts["non_numeric_words_preserved"], 1)
+        self.assertEqual(counts["unanchored_numeric_words_excluded"], 0)
+
     def test_grouped_amounts_are_normalized_only_inside_declared_scope(self) -> None:
         self.assertEqual(canonical_dual_truth("L. 1,200.50"), "120050")
         self.assertEqual(canonical_dual_truth("1.200,50"), "120050")
         self.assertEqual(canonical_dual_truth("1234.50"), "123450")
         self.assertIsNone(canonical_dual_truth("2025"))
         self.assertIsNone(canonical_dual_truth("000-001-01-00000524"))
+        self.assertIsNone(canonical_dual_truth("999999"))
 
     def test_grouped_amount_is_replaced_by_canonical_anchored_digits(self) -> None:
         filtered, counts = filter_words_by_anchor(
