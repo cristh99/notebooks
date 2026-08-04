@@ -1,0 +1,148 @@
+name: OCR full-page spatial replay monitor v1
+
+on:
+  push:
+    branches:
+      - agent/ocr-real-risk-full-page-spatial-replay-v1
+    paths:
+      - '.github/workflows/ocr-real-risk-full-page-spatial-monitor-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: ocr-full-page-spatial-monitor-v1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  monitor:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 125
+    env:
+      TARGET_WORKFLOW: 'ocr-real-risk-full-page-spatial-replay-v1.yml'
+      TARGET_BRANCH: 'agent/ocr-real-risk-full-page-spatial-replay-v1'
+      TARGET_HEAD_SHA: '69d3274ef1943aaae54b7beb3d97cbfd7492a31f'
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - name: Wait for the target run and record its terminal state
+        run: |
+          python - <<'PY'
+          import base64
+          import json
+          import os
+          import time
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          repository = os.environ['GITHUB_REPOSITORY']
+          token = os.environ['GITHUB_TOKEN']
+          workflow = os.environ['TARGET_WORKFLOW']
+          branch = os.environ['TARGET_BRANCH']
+          target_sha = os.environ['TARGET_HEAD_SHA']
+          headers = {
+              'Authorization': f'Bearer {token}',
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+          }
+
+          selected = None
+          deadline = time.monotonic() + 118 * 60
+          while time.monotonic() < deadline:
+              url = (
+                  f'https://api.github.com/repos/{repository}/actions/workflows/'
+                  f'{workflow}/runs?branch={urllib.parse.quote(branch, safe="")}'
+                  '&per_page=20'
+              )
+              request = urllib.request.Request(url, headers=headers)
+              with urllib.request.urlopen(request, timeout=60) as response:
+                  payload = json.load(response)
+              matches = [
+                  row for row in payload.get('workflow_runs', [])
+                  if row.get('head_sha') == target_sha
+              ]
+              if matches:
+                  matches.sort(key=lambda row: int(row['id']), reverse=True)
+                  selected = matches[0]
+                  if selected.get('status') == 'completed':
+                      break
+              time.sleep(15)
+
+          if selected is None:
+              record = {
+                  'schema': 'ocr-real-risk-monitor-record/1',
+                  'target_workflow': workflow,
+                  'target_branch': branch,
+                  'target_head_sha': target_sha,
+                  'status': 'not_found_before_monitor_timeout',
+                  'conclusion': None,
+              }
+          else:
+              jobs_url = selected['jobs_url'] + '?per_page=100'
+              with urllib.request.urlopen(
+                  urllib.request.Request(jobs_url, headers=headers), timeout=60
+              ) as response:
+                  jobs_payload = json.load(response)
+              jobs = []
+              for job in jobs_payload.get('jobs', []):
+                  jobs.append({
+                      'id': job['id'],
+                      'name': job['name'],
+                      'status': job['status'],
+                      'conclusion': job.get('conclusion'),
+                      'steps': [
+                          {
+                              'name': step['name'],
+                              'status': step['status'],
+                              'conclusion': step.get('conclusion'),
+                              'number': step['number'],
+                          }
+                          for step in job.get('steps', [])
+                      ],
+                  })
+              record = {
+                  'schema': 'ocr-real-risk-monitor-record/1',
+                  'target_workflow': workflow,
+                  'target_branch': branch,
+                  'target_head_sha': target_sha,
+                  'run_id': selected['id'],
+                  'run_number': selected['run_number'],
+                  'status': selected['status'],
+                  'conclusion': selected.get('conclusion'),
+                  'created_at': selected['created_at'],
+                  'updated_at': selected['updated_at'],
+                  'html_url': selected['html_url'],
+                  'jobs': jobs,
+              }
+
+          path = 'ocr_real_risk_v1/run_records/full_page_spatial_monitor_v1.json'
+          body = {
+              'message': '[skip ci] Record full-page spatial replay terminal status',
+              'content': base64.b64encode(
+                  (json.dumps(record, indent=2, sort_keys=True) + '\n').encode()
+              ).decode(),
+              'branch': branch,
+          }
+          api_url = f'https://api.github.com/repos/{repository}/contents/{path}'
+          try:
+              query = f'{api_url}?ref={urllib.parse.quote(branch, safe="")}'
+              with urllib.request.urlopen(
+                  urllib.request.Request(query, headers=headers), timeout=60
+              ) as response:
+                  existing = json.load(response)
+              body['sha'] = existing['sha']
+          except urllib.error.HTTPError as exc:
+              if exc.code != 404:
+                  raise
+          request = urllib.request.Request(
+              api_url,
+              data=json.dumps(body).encode(),
+              headers={**headers, 'Content-Type': 'application/json'},
+              method='PUT',
+          )
+          with urllib.request.urlopen(request, timeout=60) as response:
+              result = json.load(response)
+          print(json.dumps({'record': record, 'commit': result['commit']['sha']}, indent=2))
+          PY
