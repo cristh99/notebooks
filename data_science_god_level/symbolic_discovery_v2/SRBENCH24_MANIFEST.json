@@ -1,0 +1,91 @@
+{
+  "schema": "data-science-god-level/symbolic-v2-srbench24-contract/1",
+  "candidate": {
+    "source_archive": "symbolic_v2_code.tar.gz.b64",
+    "sha256": "4e80f120c08581d10497e916a86464062df157d99ec6215ad6f7bfd1b7ea557d",
+    "truth_access": false,
+    "dataset_identifier_access": false,
+    "filesystem_network_process_access": false,
+    "post_hoc_retuning_permitted": false
+  },
+  "benchmark": {
+    "name": "SRBench 2025 derived one-shot CPU transfer gate",
+    "source_repository": "cavalab/srbench",
+    "source_commit": "dc3f6daa93bf10955df8775256a6f8644f38fd93",
+    "source_definition_path": "datasets/download_data.py",
+    "selection_rule": "all 12 black-box and all 12 first-principles datasets listed by the pinned downloader; no compatibility filtering",
+    "blackbox": [
+      "1028_SWD",
+      "1089_USCrime",
+      "1193_BNG_lowbwt",
+      "1199_BNG_echoMonths",
+      "192_vineyard",
+      "210_cloud",
+      "522_pm10",
+      "557_analcatdata_apnea1",
+      "579_fri_c0_250_5",
+      "606_fri_c2_1000_10",
+      "650_fri_c0_500_50",
+      "678_visualizing_environmental"
+    ],
+    "firstprinciples": [
+      "first_principles_absorption",
+      "first_principles_bode",
+      "first_principles_hubble",
+      "first_principles_ideal_gas",
+      "first_principles_kepler",
+      "first_principles_leavitt",
+      "first_principles_newton",
+      "first_principles_planck",
+      "first_principles_rydberg",
+      "first_principles_schechter",
+      "first_principles_supernovae_zr",
+      "first_principles_tully_fisher"
+    ]
+  },
+  "evaluation": {
+    "actual_external_evaluations_authorized": 1,
+    "split": "deterministic 80/20 by dataset-name-derived seed",
+    "maximum_train_rows": 10000,
+    "maximum_test_rows": 3000,
+    "baselines": [
+      "mean",
+      "standardized_linear",
+      "polynomial_ridge",
+      "hist_gradient_boosting",
+      "extra_trees"
+    ],
+    "thresholds": {
+      "task_count": 24,
+      "candidate_failures_max": 0,
+      "overall_median_r2_min": 0.65,
+      "overall_worst_r2_min": -1.0,
+      "blackbox_mean_r2_min": 0.35,
+      "blackbox_median_r2_min": 0.50,
+      "firstprinciples_median_r2_min": 0.90,
+      "firstprinciples_high_fidelity_min": 7,
+      "wins_vs_best_min": 4,
+      "within_0_05_of_best_min": 10,
+      "mean_gap_vs_best_min": -0.20,
+      "median_term_count_max": 8.0,
+      "total_runtime_seconds_max": 5400.0
+    }
+  },
+  "environment": {
+    "python": "3.11",
+    "numpy": "1.26.4",
+    "scipy": "1.14.1",
+    "pandas": "2.2.3",
+    "scikit_learn": "1.5.2",
+    "pmlb": "1.0.1.post3",
+    "cpu_only": true,
+    "paid_compute": false
+  },
+  "pre_data_contract": {
+    "candidate_frozen_before_dataset_values": true,
+    "dataset_selection_post_hoc": false,
+    "internal_results_add_points": false,
+    "no_merge": true,
+    "no_gcloud": true
+  }
+}
