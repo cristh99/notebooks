@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import gzip
+import io
 import unittest
 
 import numpy as np
+import pandas as pd
 
+from srbench24_data import DATA_COMMIT, dataset_url, parse_dataset
 from srbench24_runner import (
     ALL_DATASETS,
     BLACKBOX_DATASETS,
@@ -23,6 +27,26 @@ class SRBench24GateTests(unittest.TestCase):
         self.assertEqual(len(ALL_DATASETS), 24)
         self.assertEqual(len(set(ALL_DATASETS)), 24)
         self.assertTrue(set(BLACKBOX_DATASETS).isdisjoint(FIRST_PRINCIPLES_DATASETS))
+
+    def test_pinned_media_url_and_parser(self) -> None:
+        url = dataset_url("1028_SWD")
+        self.assertIn(DATA_COMMIT, url)
+        self.assertIn("media.githubusercontent.com/media/EpistasisLab/pmlb", url)
+        self.assertTrue(url.endswith("/datasets/1028_SWD/1028_SWD.tsv.gz"))
+        frame = pd.DataFrame(
+            {
+                "x0": [1.0, 2.0, 3.0],
+                "x1": [4.0, 5.0, 6.0],
+                "target": [7.0, 8.0, 9.0],
+            }
+        )
+        raw = io.BytesIO()
+        with gzip.GzipFile(fileobj=raw, mode="wb", mtime=0) as stream:
+            stream.write(frame.to_csv(sep="\t", index=False).encode("utf-8"))
+        X, y, columns = parse_dataset(raw.getvalue(), "synthetic")
+        self.assertEqual(columns, ["x0", "x1"])
+        np.testing.assert_allclose(X, frame[["x0", "x1"]].to_numpy())
+        np.testing.assert_allclose(y, frame["target"].to_numpy())
 
     def test_split_is_deterministic_and_disjoint(self) -> None:
         train_a, test_a = split_indices(500, "example")
