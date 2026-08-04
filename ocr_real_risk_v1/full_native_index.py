@@ -6,8 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Mapping, Sequence
 
-from .core import canonical_json, sha256_bytes
-from .pdf_pipeline import MIN_NATIVE_WORDS
+from .core import MIN_NATIVE_WORDS, canonical_json, sha256_bytes
 
 SCHEMA = "ocr-real-risk-full-native-index/1"
 MAX_NATIVE_INDEX_PAGES = 600
