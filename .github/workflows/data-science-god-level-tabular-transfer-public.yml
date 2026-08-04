@@ -1,0 +1,291 @@
+name: Data Science God-Level — public tabular transfer gate
+
+on:
+  push:
+    branches:
+      - agent/data-science-god-level-tabular-transfer
+    paths:
+      - '.github/workflows/data-science-god-level-tabular-transfer-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-tabular-transfer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install pinned CPU environment
+        run: |
+          mkdir -p public-data public-logs
+          python -m pip install --disable-pip-version-check \
+            'numpy==1.26.4' 'pandas==2.2.3' 'scipy==1.14.1' \
+            'scikit-learn==1.5.2'
+          python -m pip freeze | sort > public-logs/pip-freeze.txt
+
+      - name: Reconstruct and replay original Logic Power v10
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _logic_power_v10
+          cat logic_power_v10_capsule/parts/part_00.b64 \
+              logic_power_v10_capsule/parts/part_01.b64 \
+              logic_power_v10_capsule/parts/part_02.b64 \
+              logic_power_v10_capsule/parts/part_03.b64 \
+              logic_power_v10_capsule/parts/part_04.b64 \
+              logic_power_v10_capsule/parts/part_05_00.b64 \
+              logic_power_v10_capsule/parts/part_05_01.b64 \
+              logic_power_v10_capsule/parts/part_05_02.b64 > /tmp/lp.b64
+          echo '3548f31fcaa9696eabb063023c905fbb04a2b3db73c96df9f9ee8bc8e0c64fc1  /tmp/lp.b64' | sha256sum -c -
+          base64 -d /tmp/lp.b64 > /tmp/lp.tar.gz
+          echo 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31  /tmp/lp.tar.gz' | sha256sum -c -
+          tar xzf /tmp/lp.tar.gz -C _logic_power_v10
+          (cd _logic_power_v10 && sha256sum -c SOURCE_SHA256SUMS && test "$(cat PRIVATE_HEAD_SHA.txt)" = 'ba10d0edc7eb20d499d0481fda2537e782b6efb2')
+          (cd data_science_god_level/tabular_transfer && PYTHONPATH="${GITHUB_WORKSPACE}/_logic_power_v10" python logic_plan.py)
+
+      - name: Verify frozen generic candidate and isolation
+        run: |
+          python - <<'PY'
+          import ast, hashlib, json
+          from pathlib import Path
+
+          root = Path('data_science_god_level/tabular_transfer')
+          expected = {
+              'estimator.py': '6b0e275b6e60ec766ba5d8d19c27234c252bbcae22a3f7df6d0e3908f81e1c90',
+              'benchmark.py': 'b7efc11df11cd76b28d0eb5832355844859d9c31f06d624316e563d89fb9b51c',
+              'test_estimator.py': '9f33fcd5f7e285d2606cb2b737e6a8565435c5a7ec8897bdabdbb6627cb4921c',
+              'logic_plan.py': 'ee6cbaf957eece0428ced177d1cfb7a5663813b9a874f0388df83da41f99d088',
+          }
+          actual = {
+              name: hashlib.sha256((root / name).read_bytes()).hexdigest()
+              for name in expected
+          }
+          assert actual == expected, {'actual': actual, 'expected': expected}
+
+          tree = ast.parse((root / 'estimator.py').read_text(encoding='utf-8'))
+          imports, names, calls = set(), set(), []
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                  imports.update(alias.name.split('.')[0] for alias in node.names)
+              elif isinstance(node, ast.ImportFrom) and node.level == 0:
+                  imports.add((node.module or '').split('.')[0])
+              elif isinstance(node, ast.Name):
+                  names.add(node.id)
+              elif isinstance(node, ast.Attribute):
+                  names.add(node.attr)
+              elif isinstance(node, ast.Call):
+                  if isinstance(node.func, ast.Name):
+                      calls.append(node.func.id)
+                  elif isinstance(node.func, ast.Attribute):
+                      calls.append(node.func.attr)
+          assert not (imports - {'__future__','dataclasses','typing','numpy','scipy','sklearn'})
+          assert not (set(calls) & {'open','eval','exec','compile','__import__','system','popen','run','urlopen','request','read_csv'})
+          assert not (names & {'Path','dataset_name','filename','requests','socket','subprocess','pandas'})
+
+          receipt = {
+              'schema': 'data-science-god-level/tabular-static-audit/1',
+              'hashes': actual,
+              'candidate_dataset_identifier_access': False,
+              'candidate_test_label_access': False,
+              'candidate_filesystem_network_process_access': False,
+          }
+          Path('public-logs/static-audit.json').write_text(
+              json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          )
+          print(json.dumps(receipt, indent=2, sort_keys=True))
+          PY
+          (cd data_science_god_level/tabular_transfer && python -m unittest -v test_estimator.py)
+
+      - name: Download only predeclared public PMLB development suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          ref='7c1f4bdc00136dc2e55c87fa6b8ba6e8af6d1a68'
+          base="https://media.githubusercontent.com/media/EpistasisLab/pmlb/${ref}/datasets"
+          fetch_data() {
+            local source_name="$1"
+            local local_name="$2"
+            curl -fsSL --retry 4 --retry-all-errors \
+              "$base/$source_name/$source_name.tsv.gz" \
+              -o "public-data/$local_name.tsv.gz"
+            gzip -t "public-data/$local_name.tsv.gz"
+          }
+          fetch_data credit_approval_australia c01
+          fetch_data phoneme c02
+          fetch_data spambase c03
+          fetch_data 197_cpu_act r01
+          fetch_data 503_wind r02
+          fetch_data 529_pollen r03
+          test "$(find public-data -type f -name '*.tsv.gz' | wc -l)" -eq 6
+
+      - name: Seal public data and split manifest
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          root = Path('public-data').resolve()
+          source = {
+              'c01': 'credit_approval_australia',
+              'c02': 'phoneme',
+              'c03': 'spambase',
+              'r01': '197_cpu_act',
+              'r02': '503_wind',
+              'r03': '529_pollen',
+          }
+          task = {'c01':'classification','c02':'classification','c03':'classification','r01':'regression','r02':'regression','r03':'regression'}
+          seed = {'c01':101,'c02':103,'c03':107,'r01':109,'r02':113,'r03':127}
+          datasets = []
+          files = []
+          for role in sorted(source):
+              path = root / f'{role}.tsv.gz'
+              files.append({
+                  'role': role,
+                  'source_dataset': source[role],
+                  'bytes': path.stat().st_size,
+                  'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+              })
+              datasets.append({
+                  'role': role,
+                  'task': task[role],
+                  'seed': seed[role],
+                  'path': str(path),
+              })
+          data_manifest = {
+              'schema': 'data-science-god-level/tabular-public-data/1',
+              'source_repository': 'EpistasisLab/pmlb',
+              'source_commit': '7c1f4bdc00136dc2e55c87fa6b8ba6e8af6d1a68',
+              'transport': 'media-github-lfs',
+              'public_files': files,
+              'official_suite_accessed': False,
+          }
+          benchmark_manifest = {
+              'schema': 'data-science-god-level/tabular-benchmark-manifest/1',
+              'suite': 'public-development',
+              'datasets': datasets,
+              'official_suite_accessed': False,
+          }
+          Path('public-logs/data-manifest.json').write_text(
+              json.dumps(data_manifest, indent=2, sort_keys=True) + '\n'
+          )
+          Path('public-logs/benchmark-manifest.json').write_text(
+              json.dumps(benchmark_manifest, indent=2, sort_keys=True) + '\n'
+          )
+          print(json.dumps(data_manifest, indent=2, sort_keys=True))
+          PY
+
+      - name: Execute public multidataset transfer benchmark
+        env:
+          OMP_NUM_THREADS: '4'
+          MKL_NUM_THREADS: '4'
+          OPENBLAS_NUM_THREADS: '4'
+        run: |
+          cd data_science_god_level/tabular_transfer
+          python benchmark.py \
+            --manifest "${GITHUB_WORKSPACE}/public-logs/benchmark-manifest.json" \
+            --output "${GITHUB_WORKSPACE}/public-logs/public-report.json" \
+            2>&1 | tee "${GITHUB_WORKSPACE}/public-logs/evaluation-output.txt"
+
+      - name: Freeze and adjudicate public gate
+        if: always()
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          report_path = Path('public-logs/public-report.json')
+          report = json.loads(report_path.read_text()) if report_path.exists() else None
+          thresholds = {
+              'dataset_count': 6,
+              'classification_count': 3,
+              'regression_count': 3,
+              'candidate_mean_score_min': 0.55,
+              'classification_mean_score_min': 0.65,
+              'regression_mean_score_min': 0.25,
+              'mean_advantage_vs_best_min': -0.005,
+              'wins_vs_best_min': 3,
+              'worst_advantage_vs_best_min': -0.10,
+          }
+          if report:
+              summary = report['summary']
+              checks = {
+                  'dataset_count': summary['dataset_count'] == thresholds['dataset_count'],
+                  'classification_count': summary['classification_count'] == thresholds['classification_count'],
+                  'regression_count': summary['regression_count'] == thresholds['regression_count'],
+                  'finite_all': bool(summary['finite_all']),
+                  'candidate_mean_score': summary['candidate_mean_score'] >= thresholds['candidate_mean_score_min'],
+                  'classification_mean_score': summary['classification_mean_score'] >= thresholds['classification_mean_score_min'],
+                  'regression_mean_score': summary['regression_mean_score'] >= thresholds['regression_mean_score_min'],
+                  'mean_advantage_vs_best': summary['mean_advantage_vs_best'] >= thresholds['mean_advantage_vs_best_min'],
+                  'wins_vs_best': summary['wins_vs_best'] >= thresholds['wins_vs_best_min'],
+                  'worst_advantage_vs_best': summary['worst_advantage_vs_best'] >= thresholds['worst_advantage_vs_best_min'],
+              }
+              verdict = 'PASS' if all(checks.values()) else 'FAIL'
+          else:
+              summary = None
+              checks = {'report_exists': False}
+              verdict = 'INVALID_RUN'
+
+          def digest(path):
+              path = Path(path)
+              return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+
+          receipt = {
+              'schema': 'data-science-god-level/tabular-public-freeze/1',
+              'verdict': verdict,
+              'thresholds': thresholds,
+              'checks': checks,
+              'summary': summary,
+              'official_suite_accessed': False,
+              'post_hoc_retuning_permitted_after_official_evaluation': False,
+              'hashes': {
+                  'estimator_sha256': '6b0e275b6e60ec766ba5d8d19c27234c252bbcae22a3f7df6d0e3908f81e1c90',
+                  'benchmark_sha256': 'b7efc11df11cd76b28d0eb5832355844859d9c31f06d624316e563d89fb9b51c',
+                  'logic_plan_sha256': digest('data_science_god_level/tabular_transfer/logic-plan-receipt.json'),
+                  'static_audit_sha256': digest('public-logs/static-audit.json'),
+                  'data_manifest_sha256': digest('public-logs/data-manifest.json'),
+                  'report_sha256': digest(report_path),
+              },
+          }
+          payload = json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          Path('public-logs/public-freeze-receipt.json').write_text(payload)
+          Path('public-logs/public-freeze-receipt.sha256').write_text(
+              hashlib.sha256(payload.encode()).hexdigest() + '  public-freeze-receipt.json\n'
+          )
+          print(payload)
+          PY
+
+      - name: Upload immutable public evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-god-level-tabular-public
+          retention-days: 90
+          path: |
+            data_science_god_level/tabular_transfer/estimator.py
+            data_science_god_level/tabular_transfer/benchmark.py
+            data_science_god_level/tabular_transfer/logic-plan-receipt.json
+            public-logs/**
+
+      - name: Enforce public verdict
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('public-logs/public-freeze-receipt.json')
+          if not path.exists():
+              raise SystemExit('public receipt missing')
+          verdict = json.loads(path.read_text())['verdict']
+          if verdict != 'PASS':
+              raise SystemExit(f'public tabular transfer gate: {verdict}; evidence preserved')
+          print('public tabular transfer gate: PASS; candidate frozen')
+          PY
