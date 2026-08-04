@@ -1,14 +1,12 @@
 name: FIN-ABS-004B — sealed FDIC Random Forest benchmark
 
 on:
-  pull_request:
+  push:
     branches:
-      - agent/fin-abs-004b-fdic-rf-untouched
+      - agent/fin-abs-004b-fdic-rf-benchmark
     paths:
-      - 'README_FIN_ABS_004B_FDIC_RF.md'
-      - 'fin_abs_004b_fdic/**'
+      - 'fin_abs_004b_fdic/SEALED_AUTHORIZATION.json'
       - '.github/workflows/fin-abs-004b-fdic-sealed.yml'
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -25,7 +23,41 @@ jobs:
       - name: Checkout frozen challenger capsule
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.sha }}
+
+      - name: Verify one-shot Stage 0 authorization
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = 'agent/fin-abs-004b-fdic-rf-benchmark'
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          value = json.loads(Path('fin_abs_004b_fdic/SEALED_AUTHORIZATION.json').read_text())
+          expected = {
+              'schema':'fin-abs-004b/sealed-authorization/1',
+              'authorized_once':True,
+              'stage0_run_id':30874478494,
+              'stage0_artifact_id':8879238673,
+              'stage0_artifact_sha256':'60e24c2c418763c817134ff568872a95a43bc0d00fc4376ecd89b174c33de874',
+              'panel_sha256':'31426e433230999f9ce5fca0c08ce0664716e24fee508e584b053e0ecf4bf3da',
+              'entity_report_sha256':'e7dfa5e1b0e40ee08bd50e69ec42bf63cccc8759e253624fe59fddc9cc045313',
+              'preflight_report_sha256':'0e87d7a7f94b8c2dca196d0371681a55d7196c0ad6fd321326a4e7ad546287a1',
+              'node_stage0_receipt_sha256':'0125833ce7716e9f46bc3dd12dd6a4375bdf73723e1233ef31da92ff87fb2764',
+              'entity_split_seed':'FIN-ABS-004B-ENTITY-SPLIT-V2',
+              'bucket_rule':{'train':[0,29],'validation':[30,44],'test':[45,99]},
+              'split_counts':{
+                  'train':{'rows':164319,'entities':4880,'positive_entities':34,'positive_rows':164},
+                  'validation':{'rows':15361,'entities':1369,'positive_entities':54,'positive_rows':322},
+                  'test':{'rows':45693,'entities':4032,'positive_entities':50,'positive_rows':208},
+              },
+              'test_window':['2012-03-31','2014-12-31'],
+              'absolute_score_before':423,
+              'absolute_score_after_authorization':423,
+              'boundary':'Stage 0 authorizes one sealed performance evaluation; it does not award points.',
+          }
+          if value != expected:
+              raise SystemExit('sealed authorization mismatch')
+          PY
 
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
