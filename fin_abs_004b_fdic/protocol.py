@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import pandas as pd
 
-# Version 2 was selected strictly from Stage 0 aggregate event counts after the
-# original 20/10/70 split stopped with only 22 positive train entities. No
-# model, prediction, feature importance, threshold, or test performance was
-# observed. The test remains entirely after FIN-ABS-004's 2009-2011 period.
+# Version 3 is the final Stage 0 power correction. Version 2 produced
+# 34/76/47 positive train/validation/test entities against gates 30/10/50.
+# Without changing the seed, dates, rows, labels, or inspecting any model
+# output, five surplus validation buckets are transferred to the test. If this
+# still misses a gate, the route stops rather than redesigning again.
 WINDOWS = {
     "train": (pd.Timestamp("1992-12-31"), pd.Timestamp("2004-12-31")),
     "validation": (pd.Timestamp("2007-03-31"), pd.Timestamp("2009-12-31")),
@@ -20,7 +21,7 @@ FETCH_RANGES = (
 
 ENTITY_SPLIT_SEED = "FIN-ABS-004B-ENTITY-SPLIT-V2"
 TRAIN_BUCKET_END = 30
-VALIDATION_BUCKET_END = 50
+VALIDATION_BUCKET_END = 45
 
 EXPECTED_BUCKET_RULE = {
     "train": [0, TRAIN_BUCKET_END - 1],
