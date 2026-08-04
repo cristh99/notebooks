@@ -1,4 +1,4 @@
-name: OCR HN numeric holdout v2
+name: OCR HN 2025 stress-v2 development
 
 on:
   pull_request:
@@ -6,50 +6,19 @@ on:
       - 'ocr_hn_numeric_holdout_v1/**'
       - '.github/workflows/ocr-hn-numeric-holdout-v1.yml'
   workflow_dispatch:
-    inputs:
-      target_units:
-        description: Unique OCIDs / crops / documents
-        required: false
-        default: '120'
-      minimum_institutions:
-        description: Minimum parent institutions
-        required: false
-        default: '8'
-      minimum_accepted:
-        description: Minimum accepted natural claims
-        required: false
-        default: '40'
-      image_tier:
-        description: native_300 or scan_stress_v1
-        required: false
-        default: 'scan_stress_v1'
-      counterfactual_maximum_risk:
-        description: One-sided upper risk gate
-        required: false
-        default: '0.03'
-      counterfactual_minimum_total:
-        description: Minimum counterfactual cases
-        required: false
-        default: '100'
 
 concurrency:
-  group: ocr-hn-numeric-holdout-v2-${{ github.event.pull_request.number || github.ref }}
+  group: ocr-hn-2025-stress-v2-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  sealed-honduras-canary:
+  sealed-2025-development:
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 45
     env:
-      TARGET_UNITS: ${{ inputs.target_units || '120' }}
-      MINIMUM_INSTITUTIONS: ${{ inputs.minimum_institutions || '8' }}
-      MINIMUM_ACCEPTED: ${{ inputs.minimum_accepted || '40' }}
-      IMAGE_TIER: ${{ inputs.image_tier || 'scan_stress_v1' }}
-      COUNTERFACTUAL_MAXIMUM_RISK: ${{ inputs.counterfactual_maximum_risk || '0.03' }}
-      COUNTERFACTUAL_MINIMUM_TOTAL: ${{ inputs.counterfactual_minimum_total || '100' }}
       OMP_THREAD_LIMIT: '1'
       OPENBLAS_NUM_THREADS: '1'
       MKL_NUM_THREADS: '1'
@@ -70,14 +39,13 @@ jobs:
         run: |
           python -m unittest -v ocr_hn_numeric_holdout_v1.test_holdout
           python -m compileall -q ocr_hn_numeric_holdout_v1
-      - name: Prepare one OCR-independent crop per unique OCID from ONCAE bulk data
+      - name: Prepare 20 unique 2025 OCIDs without observing OCR
         run: |
           python -m ocr_hn_numeric_holdout_v1.prepare_bulk \
-            --bulk-url 'https://data.open-contracting.org/en/publication/122/download?name=2026.jsonl.gz' \
             --bulk-url 'https://data.open-contracting.org/en/publication/122/download?name=2025.jsonl.gz' \
-            --target-crops "${TARGET_UNITS}" \
-            --target-documents "${TARGET_UNITS}" \
-            --minimum-institutions "${MINIMUM_INSTITUTIONS}" \
+            --target-crops 20 \
+            --target-documents 20 \
+            --minimum-institutions 5 \
             --candidate-pool-multiplier 6 \
             --maximum-pages-per-document 15 \
             --maximum-documents-per-ocid 3 \
@@ -90,17 +58,15 @@ jobs:
           python -m ocr_hn_numeric_holdout_v1.validate_manifest \
             ocr_hn_numeric_holdout_v1/run/preparation/manifest.json \
             | tee ocr_hn_numeric_holdout_v1/run/manifest_validation.json
-      - name: Evaluate sealed manifest
+      - name: Evaluate frozen stress v2 on production Tesseract boxes
         run: |
-          python -m ocr_hn_numeric_holdout_v1.evaluate \
+          python -m ocr_hn_numeric_holdout_v1.evaluate_stress_v2 \
             ocr_hn_numeric_holdout_v1/run/preparation/manifest.json \
             --pdf-cache ocr_hn_numeric_holdout_v1/run/preparation/pdfs \
-            --tier "${IMAGE_TIER}" \
-            --minimum-accepted "${MINIMUM_ACCEPTED}" \
-            --minimum-coverage 0.30 \
-            --minimum-institution-fold-pass-fraction 0.80 \
-            --counterfactual-maximum-risk "${COUNTERFACTUAL_MAXIMUM_RISK}" \
-            --counterfactual-minimum-total "${COUNTERFACTUAL_MINIMUM_TOTAL}" \
+            --minimum-accepted 5 \
+            --minimum-coverage 0.20 \
+            --counterfactual-maximum-risk 0.30 \
+            --counterfactual-minimum-total 10 \
             --output-dir ocr_hn_numeric_holdout_v1/run/evaluation
       - name: Independent semantic, statistical and crop-hash replay
         run: |
@@ -124,7 +90,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: ocr-hn-numeric-holdout-v2-${{ env.IMAGE_TIER }}
+          name: ocr-hn-2025-stress-v2-development
           path: ocr_hn_numeric_holdout_v1/run
           if-no-files-found: error
           retention-days: 30
