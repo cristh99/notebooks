@@ -1,0 +1,37 @@
+{
+  "schema": "data-science-god-level/symbolic-v2-srbench24-retry-authorization/1",
+  "prior_run": {
+    "run_id": 30947880043,
+    "job_id": 92122269576,
+    "head_sha": "a307571d750c1a5f414239801b3096c62fd5d221",
+    "artifact_id": 8907856366,
+    "artifact_sha256": "ff2f04be87d94aea260908cf5801ee56586c7cc854ae8293dcd669126b760810",
+    "verdict": "INVALID_RUN",
+    "actual_external_evaluation_count": 0,
+    "evaluation_step_executed": false,
+    "failure_stage": "dataset acquisition",
+    "failure_reason": "the released pmlb Python package did not index every dataset added at the pinned repository commit"
+  },
+  "candidate": {
+    "path": "data_science_god_level/symbolic_discovery_v2/estimator.py",
+    "sha256": "4e80f120c08581d10497e916a86464062df157d99ec6215ad6f7bfd1b7ea557d",
+    "changed_after_prior_run": false
+  },
+  "repair": {
+    "scope": "data transport and parser only",
+    "data_repository": "EpistasisLab/pmlb",
+    "data_commit": "7c1f4bdc00136dc2e55c87fa6b8ba6e8af6d1a68",
+    "transport": "pinned media.githubusercontent.com Git LFS objects",
+    "dataset_selection_changed": false,
+    "splits_changed": false,
+    "metrics_changed": false,
+    "thresholds_changed": false,
+    "baselines_changed": false,
+    "candidate_changed": false
+  },
+  "authorization": {
+    "one_new_workflow_attempt": true,
+    "one_external_evaluation_authorized": true,
+    "post_hoc_candidate_retuning_permitted": false
+  }
+}
