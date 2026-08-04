@@ -51,12 +51,8 @@ def evaluate_instance(instance: int) -> dict[str, Any]:
     true_ate = float(true_ite.mean())
     true_att = float(true_ite[a == 1].mean())
 
-    candidate = estimate_causal_effect(
-        x, a, y, random_state=20260804
-    )
-    ridge0, ridge1 = _ridge_counterfactuals(
-        x, a, y, random_state=314159
-    )
+    candidate = estimate_causal_effect(x, a, y, random_state=20260804)
+    ridge0, ridge1 = _ridge_counterfactuals(x, a, y, random_state=314159)
     ridge_ite = ridge1 - ridge0
     naive = float(y[a == 1].mean() - y[a == 0].mean())
 
@@ -117,7 +113,10 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 all(row["candidate"]["diagnostics"]["finite"] for row in rows)
             ),
             "positivity_warnings": int(
-                sum(row["candidate"]["diagnostics"]["positivity_warning"] for row in rows)
+                sum(
+                    row["candidate"]["diagnostics"]["positivity_warning"]
+                    for row in rows
+                )
             ),
         },
         "naive": {
@@ -168,7 +167,7 @@ def main() -> None:
 
     rows = [evaluate_instance(instance) for instance in args.instances]
     report = {
-        "schema": "data-science-god-level/acic16-benchmark/1",
+        "schema": "data-science-god-level/acic16-benchmark/2",
         "dataset": "ACIC 2016 sample packaged by causallib 0.10.0",
         "candidate_ground_truth_access": False,
         "instances": rows,
@@ -177,6 +176,12 @@ def main() -> None:
     payload = json.dumps(report, indent=2, sort_keys=True) + "\n"
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(payload, encoding="utf-8")
+
+    canonical_output = Path(__file__).resolve().parents[2] / "public-logs" / "public-report.json"
+    if canonical_output.resolve() != args.output.resolve():
+        canonical_output.parent.mkdir(parents=True, exist_ok=True)
+        canonical_output.write_text(payload, encoding="utf-8")
+
     digest = hashlib.sha256(payload.encode()).hexdigest()
     print(payload)
     print(f"report_sha256={digest}")
