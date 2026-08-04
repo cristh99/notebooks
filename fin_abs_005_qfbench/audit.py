@@ -53,8 +53,20 @@ def selection_payload() -> dict[str, Any]:
     }
 
 
-def audit(source: Path) -> dict[str, Any]:
-    files = sorted(path for path in source.rglob("*") if path.is_file())
+def workspace_files(source: Path) -> list[Path]:
+    return sorted(
+        path
+        for path in source.rglob("*")
+        if path.is_file()
+        and ".git" not in path.relative_to(source).parts
+    )
+
+
+def audit(
+    source: Path,
+    observed_commit: str = SOURCE_COMMIT,
+) -> dict[str, Any]:
+    files = workspace_files(source)
     relative = [path.relative_to(source).as_posix() for path in files]
     forbidden = [
         name
@@ -74,11 +86,16 @@ def audit(source: Path) -> dict[str, Any]:
         if not instruction.is_file() or not metadata.is_file():
             continue
         parsed = tomllib.loads(metadata.read_text(encoding="utf-8"))
-        environment_files = sorted(
-            path
-            for path in environment.rglob("*")
-            if path.is_file()
-        ) if environment.is_dir() else []
+        environment_files = (
+            sorted(
+                path
+                for path in environment.rglob("*")
+                if path.is_file()
+                and ".git" not in path.relative_to(source).parts
+            )
+            if environment.is_dir()
+            else []
+        )
         tasks.append(
             {
                 "task_id": task,
@@ -109,13 +126,14 @@ def audit(source: Path) -> dict[str, Any]:
     selection = selection_payload()
     selection_sha = digest(selection)
     checks = {
-        "source_commit_exact": SOURCE_COMMIT
-        == "d2fc28b3492f2d73d192fa7eabadf150a19a62fb",
+        "source_commit_exact": observed_commit == SOURCE_COMMIT,
         "selection_manifest_exact": selection_sha
         == EXPECTED_SELECTION_SHA256,
         "five_unique_tasks": len(TASKS) == 5 and len(set(TASKS)) == 5,
         "all_selected_tasks_present": len(tasks) == len(TASKS) and not missing,
-        "instructions_nonempty": all(item["instruction_bytes"] > 100 for item in tasks),
+        "instructions_nonempty": all(
+            item["instruction_bytes"] > 100 for item in tasks
+        ),
         "environments_present": all(
             item["environment_file_count"] > 0 for item in tasks
         ),
@@ -123,11 +141,20 @@ def audit(source: Path) -> dict[str, Any]:
         "root_license_present": (source / "LICENSE").is_file(),
         "root_readme_present": (source / "README.md").is_file(),
     }
+    manifest = [
+        {
+            "path": path.relative_to(source).as_posix(),
+            "bytes": path.stat().st_size,
+            "sha256": sha_file(path),
+        }
+        for path in files
+    ]
     payload = {
         "schema": SCHEMA,
         "source": {
             "repository": SOURCE_REPOSITORY,
             "commit": SOURCE_COMMIT,
+            "observed_commit": observed_commit,
         },
         "selection": {
             **selection,
@@ -135,22 +162,18 @@ def audit(source: Path) -> dict[str, Any]:
         },
         "workspace": {
             "file_count": len(files),
-            "file_manifest_sha256": digest(
-                [
-                    {
-                        "path": path.relative_to(source).as_posix(),
-                        "bytes": path.stat().st_size,
-                        "sha256": sha_file(path),
-                    }
-                    for path in files
-                ]
-            ),
+            "file_manifest": manifest,
+            "file_manifest_sha256": digest(manifest),
             "forbidden_paths": forbidden,
             "missing_paths": missing,
         },
         "tasks": tasks,
         "gate_checks": checks,
-        "status": "PASS_BLIND_STAGE0" if all(checks.values()) else "BLOCKED_BLIND_STAGE0",
+        "status": (
+            "PASS_BLIND_STAGE0"
+            if all(checks.values())
+            else "BLOCKED_BLIND_STAGE0"
+        ),
         "absolute_score": {
             "before": 423,
             "after": 423,
@@ -164,16 +187,19 @@ def audit(source: Path) -> dict[str, Any]:
     return {
         "payload": payload,
         "payload_canonical": canonical_payload,
-        "sha256": hashlib.sha256(canonical_payload.encode("utf-8")).hexdigest(),
+        "sha256": hashlib.sha256(
+            canonical_payload.encode("utf-8")
+        ).hexdigest(),
     }
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=Path, required=True)
+    parser.add_argument("--observed-commit", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    report = audit(args.source)
+    report = audit(args.source, args.observed_commit)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n",
@@ -186,6 +212,7 @@ def main() -> None:
                 "status": payload["status"],
                 "tasks": [item["task_id"] for item in payload["tasks"]],
                 "forbidden_paths": payload["workspace"]["forbidden_paths"],
+                "observed_commit": payload["source"]["observed_commit"],
                 "report_sha256": report["sha256"],
                 "absolute_score": payload["absolute_score"]["after"],
             },
