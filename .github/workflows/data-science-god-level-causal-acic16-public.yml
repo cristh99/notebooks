@@ -25,13 +25,14 @@ jobs:
 
       - name: Install pinned causal benchmark environment
         run: |
+          mkdir -p public-logs
           python -m pip install --disable-pip-version-check \
             'numpy==1.26.4' \
             'pandas==2.2.3' \
             'scipy==1.14.1' \
             'scikit-learn==1.5.2' \
             'causallib==0.10.0'
-          python -m pip freeze | sort > public-logs-pip-freeze.txt
+          python -m pip freeze | sort > public-logs/pip-freeze.txt
 
       - name: Reconstruct original hash-bound Logic Power v10
         shell: bash
@@ -66,7 +67,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p public-logs
           python - <<'PY'
           import ast
           import hashlib
@@ -93,7 +93,9 @@ jobs:
                   elif isinstance(node.func, ast.Attribute):
                       calls.append(node.func.attr)
 
-          allowed_imports = {'dataclasses', 'math', 'typing', 'numpy', 'sklearn'}
+          allowed_imports = {
+              '__future__', 'dataclasses', 'math', 'typing', 'numpy', 'sklearn'
+          }
           forbidden_imports = imports - allowed_imports
           forbidden_calls = sorted(
               set(calls)
@@ -117,7 +119,7 @@ jobs:
               raise SystemExit(f'ground-truth or identifier access: {forbidden_names}')
 
           receipt = {
-              'schema': 'data-science-god-level/acic16-static-audit/1',
+              'schema': 'data-science-god-level/acic16-static-audit/2',
               'estimator_sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
               'imports': sorted(imports),
               'forbidden_calls': forbidden_calls,
@@ -187,37 +189,42 @@ jobs:
           import json
           from pathlib import Path
 
+          def digest(path: Path):
+              return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+
           root = Path('data_science_god_level/causal_acic16')
           report_path = Path('public-logs/public-report.json')
-          if not report_path.exists():
-              verdict = 'INVALID_RUN'
-              report_sha = None
-              summary = None
-          else:
+          static_path = Path('public-logs/static-audit.json')
+          manifest_path = Path('public-logs/public-data-manifest.json')
+          logic_path = root / 'logic-plan-receipt.json'
+          if report_path.exists():
               report = json.loads(report_path.read_text())
               verdict = report['summary']['verdict']
-              report_sha = hashlib.sha256(report_path.read_bytes()).hexdigest()
               summary = report['summary']
+              failure_stage = None
+          elif not static_path.exists():
+              verdict = 'INVALID_PRECHECK'
+              summary = None
+              failure_stage = 'static_audit'
+          elif not manifest_path.exists():
+              verdict = 'NOT_RUN'
+              summary = None
+              failure_stage = 'before_public_data_manifest'
+          else:
+              verdict = 'INVALID_RUN'
+              summary = None
+              failure_stage = 'public_benchmark'
 
           receipt = {
-              'schema': 'data-science-god-level/acic16-public-freeze/1',
+              'schema': 'data-science-god-level/acic16-public-freeze/2',
               'verdict': verdict,
-              'estimator_sha256': hashlib.sha256(
-                  (root / 'estimator.py').read_bytes()
-              ).hexdigest(),
-              'benchmark_sha256': hashlib.sha256(
-                  (root / 'benchmark.py').read_bytes()
-              ).hexdigest(),
-              'logic_plan_sha256': hashlib.sha256(
-                  (root / 'logic-plan-receipt.json').read_bytes()
-              ).hexdigest(),
-              'static_audit_sha256': hashlib.sha256(
-                  Path('public-logs/static-audit.json').read_bytes()
-              ).hexdigest(),
-              'data_manifest_sha256': hashlib.sha256(
-                  Path('public-logs/public-data-manifest.json').read_bytes()
-              ).hexdigest(),
-              'report_sha256': report_sha,
+              'failure_stage': failure_stage,
+              'estimator_sha256': digest(root / 'estimator.py'),
+              'benchmark_sha256': digest(root / 'benchmark.py'),
+              'logic_plan_sha256': digest(logic_path),
+              'static_audit_sha256': digest(static_path),
+              'data_manifest_sha256': digest(manifest_path),
+              'report_sha256': digest(report_path),
               'public_instances': [1, 2, 3, 4, 5, 6],
               'official_instances': [7, 8, 9, 10],
               'official_truth_accessed': False,
@@ -245,7 +252,6 @@ jobs:
             data_science_god_level/causal_acic16/benchmark.py
             data_science_god_level/causal_acic16/logic-plan-receipt.json
             public-logs/**
-            public-logs-pip-freeze.txt
 
       - name: Enforce public verdict
         if: always()
@@ -254,9 +260,10 @@ jobs:
           import json
           from pathlib import Path
 
-          receipt = json.loads(
-              Path('public-logs/public-freeze-receipt.json').read_text()
-          )
+          path = Path('public-logs/public-freeze-receipt.json')
+          if not path.exists():
+              raise SystemExit('ACIC16 public receipt missing')
+          receipt = json.loads(path.read_text())
           if receipt['verdict'] != 'PASS':
               raise SystemExit(
                   f"ACIC16 public gate: {receipt['verdict']}; evidence preserved"
