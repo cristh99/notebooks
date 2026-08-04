@@ -49,13 +49,30 @@
     "tabicl_commit": "46b91961db4f8873dd049ec09990698a435e1e29",
     "xgboost": "3.1.3"
   },
+  "invalid_predata_run": {
+    "actual_external_evaluation_count": 0,
+    "artifact_id": 8911044933,
+    "artifact_sha256": "c1f117c473b7eda677ba111d644543b3d76c2b004a4ca53b5c96331abe51034a",
+    "failure_reason": "fixed local legacy module was executed without insertion into sys.modules, which breaks dataclass decoration under Python 3.11",
+    "failure_stage": "pre-data unit tests",
+    "run_id": 30955963008
+  },
   "novelty_weight": 0,
   "pre_data_proof": {
     "external_task_values_accessed": false,
     "python_compile": "PASS",
-    "unit_tests": "4/4 PASS"
+    "unit_tests_after_repair": "4/4 PASS"
   },
-  "schema": "data-science-dominance/tabarena-fresh12-source-manifest/2",
+  "repair": {
+    "candidate_or_selection_semantics_changed": false,
+    "patcher_path": "data_science_dominance/tabarena_portfolio/repair_legacy_loader.py",
+    "patcher_sha256": "28d216d94a8286a67040225843229fb3333a008cacc5be292200adaa3ca3ff8f",
+    "scope": "register the fixed local legacy module in sys.modules before exec_module",
+    "source_dominance_sha256": "ff77eb2e5ce1957303c07f76a0d9ad278622fc4f1504455b322a533d466d455d",
+    "target_dominance_sha256": "28e5031b452a457cf0c643a32c73941ec43e5c179469b05a2f3f9b6d4f3673ea",
+    "external_task_values_accessed_before_repair": false
+  },
+  "schema": "data-science-dominance/tabarena-fresh12-source-manifest/3",
   "score_before": 465,
   "source_branch_base": {
     "branch": "agent/data-science-god-level-tabular-transfer-official",
