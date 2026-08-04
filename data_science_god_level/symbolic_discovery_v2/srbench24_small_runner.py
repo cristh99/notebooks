@@ -6,23 +6,23 @@ from pathlib import Path
 
 import numpy as np
 from sklearn.impute import SimpleImputer
+from sklearn.model_selection import train_test_split
 
 import srbench24_runner as base
 
 
 def split_indices(n_rows: int, dataset_name: str) -> tuple[np.ndarray, np.ndarray]:
-    """Deterministic 80/20 split that also supports official tiny datasets."""
-    if n_rows < 8:
-        raise ValueError("dataset must contain at least 8 rows")
-    rng = np.random.default_rng(base.stable_seed(dataset_name))
-    order = rng.permutation(n_rows)
-    n_test = max(3, int(round(0.20 * n_rows)))
-    n_test = min(n_test, 3000, n_rows - 6)
-    test = order[:n_test]
-    train = order[n_test:]
-    if train.size > 10000:
-        train = train[:10000]
-    return train, test
+    """Match SRBench 2025's deterministic 75/25 train/test protocol."""
+    if n_rows < 6:
+        raise ValueError("dataset must contain at least 6 rows")
+    indices = np.arange(n_rows)
+    train, test = train_test_split(
+        indices,
+        train_size=0.75,
+        test_size=0.25,
+        random_state=base.stable_seed(dataset_name),
+    )
+    return np.asarray(train, dtype=int), np.asarray(test, dtype=int)
 
 
 def clean_arrays(
@@ -42,7 +42,7 @@ def clean_arrays(
     imputer = SimpleImputer(strategy="median", keep_empty_features=True)
     X_train = imputer.fit_transform(X_train)
     X_test = imputer.transform(X_test)
-    if X_train.shape[0] < 6 or X_test.shape[0] < 3:
+    if X_train.shape[0] < 4 or X_test.shape[0] < 2:
         raise ValueError("insufficient finite rows")
     scale = max(float(np.max(np.abs(y_train))), float(np.std(y_train)), 1e-300)
     if float(np.std(y_train)) <= np.finfo(float).eps * scale * 16:
@@ -51,14 +51,19 @@ def clean_arrays(
 
 
 def run(data_root: Path, output: Path) -> dict[str, object]:
-    # Patch only the two protocol functions required by the official small-n tasks.
+    # Patch only the protocol functions needed to match the pinned SRBench source.
     base.split_indices = split_indices
     base.clean_arrays = clean_arrays
     report = base.run(data_root, output)
     report["small_sample_protocol"] = {
-        "minimum_total_rows": 8,
-        "minimum_train_rows": 6,
-        "minimum_test_rows": 3,
+        "source_repository": "cavalab/srbench",
+        "source_commit": "dc3f6daa93bf10955df8775256a6f8644f38fd93",
+        "source_path": "experiment/evaluate_model.py",
+        "train_fraction": 0.75,
+        "test_fraction": 0.25,
+        "minimum_total_rows": 6,
+        "minimum_train_rows": 4,
+        "minimum_test_rows": 2,
         "candidate_changed": False,
         "datasets_changed": False,
         "metrics_changed": False,
