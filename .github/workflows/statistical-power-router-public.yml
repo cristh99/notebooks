@@ -1,0 +1,226 @@
+name: Public Statistical Power Router v1 verification
+
+on:
+  push:
+    branches:
+      - agent/statistical-power-router-v1-public
+    paths:
+      - 'inference_power_compiler_v2/verify_statistical_power_router_public.py'
+      - 'PowerRouterPublic.lean'
+      - '.github/workflows/statistical-power-router-public.yml'
+  pull_request:
+    paths:
+      - 'inference_power_compiler_v2/verify_statistical_power_router_public.py'
+      - 'PowerRouterPublic.lean'
+      - '.github/workflows/statistical-power-router-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-power-router-public:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+
+      - name: Compile and execute independent router
+        shell: bash
+        run: |
+          set -euo pipefail
+          verifier='inference_power_compiler_v2/verify_statistical_power_router_public.py'
+          python -m py_compile "$verifier"
+          python "$verifier" | tee power-router-public.log
+          test -s inference_power_compiler_v2/POWER_ROUTER_PUBLIC_REPORT.json
+          test -s inference_power_compiler_v2/POWER_ROUTER_PUBLIC_CERTIFICATE.json
+          sha256sum \
+            inference_power_compiler_v2/POWER_ROUTER_PUBLIC_REPORT.json \
+            inference_power_compiler_v2/POWER_ROUTER_PUBLIC_CERTIFICATE.json \
+            > /tmp/power-router-public-before.sha256
+          python "$verifier" > /tmp/power-router-public-rebuild.log
+          sha256sum \
+            inference_power_compiler_v2/POWER_ROUTER_PUBLIC_REPORT.json \
+            inference_power_compiler_v2/POWER_ROUTER_PUBLIC_CERTIFICATE.json \
+            > /tmp/power-router-public-after.sha256
+          cmp /tmp/power-router-public-before.sha256 /tmp/power-router-public-after.sha256
+
+      - name: Audit exact public outputs and private binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path('inference_power_compiler_v2/POWER_ROUTER_PUBLIC_REPORT.json').read_text()
+          )
+          assert report['status'] == 'SOLVED'
+          assert report['comparison_target'] == {
+              'repository': 'cristh99/my_first_repository',
+              'pull_request': 108,
+              'head': 'fd717ce86dc54ae7f9279e10df85ce1be74554c4',
+              'git_blobs': {
+                  'router': '0c70bc8afd5aa3ff616abd4f8a80070ebdc54824',
+                  'tests': 'f384334c61256f641a2544d2c0a0be8f9d7ae736',
+                  'runner': '04d090d68f07e4e5f1bb9418e2a1c194cb768b68',
+                  'lean': 'aebf695a80c3c0a1739b3790979210abb27a7813',
+                  'workflow': '99cf036060b189e9ef67bee988ff2fb327e364a3',
+              },
+          }
+          assert report['registry_size'] == 18
+          assert len(report['goals_supported']) == 13
+          assert report['terminal_statuses'] == [
+              'SOLVED',
+              'IMPOSSIBLE',
+              'UNKNOWN',
+              'BLOCKED',
+              'UNDERSPECIFIED',
+              'BUDGET_EXHAUSTED',
+              'UNSAFE',
+          ]
+          controls = report['controls']
+          assert controls['causal_composition']['status'] == 'SOLVED'
+          assert controls['causal_composition']['portfolio']['capabilities'] == [
+              'finite_causal_id', 'crossfit_finite'
+          ]
+          assert controls['causal_composition']['portfolio']['cost'] == [18, 1]
+          assert controls['active_evidence']['portfolio']['capabilities'] == [
+              'epistemic_policy'
+          ]
+          assert controls['diagnostic_unknown']['status'] == 'UNKNOWN'
+          assert controls['diagnostic_unknown']['missing_facts'] == [
+              'laws_known', 'rational'
+          ]
+          diagnostic = controls['diagnostic_unknown']['diagnostic_policy']
+          assert diagnostic['fixed_cost'] == [6, 1]
+          assert diagnostic['policy']['worst_cost'] == [6, 1]
+          assert diagnostic['policy']['expected_cost'] == [7, 2]
+          assert controls['budget_exhausted']['status'] == 'BUDGET_EXHAUSTED'
+          assert controls['impossible']['status'] == 'IMPOSSIBLE'
+          assert controls['unsafe']['status'] == 'UNSAFE'
+          assert controls['blocked']['status'] == 'BLOCKED'
+          assert controls['sequential']['portfolio']['capabilities'] == [
+              'adaptive_eprocess'
+          ]
+          full = controls['full_inference']['portfolio']
+          assert set(full['capabilities']) == {
+              'finite_causal_id',
+              'crossfit_finite',
+              'lower_bound_metacompiler',
+          }
+          assert full['cost'] == [28, 1]
+          logic = report['logic_power_v10_independent_reconstruction']
+          assert logic['hypotheses'] == 256
+          assert logic['conflict_pairs'] == 255
+          assert logic['fixed_cost'] == [87, 1]
+          assert logic['worst_cost'] == [87, 1]
+          assert len(logic['clean_path']) == 8
+          assert report['independent_algorithm'].startswith('Dijkstra')
+          assert report['semantic_replay'] == 'PASS'
+          assert report['tampered_certificate'] == 'REJECTED:payload-hash'
+          assert report['forged_certificate'] == 'REJECTED:semantic-replay'
+          PY
+
+      - name: Install pinned Lean
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -sSf \
+            https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          "$HOME/.elan/bin/elan" toolchain install leanprover/lean4:v4.33.0-rc1
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Compile public formal boundary without axioms
+        shell: bash
+        run: |
+          set -euo pipefail
+          elan run leanprover/lean4:v4.33.0-rc1 lean \
+            -o PowerRouterPublic.olean PowerRouterPublic.lean \
+            2>&1 | tee power-router-public-lean.log
+          test -s PowerRouterPublic.olean
+          if grep -Eq 'sorryAx|depends on axioms:' power-router-public-lean.log; then
+            echo 'Unexpected Lean axiom dependency' >&2
+            exit 1
+          fi
+
+      - name: Build public verification receipt
+        shell: bash
+        env:
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PUBLIC_EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          files = {
+              'report': Path('inference_power_compiler_v2/POWER_ROUTER_PUBLIC_REPORT.json'),
+              'certificate': Path('inference_power_compiler_v2/POWER_ROUTER_PUBLIC_CERTIFICATE.json'),
+              'verifier': Path('inference_power_compiler_v2/verify_statistical_power_router_public.py'),
+              'lean': Path('PowerRouterPublic.lean'),
+          }
+          receipt = {
+              'schema': 'statistical-power-router-public-receipt/1',
+              'repository': 'cristh99/notebooks',
+              'head': os.environ['PUBLIC_HEAD_SHA'],
+              'event_sha': os.environ['PUBLIC_EVENT_SHA'],
+              'comparison_target': {
+                  'repository': 'cristh99/my_first_repository',
+                  'pull_request': 108,
+                  'head': 'fd717ce86dc54ae7f9279e10df85ce1be74554c4',
+              },
+              'sha256': {
+                  name: hashlib.sha256(path.read_bytes()).hexdigest()
+                  for name, path in files.items()
+              },
+              'independent_algorithm': 'Dijkstra fact-closure search',
+              'registry_size': 18,
+              'typed_problem_ir': 'PASS',
+              'exact_capability_composition': 'PASS',
+              'minimum_cost_portfolio': 'PASS',
+              'logic_power_diagnostics': 'PASS',
+              'terminal_semantics': 'PASS',
+              'budget_fail_closed': 'PASS',
+              'negative_controls': 'PASS',
+              'semantic_replay': 'PASS',
+              'deterministic_rebuild': 'PASS',
+              'certificate_tamper_rejection': 'PASS',
+              'semantic_forgery_rejection': 'PASS',
+              'lean': 'PASS',
+              'sorryAx': 'ABSENT',
+              'axiom_dependencies': 'ABSENT',
+          }
+          path = Path('inference_power_compiler_v2/POWER_ROUTER_PUBLIC_RECEIPT.json')
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path('inference_power_compiler_v2/POWER_ROUTER_PUBLIC_RECEIPT.sha256').write_text(
+              f'{digest}  POWER_ROUTER_PUBLIC_RECEIPT.json\n'
+          )
+          print(path.read_text())
+          print(digest)
+          PY
+
+      - name: Upload public router evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: statistical-power-router-public-evidence
+          path: |
+            inference_power_compiler_v2/POWER_ROUTER_PUBLIC_*.json
+            inference_power_compiler_v2/POWER_ROUTER_PUBLIC_RECEIPT.sha256
+            inference_power_compiler_v2/verify_statistical_power_router_public.py
+            PowerRouterPublic.lean
+            PowerRouterPublic.olean
+            power-router-public.log
+            power-router-public-lean.log
+          if-no-files-found: error
+          retention-days: 90
