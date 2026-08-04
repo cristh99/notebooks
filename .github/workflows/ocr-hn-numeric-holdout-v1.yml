@@ -70,18 +70,20 @@ jobs:
         run: |
           python -m unittest -v ocr_hn_numeric_holdout_v1.test_holdout
           python -m compileall -q ocr_hn_numeric_holdout_v1
-      - name: Prepare one OCR-independent crop per unique OCID
+      - name: Prepare one OCR-independent crop per unique OCID from ONCAE bulk data
         run: |
-          python -m ocr_hn_numeric_holdout_v1.prepare \
+          python -m ocr_hn_numeric_holdout_v1.prepare_bulk \
+            --bulk-url 'https://data.open-contracting.org/en/publication/122/download?name=2026.jsonl.gz' \
+            --bulk-url 'https://data.open-contracting.org/en/publication/122/download?name=2025.jsonl.gz' \
             --target-crops "${TARGET_UNITS}" \
             --target-documents "${TARGET_UNITS}" \
             --minimum-institutions "${MINIMUM_INSTITUTIONS}" \
-            --maximum-api-pages 150 \
             --candidate-pool-multiplier 6 \
             --maximum-pages-per-document 15 \
             --maximum-documents-per-ocid 3 \
             --minimum-digits 4 \
             --maximum-digits 12 \
+            --pdf-timeout 30 \
             --output-dir ocr_hn_numeric_holdout_v1/run/preparation
       - name: Evaluate sealed manifest
         run: |
@@ -102,9 +104,11 @@ jobs:
             ocr_hn_numeric_holdout_v1/run/evaluation/evaluation.json \
             --artifact-root ocr_hn_numeric_holdout_v1/run/evaluation \
             | tee ocr_hn_numeric_holdout_v1/run/verification.json
-      - name: Remove source PDF cache before artifact upload
+      - name: Remove bulk and source-PDF caches before artifact upload
         if: always()
-        run: rm -rf ocr_hn_numeric_holdout_v1/run/preparation/pdfs
+        run: |
+          rm -rf ocr_hn_numeric_holdout_v1/run/preparation/pdfs
+          rm -rf ocr_hn_numeric_holdout_v1/run/preparation/bulk
       - name: Hash retained evidence
         if: always()
         run: |
