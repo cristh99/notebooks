@@ -50,6 +50,8 @@ jobs:
           python -m unittest -v fin_abs_004_fdic.test_model
           python -m unittest -v fin_abs_004_fdic.test_serialization
           python -m unittest -v fin_abs_004_fdic.test_preflight
+          python -m unittest -v fin_abs_004_fdic.test_entity_split
+          python -m unittest -v fin_abs_004_fdic.test_benchmark_cli
 
       - name: Acquire official quarterly panel and construct labels
         run: |
@@ -59,14 +61,22 @@ jobs:
             --cache .cache/fin_abs_004_fdic \
             --output-dir reports/fin_abs_004_fdic_benchmark/panel
 
+      - name: Freeze entity-disjoint panel before model selection
+        run: |
+          python -m fin_abs_004_fdic.entity_split \
+            --source-panel reports/fin_abs_004_fdic_benchmark/panel/panel_features.csv \
+            --source-report reports/fin_abs_004_fdic_benchmark/panel/panel_report.json \
+            --output-panel reports/fin_abs_004_fdic_benchmark/panel/panel_features_entity_disjoint.csv \
+            --output-report reports/fin_abs_004_fdic_benchmark/panel/entity_panel_report.json
+
       - name: Verify split and entity contract before sealed test
         id: preflight
         shell: bash
         run: |
           set +e
           python -m fin_abs_004_fdic.preflight \
-            --panel reports/fin_abs_004_fdic_benchmark/panel/panel_features.csv \
-            --panel-report reports/fin_abs_004_fdic_benchmark/panel/panel_report.json \
+            --panel reports/fin_abs_004_fdic_benchmark/panel/panel_features_entity_disjoint.csv \
+            --panel-report reports/fin_abs_004_fdic_benchmark/panel/entity_panel_report.json \
             --output reports/fin_abs_004_fdic_benchmark/panel/preflight_report.json
           code=$?
           set -e
@@ -81,9 +91,10 @@ jobs:
       - name: Execute validation selection and sealed test once
         if: steps.preflight.outputs.passed == 'true'
         run: |
-          python -m fin_abs_004_fdic.benchmark \
-            --panel reports/fin_abs_004_fdic_benchmark/panel/panel_features.csv \
-            --panel-report reports/fin_abs_004_fdic_benchmark/panel/panel_report.json \
+          python -m fin_abs_004_fdic.benchmark_cli \
+            --panel reports/fin_abs_004_fdic_benchmark/panel/panel_features_entity_disjoint.csv \
+            --panel-report reports/fin_abs_004_fdic_benchmark/panel/entity_panel_report.json \
+            --preflight-report reports/fin_abs_004_fdic_benchmark/panel/preflight_report.json \
             --output-dir reports/fin_abs_004_fdic_benchmark/result
 
       - name: Independent Node metric replay
@@ -92,6 +103,15 @@ jobs:
           node fin_abs_004_fdic/verify_benchmark.mjs \
             reports/fin_abs_004_fdic_benchmark/result/report.json \
             reports/fin_abs_004_fdic_benchmark/result/node_metric_receipt.json
+
+      - name: Independent Node boundary replay
+        if: steps.preflight.outputs.passed == 'true'
+        run: |
+          node fin_abs_004_fdic/verify_boundaries.mjs \
+            reports/fin_abs_004_fdic_benchmark/result/report.json \
+            reports/fin_abs_004_fdic_benchmark/panel/preflight_report.json \
+            reports/fin_abs_004_fdic_benchmark/panel/entity_panel_report.json \
+            reports/fin_abs_004_fdic_benchmark/result/node_boundary_receipt.json
 
       - name: Reject score and metric forgeries
         if: steps.preflight.outputs.passed == 'true'
