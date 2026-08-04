@@ -43,6 +43,7 @@ jobs:
           python -m unittest -v fin_abs_004_fdic.test_panel
           python -m unittest -v fin_abs_004_fdic.test_model
           python -m unittest -v fin_abs_004_fdic.test_serialization
+          python -m unittest -v fin_abs_004_fdic.test_preflight
 
       - name: Acquire official quarterly panel and construct labels
         run: |
@@ -51,6 +52,13 @@ jobs:
           python -m fin_abs_004_fdic.panel_cli \
             --cache .cache/fin_abs_004_fdic \
             --output-dir reports/fin_abs_004_fdic_benchmark/panel
+
+      - name: Verify split and entity contract before sealed test
+        run: |
+          python -m fin_abs_004_fdic.preflight \
+            --panel reports/fin_abs_004_fdic_benchmark/panel/panel_features.csv \
+            --panel-report reports/fin_abs_004_fdic_benchmark/panel/panel_report.json \
+            --output reports/fin_abs_004_fdic_benchmark/panel/preflight_report.json
 
       - name: Execute validation selection and sealed test once
         run: |
