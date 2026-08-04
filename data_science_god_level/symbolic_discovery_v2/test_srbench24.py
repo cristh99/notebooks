@@ -14,10 +14,9 @@ from srbench24_runner import (
     FIRST_PRINCIPLES_DATASETS,
     THRESHOLDS,
     adjudicate,
-    clean_arrays,
-    split_indices,
     stable_seed,
 )
+from srbench24_small_runner import clean_arrays, split_indices
 
 
 class SRBench24GateTests(unittest.TestCase):
@@ -56,6 +55,17 @@ class SRBench24GateTests(unittest.TestCase):
         self.assertTrue(set(train_a).isdisjoint(test_a))
         self.assertGreater(train_a.size, test_a.size)
         self.assertNotEqual(stable_seed("example"), stable_seed("different"))
+
+    def test_official_small_sample_split_is_supported(self) -> None:
+        train, test = split_indices(14, "first_principles_absorption")
+        self.assertEqual(train.size, 11)
+        self.assertEqual(test.size, 3)
+        self.assertTrue(set(train).isdisjoint(test))
+        X = np.arange(28, dtype=float).reshape(14, 2)
+        y = np.linspace(1.0, 2.0, 14)
+        cleaned = clean_arrays(X[train], X[test], y[train], y[test])
+        self.assertEqual(cleaned[0].shape[0], 11)
+        self.assertEqual(cleaned[1].shape[0], 3)
 
     def test_relative_scale_keeps_tiny_varying_targets(self) -> None:
         rng = np.random.default_rng(7)
