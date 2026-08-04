@@ -1,0 +1,147 @@
+name: Data Science God-Level — all-30 external SRSD symbolic gate v2
+
+on:
+  push:
+    branches:
+      - agent/data-science-god-level-symbolic-srsd-external
+    paths:
+      - '.github/workflows/data-science-god-level-symbolic-srsd-external-v2.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  all-30-srsd-external-v2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove workflow-only activation after the frozen direct-source contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_EVENT_NAME}" = 'push'
+          test "${GITHUB_RUN_ATTEMPT}" = '1'
+          test "$(git rev-parse HEAD^)" = 'd92ee1d54f1229354c1829854de5a2d41eef005c'
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/data-science-god-level-symbolic-srsd-external-v2.yml'
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install pinned CPU environment
+        run: |
+          mkdir -p srsd-data/{train,test,true_eq} srsd-external-logs _logic_power_v10
+          python -m pip install --disable-pip-version-check \
+            'numpy==1.26.4' 'scipy==1.14.1' 'scikit-learn==1.5.2'
+          python -m pip freeze | sort > srsd-external-logs/pip-freeze.txt
+
+      - name: Reconstruct candidate and verify all direct frozen sources before data access
+        shell: bash
+        run: |
+          set -euo pipefail
+          root='data_science_god_level/symbolic_discovery'
+          echo '679973d8f1a5de408901e01a9696ce92e5c52c5a4aa808745a38e333e0cdde58  data_science_god_level/symbolic_discovery/SOURCE_MANIFEST.json' | sha256sum -c -
+          echo '6344ca2a918636817c4983207289e1515fecd1b851f4c4fede6cbbb9c9be0f4b  data_science_god_level/symbolic_discovery/symbolic_code.tar.gz.b64' | sha256sum -c -
+          base64 -d "$root/symbolic_code.tar.gz.b64" > /tmp/symbolic_code.tar.gz
+          echo '026919c635f6f04d082d3b2a74276fef150a331dcceeea461be1e3553ae9d027  /tmp/symbolic_code.tar.gz' | sha256sum -c -
+          tar xzf /tmp/symbolic_code.tar.gz -C "$root"
+          echo '97c9fd1a3f371ca30bd29b924ac0e6d1ea21d985e513df8b5de977f0a70be381  data_science_god_level/symbolic_discovery/estimator.py' | sha256sum -c -
+          echo 'aedf73deda864648727c62a4f966b97fc2a004f99528a7f774fb229262bf580b  data_science_god_level/symbolic_discovery/SRSD_EXTERNAL_MANIFEST.json' | sha256sum -c -
+          echo 'f004ba4a421425d34a15d07107ebf253108f3c29b9dfa5977f1c86a5421708af  data_science_god_level/symbolic_discovery/srsd_external_runner.py' | sha256sum -c -
+          echo '45406ff9156fcad56584a71f9f661ab94bab888135919d9a60dd5cb7d8d93187  data_science_god_level/symbolic_discovery/srsd_external_plan.py' | sha256sum -c -
+          echo '90fd5e7562f74ebc6ffe5f2baf19a42db9a75ff6c44b21903b2cd9b33df10518  data_science_god_level/symbolic_discovery/test_srsd_external_runner.py' | sha256sum -c -
+          echo 'db7e2b95fa982892d3097e4ec92315b6fd65bdc7a706433a84f60790b15f8af9  data_science_god_level/symbolic_discovery/srsd_external_ci.py' | sha256sum -c -
+          python -m py_compile "$root"/{estimator,srsd_external_runner,srsd_external_plan,test_srsd_external_runner,srsd_external_ci}.py
+          python "$root/srsd_external_ci.py" preflight \
+            --code-root "$root" --logs-dir srsd-external-logs
+
+      - name: Replay original Logic Power v10 and run pre-data tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat logic_power_v10_capsule/parts/part_00.b64 \
+              logic_power_v10_capsule/parts/part_01.b64 \
+              logic_power_v10_capsule/parts/part_02.b64 \
+              logic_power_v10_capsule/parts/part_03.b64 \
+              logic_power_v10_capsule/parts/part_04.b64 \
+              logic_power_v10_capsule/parts/part_05_00.b64 \
+              logic_power_v10_capsule/parts/part_05_01.b64 \
+              logic_power_v10_capsule/parts/part_05_02.b64 > /tmp/lp.b64
+          echo '3548f31fcaa9696eabb063023c905fbb04a2b3db73c96df9f9ee8bc8e0c64fc1  /tmp/lp.b64' | sha256sum -c -
+          base64 -d /tmp/lp.b64 > /tmp/lp.tar.gz
+          echo 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31  /tmp/lp.tar.gz' | sha256sum -c -
+          tar xzf /tmp/lp.tar.gz -C _logic_power_v10
+          (cd _logic_power_v10 && sha256sum -c SOURCE_SHA256SUMS && test "$(cat PRIVATE_HEAD_SHA.txt)" = 'ba10d0edc7eb20d499d0481fda2537e782b6efb2')
+          root='data_science_god_level/symbolic_discovery'
+          (cd "$root" && PYTHONPATH="${GITHUB_WORKSPACE}/_logic_power_v10" python srsd_external_plan.py)
+          (cd "$root" && PYTHONPATH="${GITHUB_WORKSPACE}/$root" python -m unittest -v test_srsd_external_runner.py) \
+            2>&1 | tee srsd-external-logs/unit-tests.txt
+
+      - name: Download and seal every pinned SRSD-Feynman Easy Dummy task
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_RUN_ATTEMPT}" = '1'
+          root='data_science_god_level/symbolic_discovery'
+          python "$root/srsd_external_ci.py" download \
+            --code-root "$root" \
+            --data-root srsd-data \
+            --logs-dir srsd-external-logs
+
+      - name: Run the first and only valid external evaluation
+        env:
+          OMP_NUM_THREADS: '4'
+          MKL_NUM_THREADS: '4'
+          OPENBLAS_NUM_THREADS: '4'
+        shell: bash
+        run: |
+          set +e
+          test "${GITHUB_RUN_ATTEMPT}" = '1' || exit 99
+          root='data_science_god_level/symbolic_discovery'
+          python "$root/srsd_external_runner.py" \
+            --data-root "${GITHUB_WORKSPACE}/srsd-data" \
+            --logs-dir "${GITHUB_WORKSPACE}/srsd-external-logs" \
+            --code-root "${GITHUB_WORKSPACE}/$root" \
+            2>&1 | tee srsd-external-logs/runner-output.txt
+          status=${PIPESTATUS[0]}
+          echo "$status" > srsd-external-logs/runner-exit-status.txt
+          exit 0
+
+      - name: Seal complete chain of custody
+        if: always()
+        env:
+          SRSD_ACTIVATION_PARENT_SHA: d92ee1d54f1229354c1829854de5a2d41eef005c
+        run: |
+          root='data_science_god_level/symbolic_discovery'
+          python "$root/srsd_external_ci.py" chain \
+            --code-root "$root" --logs-dir srsd-external-logs
+
+      - name: Upload immutable external evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-god-level-symbolic-srsd-external-v2
+          retention-days: 90
+          path: |
+            data_science_god_level/symbolic_discovery/SOURCE_MANIFEST.json
+            data_science_god_level/symbolic_discovery/SRSD_EXTERNAL_MANIFEST.json
+            data_science_god_level/symbolic_discovery/symbolic_code.tar.gz.b64
+            data_science_god_level/symbolic_discovery/estimator.py
+            data_science_god_level/symbolic_discovery/srsd_external_runner.py
+            data_science_god_level/symbolic_discovery/srsd_external_plan.py
+            data_science_god_level/symbolic_discovery/srsd-external-plan-receipt.json
+            data_science_god_level/symbolic_discovery/test_srsd_external_runner.py
+            data_science_god_level/symbolic_discovery/srsd_external_ci.py
+            srsd-external-logs/**
+
+      - name: Enforce the one-shot external verdict
+        if: always()
+        run: |
+          root='data_science_god_level/symbolic_discovery'
+          python "$root/srsd_external_ci.py" enforce \
+            --code-root "$root" --logs-dir srsd-external-logs
