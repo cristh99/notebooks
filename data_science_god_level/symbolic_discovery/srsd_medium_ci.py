@@ -176,7 +176,7 @@ def seal_chain(code_root: Path, logs: Path) -> None:
     source_names = (
         "estimator.py", "srsd_medium_runner.py", "srsd_medium_plan.py",
         "srsd-medium-plan-receipt.json", "test_srsd_medium_runner.py",
-        "srsd_medium_ci.py", "SRSD_MEDIUM_MANIFUST.json",
+        "srsd_medium_ci.py", "SRSD_MEDIUM_MANIFEST.json",
     )
     chain = {
         "schema": "data-science-god-level/symbolic-discovery-srsd-medium-chain/1",
@@ -192,4 +192,70 @@ def seal_chain(code_root: Path, logs: Path) -> None:
         "easy_suite_reused": False,
         "hashes": {
             **{name: _digest(code_root / name) for name in source_names},
-            "static-audit.json": _digest(logs"
+            "static-audit.json": _digest(logs / "static-audit.json"),
+            "data-manifest.json": _digest(logs / "data-manifest.json"),
+            "srsd-medium-report.json": _digest(logs / "srsd-medium-report.json"),
+            "srsd-medium-freeze-receipt.json": _digest(logs / "srsd-medium-freeze-receipt.json"),
+        },
+    }
+    payload = json.dumps(chain, indent=2, sort_keys=True) + "\n"
+    (logs / "chain-receipt.json").write_text(payload, encoding="utf-8")
+    (logs / "chain-receipt.sha256").write_text(hashlib.sha256(payload.encode()).hexdigest() + "  chain-receipt.json\n", encoding="utf-8")
+    print(payload)
+
+
+def enforce(logs: Path) -> None:
+    receipt_path = logs / "srsd-medium-freeze-receipt.json"
+    report_path = logs / "srsd-medium-report.json"
+    status_path = logs / "runner-exit-status.txt"
+    chain_path = logs / "chain-receipt.json"
+    if not all(path.exists() for path in (receipt_path, report_path, status_path, chain_path)):
+        raise SystemExit("external SRSD Medium evaluation invalid or incomplete; evidence preserved")
+    receipt = json.loads(receipt_path.read_text())
+    report = json.loads(report_path.read_text())
+    chain = json.loads(chain_path.read_text())
+    status = int(status_path.read_text().strip())
+    assert receipt["actual_external_evaluation_count"] == 1
+    assert receipt["candidate_frozen_before_medium_data_access"] is True
+    assert receipt["candidate_truth_access"] is False
+    assert receipt["truth_pickle_executed"] is False
+    assert receipt["post_hoc_retuning_permitted"] is False
+    assert receipt["dataset_selection_post_hoc"] is False
+    assert receipt["dataset_selection_rule"] == "all 40 SRSD-Feynman Medium Dummy equations"
+    assert report["summary"] == receipt["summary"]
+    assert chain["github_run_attempt"] == 1
+    assert chain["runner_exit_status"] == status
+    assert all(value is not None for value in chain["hashes"].values())
+    if receipt["verdict"] == "PASS" and status != 0:
+        raise SystemExit("PASS receipt conflicts with runner status")
+    if receipt["verdict"] == "FAIL" and status == 0:
+        raise SystemExit("FAIL receipt conflicts with runner status")
+    if receipt["verdict"] != "PASS":
+        raise SystemExit(f"external SRSD Medium gate: {receipt['verdict']}; evidence preserved; no retuning")
+    print("external SRSD Medium gate: PASS; all 40 tasks evaluated once; no retuning permitted")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("command", choices=("preflight", "download", "chain", "enforce"))
+    parser.add_argument("--code-root", required=True)
+    parser.add_argument("--logs-dir", required=True)
+    parser.add_argument("--data-root")
+    args = parser.parse_args()
+    code_root = Path(args.code_root).resolve()
+    logs = Path(args.logs_dir).resolve()
+    logs.mkdir(parents=True, exist_ok=True)
+    if args.command == "preflight":
+        preflight(code_root, logs)
+    elif args.command == "download":
+        if not args.data_root:
+            raise SystemExit("--data-root is required for download")
+        download_and_seal(code_root, Path(args.data_root).resolve(), logs)
+    elif args.command == "chain":
+        seal_chain(code_root, logs)
+    else:
+        enforce(logs)
+
+
+if __name__ == "__main__":
+    main()
