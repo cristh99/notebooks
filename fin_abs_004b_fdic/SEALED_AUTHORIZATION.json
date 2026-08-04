@@ -1,0 +1,26 @@
+{
+  "schema": "fin-abs-004b/sealed-authorization/1",
+  "authorized_once": true,
+  "stage0_run_id": 30874478494,
+  "stage0_artifact_id": 8879238673,
+  "stage0_artifact_sha256": "60e24c2c418763c817134ff568872a95a43bc0d00fc4376ecd89b174c33de874",
+  "panel_sha256": "31426e433230999f9ce5fca0c08ce0664716e24fee508e584b053e0ecf4bf3da",
+  "entity_report_sha256": "e7dfa5e1b0e40ee08bd50e69ec42bf63cccc8759e253624fe59fddc9cc045313",
+  "preflight_report_sha256": "0e87d7a7f94b8c2dca196d0371681a55d7196c0ad6fd321326a4e7ad546287a1",
+  "node_stage0_receipt_sha256": "0125833ce7716e9f46bc3dd12dd6a4375bdf73723e1233ef31da92ff87fb2764",
+  "entity_split_seed": "FIN-ABS-004B-ENTITY-SPLIT-V2",
+  "bucket_rule": {
+    "train": [0, 29],
+    "validation": [30, 44],
+    "test": [45, 99]
+  },
+  "split_counts": {
+    "train": {"rows": 164319, "entities": 4880, "positive_entities": 34, "positive_rows": 164},
+    "validation": {"rows": 15361, "entities": 1369, "positive_entities": 54, "positive_rows": 322},
+    "test": {"rows": 45693, "entities": 4032, "positive_entities": 50, "positive_rows": 208}
+  },
+  "test_window": ["2012-03-31", "2014-12-31"],
+  "absolute_score_before": 423,
+  "absolute_score_after_authorization": 423,
+  "boundary": "Stage 0 authorizes one sealed performance evaluation; it does not award points."
+}
