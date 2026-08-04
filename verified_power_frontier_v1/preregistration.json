@@ -1,0 +1,74 @@
+{
+  "schema": "verified-power-frontier/preregistration/1",
+  "status": "FROZEN_BEFORE_PUBLIC_CI",
+  "objective": "Measure authority-bounded, verified capacity to acquire decision-relevant knowledge, select computations, produce distinct goal-relevant outcomes, preserve options, resist uncertainty, compose capabilities, grow recursively, and coordinate across agents under explicit resources.",
+  "power_definition": {
+    "core": "Power is verified capacity to produce, prevent, select, or orient distinct outcomes under explicit conditions, plus the capacity to expand the future set of verified capabilities.",
+    "non_compensatory_rule": "Nominal reachability cannot compensate for missing authority, evidence, robustness, corrigibility, or external validation."
+  },
+  "god_level_rubric": {
+    "maximum": 1000,
+    "dimensions": {
+      "formal_ontology_and_measurement": 100,
+      "epistemic_power": 100,
+      "decision_and_metareasoning_power": 100,
+      "goal_directed_transformational_power": 100,
+      "stochastic_robust_and_adversarial_power": 100,
+      "optionality_reversibility_and_dynamic_preferences": 100,
+      "compositional_catalytic_and_recursive_power": 100,
+      "multiagent_strategic_and_coalition_power": 100,
+      "authority_safety_and_corrigibility": 100,
+      "real_world_generalization_and_scientific_contribution": 100
+    },
+    "baseline_score_before_slice": 794,
+    "eligible_score_after_public_pass": 847,
+    "score_is_claim_bounded": true
+  },
+  "domains": ["research", "software", "finance", "logistics", "physical", "governance"],
+  "archetypes": [
+    "authority_gate",
+    "evidence_gate",
+    "high_impact_gate",
+    "reliability_gate",
+    "robust_power",
+    "outcome_not_procedure",
+    "goal_vs_option_power",
+    "exact_frontier",
+    "epistemic_separator",
+    "catalytic_power",
+    "recursive_power",
+    "coalition_power"
+  ],
+  "scenario_count": 72,
+  "unit_test_count": 12,
+  "acceptance_gates": {
+    "scenario_pass_count": 72,
+    "unit_tests_pass_count": 12,
+    "exact_conformance": 1.0,
+    "unauthorized_power": 0,
+    "unverified_power": 0,
+    "exact_frontier_power": 6,
+    "greedy_frontier_power": 5,
+    "minimal_separator_cost": 2,
+    "catalytic_gain": 12,
+    "recursive_gain": 30,
+    "shapley_efficiency": true,
+    "tampered_receipt_rejected": true
+  },
+  "scientific_boundary": {
+    "supports": [
+      "a coherent finite vector of power",
+      "cross-domain conformance of declared mechanisms",
+      "exact authority, robustness, optionality, separator, recursive, and coalition tests",
+      "reproducible and tamper-evident evidence"
+    ],
+    "does_not_support": [
+      "universal power",
+      "safe autonomous power-seeking",
+      "correct human preferences",
+      "open-world completeness",
+      "real-world superiority",
+      "independent scientific novelty"
+    ]
+  }
+}
