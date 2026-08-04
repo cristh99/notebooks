@@ -1,0 +1,363 @@
+name: OCR isolated-crop disjoint validation v1
+
+on:
+  pull_request:
+    paths:
+      - 'ocr_real_risk_v1/isolated_crop.py'
+      - 'ocr_real_risk_v1/disjoint_validation.py'
+      - 'ocr_real_risk_v1/evaluate_full_native_index_isolated.py'
+      - 'ocr_real_risk_v1/run_holdout_isolated_disjoint.py'
+      - 'ocr_real_risk_v1/aggregate_disjoint_validation.py'
+      - 'ocr_real_risk_v1/test_disjoint_validation.py'
+      - '.github/workflows/ocr-real-risk-isolated-disjoint-validation-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: ocr-isolated-disjoint-v1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validation-shard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 16
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    env:
+      SHARD_COUNT: '16'
+      PRIOR_ARTIFACT_ID: '8908498916'
+      PRIOR_ARTIFACT_SHA256: '5e36d6ebbc07b12e6c4c7687ba579a97551e37fc199c1b1ce0fc42b8fff255de'
+      PRIOR_REPORT_SHA256: 'd2453903591794a25216c0eba4eb52407f412f8dcbae4be10f8de7e8b2bfa37e'
+      SEEN_MANIFEST_SHA256: '1747fc41a73999467a449f502b6dd4c22510f1e7dfc8cd528586b3ff4155f60f'
+      OCR_VERIFIER_VENDOR_BLOB: '34180d164f3f5b05542217fd750ca26cbdd08e62'
+      OMP_THREAD_LIMIT: '1'
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Install frozen free CPU dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            poppler-utils tesseract-ocr tesseract-ocr-eng \
+            fonts-dejavu-core fonts-lato
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 pytesseract==0.3.13 \
+            numpy==2.2.6 opencv-python-headless==4.10.0.84
+      - name: Disjoint-selection and isolated-geometry tests
+        run: |
+          python -m unittest -v \
+            ocr_real_risk_v1.test_disjoint_validation \
+            ocr_real_risk_v1.test_full_native_index \
+            ocr_real_risk_v1.test_raw_truth_anchor \
+            ocr_real_risk_v1.test_evaluate_dual_anchor \
+            ocr_real_risk_v1.test_final_partition \
+            ocr_real_risk_v1.test_exact_bounds
+          python -m compileall -q ocr_real_risk_v1
+      - name: Download and seal public ONCAE snapshots
+        run: |
+          mkdir -p ocr_real_risk_v1/source
+          python - <<'PY'
+          import hashlib
+          import urllib.request
+          from pathlib import Path
+
+          sources = {
+              'oncae_2023.jsonl.gz': (
+                  'https://data.open-contracting.org/en/publication/122/download?name=2023.jsonl.gz',
+                  'db9a76958a069ff5fc47b6f68caf59a74174efcbebcca0458d0f4a08cf00683d',
+              ),
+              'oncae_2024.jsonl.gz': (
+                  'https://data.open-contracting.org/en/publication/122/download?name=2024.jsonl.gz',
+                  '43e12ce76ba1fcd3bf1240ffea4e246126bdcc2832d3d77bcb7415d8a1195c37',
+              ),
+              'oncae_2025.jsonl.gz': (
+                  'https://data.open-contracting.org/en/publication/122/download?name=2025.jsonl.gz',
+                  'aa33b9b591fabce5f2397b5966b67ba7fc6471bf8b394ceb5c2aeec707f6cb06',
+              ),
+          }
+          root = Path('ocr_real_risk_v1/source')
+          for name, (url, expected) in sources.items():
+              path = root / name
+              request = urllib.request.Request(
+                  url,
+                  headers={'User-Agent': 'OCR-Isolated-Disjoint-Validation/1.0'},
+              )
+              with urllib.request.urlopen(request, timeout=90) as response, path.open('wb') as output:
+                  while chunk := response.read(1024 * 1024):
+                      output.write(chunk)
+              observed = hashlib.sha256(path.read_bytes()).hexdigest()
+              if observed != expected:
+                  raise SystemExit(f'hash mismatch for {name}: {observed}')
+              print(name, path.stat().st_size, observed)
+          PY
+      - name: Recover all previously attempted development processes
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PYTHONPATH: ${{ github.workspace }}/ocr_real_risk_v1:${{ github.workspace }}
+        run: |
+          mkdir -p prior
+          curl --fail --location \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${PRIOR_ARTIFACT_ID}/zip" \
+            --output prior.zip
+          echo "${PRIOR_ARTIFACT_SHA256}  prior.zip" | sha256sum --check --strict
+          unzip -q prior.zip -d prior
+          test "$(sha256sum prior/reports/real_numeric_risk_holdout.json | cut -d' ' -f1)" = \
+            "${PRIOR_REPORT_SHA256}"
+          (cd prior && sha256sum --check --strict SHA256SUMS.txt)
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          from ocr_real_risk_v1.core import Candidate
+          from ocr_real_risk_v1.final_partition import process_key
+
+          report = json.loads(
+              Path('prior/reports/real_numeric_risk_holdout.json').read_text()
+          )
+          records = []
+          for document in report['documents']:
+              candidate = Candidate(**document['candidate'])
+              records.append({
+                  'document_id': document['document_id'],
+                  'ocid': candidate.ocid,
+                  'process': candidate.process,
+                  'process_key': process_key(candidate),
+              })
+          records.sort(key=lambda row: row['process_key'])
+          payload = {
+              'schema': 'ocr-real-risk-development-seen-processes/1',
+              'selection_rule': (
+                  'exclude every procurement process attempted in the first '
+                  'full-native-index development canary, irrespective of OCR outcome'
+              ),
+              'source_artifact_id': 8908498916,
+              'source_report_sha256': (
+                  'd2453903591794a25216c0eba4eb52407f412f8dcbae4be10f8de7e8b2bfa37e'
+              ),
+              'source_run_id': 30948733363,
+              'process_keys': [row['process_key'] for row in records],
+              'records': records,
+          }
+          text = json.dumps(
+              payload,
+              ensure_ascii=False,
+              sort_keys=True,
+              separators=(',', ':'),
+          ) + '\n'
+          Path('seen-processes.json').write_text(text, encoding='utf-8')
+          assert len(records) == 80
+          PY
+          echo "${SEEN_MANIFEST_SHA256}  seen-processes.json" \
+            | sha256sum --check --strict
+      - name: Validate frozen verifier artifact
+        run: |
+          test "$(git hash-object ocr_real_risk_v1/pixel_digit_alignment.py)" = \
+            "${OCR_VERIFIER_VENDOR_BLOB}"
+      - name: Execute the entire sealed disjoint shard
+        env:
+          PYTHONPATH: ${{ github.workspace }}/ocr_real_risk_v1:${{ github.workspace }}
+        run: |
+          python -m ocr_real_risk_v1.run_holdout_isolated_disjoint \
+            --source ocr_real_risk_v1/source/oncae_2023.jsonl.gz \
+            --source ocr_real_risk_v1/source/oncae_2024.jsonl.gz \
+            --source ocr_real_risk_v1/source/oncae_2025.jsonl.gz \
+            --seen-processes seen-processes.json \
+            --partitions 0-9 \
+            --shard-index '${{ matrix.shard }}' \
+            --shard-count "${SHARD_COUNT}" \
+            --stage canary \
+            --output-dir ocr_real_risk_v1/run \
+            --max-documents 1000 \
+            --target-tokens 1000
+      - name: Independent shard integrity checks
+        env:
+          SHARD_INDEX: ${{ matrix.shard }}
+          PYTHONPATH: ${{ github.workspace }}/ocr_real_risk_v1:${{ github.workspace }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          from ocr_real_risk_v1.core import Candidate
+          from ocr_real_risk_v1.disjoint_validation import validation_shard
+          from ocr_real_risk_v1.final_partition import process_key, process_partition
+
+          report = json.loads(
+              Path('ocr_real_risk_v1/run/reports/real_numeric_risk_holdout.json').read_text()
+          )
+          protocol = report['protocol']
+          disjoint = protocol['disjoint_validation']
+          shard_index = int(os.environ['SHARD_INDEX'])
+          assert disjoint['shard_index'] == shard_index
+          assert disjoint['shard_count'] == 16
+          assert disjoint['seen_process_manifest']['seen_processes'] == 80
+          assert disjoint['seen_process_manifest']['manifest_sha256'] == (
+              '1747fc41a73999467a449f502b6dd4c22510f1e7dfc8cd528586b3ff4155f60f'
+          )
+          assert disjoint['outcome_dependent_stopping'] is False
+          assert disjoint['entire_selected_shard_attempted'] is True
+          assert protocol['crop_geometry'] == {
+              'schema': 'ocr-real-risk-isolated-native-word-crop/1',
+              'source_geometry': 'native PDF word bbox selected before OCR',
+              'horizontal_padding_px': 3,
+              'vertical_padding_px': 6,
+              'proportional_padding': False,
+              'selection_or_truth_changed': False,
+              'development_origin': (
+                  'fixed after an exact replay showed all three apparent baseline '
+                  'errors in the prior 16-case canary were neighboring-glyph contamination'
+              ),
+          }
+          documents = report['documents']
+          assert len(documents) == disjoint['selected_processes']
+          assert report['execution']['documents_attempted'] == len(documents)
+          seen = set(json.loads(Path('seen-processes.json').read_text())['process_keys'])
+          candidates = [Candidate(**row['candidate']) for row in documents]
+          keys = [process_key(candidate) for candidate in candidates]
+          assert len(keys) == len(set(keys))
+          assert not (set(keys) & seen)
+          assert all(process_partition(candidate) in range(10) for candidate in candidates)
+          assert all(validation_shard(key, 16) == shard_index for key in keys)
+          assert all(len(document.get('pages', [])) <= 1 for document in documents)
+          assert report['decision']['pass_statistical_10x'] is False
+          assert report['constraints']['external_spend_usd'] == 0
+          assert report['constraints']['production_modified'] is False
+          print(json.dumps({
+              'shard': disjoint,
+              'execution': report['execution'],
+              'baseline': report['baseline'],
+              'verifier': report['verifier'],
+              'counterfactual': report['counterfactual'],
+              'stable_payload_sha256': report['stable_payload_sha256'],
+          }, indent=2, sort_keys=True))
+          PY
+          (cd ocr_real_risk_v1/run && sha256sum --check --strict SHA256SUMS.txt)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-isolated-disjoint-shard-${{ matrix.shard }}
+          path: ocr_real_risk_v1/run
+          if-no-files-found: error
+          retention-days: 30
+
+  aggregate-validation:
+    needs: validation-shard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Recover and verify every shard artifact
+        run: |
+          mkdir -p shards aggregate
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+          from pathlib import Path
+
+          repository = os.environ['GITHUB_REPOSITORY']
+          run_id = os.environ['GITHUB_RUN_ID']
+          token = os.environ['GITHUB_TOKEN']
+          request = urllib.request.Request(
+              f'https://api.github.com/repos/{repository}/actions/runs/{run_id}/artifacts?per_page=100',
+              headers={
+                  'Authorization': f'Bearer {token}',
+                  'Accept': 'application/vnd.github+json',
+                  'X-GitHub-Api-Version': '2022-11-28',
+              },
+          )
+          with urllib.request.urlopen(request, timeout=60) as response:
+              payload = json.load(response)
+          artifacts = [
+              row for row in payload['artifacts']
+              if row['name'].startswith('ocr-isolated-disjoint-shard-')
+          ]
+          artifacts.sort(key=lambda row: int(row['name'].rsplit('-', 1)[1]))
+          if len(artifacts) != 16:
+              raise SystemExit(f'expected 16 shard artifacts, found {len(artifacts)}')
+          Path('artifacts.json').write_text(
+              json.dumps(artifacts, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          with Path('artifacts.tsv').open('w', encoding='utf-8') as output:
+              for row in artifacts:
+                  output.write(
+                      f"{row['id']}\t{row['name']}\t{row['digest']}\n"
+                  )
+          PY
+          while IFS=$'\t' read -r artifact_id artifact_name digest; do
+            curl --fail --location \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" \
+              --output "${artifact_name}.zip"
+            echo "${digest#sha256:}  ${artifact_name}.zip" | sha256sum --check --strict
+            mkdir -p "shards/${artifact_name}"
+            unzip -q "${artifact_name}.zip" -d "shards/${artifact_name}"
+          done < artifacts.tsv
+      - name: Aggregate exact risk, coverage and yield
+        env:
+          PYTHONPATH: ${{ github.workspace }}/ocr_real_risk_v1:${{ github.workspace }}
+        run: |
+          python -m ocr_real_risk_v1.aggregate_disjoint_validation \
+            shards/ocr-isolated-disjoint-shard-* \
+            --output-dir aggregate \
+            | tee aggregate-stdout.json
+      - name: Independent aggregate gates
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          data = json.loads(
+              Path('aggregate/isolated_disjoint_aggregate.json').read_text()
+          )
+          assert data['inputs']['shard_count'] == 16
+          assert data['inputs']['processes'] == 1399
+          assert data['execution']['documents_attempted'] == 1399
+          assert data['decision']['development_validation_complete'] is True
+          assert data['decision']['pass_statistical_10x'] is False
+          assert data['constraints'] == {
+              'final_partitions_10_99_opened': False,
+              'external_spend_usd': 0,
+              'gcloud_used': False,
+              'gpu_used': False,
+              'paid_api_used': False,
+              'production_modified': False,
+          }
+          print(json.dumps(data, indent=2, sort_keys=True))
+          PY
+          (cd aggregate && sha256sum --check --strict SHA256SUMS.txt)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-isolated-disjoint-aggregate-v1
+          path: |
+            aggregate
+            aggregate-stdout.json
+            artifacts.json
+          if-no-files-found: error
+          retention-days: 30
