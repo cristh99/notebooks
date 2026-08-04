@@ -131,6 +131,7 @@ def check_domain(domain: str) -> list[dict[str, Any]]:
 
     auth, ctx = authorizer_fixture(domain)
     scope = ctx["scope"]
+    agents = ctx["agents"]
     tokens = ctx["tokens"]
     action = JointAction(q(domain, "joint_action"), [scope])
     alice = q(domain, "alice")
