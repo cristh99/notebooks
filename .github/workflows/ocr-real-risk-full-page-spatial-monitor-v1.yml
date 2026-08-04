@@ -23,7 +23,7 @@ jobs:
     env:
       TARGET_WORKFLOW: 'ocr-real-risk-full-page-spatial-replay-v1.yml'
       TARGET_BRANCH: 'agent/ocr-real-risk-full-page-spatial-replay-v1'
-      TARGET_HEAD_SHA: '69d3274ef1943aaae54b7beb3d97cbfd7492a31f'
+      TARGET_HEAD_SHA: 'fa9588d2c184b3890d5aa599726d77730208eb61'
       GITHUB_TOKEN: ${{ github.token }}
     steps:
       - name: Wait for the target run and record its terminal state
