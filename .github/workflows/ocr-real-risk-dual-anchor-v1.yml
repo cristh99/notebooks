@@ -106,12 +106,15 @@ jobs:
             --output-dir ocr_real_risk_v1/run \
             --max-documents 80 \
             --target-tokens 30
-      - name: Independent protocol and identity checks
+      - name: Independent protocol and canonical process checks
         run: |
           python - <<'PY'
           import hashlib
           import json
           from pathlib import Path
+
+          from ocr_real_risk_v1.core import Candidate
+          from ocr_real_risk_v1.final_partition import process_key, process_partition
 
           path = Path('ocr_real_risk_v1/run/reports/real_numeric_risk_holdout.json')
           data = json.loads(path.read_text())
@@ -121,9 +124,13 @@ jobs:
           assert data['protocol']['dual_source_anchor']['required'] is True
           assert data['protocol']['page_selection']['uses_text_or_ocr'] is False
           assert data['protocol']['document_scope']['selection_uses_ocr'] is False
+          assert data['protocol']['process_partition']['partition_uses_ocr'] is False
+          assert data['protocol']['process_partition']['partitions'] == list(range(10))
           documents = data['documents']
-          processes = [row['candidate']['process'] for row in documents]
-          assert len(processes) == len(set(processes))
+          candidates = [Candidate(**row['candidate']) for row in documents]
+          keys = [process_key(row) for row in candidates]
+          assert len(keys) == len(set(keys))
+          assert all(process_partition(row) in range(10) for row in candidates)
           locations = {
               (row['source_sha256'], row['page_number'], tuple(row['bbox_pt']))
               for row in data['observations']
@@ -134,6 +141,7 @@ jobs:
               'execution': data['execution'],
               'baseline': data['baseline'],
               'verifier': data['verifier'],
+              'process_partition': data['protocol']['process_partition'],
               'anchor_census': data['anchor_census'],
               'report_sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
           }, indent=2, sort_keys=True))
