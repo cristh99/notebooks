@@ -1,0 +1,17 @@
+{
+  "name": "IAIP Honduras aggregate acquisition diagnostic",
+  "declared_records": 2574240,
+  "declared_document_urls": 2571210,
+  "physical_files": 2530927,
+  "non_document_links": 3030,
+  "known_missing_files": 40283,
+  "known_gap_formula": "declared_document_urls - physical_files",
+  "status": "CONTINUE_KNOWN_GAP",
+  "unseen_estimation_status": "BLOCKED_INPUTS",
+  "missing_inputs": [
+    "frequency_of_frequencies_f1_f2",
+    "independent_source_capture_overlap"
+  ],
+  "source": "Notion Ola documental 3 v1.1, 2026-08-01",
+  "source_url": "https://www.notion.so/3af790f0ca698188a8b4f33c2ade4ffa"
+}
