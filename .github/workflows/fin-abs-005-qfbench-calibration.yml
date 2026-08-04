@@ -1,0 +1,299 @@
+name: FIN-ABS-005 — sealed QFBench calibration
+
+on:
+  pull_request:
+    branches:
+      - agent/finance-absolute-423-public-replay
+    paths:
+      - 'fin_abs_005_qfbench/**'
+      - 'fin_abs_005_qfbench_solutions/**'
+      - 'README_FIN_ABS_005_QFBENCH.md'
+      - '.github/workflows/fin-abs-005-qfbench-calibration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  solve-and-freeze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout blind solution capsule
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Checkout only QFBench instructions and environments
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: QF-Bench/QuantitativeFinance-Bench
+          ref: d2fc28b3492f2d73d192fa7eabadf150a19a62fb
+          path: qfbench
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /README.md
+            /LICENSE
+            /tasks/structured-note-risk/task.toml
+            /tasks/structured-note-risk/instruction.md
+            /tasks/structured-note-risk/environment/
+            /tasks/swap-curve-bootstrap-ois/task.toml
+            /tasks/swap-curve-bootstrap-ois/instruction.md
+            /tasks/swap-curve-bootstrap-ois/environment/
+            /tasks/double-sort/task.toml
+            /tasks/double-sort/instruction.md
+            /tasks/double-sort/environment/
+            /tasks/bs-greeks-pde/task.toml
+            /tasks/bs-greeks-pde/instruction.md
+            /tasks/bs-greeks-pde/environment/
+            /tasks/kelly-var-sizing/task.toml
+            /tasks/kelly-var-sizing/instruction.md
+            /tasks/kelly-var-sizing/environment/
+
+      - name: Reprove the blind workspace before execution
+        run: |
+          set -euo pipefail
+          if find qfbench -type f -not -path '*/.git/*' -printf '%P\n' \
+              | grep -E '(^|/)(solution|tests)/'; then
+            echo 'oracle path entered solution workspace' >&2
+            exit 1
+          fi
+          test "$(git -C qfbench rev-parse HEAD)" = \
+            'd2fc28b3492f2d73d192fa7eabadf150a19a62fb'
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+
+      - name: Install frozen numerical environment
+        run: |
+          python -m pip install --disable-pip-version-check --no-cache-dir \
+            numpy==2.2.3 pandas==2.2.3 scipy==1.15.2 \
+            arch==7.2.0 pyarrow==18.1.0
+
+      - name: Compile and run open-contract tests
+        run: |
+          python -m compileall -q \
+            fin_abs_005_qfbench fin_abs_005_qfbench_solutions
+          python -m unittest -v fin_abs_005_qfbench.test_audit
+          python -m unittest -v fin_abs_005_qfbench_solutions.test_solutions
+
+      - name: Rebuild the independent blind-source receipt
+        run: |
+          mkdir -p reports/fin_abs_005_qfbench
+          python -m fin_abs_005_qfbench.audit \
+            --source qfbench \
+            --observed-commit "$(git -C qfbench rev-parse HEAD)" \
+            --output reports/fin_abs_005_qfbench/blind_audit.json
+          node fin_abs_005_qfbench/verify_audit.mjs \
+            reports/fin_abs_005_qfbench/blind_audit.json \
+            qfbench \
+            reports/fin_abs_005_qfbench/node_audit_receipt.json
+
+      - name: Execute five blind solutions
+        run: |
+          set -euo pipefail
+          mkdir -p frozen_outputs/{structured-note-risk,swap-curve-bootstrap-ois,double-sort,bs-greeks-pde,kelly-var-sizing}
+
+          DATA_DIR="$PWD/qfbench/tasks/structured-note-risk/environment/data" \
+          OUTPUT_DIR="$PWD/frozen_outputs/structured-note-risk" \
+            python fin_abs_005_qfbench_solutions/structured_note_risk.py
+
+          DATA_DIR="$PWD/qfbench/tasks/swap-curve-bootstrap-ois/environment/data" \
+          OUTPUT_DIR="$PWD/frozen_outputs/swap-curve-bootstrap-ois" \
+            python fin_abs_005_qfbench_solutions/swap_curve_bootstrap_ois.py
+
+          DOUBLE_SORT_DATA="$PWD/qfbench/tasks/double-sort/environment/data/stock_chars.pqt" \
+          OUTPUT_DIR="$PWD/frozen_outputs/double-sort" \
+            python fin_abs_005_qfbench_solutions/double_sort.py
+
+          SPY_DATA="$PWD/qfbench/tasks/bs-greeks-pde/environment/data/spy_daily.csv" \
+          OUTPUT_DIR="$PWD/frozen_outputs/bs-greeks-pde" \
+            python fin_abs_005_qfbench_solutions/bs_greeks_pde.py
+
+          DATA_DIR="$PWD/qfbench/tasks/kelly-var-sizing/environment/data" \
+          OUTPUT_DIR="$PWD/frozen_outputs/kelly-var-sizing" \
+            python fin_abs_005_qfbench_solutions/kelly_var_sizing.py
+
+      - name: Freeze and independently hash every output before verifier access
+        run: |
+          python -m fin_abs_005_qfbench.freeze \
+            --outputs frozen_outputs \
+            --audit reports/fin_abs_005_qfbench/blind_audit.json \
+            --solver-root fin_abs_005_qfbench_solutions \
+            --implementation-commit "$(git rev-parse HEAD)" \
+            --output reports/fin_abs_005_qfbench/freeze_report.json
+          node fin_abs_005_qfbench/verify_frozen.mjs \
+            reports/fin_abs_005_qfbench/freeze_report.json \
+            frozen_outputs \
+            fin_abs_005_qfbench_solutions \
+            reports/fin_abs_005_qfbench/node_freeze_receipt.json
+
+      - name: Package immutable solution bundle
+        run: |
+          mkdir -p frozen_bundle
+          cp -R frozen_outputs frozen_bundle/outputs
+          cp reports/fin_abs_005_qfbench/blind_audit.json frozen_bundle/
+          cp reports/fin_abs_005_qfbench/node_audit_receipt.json frozen_bundle/
+          cp reports/fin_abs_005_qfbench/freeze_report.json frozen_bundle/
+          cp reports/fin_abs_005_qfbench/node_freeze_receipt.json frozen_bundle/
+          find frozen_bundle -type f -print0 | sort -z | xargs -0 sha256sum \
+            > frozen_bundle/manifest.sha256
+
+      - name: Upload frozen outputs
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-abs-005-qfbench-frozen-solutions
+          path: frozen_bundle/
+          if-no-files-found: error
+          retention-days: 90
+
+  hidden-verifier:
+    needs: solve-and-freeze
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout verification capsule
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Checkout QFBench environments and hidden verifiers only
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: QF-Bench/QuantitativeFinance-Bench
+          ref: d2fc28b3492f2d73d192fa7eabadf150a19a62fb
+          path: qfbench
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /docker/sandbox.Dockerfile
+            /docker/requirements-sandbox.txt
+            /tasks/structured-note-risk/environment/
+            /tasks/structured-note-risk/tests/
+            /tasks/swap-curve-bootstrap-ois/environment/
+            /tasks/swap-curve-bootstrap-ois/tests/
+            /tasks/double-sort/environment/
+            /tasks/double-sort/tests/
+            /tasks/bs-greeks-pde/environment/
+            /tasks/bs-greeks-pde/tests/
+            /tasks/kelly-var-sizing/environment/
+            /tasks/kelly-var-sizing/tests/
+
+      - name: Download the already frozen outputs
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: fin-abs-005-qfbench-frozen-solutions
+          path: frozen_bundle
+
+      - name: Reverify frozen hashes before loading hidden tests
+        run: |
+          node fin_abs_005_qfbench/verify_frozen.mjs \
+            frozen_bundle/freeze_report.json \
+            frozen_bundle/outputs \
+            fin_abs_005_qfbench_solutions \
+            frozen_bundle/node_freeze_receipt_verifier_job.json
+
+      - name: Build the pinned QFBench sandbox
+        run: |
+          docker build \
+            -t finance-bench-sandbox:latest \
+            -f qfbench/docker/sandbox.Dockerfile qfbench
+          docker tag finance-bench-sandbox:latest \
+            quantitative-finance-bench-sandbox:latest
+
+      - name: Execute each hidden verifier once without exposing assertions
+        shell: bash
+        run: |
+          set -u
+          mkdir -p verifier_runtime
+          : > verifier_runtime/results.tsv
+          tasks=(
+            structured-note-risk
+            swap-curve-bootstrap-ois
+            double-sort
+            bs-greeks-pde
+            kelly-var-sizing
+          )
+          for task in "${tasks[@]}"; do
+            image="qfbench-${task}:sealed"
+            docker build -t "$image" "qfbench/tasks/${task}/environment"
+            mkdir -p "verifier_runtime/logs/${task}"
+            set +e
+            docker run --rm \
+              -v "$PWD/frozen_bundle/outputs/${task}:/app/output:ro" \
+              -v "$PWD/qfbench/tasks/${task}/tests:/tests:ro" \
+              -v "$PWD/qfbench/tasks/${task}/tests:/app/tests:ro" \
+              -v "$PWD/verifier_runtime/logs/${task}:/logs/verifier" \
+              "$image" bash /tests/test.sh \
+              > "verifier_runtime/${task}.stdout" 2>&1
+            exit_code=$?
+            set -e
+            reward_file="verifier_runtime/logs/${task}/reward.txt"
+            reward="MISSING"
+            if [ -s "$reward_file" ]; then
+              reward="$(tr -d '\r\n ' < "$reward_file")"
+            fi
+            stdout_sha="$(sha256sum "verifier_runtime/${task}.stdout" | cut -d' ' -f1)"
+            printf '%s\t%s\t%s\t%s\n' \
+              "$task" "$reward" "$exit_code" "$stdout_sha" \
+              >> verifier_runtime/results.tsv
+            rm -f "verifier_runtime/${task}.stdout"
+          done
+
+      - name: Create bounded pass-fail receipt without hidden-test details
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          rows = []
+          for line in Path('verifier_runtime/results.tsv').read_text().splitlines():
+              task, reward, exit_code, stdout_sha = line.split('\t')
+              rows.append({
+                  'task_id': task,
+                  'reward': reward,
+                  'passed': reward == '1',
+                  'verifier_exit_code': int(exit_code),
+                  'hidden_stdout_sha256': stdout_sha,
+              })
+          freeze = json.loads(Path('frozen_bundle/freeze_report.json').read_text())
+          payload = {
+              'schema': 'fin-abs-005/qfbench-calibration-result/1',
+              'source_commit': 'd2fc28b3492f2d73d192fa7eabadf150a19a62fb',
+              'freeze_report_sha256': freeze['sha256'],
+              'tasks': rows,
+              'passed_tasks': sum(row['passed'] for row in rows),
+              'total_tasks': len(rows),
+              'status': 'CALIBRATION_COMPLETE_NO_SCORE_EFFECT',
+              'repair_from_hidden_tests_permitted': False,
+              'absolute_score': {'before': 423, 'after': 423, 'delta': 0},
+          }
+          canonical = json.dumps(
+              payload, sort_keys=True, separators=(',', ':'), ensure_ascii=False
+          )
+          report = {
+              'payload': payload,
+              'payload_canonical': canonical,
+              'sha256': hashlib.sha256(canonical.encode()).hexdigest(),
+          }
+          Path('verification_summary.json').write_text(
+              json.dumps(report, indent=2, sort_keys=True) + '\n'
+          )
+          print(json.dumps({
+              'passed_tasks': payload['passed_tasks'],
+              'total_tasks': payload['total_tasks'],
+              'report_sha256': report['sha256'],
+              'absolute_score': 423,
+          }, sort_keys=True))
+          PY
+
+      - name: Upload bounded calibration result
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-abs-005-qfbench-calibration-result
+          path: |
+            verification_summary.json
+            frozen_bundle/freeze_report.json
+            frozen_bundle/node_freeze_receipt_verifier_job.json
+          if-no-files-found: error
+          retention-days: 90
