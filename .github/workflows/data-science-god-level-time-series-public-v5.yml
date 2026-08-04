@@ -1,0 +1,110 @@
+name: Data Science God-Level — repaired calibrated public forecasting gate
+
+on:
+  push:
+    branches:
+      - agent/data-science-god-level-time-series-transfer
+    paths:
+      - '.github/workflows/data-science-god-level-time-series-public-v5.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  repaired-calibrated-public-time-series:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install pinned CPU environment
+        run: |
+          mkdir -p public-data public-logs _logic_power_v10
+          python -m pip install --disable-pip-version-check \
+            'numpy==1.26.4' 'scipy==1.14.1' 'pandas==2.2.3' \
+            'scikit-learn==1.5.2' 'statsmodels==0.14.4'
+          python -m pip freeze | sort > public-logs/pip-freeze.txt
+
+      - name: Derive calibrated candidate and repair transport before data access
+        shell: bash
+        run: |
+          set -euo pipefail
+          root='data_science_god_level/time_series_transfer'
+          echo '7c0bbf1f64e5aa091f72acf39198cdc4e18d5ed5bc53da7fe3bb4270d9aa0bfb  data_science_god_level/time_series_transfer/time_series_code.tar.gz' | sha256sum -c -
+          echo 'a7d579ef17c041b163632e01c1537607d7d828ca52d76faee4c4dd8a7a059175  data_science_god_level/time_series_transfer/calibrate_intervals.py' | sha256sum -c -
+          echo 'a63cf1accd745268e27b53eee511e8043a8f666f57e2d3ee2382dbe7a528f8fe  data_science_god_level/time_series_transfer/public_runner_v4.py' | sha256sum -c -
+          echo '5f5ac0b23af41ef5e1a998e6c44ab79579f4055c4a333a1058897fea8e4b6b35  data_science_god_level/time_series_transfer/repair_public_runner_v4.py' | sha256sum -c -
+          tar xzf "$root/time_series_code.tar.gz" -C .
+          python "$root/calibrate_intervals.py"
+          echo '1bec64d84784ab81a8b8da13a800b2ea679ec59e87fd542af95a7a2e70ad3562  data_science_god_level/time_series_transfer/forecaster.py' | sha256sum -c -
+          python "$root/repair_public_runner_v4.py"
+          echo 'd3532e15300f75f22e8c28b2c4da62da4afcada9d4d12bbbc2b8e9c9b8dd8fc7  data_science_god_level/time_series_transfer/public_runner_v4.py' | sha256sum -c -
+          python -m py_compile "$root/forecaster.py" "$root/public_runner_v4.py"
+
+      - name: Replay original Logic Power v10
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat logic_power_v10_capsule/parts/part_00.b64 \
+              logic_power_v10_capsule/parts/part_01.b64 \
+              logic_power_v10_capsule/parts/part_02.b64 \
+              logic_power_v10_capsule/parts/part_03.b64 \
+              logic_power_v10_capsule/parts/part_04.b64 \
+              logic_power_v10_capsule/parts/part_05_00.b64 \
+              logic_power_v10_capsule/parts/part_05_01.b64 \
+              logic_power_v10_capsule/parts/part_05_02.b64 > /tmp/lp.b64
+          echo '3548f31fcaa9696eabb063023c905fbb04a2b3db73c96df9f9ee8bc8e0c64fc1  /tmp/lp.b64' | sha256sum -c -
+          base64 -d /tmp/lp.b64 > /tmp/lp.tar.gz
+          echo 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31  /tmp/lp.tar.gz' | sha256sum -c -
+          tar xzf /tmp/lp.tar.gz -C _logic_power_v10
+          (cd _logic_power_v10 && sha256sum -c SOURCE_SHA256SUMS && test "$(cat PRIVATE_HEAD_SHA.txt)" = 'ba10d0edc7eb20d499d0481fda2537e782b6efb2')
+          (cd data_science_god_level/time_series_transfer && PYTHONPATH="${GITHUB_WORKSPACE}/_logic_power_v10" python logic_plan.py)
+
+      - name: Execute repaired calibrated public gate
+        shell: bash
+        run: |
+          set +e
+          python data_science_god_level/time_series_transfer/public_runner_v4.py \
+            2>&1 | tee public-logs/runner-output.txt
+          status=${PIPESTATUS[0]}
+          echo "$status" > public-logs/runner-exit-status.txt
+          exit 0
+
+      - name: Upload immutable public evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-god-level-time-series-public-v5
+          retention-days: 90
+          path: |
+            data_science_god_level/time_series_transfer/time_series_code.tar.gz
+            data_science_god_level/time_series_transfer/calibrate_intervals.py
+            data_science_god_level/time_series_transfer/repair_public_runner_v4.py
+            data_science_god_level/time_series_transfer/public_runner_v4.py
+            data_science_god_level/time_series_transfer/forecaster.py
+            data_science_god_level/time_series_transfer/benchmark.py
+            data_science_god_level/time_series_transfer/test_forecaster.py
+            data_science_god_level/time_series_transfer/logic-plan-receipt.json
+            data_science_god_level/time_series_transfer/calibration-patch-receipt.json
+            data_science_god_level/time_series_transfer/runner-transport-repair-receipt.json
+            public-logs/**
+
+      - name: Enforce repaired public verdict
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('public-logs/public-freeze-receipt.json')
+          if not path.exists():
+              raise SystemExit('public receipt missing')
+          verdict = json.loads(path.read_text())['verdict']
+          if verdict != 'PASS':
+              raise SystemExit(f'public time-series gate: {verdict}; evidence preserved')
+          print('public time-series gate: PASS; candidate frozen')
+          PY
