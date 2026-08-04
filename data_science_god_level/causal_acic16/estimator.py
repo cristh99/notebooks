@@ -69,7 +69,10 @@ def estimate_causal_effect(
     """Cross-fitted doubly robust ATE/ATT estimation.
 
     The function consumes only covariates, observed treatment and observed outcome.
-    It cannot access benchmark ground truth or dataset identifiers.
+    It cannot access benchmark ground truth or dataset identifiers. Its ATE interval
+    combines influence-function sampling uncertainty with disagreement among
+    independently regularized cross-fitted outcome models, so misspecification is
+    represented instead of silently treated as zero.
     """
 
     x = _numeric_matrix(X)
@@ -87,6 +90,10 @@ def estimate_causal_effect(
     propensity = np.empty(n, dtype=np.float64)
     m0 = np.empty(n, dtype=np.float64)
     m1 = np.empty(n, dtype=np.float64)
+    ridge_m0 = np.empty(n, dtype=np.float64)
+    ridge_m1 = np.empty(n, dtype=np.float64)
+    boosted_m0 = np.empty(n, dtype=np.float64)
+    boosted_m1 = np.empty(n, dtype=np.float64)
     splitter = StratifiedKFold(
         n_splits=folds, shuffle=True, random_state=random_state
     )
@@ -119,7 +126,11 @@ def estimate_causal_effect(
         p_boosted = boosted_propensity.predict_proba(x_test)[:, 1]
         propensity[test] = 0.55 * p_linear + 0.45 * p_boosted
 
-        for arm, target in ((0, m0), (1, m1)):
+        outcome_targets = (
+            (0, m0, ridge_m0, boosted_m0),
+            (1, m1, ridge_m1, boosted_m1),
+        )
+        for arm, target, ridge_target, boosted_target in outcome_targets:
             arm_rows = a_train == arm
             ridge = make_pipeline(StandardScaler(), Ridge(alpha=10.0))
             boosted_outcome = HistGradientBoostingRegressor(
@@ -134,6 +145,8 @@ def estimate_causal_effect(
             boosted_outcome.fit(x_train[arm_rows], y_train[arm_rows])
             linear_prediction = ridge.predict(x_test)
             boosted_prediction = boosted_outcome.predict(x_test)
+            ridge_target[test] = linear_prediction
+            boosted_target[test] = boosted_prediction
             target[test] = 0.30 * linear_prediction + 0.70 * boosted_prediction
 
     raw_propensity = propensity.copy()
@@ -145,8 +158,23 @@ def estimate_causal_effect(
         - (1 - a) * (y - m0) / (1.0 - propensity)
     )
     ate = float(aipw_score.mean())
-    ate_se = float(aipw_score.std(ddof=1) / sqrt(n))
+    sampling_se = float(aipw_score.std(ddof=1) / sqrt(n))
+
+    ite = m1 - m0
+    ridge_ite = ridge_m1 - ridge_m0
+    boosted_ite = boosted_m1 - boosted_m0
+    component_estimates = {
+        "aipw": ate,
+        "outcome_ensemble": float(ite.mean()),
+        "ridge_outcome": float(ridge_ite.mean()),
+        "boosted_outcome": float(boosted_ite.mean()),
+    }
+    model_disagreement = float(
+        max(abs(value - ate) for value in component_estimates.values())
+    )
     z = 1.959963984540054
+    interval_half_width = z * sampling_se + model_disagreement
+    conservative_equivalent_se = interval_half_width / z
 
     treated_fraction = float(a.mean())
     att_score = (
@@ -154,7 +182,6 @@ def estimate_causal_effect(
         - (1 - a) * propensity / (1.0 - propensity) * (y - m0)
     ) / treated_fraction
     att = float(att_score.mean())
-    ite = m1 - m0
 
     treated_weights = a / propensity
     control_weights = (1 - a) / (1.0 - propensity)
@@ -171,18 +198,29 @@ def estimate_causal_effect(
         "clipped_fraction": clipped_fraction,
         "treated_effective_sample_size": _effective_sample_size(treated_weights),
         "control_effective_sample_size": _effective_sample_size(control_weights),
+        "ate_sampling_se": sampling_se,
+        "ate_model_disagreement": model_disagreement,
+        "ate_interval_half_width": interval_half_width,
+        "ate_interval_method": (
+            "cross-fitted AIPW 95% sampling interval expanded by maximum "
+            "cross-fitted outcome-model disagreement"
+        ),
+        "ate_component_estimates": component_estimates,
         "finite": bool(
             np.isfinite(aipw_score).all()
             and np.isfinite(ite).all()
+            and np.isfinite(ridge_ite).all()
+            and np.isfinite(boosted_ite).all()
             and np.isfinite(att)
+            and np.isfinite(interval_half_width)
         ),
         "positivity_warning": bool(clipped_fraction > 0.10),
     }
     return CausalEstimate(
         ate=ate,
-        ate_se=ate_se,
-        ate_ci_lower=ate - z * ate_se,
-        ate_ci_upper=ate + z * ate_se,
+        ate_se=conservative_equivalent_se,
+        ate_ci_lower=ate - interval_half_width,
+        ate_ci_upper=ate + interval_half_width,
         att=att,
         ite=ite,
         diagnostics=diagnostics,
