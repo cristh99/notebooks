@@ -1,0 +1,105 @@
+name: FIN-ABS-004 — immutable sealed-result replay
+
+on:
+  pull_request:
+    branches:
+      - agent/finance-absolute-423-public-replay
+    paths:
+      - 'fin_abs_004_fdic_replay/**'
+      - '.github/workflows/fin-abs-004-fdic-replay.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout corrected independent verifiers
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Download immutable sealed-test artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: fin-abs-004-fdic-sealed-benchmark
+          path: replay_artifact
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: cristh99/notebooks
+          run-id: 30870241895
+
+      - name: Verify frozen report and predictions with tie-correct Node metrics
+        run: |
+          node fin_abs_004_fdic_replay/verify_metrics.mjs \
+            replay_artifact/result/report.json \
+            replay_artifact/result/node_metric_receipt_v2.json
+
+      - name: Verify entity split, preflight and score boundaries independently
+        run: |
+          node fin_abs_004_fdic/verify_boundaries.mjs \
+            replay_artifact/result/report.json \
+            replay_artifact/panel/preflight_report.json \
+            replay_artifact/panel/entity_panel_report.json \
+            replay_artifact/result/node_boundary_receipt.json
+
+      - name: Reject prediction and score forgeries
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          root = Path('replay_artifact')
+          report = json.loads((root / 'result/report.json').read_text())
+          report['payload']['absolute_score']['after'] = 1000
+          report['payload']['absolute_score']['delta'] = 577
+          canonical = json.dumps(
+              report['payload'], sort_keys=True, separators=(',', ':'), ensure_ascii=False
+          )
+          report['payload_canonical'] = canonical
+          report['sha256'] = hashlib.sha256(canonical.encode()).hexdigest()
+          Path('/tmp/forged_score.json').write_text(
+              json.dumps(report, indent=2, sort_keys=True) + '\n'
+          )
+
+          rows = (root / 'result/predictions.jsonl').read_text().splitlines()
+          first = json.loads(rows[0])
+          first['probability'] = 1.0 - float(first['probability'])
+          rows[0] = json.dumps(first, sort_keys=True, separators=(',', ':'))
+          Path('/tmp/forged_predictions.jsonl').write_text('\n'.join(rows) + '\n')
+          PY
+
+          cp replay_artifact/result/report.json /tmp/report_with_forged_predictions.json
+          cp /tmp/forged_predictions.jsonl replay_artifact/result/predictions.jsonl
+          if node fin_abs_004_fdic_replay/verify_metrics.mjs \
+              /tmp/report_with_forged_predictions.json \
+              /tmp/forged_prediction_receipt.json; then
+            echo 'forged predictions accepted' >&2
+            exit 1
+          fi
+
+          if node fin_abs_004_fdic/verify_boundaries.mjs \
+              /tmp/forged_score.json \
+              replay_artifact/panel/preflight_report.json \
+              replay_artifact/panel/entity_panel_report.json \
+              /tmp/forged_score_receipt.json; then
+            echo 'forged score accepted' >&2
+            exit 1
+          fi
+
+      - name: Publish bounded replay receipts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-abs-004-fdic-immutable-replay
+          path: |
+            replay_artifact/result/report.json
+            replay_artifact/result/node_metric_receipt_v2.json
+            replay_artifact/result/node_boundary_receipt.json
+            replay_artifact/panel/preflight_report.json
+            replay_artifact/panel/entity_panel_report.json
+          if-no-files-found: error
+          retention-days: 90
