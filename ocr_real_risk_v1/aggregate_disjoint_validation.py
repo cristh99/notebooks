@@ -1,4 +1,11 @@
-"""Aggregate every sealed shard of process-disjoint OCR validation."""
+"""Aggregate every sealed shard of process-disjoint OCR validation.
+
+Process-disjoint sampling does not guarantee evidence-disjoint sampling: two
+procurement processes can publish byte-identical PDFs at different URLs. Yield
+therefore remains process-associated, while OCR risk is computed on unique
+physical evidence locations only. Any conflicting truth or outcome attached to
+the same physical location fails closed.
+"""
 from __future__ import annotations
 
 import argparse
@@ -6,14 +13,16 @@ import hashlib
 import json
 import math
 import statistics
+from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping, Sequence
 
 from .core import Candidate, canonical_json, p95, sha256_bytes
 from .exact_bounds import clopper_pearson_lower, clopper_pearson_upper
 from .final_partition import process_key
 
-SCHEMA = "ocr-real-risk-isolated-disjoint-aggregate/1"
+SCHEMA = "ocr-real-risk-isolated-disjoint-aggregate/2"
+EVIDENCE_REUSE_SCHEMA = "ocr-real-risk-physical-evidence-reuse/1"
 
 
 def _sha256(path: Path) -> str:
@@ -42,6 +51,140 @@ def _stable_payload_hash(report: dict[str, Any]) -> str:
     if observed != expected:
         raise RuntimeError("shard stable payload hash mismatch")
     return expected
+
+
+def physical_location_identity(
+    observation: Mapping[str, Any],
+) -> tuple[str, int, tuple[float, ...]]:
+    """Return the process-independent identity of one measured pixel location."""
+    bbox = tuple(round(float(value), 4) for value in observation["bbox_pt"])
+    if len(bbox) != 4:
+        raise ValueError("bbox_pt must contain four coordinates")
+    return (
+        str(observation["source_sha256"]),
+        int(observation["page_number"]),
+        bbox,
+    )
+
+
+def _physical_evidence_key(
+    identity: tuple[str, int, tuple[float, ...]],
+) -> str:
+    source_sha256, page_number, bbox_pt = identity
+    return sha256_bytes(
+        canonical_json(
+            {
+                "source_sha256": source_sha256,
+                "page_number": page_number,
+                "bbox_pt": list(bbox_pt),
+            }
+        ).encode("utf-8")
+    )
+
+
+def deduplicate_physical_evidence(
+    observations: Sequence[Mapping[str, Any]],
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Return one deterministic row per physical location plus reuse evidence."""
+    groups: dict[
+        tuple[str, int, tuple[float, ...]],
+        list[dict[str, Any]],
+    ] = defaultdict(list)
+    for observation in observations:
+        row = dict(observation)
+        process_key_value = str(row.get("_process_key") or "")
+        if len(process_key_value) != 64:
+            raise RuntimeError("annotated observation lacks a process key")
+        groups[physical_location_identity(row)].append(row)
+
+    outcome_fields = (
+        "truth",
+        "bbox_px",
+        "crop_id",
+        "crop_sha256",
+        "selection_rank_sha256",
+        "native_index_selection_rank_sha256",
+        "tesseract_claim",
+        "claim_correct",
+        "verifier_status",
+        "verifier_prediction",
+        "accepted",
+        "false_accepted",
+        "counterfactual_claim",
+        "counterfactual_status",
+        "counterfactual_prediction",
+        "counterfactual_false_accept",
+    )
+    unique: list[dict[str, Any]] = []
+    reused_groups: list[dict[str, Any]] = []
+    multiplicities: Counter[int] = Counter()
+    for identity in sorted(groups):
+        rows = sorted(
+            groups[identity],
+            key=lambda row: (
+                str(row["_process_key"]),
+                int(row["_shard_index"]),
+                str(row["document_id"]),
+            ),
+        )
+        representative = rows[0]
+        for other in rows[1:]:
+            conflicts = [
+                field
+                for field in outcome_fields
+                if other.get(field) != representative.get(field)
+            ]
+            if conflicts:
+                raise RuntimeError(
+                    "conflicting truth or OCR outcome for reused physical "
+                    f"evidence {_physical_evidence_key(identity)}: {conflicts}"
+                )
+        unique.append(representative)
+        multiplicities[len(rows)] += 1
+        if len(rows) > 1:
+            source_sha256, page_number, bbox_pt = identity
+            reused_groups.append(
+                {
+                    "evidence_key": _physical_evidence_key(identity),
+                    "source_sha256": source_sha256,
+                    "page_number": page_number,
+                    "bbox_pt": list(bbox_pt),
+                    "truth": representative["truth"],
+                    "crop_sha256": representative["crop_sha256"],
+                    "associated_process_count": len(rows),
+                    "associated_process_keys": [
+                        str(row["_process_key"]) for row in rows
+                    ],
+                    "associated_document_ids": [
+                        str(row["document_id"]) for row in rows
+                    ],
+                    "associated_url_sha256": [
+                        str(row["url_sha256"]) for row in rows
+                    ],
+                    "associated_shards": [
+                        int(row["_shard_index"]) for row in rows
+                    ],
+                    "outcomes_identical": True,
+                }
+            )
+
+    reuse = {
+        "schema": EVIDENCE_REUSE_SCHEMA,
+        "process_associated_locations": len(observations),
+        "unique_physical_locations": len(unique),
+        "duplicate_process_associations": len(observations) - len(unique),
+        "reused_physical_location_groups": len(reused_groups),
+        "maximum_processes_per_physical_location": max(
+            multiplicities, default=0
+        ),
+        "physical_location_multiplicity": {
+            str(key): value for key, value in sorted(multiplicities.items())
+        },
+        "risk_denominator": "unique physical evidence locations",
+        "yield_denominator": "attempted procurement processes",
+        "groups": reused_groups,
+    }
+    return unique, reuse
 
 
 def aggregate(roots: Iterable[Path], output_dir: Path) -> dict[str, Any]:
@@ -85,14 +228,37 @@ def aggregate(roots: Iterable[Path], output_dir: Path) -> dict[str, Any]:
             "shard_count": shard_count,
             "selected_processes": int(protocol["selected_processes"]),
             "documents_attempted": int(report["execution"]["documents_attempted"]),
-            "documents_with_tokens": int(report["execution"]["documents_with_tokens"]),
+            "process_associated_locations": int(
+                report["execution"]["documents_with_tokens"]
+            ),
             "stable_payload_sha256": report["stable_payload_sha256"],
             "report_sha256": _sha256(
                 root / "reports/real_numeric_risk_holdout.json"
             ),
         }
-        all_documents.extend(report["documents"])
-        all_observations.extend(report["observations"])
+        local_documents: dict[str, tuple[str, Candidate]] = {}
+        for document in report["documents"]:
+            candidate = Candidate(**document["candidate"])
+            key = process_key(candidate)
+            document_id = str(document["document_id"])
+            if document_id in local_documents:
+                raise RuntimeError("duplicate document_id within one shard")
+            local_documents[document_id] = (key, candidate)
+            annotated_document = dict(document)
+            annotated_document["_process_key"] = key
+            annotated_document["_shard_index"] = shard_index
+            all_documents.append(annotated_document)
+        for observation in report["observations"]:
+            document_id = str(observation["document_id"])
+            if document_id not in local_documents:
+                raise RuntimeError("observation has no bound shard document")
+            key, candidate = local_documents[document_id]
+            annotated = dict(observation)
+            annotated["_process_key"] = key
+            annotated["_process"] = candidate.process
+            annotated["_ocid"] = candidate.ocid
+            annotated["_shard_index"] = shard_index
+            all_observations.append(annotated)
 
     declared_counts = {row["shard_count"] for row in shards.values()}
     if len(declared_counts) != 1:
@@ -103,51 +269,89 @@ def aggregate(roots: Iterable[Path], output_dir: Path) -> dict[str, Any]:
     if len(seen_manifest_hashes) != 1:
         raise RuntimeError("shards used different seen-process manifests")
 
-    candidates = [Candidate(**row["candidate"]) for row in all_documents]
-    process_keys = [process_key(candidate) for candidate in candidates]
+    process_keys = [str(row["_process_key"]) for row in all_documents]
     if len(process_keys) != len(set(process_keys)):
         raise RuntimeError("process overlap across validation shards")
     expected_population = sum(row["selected_processes"] for row in shards.values())
     if len(all_documents) != expected_population:
         raise RuntimeError("aggregate document count differs from sealed population")
 
-    locations = {
-        (
-            str(row["source_sha256"]),
-            int(row["page_number"]),
-            tuple(float(value) for value in row["bbox_pt"]),
-        )
-        for row in all_observations
-    }
-    if len(locations) != len(all_observations):
-        raise RuntimeError("location identity overlap across shards")
+    unique_observations, evidence_reuse = deduplicate_physical_evidence(
+        all_observations
+    )
+    acquired = [
+        row
+        for row in all_documents
+        if row.get("acquisition", {}).get("status") == "ACQUIRED"
+    ]
+    acquired_source_counts = Counter(
+        str(row["acquisition"]["sha256"]) for row in acquired
+    )
+    reused_source_groups = sum(
+        count > 1 for count in acquired_source_counts.values()
+    )
+    duplicate_source_associations = sum(
+        count - 1 for count in acquired_source_counts.values() if count > 1
+    )
 
-    baseline = [row for row in all_observations if row["tesseract_claim"]]
+    baseline = [row for row in unique_observations if row["tesseract_claim"]]
     baseline_false = sum(not row["claim_correct"] for row in baseline)
-    accepted = [row for row in all_observations if row["accepted"]]
+    accepted = [row for row in unique_observations if row["accepted"]]
     accepted_false = sum(row["false_accepted"] for row in accepted)
     counterfactual_false = sum(
-        row["counterfactual_false_accept"] for row in all_observations
+        row["counterfactual_false_accept"] for row in unique_observations
     )
     baseline_lower = clopper_pearson_lower(baseline_false, len(baseline))
     accepted_upper = clopper_pearson_upper(accepted_false, len(accepted))
+    coverage_lower = clopper_pearson_lower(
+        len(accepted), len(unique_observations)
+    )
+    coverage_upper = clopper_pearson_upper(
+        len(accepted), len(unique_observations)
+    )
+    counterfactual_upper = clopper_pearson_upper(
+        counterfactual_false, len(unique_observations)
+    )
     reduction_lower = (
         baseline_lower / accepted_upper if accepted_upper > 0 else None
     )
-    yield_rate = len(all_observations) / len(all_documents) if all_documents else 0.0
+    process_yield = (
+        len(all_observations) / len(all_documents) if all_documents else 0.0
+    )
+    unique_evidence_yield = (
+        len(unique_observations) / len(all_documents) if all_documents else 0.0
+    )
     verifier_times = [
         float(row["verifier_runtime_ms"])
-        for row in all_observations
+        for row in unique_observations
         if float(row["verifier_runtime_ms"]) > 0
     ]
     tesseract_times = [
-        float(row["tesseract_runtime_ms"]) for row in all_observations
+        float(row["tesseract_runtime_ms"]) for row in unique_observations
     ]
     document_frontier = {
         str(locations_required): (
-            math.ceil(locations_required / yield_rate) if yield_rate else None
+            math.ceil(locations_required / unique_evidence_yield)
+            if unique_evidence_yield
+            else None
         )
         for locations_required in (583, 760, 1090, 2200, 3840)
+    }
+    institutions = {
+        str(row["institution_code"]) for row in unique_observations
+    }
+    readiness = {
+        "baseline_informative": baseline_false > 0 and baseline_lower > 0,
+        "minimum_unique_locations_200": len(unique_observations) >= 200,
+        "minimum_accepted_100": len(accepted) >= 100,
+        "minimum_institutions_10": len(institutions) >= 10,
+        "coverage_lower_at_least_0_25": coverage_lower >= 0.25,
+        "coverage_lower_at_least_0_30": coverage_lower >= 0.30,
+        "counterfactual_minimum_100": len(unique_observations) >= 100,
+        "counterfactual_upper_at_most_0_03": counterfactual_upper <= 0.03,
+        "relative_10x_certificate_possible_from_observed_baseline": (
+            baseline_false > 0 and baseline_lower > 0
+        ),
     }
 
     result: dict[str, Any] = {
@@ -163,15 +367,26 @@ def aggregate(roots: Iterable[Path], output_dir: Path) -> dict[str, Any]:
         },
         "execution": {
             "documents_attempted": len(all_documents),
-            "documents_with_locations": len(all_observations),
-            "yield_per_attempted_document": yield_rate,
-            "institutions_with_locations": len(
-                {row["institution_code"] for row in all_observations}
+            "documents_acquired": len(acquired),
+            "unique_source_pdfs_acquired": len(acquired_source_counts),
+            "reused_source_pdf_groups": reused_source_groups,
+            "duplicate_source_pdf_process_associations": (
+                duplicate_source_associations
             ),
-            "locations": len(all_observations),
-            "document_frontier_at_observed_yield": document_frontier,
+            "processes_with_locations": len(all_observations),
+            "process_associated_location_yield": process_yield,
+            "unique_physical_locations": len(unique_observations),
+            "unique_evidence_yield_per_attempted_process": unique_evidence_yield,
+            "institutions_with_unique_locations": len(institutions),
+            "document_frontier_at_unique_evidence_yield": document_frontier,
+            "physical_evidence_reuse": {
+                key: value
+                for key, value in evidence_reuse.items()
+                if key != "groups"
+            },
         },
         "baseline": {
+            "risk_unit": "unique physical evidence location",
             "predictions": len(baseline),
             "false_predictions": baseline_false,
             "observed_error_rate": (
@@ -180,11 +395,16 @@ def aggregate(roots: Iterable[Path], output_dir: Path) -> dict[str, Any]:
             "simultaneous_95pct_lower": baseline_lower,
         },
         "verifier": {
+            "risk_unit": "unique physical evidence location",
             "accepted": len(accepted),
             "false_accepted": accepted_false,
-            "accepted_coverage_of_locations": (
-                len(accepted) / len(all_observations) if all_observations else 0.0
+            "accepted_coverage_of_unique_locations": (
+                len(accepted) / len(unique_observations)
+                if unique_observations
+                else 0.0
             ),
+            "simultaneous_95pct_coverage_lower": coverage_lower,
+            "simultaneous_95pct_coverage_upper": coverage_upper,
             "observed_false_acceptance_rate": (
                 accepted_false / len(accepted) if accepted else None
             ),
@@ -196,13 +416,15 @@ def aggregate(roots: Iterable[Path], output_dir: Path) -> dict[str, Any]:
             "p95_runtime_ms": p95(verifier_times),
         },
         "counterfactual": {
-            "cases": len(all_observations),
+            "risk_unit": "unique physical evidence location",
+            "cases": len(unique_observations),
             "false_accepts": counterfactual_false,
             "rejection_or_abstention_rate": (
-                1 - counterfactual_false / len(all_observations)
-                if all_observations
+                1 - counterfactual_false / len(unique_observations)
+                if unique_observations
                 else None
             ),
+            "simultaneous_95pct_upper": counterfactual_upper,
         },
         "timing": {
             "median_tesseract_crop_ms": (
@@ -210,11 +432,17 @@ def aggregate(roots: Iterable[Path], output_dir: Path) -> dict[str, Any]:
             ),
             "p95_tesseract_crop_ms": p95(tesseract_times),
         },
+        "certificate_readiness": readiness,
         "decision": {
             "development_validation_complete": True,
             "pass_statistical_10x": False,
             "automatic_production_change": False,
-            "verdict": "DISJOINT_DEVELOPMENT_COMPLETE_NO_FINAL_CERTIFICATE",
+            "final_holdout_should_remain_sealed": True,
+            "verdict": (
+                "DEVELOPMENT_VALIDATED_BASELINE_TOO_CLEAN_FOR_RELATIVE_10X"
+                if not readiness["baseline_informative"]
+                else "DEVELOPMENT_VALIDATED_FINAL_CERTIFICATE_NOT_RUN"
+            ),
         },
         "constraints": {
             "final_partitions_10_99_opened": False,
@@ -230,12 +458,24 @@ def aggregate(roots: Iterable[Path], output_dir: Path) -> dict[str, Any]:
     )
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "isolated_disjoint_aggregate.json"
+    reuse_path = output_dir / "physical_evidence_reuse.json"
     output_path.write_text(
         json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    reuse_path.write_text(
+        json.dumps(evidence_reuse, ensure_ascii=False, indent=2, sort_keys=True)
+        + "\n",
+        encoding="utf-8",
+    )
     (output_dir / "SHA256SUMS.txt").write_text(
-        f"{_sha256(output_path)}  {output_path.name}\n",
+        "\n".join(
+            [
+                f"{_sha256(output_path)}  {output_path.name}",
+                f"{_sha256(reuse_path)}  {reuse_path.name}",
+            ]
+        )
+        + "\n",
         encoding="utf-8",
     )
     return result
