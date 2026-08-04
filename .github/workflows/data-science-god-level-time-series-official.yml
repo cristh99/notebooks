@@ -1,0 +1,393 @@
+name: Data Science God-Level — official prospective multifrequency forecasting gate
+
+on:
+  push:
+    branches:
+      - agent/data-science-god-level-time-series-transfer-official
+    paths:
+      - '.github/workflows/data-science-god-level-time-series-official.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  official-time-series-transfer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install pinned CPU environment
+        run: |
+          mkdir -p official-raw official-data official-logs public-proof _logic_power_v10
+          python -m pip install --disable-pip-version-check \
+            'numpy==1.26.4' 'scipy==1.14.1' 'pandas==2.2.3' \
+            'scikit-learn==1.5.2' 'statsmodels==0.14.4'
+          python -m pip freeze | sort > official-logs/pip-freeze.txt
+
+      - name: Require immutable public PASS before official future access
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 4 --retry-all-errors \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            'https://api.github.com/repos/cristh99/notebooks/actions/artifacts/8880197895/zip' \
+            -o /tmp/public-proof.zip
+          echo '303c2eef8c7f348615346d7d1b1a1778b8d46be644bf9ffa64b46b80d5484f50  /tmp/public-proof.zip' | sha256sum -c -
+          unzip -q /tmp/public-proof.zip -d public-proof
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          receipt_path = Path('public-proof/public-logs/public-freeze-receipt.json')
+          receipt = json.loads(receipt_path.read_text())
+          assert hashlib.sha256(receipt_path.read_bytes()).hexdigest() == '627a7b9ca346d461433a3b4d4a7d0a87f3ba7a8eed1eab92116ef055f53cc8cb'
+          assert receipt['verdict'] == 'PASS'
+          assert receipt['candidate_future_access'] is False
+          assert receipt['official_suite_accessed'] is False
+          assert receipt['post_hoc_retuning_permitted_after_official_evaluation'] is False
+          assert receipt['hashes']['base_capsule_sha256'] == '7c0bbf1f64e5aa091f72acf39198cdc4e18d5ed5bc53da7fe3bb4270d9aa0bfb'
+          assert receipt['hashes']['forecaster_sha256'] == '1bec64d84784ab81a8b8da13a800b2ea679ec59e87fd542af95a7a2e70ad3562'
+          assert receipt['hashes']['benchmark_sha256'] == 'b9ea871c52a72594019058e6834ba4557591fb80bfe45a4bae98a2dc226fe3d5'
+          assert receipt['hashes']['logic_plan_receipt_sha256'] == 'ee9cec32d5ca58c493ac08a811cee57f976a0f90165281483e7ccd50efd9e623'
+          assert receipt['hashes']['report_sha256'] == '2b59b870534d5a49d6f5ac05415080465820088d5743df5b26f05d932e6c6a11'
+          summary = receipt['summary']
+          assert summary['dataset_count'] == 6
+          assert summary['wins_vs_best'] == 4
+          assert abs(summary['candidate_mean_mase'] - 0.9004035706073515) < 1e-15
+          assert abs(summary['candidate_mean_owa'] - 0.525992934135782) < 1e-15
+          assert abs(summary['candidate_mean_coverage'] - 0.9356837606837606) < 1e-15
+          assert abs(summary['candidate_mean_normalized_width'] - 5.682314793283676) < 1e-15
+
+          proof = {
+              'schema': 'data-science-god-level/time-series-official-prerequisites/1',
+              'public_run_id': 30877928692,
+              'public_artifact_id': 8880197895,
+              'public_artifact_sha256': hashlib.sha256(Path('/tmp/public-proof.zip').read_bytes()).hexdigest(),
+              'public_receipt_sha256': hashlib.sha256(receipt_path.read_bytes()).hexdigest(),
+              'public_report_sha256': receipt['hashes']['report_sha256'],
+              'public_verdict': receipt['verdict'],
+              'frozen_forecaster_sha256': receipt['hashes']['forecaster_sha256'],
+              'frozen_benchmark_sha256': receipt['hashes']['benchmark_sha256'],
+              'frozen_logic_plan_receipt_sha256': receipt['hashes']['logic_plan_receipt_sha256'],
+              'official_future_access_before_freeze': False,
+          }
+          Path('official-logs/prerequisites.json').write_text(
+              json.dumps(proof, indent=2, sort_keys=True) + '\n'
+          )
+          print(json.dumps(proof, indent=2, sort_keys=True))
+          PY
+
+      - name: Derive and re-audit exact frozen candidate before official future access
+        shell: bash
+        run: |
+          set -euo pipefail
+          root='data_science_god_level/time_series_transfer'
+          echo '7c0bbf1f64e5aa091f72acf39198cdc4e18d5ed5bc53da7fe3bb4270d9aa0bfb  data_science_god_level/time_series_transfer/time_series_code.tar.gz' | sha256sum -c -
+          echo 'a7d579ef17c041b163632e01c1537607d7d828ca52d76faee4c4dd8a7a059175  data_science_god_level/time_series_transfer/calibrate_intervals.py' | sha256sum -c -
+          tar xzf "$root/time_series_code.tar.gz" -C .
+          python "$root/calibrate_intervals.py"
+          echo '1bec64d84784ab81a8b8da13a800b2ea679ec59e87fd542af95a7a2e70ad3562  data_science_god_level/time_series_transfer/forecaster.py' | sha256sum -c -
+          echo 'b9ea871c52a72594019058e6834ba4557591fb80bfe45a4bae98a2dc226fe3d5  data_science_god_level/time_series_transfer/benchmark.py' | sha256sum -c -
+          echo 'fd7970a6d181d7cbfd83bb01f965c277e32954c4d584e9bfc8e80e63d7d723e9  data_science_god_level/time_series_transfer/test_forecaster.py' | sha256sum -c -
+          echo '5bcfced722f7e624194529dddfd765b9479e8d7b608e385dd414d96cda41c313  data_science_god_level/time_series_transfer/logic_plan.py' | sha256sum -c -
+
+          cat logic_power_v10_capsule/parts/part_00.b64 \
+              logic_power_v10_capsule/parts/part_01.b64 \
+              logic_power_v10_capsule/parts/part_02.b64 \
+              logic_power_v10_capsule/parts/part_03.b64 \
+              logic_power_v10_capsule/parts/part_04.b64 \
+              logic_power_v10_capsule/parts/part_05_00.b64 \
+              logic_power_v10_capsule/parts/part_05_01.b64 \
+              logic_power_v10_capsule/parts/part_05_02.b64 > /tmp/lp.b64
+          echo '3548f31fcaa9696eabb063023c905fbb04a2b3db73c96df9f9ee8bc8e0c64fc1  /tmp/lp.b64' | sha256sum -c -
+          base64 -d /tmp/lp.b64 > /tmp/lp.tar.gz
+          echo 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31  /tmp/lp.tar.gz' | sha256sum -c -
+          tar xzf /tmp/lp.tar.gz -C _logic_power_v10
+          (cd _logic_power_v10 && sha256sum -c SOURCE_SHA256SUMS && test "$(cat PRIVATE_HEAD_SHA.txt)" = 'ba10d0edc7eb20d499d0481fda2537e782b6efb2')
+          (cd data_science_god_level/time_series_transfer && PYTHONPATH="${GITHUB_WORKSPACE}/_logic_power_v10" python logic_plan.py)
+          echo 'ee9cec32d5ca58c493ac08a811cee57f976a0f90165281483e7ccd50efd9e623  data_science_god_level/time_series_transfer/logic-plan-receipt.json' | sha256sum -c -
+
+          python - <<'PY'
+          import ast, hashlib, inspect, json, sys
+          from pathlib import Path
+
+          root = Path('data_science_god_level/time_series_transfer')
+          expected = {
+              'forecaster.py': '1bec64d84784ab81a8b8da13a800b2ea679ec59e87fd542af95a7a2e70ad3562',
+              'benchmark.py': 'b9ea871c52a72594019058e6834ba4557591fb80bfe45a4bae98a2dc226fe3d5',
+              'test_forecaster.py': 'fd7970a6d181d7cbfd83bb01f965c277e32954c4d584e9bfc8e80e63d7d723e9',
+              'logic_plan.py': '5bcfced722f7e624194529dddfd765b9479e8d7b608e385dd414d96cda41c313',
+              'logic-plan-receipt.json': 'ee9cec32d5ca58c493ac08a811cee57f976a0f90165281483e7ccd50efd9e623',
+          }
+          actual = {name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in expected}
+          assert actual == expected
+          tree = ast.parse((root / 'forecaster.py').read_text(encoding='utf-8'))
+          imports, calls, names = set(), [], set()
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                  imports.update(alias.name.split('.')[0] for alias in node.names)
+              elif isinstance(node, ast.ImportFrom) and node.level == 0:
+                  imports.add((node.module or '').split('.')[0])
+              elif isinstance(node, ast.Call):
+                  if isinstance(node.func, ast.Name):
+                      calls.append(node.func.id)
+                  elif isinstance(node.func, ast.Attribute):
+                      calls.append(node.func.attr)
+              elif isinstance(node, ast.Name):
+                  names.add(node.id)
+              elif isinstance(node, ast.Attribute):
+                  names.add(node.attr)
+          assert not (imports - {'__future__','dataclasses','typing','numpy','scipy','sklearn','statsmodels'})
+          assert not (set(calls) & {'open','eval','exec','compile','__import__','system','popen','run','urlopen','request','read_csv','read_json'})
+          assert not (names & {'Path','dataset_name','filename','requests','socket','subprocess','pandas','test_values'})
+
+          sys.path.insert(0, str(root.resolve()))
+          from forecaster import forecast_series
+          assert list(inspect.signature(forecast_series).parameters) == ['values','horizon','seasonal_periods','interval_level']
+          audit = {
+              'schema': 'data-science-god-level/time-series-official-static-audit/1',
+              'hashes': actual,
+              'candidate_future_access': False,
+              'candidate_dataset_identifier_access': False,
+              'candidate_filesystem_network_process_access': False,
+          }
+          Path('official-logs/static-audit.json').write_text(
+              json.dumps(audit, indent=2, sort_keys=True) + '\n'
+          )
+          print(json.dumps(audit, indent=2, sort_keys=True))
+          PY
+          (cd data_science_god_level/time_series_transfer && python -m unittest -v test_forecaster.py)
+
+      - name: Download the predeclared official series exactly once
+        shell: bash
+        run: |
+          set -euo pipefail
+          ref='080b5340366b8df25e048f4cfd11ca99e3806e97'
+          base="https://raw.githubusercontent.com/unit8co/darts/${ref}/datasets"
+          curl -fsSL --retry 4 --retry-all-errors "$base/wineind.csv" -o official-raw/o01.csv
+          curl -fsSL --retry 4 --retry-all-errors "$base/woolyrnq.csv" -o official-raw/o02.csv
+          curl -fsSL --retry 4 --retry-all-errors "$base/taylor.csv" -o official-raw/o03.csv
+          curl -fsSL --retry 4 --retry-all-errors "$base/heart_rate.csv" -o official-raw/o04.csv
+          curl -fsSL --retry 4 --retry-all-errors "$base/ice_cream_heater.csv" -o official-raw/o05.csv
+          curl -fsSL --retry 4 --retry-all-errors "$base/gasrate_co2.csv" -o official-raw/o06.csv
+          test "$(find official-raw -type f -name '*.csv' | wc -l)" -eq 6
+          test "$(find official-raw -type f ! -name '*.csv' | wc -l)" -eq 0
+
+      - name: Apply predeclared component rules and seal official manifest before scoring
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          import numpy as np
+          import pandas as pd
+
+          raw_root = Path('official-raw').resolve()
+          data_root = Path('official-data').resolve()
+          specs = {
+              'o01': {'source':'wineind.csv','time_column':'date','value_index':0,'seasonal_periods':[12],'horizon':18},
+              'o02': {'source':'woolyrnq.csv','time_column':'date','value_index':0,'seasonal_periods':[4],'horizon':12},
+              'o03': {'source':'taylor.csv','time_column':None,'value_index':-1,'seasonal_periods':[48,336],'horizon':96,'max_history':4032},
+              'o04': {'source':'heart_rate.csv','time_column':None,'value_index':-1,'seasonal_periods':[],'horizon':60,'max_history':1800},
+              'o05': {'source':'ice_cream_heater.csv','time_column':'Month','value_index':0,'seasonal_periods':[12],'horizon':18},
+              'o06': {'source':'gasrate_co2.csv','time_column':None,'value_index':0,'seasonal_periods':[],'horizon':24,'max_history':296},
+          }
+          raw_files, transformed_files, datasets = [], [], []
+          for role in sorted(specs):
+              spec = specs[role]
+              raw_path = raw_root / f'{role}.csv'
+              frame = pd.read_csv(raw_path)
+              columns = [column for column in frame.columns if column != spec['time_column']]
+              index = int(spec['value_index'])
+              selected = columns[index]
+              values = pd.to_numeric(frame[selected], errors='coerce').to_numpy(dtype=float)
+              values = values[np.isfinite(values)]
+              if values.size < int(spec['horizon']) + 24:
+                  raise ValueError(f'{role} is too short after the predeclared component rule')
+              transformed = data_root / f'{role}.csv'
+              pd.DataFrame({'value': values}).to_csv(transformed, index=False)
+              raw_files.append({
+                  'role': role,
+                  'source_file': spec['source'],
+                  'bytes': raw_path.stat().st_size,
+                  'sha256': hashlib.sha256(raw_path.read_bytes()).hexdigest(),
+                  'source_columns': list(frame.columns),
+                  'predeclared_time_column': spec['time_column'],
+                  'predeclared_value_index': index,
+                  'selected_column': selected,
+              })
+              transformed_files.append({
+                  'role': role,
+                  'rows': int(values.size),
+                  'bytes': transformed.stat().st_size,
+                  'sha256': hashlib.sha256(transformed.read_bytes()).hexdigest(),
+              })
+              datasets.append({
+                  'role': role,
+                  'path': str(transformed),
+                  'time_column': None,
+                  'value_column': 'value',
+                  'seasonal_periods': spec['seasonal_periods'],
+                  'horizon': spec['horizon'],
+                  **({'max_history': spec['max_history']} if 'max_history' in spec else {}),
+              })
+          data_manifest = {
+              'schema': 'data-science-god-level/time-series-official-data/1',
+              'source_repository': 'unit8co/darts',
+              'source_commit': '080b5340366b8df25e048f4cfd11ca99e3806e97',
+              'raw_files': raw_files,
+              'transformed_files': transformed_files,
+              'component_selection': 'fixed source-order index after excluding the predeclared time column',
+              'actual_official_evaluation_count_authorized': 1,
+          }
+          benchmark_manifest = {
+              'schema': 'data-science-god-level/time-series-manifest/1',
+              'suite': 'official-transfer',
+              'interval_level': 0.90,
+              'datasets': datasets,
+              'candidate_future_access': False,
+              'actual_official_evaluation_count_authorized': 1,
+          }
+          Path('official-logs/data-manifest.json').write_text(
+              json.dumps(data_manifest, indent=2, sort_keys=True) + '\n'
+          )
+          Path('official-logs/benchmark-manifest.json').write_text(
+              json.dumps(benchmark_manifest, indent=2, sort_keys=True) + '\n'
+          )
+          print(json.dumps(data_manifest, indent=2, sort_keys=True))
+          PY
+
+      - name: Run the first and only official prospective evaluation
+        env:
+          OMP_NUM_THREADS: '4'
+          MKL_NUM_THREADS: '4'
+          OPENBLAS_NUM_THREADS: '4'
+        run: |
+          cd data_science_god_level/time_series_transfer
+          python benchmark.py \
+            --manifest "${GITHUB_WORKSPACE}/official-logs/benchmark-manifest.json" \
+            --output "${GITHUB_WORKSPACE}/official-logs/official-report.json" \
+            2>&1 | tee "${GITHUB_WORKSPACE}/official-logs/evaluation-output.txt"
+
+      - name: Adjudicate predeclared absolute, comparative, and calibration gates
+        if: always()
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          report_path = Path('official-logs/official-report.json')
+          report = json.loads(report_path.read_text()) if report_path.exists() else None
+          thresholds = {
+              'dataset_count': 6,
+              'candidate_mean_mase_max': 1.20,
+              'candidate_mean_smape_max': 25.0,
+              'candidate_mean_owa_max': 1.00,
+              'mean_advantage_vs_best_min': 0.0,
+              'wins_vs_best_min': 4,
+              'worst_advantage_vs_best_min': -0.35,
+              'candidate_mean_coverage_min': 0.70,
+              'candidate_mean_normalized_width_max': 8.0,
+          }
+          if report:
+              summary = report['summary']
+              roles = sorted(row['role'] for row in report['datasets'])
+              checks = {
+                  'dataset_count': summary['dataset_count'] == thresholds['dataset_count'],
+                  'official_roles_only': roles == ['o01','o02','o03','o04','o05','o06'],
+                  'finite_all': bool(summary['finite_all']),
+                  'candidate_mean_mase': summary['candidate_mean_mase'] <= thresholds['candidate_mean_mase_max'],
+                  'candidate_mean_smape': summary['candidate_mean_smape'] <= thresholds['candidate_mean_smape_max'],
+                  'candidate_mean_owa': summary['candidate_mean_owa'] <= thresholds['candidate_mean_owa_max'],
+                  'mean_advantage_vs_best': summary['mean_advantage_vs_best'] >= thresholds['mean_advantage_vs_best_min'],
+                  'wins_vs_best': summary['wins_vs_best'] >= thresholds['wins_vs_best_min'],
+                  'worst_advantage_vs_best': summary['worst_advantage_vs_best'] >= thresholds['worst_advantage_vs_best_min'],
+                  'candidate_mean_coverage': summary['candidate_mean_coverage'] >= thresholds['candidate_mean_coverage_min'],
+                  'candidate_mean_normalized_width': summary['candidate_mean_normalized_width'] <= thresholds['candidate_mean_normalized_width_max'],
+              }
+              metrics = summary
+              verdict = 'PASS' if all(checks.values()) else 'FAIL'
+          else:
+              checks = {'report_exists': False}
+              metrics = None
+              verdict = 'INVALID_RUN'
+
+          def digest(path):
+              path = Path(path)
+              return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+
+          receipt = {
+              'schema': 'data-science-god-level/time-series-official-freeze/1',
+              'verdict': verdict,
+              'actual_official_evaluation_count': 1 if report else 0,
+              'candidate_frozen_before_official_future': True,
+              'candidate_future_access': False,
+              'post_hoc_retuning_permitted': False,
+              'public_run_id': 30877928692,
+              'public_artifact_id': 8880197895,
+              'official_roles': ['o01','o02','o03','o04','o05','o06'],
+              'thresholds': thresholds,
+              'metrics': metrics,
+              'checks': checks,
+              'hashes': {
+                  'base_capsule_sha256': '7c0bbf1f64e5aa091f72acf39198cdc4e18d5ed5bc53da7fe3bb4270d9aa0bfb',
+                  'calibration_patch_sha256': 'a7d579ef17c041b163632e01c1537607d7d828ca52d76faee4c4dd8a7a059175',
+                  'forecaster_sha256': '1bec64d84784ab81a8b8da13a800b2ea679ec59e87fd542af95a7a2e70ad3562',
+                  'benchmark_sha256': 'b9ea871c52a72594019058e6834ba4557591fb80bfe45a4bae98a2dc226fe3d5',
+                  'logic_plan_receipt_sha256': 'ee9cec32d5ca58c493ac08a811cee57f976a0f90165281483e7ccd50efd9e623',
+                  'prerequisites_sha256': digest('official-logs/prerequisites.json'),
+                  'static_audit_sha256': digest('official-logs/static-audit.json'),
+                  'official_data_manifest_sha256': digest('official-logs/data-manifest.json'),
+                  'official_report_sha256': digest(report_path),
+              },
+          }
+          payload = json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          Path('official-logs/official-freeze-receipt.json').write_text(payload)
+          Path('official-logs/official-freeze-receipt.sha256').write_text(
+              hashlib.sha256(payload.encode()).hexdigest() + '  official-freeze-receipt.json\n'
+          )
+          print(payload)
+          PY
+
+      - name: Upload immutable official evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-god-level-time-series-official
+          retention-days: 90
+          path: |
+            data_science_god_level/time_series_transfer/time_series_code.tar.gz
+            data_science_god_level/time_series_transfer/calibrate_intervals.py
+            data_science_god_level/time_series_transfer/forecaster.py
+            data_science_god_level/time_series_transfer/benchmark.py
+            data_science_god_level/time_series_transfer/test_forecaster.py
+            data_science_god_level/time_series_transfer/logic-plan-receipt.json
+            data_science_god_level/time_series_transfer/calibration-patch-receipt.json
+            official-logs/**
+
+      - name: Enforce the one-shot official verdict
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('official-logs/official-freeze-receipt.json')
+          if not path.exists():
+              raise SystemExit('official receipt missing')
+          receipt = json.loads(path.read_text())
+          if receipt['actual_official_evaluation_count'] != 1:
+              raise SystemExit('actual official evaluation was not completed')
+          if receipt['verdict'] != 'PASS':
+              raise SystemExit(f"official time-series gate: {receipt['verdict']}; evidence preserved; no retuning")
+          print('official time-series gate: PASS; no retuning permitted')
+          PY
