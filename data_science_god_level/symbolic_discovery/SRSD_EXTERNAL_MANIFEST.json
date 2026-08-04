@@ -17,6 +17,10 @@
       "srsd_external_runner.py": "f004ba4a421425d34a15d07107ebf253108f3c29b9dfa5977f1c86a5421708af",
       "srsd_external_plan.py": "45406ff9156fcad56584a71f9f661ab94bab888135919d9a60dd5cb7d8d93187",
       "test_srsd_external_runner.py": "90fd5e7562f74ebc6ffe5f2baf19a42db9a75ff6c44b21903b2cd9b33df10518"
+    },
+    "ci_orchestrator": {
+      "path": "data_science_god_level/symbolic_discovery/srsd_external_ci.py",
+      "sha256": "db7e2b95fa982892d3097e4ec92315b6fd65bdc7a706433a84f60790b15f8af9"
     }
   },
   "source": {
