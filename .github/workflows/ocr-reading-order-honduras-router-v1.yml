@@ -103,10 +103,10 @@ jobs:
         run: paddleocr install_hpi_deps cpu
       - name: Unit and adversarial tests
         run: python -m unittest -v ocr_god_10x_v2.test_benchmark ocr_god_10x_v2.test_direct_batch
-      - name: Execute frozen direct-module batch benchmark
-        run: python -m ocr_god_10x_v2.direct_batch --output-dir ocr_god_10x_v2/run/direct_batch
+      - name: Execute bounded direct-module batch benchmark
+        run: python -m ocr_god_10x_v2.direct_batch_safe --output-dir ocr_god_10x_v2/run/direct_batch
       - name: Independent semantic replay
-        run: python -m ocr_god_10x_v2.verify_direct_batch ocr_god_10x_v2/run/direct_batch/direct_batch.json
+        run: python -m ocr_god_10x_v2.verify_direct_batch_safe ocr_god_10x_v2/run/direct_batch/direct_batch.json
       - name: Hash environment and evidence
         if: always()
         run: |
