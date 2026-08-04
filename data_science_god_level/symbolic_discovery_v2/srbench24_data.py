@@ -43,7 +43,7 @@ def download_bytes(url: str) -> bytes:
         try:
             request = urllib.request.Request(
                 url,
-                headers={"User-Agent": "data-science-god-level-srbench24/2"},
+                headers={"User-Agent": "data-science-god-level-srbench24/3"},
             )
             with urllib.request.urlopen(request, timeout=180) as response:
                 data = response.read()
@@ -91,7 +91,7 @@ def download(data_root: Path, cache_root: Path, manifest_path: Path) -> dict[str
         raw_path = cache_root / f"{dataset_name}.tsv.gz"
         raw_path.write_bytes(payload)
         X, y, feature_columns = parse_dataset(payload, dataset_name)
-        if X.ndim != 2 or X.shape[0] != y.shape[0] or X.shape[0] < 40:
+        if X.ndim != 2 or X.shape[0] != y.shape[0] or X.shape[0] < 8:
             raise ValueError(
                 f"invalid dataset shape: {dataset_name}: {X.shape}, {y.shape}"
             )
@@ -123,7 +123,7 @@ def download(data_root: Path, cache_root: Path, manifest_path: Path) -> dict[str
             }
         )
     manifest: dict[str, object] = {
-        "schema": "data-science-god-level/symbolic-v2-srbench24-data-manifest/2",
+        "schema": "data-science-god-level/symbolic-v2-srbench24-data-manifest/3",
         "selection_repository": SELECTION_REPOSITORY,
         "selection_commit": SELECTION_COMMIT,
         "selection_definition_path": SELECTION_DEFINITION_PATH,
@@ -134,6 +134,7 @@ def download(data_root: Path, cache_root: Path, manifest_path: Path) -> dict[str
             "all datasets listed in the two pinned SRBench 2025 categories; "
             "no filtering"
         ),
+        "minimum_rows_supported": 8,
         "task_count": len(tasks),
         "total_source_bytes": total_source_bytes,
         "total_npz_bytes": total_npz_bytes,
