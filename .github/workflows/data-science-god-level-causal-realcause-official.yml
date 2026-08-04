@@ -1,0 +1,327 @@
+name: Data Science God-Level — RealCause official Twins gate
+
+on:
+  push:
+    branches:
+      - agent/data-science-god-level-realcause-official
+    paths:
+      - '.github/workflows/data-science-god-level-causal-realcause-official.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  official-twins-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install pinned environment
+        run: |
+          mkdir -p official-data official-logs public-proof
+          python -m pip install --disable-pip-version-check \
+            'numpy==1.26.4' 'pandas==2.2.3' 'scipy==1.14.1' \
+            'scikit-learn==1.5.2'
+          python -m pip freeze | sort > official-logs/pip-freeze.txt
+
+      - name: Require the frozen public PASS artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 4 --retry-all-errors \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            'https://api.github.com/repos/cristh99/notebooks/actions/artifacts/8877427925/zip' \
+            -o /tmp/public-proof.zip
+          echo '99d1ab1e5957266ea697cad019bacbd25af02894fa27bd69494a2a76fe1a9476  /tmp/public-proof.zip' | sha256sum -c -
+          unzip -q /tmp/public-proof.zip -d public-proof
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          receipt = json.loads(Path('public-proof/public-logs/public-freeze-receipt.json').read_text())
+          assert receipt['verdict'] == 'PASS'
+          assert receipt['estimator_sha256'] == 'eb50ff9cfaaa8f76843ccabab2eeebb1d65d9e29219164a0df7d0cc0b3b623c7'
+          assert receipt['benchmark_sha256'] == 'b23298b90795809ad4f35cb3dae8ba76cf281f998c83fca806d48113ef9d9158'
+          assert receipt['logic_plan_sha256'] == 'c9b2c8df6da935203576297fb2494273ab0ae3881e627cb2439b1a01a1ad64d9'
+          assert receipt['report_sha256'] == 'ce2c4249e6e9826be3dbcf2b3ea1441105c701bcce1d35e29b6149ef07f63f77'
+          assert receipt['official_truth_accessed'] is False
+          assert receipt['post_hoc_retuning_permitted_after_official_evaluation'] is False
+          assert receipt['official_family'] == 'twins'
+          assert receipt['official_samples'] == list(range(90, 100))
+
+          checks = {
+              'public_run_id': 30869665592,
+              'public_artifact_id': 8877427925,
+              'public_artifact_sha256': hashlib.sha256(Path('/tmp/public-proof.zip').read_bytes()).hexdigest(),
+              'public_verdict': receipt['verdict'],
+              'frozen_estimator_sha256': receipt['estimator_sha256'],
+              'official_truth_access_before_freeze': receipt['official_truth_accessed'],
+          }
+          Path('official-logs/public-proof.json').write_text(
+              json.dumps(checks, indent=2, sort_keys=True) + '\n'
+          )
+          print(json.dumps(checks, indent=2, sort_keys=True))
+          PY
+
+      - name: Verify frozen candidate and evaluator before official truth access
+        run: |
+          python - <<'PY'
+          import ast, hashlib, json
+          from pathlib import Path
+
+          root = Path('data_science_god_level/causal_realcause')
+          estimator = root / 'estimator.py'
+          benchmark = root / 'benchmark.py'
+          logic_plan = root / 'logic-plan-receipt.json'
+          expected = {
+              'estimator': 'eb50ff9cfaaa8f76843ccabab2eeebb1d65d9e29219164a0df7d0cc0b3b623c7',
+              'benchmark': 'b23298b90795809ad4f35cb3dae8ba76cf281f998c83fca806d48113ef9d9158',
+              'logic_plan': 'c9b2c8df6da935203576297fb2494273ab0ae3881e627cb2439b1a01a1ad64d9',
+          }
+          actual = {
+              'estimator': hashlib.sha256(estimator.read_bytes()).hexdigest(),
+              'benchmark': hashlib.sha256(benchmark.read_bytes()).hexdigest(),
+              'logic_plan': hashlib.sha256(logic_plan.read_bytes()).hexdigest(),
+          }
+          assert actual == expected
+
+          tree = ast.parse(estimator.read_text(encoding='utf-8'))
+          imports, names, calls = set(), set(), []
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                  imports.update(alias.name.split('.')[0] for alias in node.names)
+              elif isinstance(node, ast.ImportFrom) and node.level == 0:
+                  imports.add((node.module or '').split('.')[0])
+              elif isinstance(node, ast.Name):
+                  names.add(node.id)
+              elif isinstance(node, ast.Attribute):
+                  names.add(node.attr)
+              elif isinstance(node, ast.Call):
+                  if isinstance(node.func, ast.Name):
+                      calls.append(node.func.id)
+                  elif isinstance(node.func, ast.Attribute):
+                      calls.append(node.func.attr)
+          assert not (imports - {'__future__','dataclasses','math','typing','numpy','sklearn'})
+          assert not (set(calls) & {'open','eval','exec','compile','__import__','system','popen','run','urlopen','request','read_csv'})
+          assert not (names & {'Path','y0','y1','sample','dataset','requests','socket','subprocess'})
+
+          receipt = {
+              'schema': 'data-science-god-level/realcause-official-static-audit/1',
+              'hashes': actual,
+              'candidate_ground_truth_access': False,
+              'candidate_dataset_identifier_access': False,
+              'candidate_filesystem_network_process_access': False,
+          }
+          Path('official-logs/static-audit.json').write_text(
+              json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          )
+          PY
+          (cd data_science_god_level/causal_realcause && python -m unittest -v test_estimator.py)
+
+      - name: Download the predeclared official Twins transfer set once
+        shell: bash
+        run: |
+          set -euo pipefail
+          ref='7411cc26f10d750aa011b25f2a46cb572d8b8540'
+          base='https://api.github.com/repos/bradyneal/realcause/contents/realcause_datasets'
+          for sample in 90 91 92 93 94 95 96 97 98 99; do
+            name="twins_sample${sample}.csv"
+            curl -fsSL --retry 4 --retry-all-errors \
+              -H 'Accept: application/vnd.github.raw+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "$base/$name?ref=$ref" -o "official-data/$name"
+          done
+          test "$(find official-data -type f -name 'twins_sample*.csv' | wc -l)" -eq 10
+          test "$(find official-data -type f ! -name 'twins_sample*.csv' | wc -l)" -eq 0
+          for path in official-data/*.csv; do
+            test "$(stat -c%s "$path")" -gt 1000
+            head -n1 "$path" | grep -q 'y0'
+            head -n1 "$path" | grep -q 'y1'
+          done
+
+      - name: Seal official data manifest before scoring
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          files = sorted(Path('official-data').glob('twins_sample*.csv'))
+          manifest = {
+              'schema': 'data-science-god-level/realcause-official-data/1',
+              'source_repository': 'bradyneal/realcause',
+              'source_commit': '7411cc26f10d750aa011b25f2a46cb572d8b8540',
+              'transport': 'github-contents-api-raw',
+              'family': 'twins',
+              'samples': list(range(90, 100)),
+              'download_count': 10,
+              'evaluation_count_authorized': 1,
+              'files': [
+                  {
+                      'name': path.name,
+                      'bytes': path.stat().st_size,
+                      'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+                  }
+                  for path in files
+              ],
+          }
+          assert len(manifest['files']) == 10
+          payload = json.dumps(manifest, indent=2, sort_keys=True) + '\n'
+          Path('official-logs/data-manifest.json').write_text(payload)
+          print(payload)
+          PY
+
+      - name: Run the single official hidden-family evaluation
+        env:
+          OMP_NUM_THREADS: '4'
+          MKL_NUM_THREADS: '4'
+          OPENBLAS_NUM_THREADS: '4'
+        run: |
+          cd data_science_god_level/causal_realcause
+          python benchmark.py \
+            --files "${GITHUB_WORKSPACE}"/official-data/twins_sample90.csv \
+                    "${GITHUB_WORKSPACE}"/official-data/twins_sample91.csv \
+                    "${GITHUB_WORKSPACE}"/official-data/twins_sample92.csv \
+                    "${GITHUB_WORKSPACE}"/official-data/twins_sample93.csv \
+                    "${GITHUB_WORKSPACE}"/official-data/twins_sample94.csv \
+                    "${GITHUB_WORKSPACE}"/official-data/twins_sample95.csv \
+                    "${GITHUB_WORKSPACE}"/official-data/twins_sample96.csv \
+                    "${GITHUB_WORKSPACE}"/official-data/twins_sample97.csv \
+                    "${GITHUB_WORKSPACE}"/official-data/twins_sample98.csv \
+                    "${GITHUB_WORKSPACE}"/official-data/twins_sample99.csv \
+            --output "${GITHUB_WORKSPACE}/official-logs/official-report.json" \
+            2>&1 | tee "${GITHUB_WORKSPACE}/official-logs/evaluation-output.txt"
+
+      - name: Adjudicate predeclared absolute and comparative gates
+        if: always()
+        run: |
+          python - <<'PY'
+          import hashlib, json, math
+          from pathlib import Path
+
+          report_path = Path('official-logs/official-report.json')
+          public_proof_path = Path('official-logs/public-proof.json')
+          manifest_path = Path('official-logs/data-manifest.json')
+          static_path = Path('official-logs/static-audit.json')
+          report = json.loads(report_path.read_text()) if report_path.exists() else None
+
+          thresholds = {
+              'replicates': 10,
+              'mean_sqrt_pehe_max': 0.27,
+              'mean_relative_ate_error_max': 0.45,
+              'ate_ci_coverage_min': 0.50,
+              'minimum_per_sample_pehe_wins_vs_ridge': 5,
+          }
+          if report:
+              rows = report['files']
+              summary = report['summary']
+              relative_ate_errors = [
+                  row['candidate']['ate_abs_error'] / max(abs(row['true']['ate']), 0.01)
+                  for row in rows
+              ]
+              mean_relative_ate_error = sum(relative_ate_errors) / len(relative_ate_errors)
+              families = sorted({row['family'] for row in rows})
+              sample_names = sorted(row['file'] for row in rows)
+              checks = {
+                  'ten_replicates': len(rows) == thresholds['replicates'],
+                  'twins_only': families == ['twins'],
+                  'predeclared_samples_only': sample_names == [f'twins_sample{i}.csv' for i in range(90, 100)],
+                  'finite_all': bool(summary['candidate']['finite_all']),
+                  'mean_sqrt_pehe_absolute': summary['candidate']['mean_pehe'] <= thresholds['mean_sqrt_pehe_max'],
+                  'mean_relative_ate_error_absolute': mean_relative_ate_error <= thresholds['mean_relative_ate_error_max'],
+                  'ate_ci_coverage': summary['candidate']['ate_ci_coverage'] >= thresholds['ate_ci_coverage_min'],
+                  'ate_rmse_below_naive': summary['candidate']['ate_rmse'] < summary['naive']['ate_rmse'],
+                  'ate_rmse_below_ridge': summary['candidate']['ate_rmse'] < summary['ridge_t_learner']['ate_rmse'],
+                  'att_rmse_below_naive': summary['candidate']['att_rmse'] < summary['naive']['att_rmse'],
+                  'att_rmse_below_ridge': summary['candidate']['att_rmse'] < summary['ridge_t_learner']['att_rmse'],
+                  'pehe_below_ridge': summary['candidate']['mean_pehe'] < summary['ridge_t_learner']['mean_pehe'],
+                  'per_sample_pehe_wins': summary['wins']['pehe_vs_ridge'] >= thresholds['minimum_per_sample_pehe_wins_vs_ridge'],
+              }
+              metrics = {
+                  'mean_sqrt_pehe': summary['candidate']['mean_pehe'],
+                  'mean_relative_ate_error': mean_relative_ate_error,
+                  'ate_rmse': summary['candidate']['ate_rmse'],
+                  'att_rmse': summary['candidate']['att_rmse'],
+                  'ate_ci_coverage': summary['candidate']['ate_ci_coverage'],
+                  'ridge_mean_sqrt_pehe': summary['ridge_t_learner']['mean_pehe'],
+                  'pehe_wins_vs_ridge': summary['wins']['pehe_vs_ridge'],
+              }
+              verdict = 'PASS' if all(checks.values()) else 'FAIL'
+          else:
+              checks = {'report_exists': False}
+              metrics = None
+              verdict = 'INVALID_RUN'
+
+          def digest(path):
+              path = Path(path)
+              return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+
+          receipt = {
+              'schema': 'data-science-god-level/realcause-official-freeze/1',
+              'verdict': verdict,
+              'evaluation_count': 1,
+              'candidate_frozen_before_official_truth': True,
+              'post_hoc_retuning_permitted': False,
+              'public_run_id': 30869665592,
+              'public_artifact_id': 8877427925,
+              'official_family': 'twins',
+              'official_samples': list(range(90, 100)),
+              'thresholds': thresholds,
+              'metrics': metrics,
+              'checks': checks,
+              'hashes': {
+                  'estimator_sha256': 'eb50ff9cfaaa8f76843ccabab2eeebb1d65d9e29219164a0df7d0cc0b3b623c7',
+                  'benchmark_sha256': 'b23298b90795809ad4f35cb3dae8ba76cf281f998c83fca806d48113ef9d9158',
+                  'logic_plan_sha256': 'c9b2c8df6da935203576297fb2494273ab0ae3881e627cb2439b1a01a1ad64d9',
+                  'public_proof_sha256': digest(public_proof_path),
+                  'official_data_manifest_sha256': digest(manifest_path),
+                  'static_audit_sha256': digest(static_path),
+                  'official_report_sha256': digest(report_path),
+              },
+          }
+          payload = json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          Path('official-logs/official-freeze-receipt.json').write_text(payload)
+          Path('official-logs/official-freeze-receipt.sha256').write_text(
+              hashlib.sha256(payload.encode()).hexdigest() + '  official-freeze-receipt.json\n'
+          )
+          print(payload)
+          PY
+
+      - name: Upload immutable official evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-god-level-realcause-official
+          retention-days: 90
+          path: |
+            data_science_god_level/causal_realcause/estimator.py
+            data_science_god_level/causal_realcause/benchmark.py
+            data_science_god_level/causal_realcause/logic-plan-receipt.json
+            official-logs/**
+
+      - name: Enforce the one-shot verdict
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('official-logs/official-freeze-receipt.json')
+          if not path.exists():
+              raise SystemExit('official receipt missing')
+          receipt = json.loads(path.read_text())
+          if receipt['evaluation_count'] != 1:
+              raise SystemExit('invalid evaluation count')
+          if receipt['verdict'] != 'PASS':
+              raise SystemExit(f"RealCause official Twins gate: {receipt['verdict']}; evidence preserved")
+          print('RealCause official Twins gate: PASS; no retuning permitted')
+          PY
