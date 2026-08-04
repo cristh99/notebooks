@@ -1,0 +1,279 @@
+name: Data Science God-Level — public multifrequency forecasting gate
+
+on:
+  push:
+    branches:
+      - agent/data-science-god-level-time-series-transfer
+    paths:
+      - '.github/workflows/data-science-god-level-time-series-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-time-series-transfer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install pinned CPU environment
+        run: |
+          mkdir -p public-data public-logs _logic_power_v10
+          python -m pip install --disable-pip-version-check \
+            'numpy==1.26.4' 'scipy==1.14.1' 'pandas==2.2.3' \
+            'scikit-learn==1.5.2' 'statsmodels==0.14.4'
+          python -m pip freeze | sort > public-logs/pip-freeze.txt
+
+      - name: Reconstruct frozen candidate and original Logic Power v10
+        shell: bash
+        run: |
+          set -euo pipefail
+          capsule='data_science_god_level/time_series_transfer/time_series_code.tar.gz'
+          echo '7c0bbf1f64e5aa091f72acf39198cdc4e18d5ed5bc53da7fe3bb4270d9aa0bfb  data_science_god_level/time_series_transfer/time_series_code.tar.gz' | sha256sum -c -
+          tar xzf "$capsule" -C .
+          echo '1de1c1127d7380703f6b8fd56e9c8449456d23e878ee13e59fb23ec64a8f7d15  data_science_god_level/time_series_transfer/forecaster.py' | sha256sum -c -
+          echo 'b9ea871c52a72594019058e6834ba4557591fb80bfe45a4bae98a2dc226fe3d5  data_science_god_level/time_series_transfer/benchmark.py' | sha256sum -c -
+          echo 'fd7970a6d181d7cbfd83bb01f965c277e32954c4d584e9bfc8e80e63d7d723e9  data_science_god_level/time_series_transfer/test_forecaster.py' | sha256sum -c -
+          echo '5bcfced722f7e624194529dddfd765b9479e8d7b608e385dd414d96cda41c313  data_science_god_level/time_series_transfer/logic_plan.py' | sha256sum -c -
+
+          cat logic_power_v10_capsule/parts/part_00.b64 \
+              logic_power_v10_capsule/parts/part_01.b64 \
+              logic_power_v10_capsule/parts/part_02.b64 \
+              logic_power_v10_capsule/parts/part_03.b64 \
+              logic_power_v10_capsule/parts/part_04.b64 \
+              logic_power_v10_capsule/parts/part_05_00.b64 \
+              logic_power_v10_capsule/parts/part_05_01.b64 \
+              logic_power_v10_capsule/parts/part_05_02.b64 > /tmp/lp.b64
+          echo '3548f31fcaa9696eabb063023c905fbb04a2b3db73c96df9f9ee8bc8e0c64fc1  /tmp/lp.b64' | sha256sum -c -
+          base64 -d /tmp/lp.b64 > /tmp/lp.tar.gz
+          echo 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31  /tmp/lp.tar.gz' | sha256sum -c -
+          tar xzf /tmp/lp.tar.gz -C _logic_power_v10
+          (cd _logic_power_v10 && sha256sum -c SOURCE_SHA256SUMS && test "$(cat PRIVATE_HEAD_SHA.txt)" = 'ba10d0edc7eb20d499d0481fda2537e782b6efb2')
+          (cd data_science_god_level/time_series_transfer && PYTHONPATH="${GITHUB_WORKSPACE}/_logic_power_v10" python logic_plan.py)
+
+      - name: Prove candidate isolation and run structural tests
+        run: |
+          python - <<'PY'
+          import ast, hashlib, inspect, json, sys
+          from pathlib import Path
+
+          root = Path('data_science_god_level/time_series_transfer')
+          expected = {
+              'forecaster.py': '1de1c1127d7380703f6b8fd56e9c8449456d23e878ee13e59fb23ec64a8f7d15',
+              'benchmark.py': 'b9ea871c52a72594019058e6834ba4557591fb80bfe45a4bae98a2dc226fe3d5',
+              'test_forecaster.py': 'fd7970a6d181d7cbfd83bb01f965c277e32954c4d584e9bfc8e80e63d7d723e9',
+              'logic_plan.py': '5bcfced722f7e624194529dddfd765b9479e8d7b608e385dd414d96cda41c313',
+          }
+          actual = {name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in expected}
+          assert actual == expected
+
+          tree = ast.parse((root / 'forecaster.py').read_text(encoding='utf-8'))
+          imports, calls, names = set(), [], set()
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                  imports.update(alias.name.split('.')[0] for alias in node.names)
+              elif isinstance(node, ast.ImportFrom) and node.level == 0:
+                  imports.add((node.module or '').split('.')[0])
+              elif isinstance(node, ast.Call):
+                  if isinstance(node.func, ast.Name):
+                      calls.append(node.func.id)
+                  elif isinstance(node.func, ast.Attribute):
+                      calls.append(node.func.attr)
+              elif isinstance(node, ast.Name):
+                  names.add(node.id)
+              elif isinstance(node, ast.Attribute):
+                  names.add(node.attr)
+          assert not (imports - {'__future__','dataclasses','typing','numpy','scipy','sklearn','statsmodels'})
+          assert not (set(calls) & {'open','eval','exec','compile','__import__','system','popen','run','urlopen','request','read_csv','read_json'})
+          assert not (names & {'Path','dataset_name','filename','requests','socket','subprocess','pandas','actual','test_values'})
+
+          sys.path.insert(0, str(root.resolve()))
+          from forecaster import forecast_series
+          signature = inspect.signature(forecast_series)
+          assert list(signature.parameters) == ['values','horizon','seasonal_periods','interval_level']
+
+          receipt = {
+              'schema': 'data-science-god-level/time-series-static-audit/1',
+              'capsule_sha256': '7c0bbf1f64e5aa091f72acf39198cdc4e18d5ed5bc53da7fe3bb4270d9aa0bfb',
+              'hashes': actual,
+              'candidate_future_access': False,
+              'candidate_dataset_identifier_access': False,
+              'candidate_filesystem_network_process_access': False,
+              'official_suite_accessed': False,
+          }
+          Path('public-logs/static-audit.json').write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          print(json.dumps(receipt, indent=2, sort_keys=True))
+          PY
+          (cd data_science_god_level/time_series_transfer && python -m unittest -v test_forecaster.py)
+
+      - name: Download only the predeclared public Darts series
+        shell: bash
+        run: |
+          set -euo pipefail
+          ref='080b5340366b8df25e048f4cfd11ca99e3806e97'
+          base="https://raw.githubusercontent.com/unit8co/darts/${ref}/datasets"
+          curl -fsSL --retry 4 --retry-all-errors "$base/AirPassengers.csv" -o public-data/p01.csv
+          curl -fsSL --retry 4 --retry-all-errors "$base/ausbeer.csv" -o public-data/p02.csv
+          curl -fsSL --retry 4 --retry-all-errors "$base/monthly-milk.csv" -o public-data/p03.csv
+          curl -fsSL --retry 4 --retry-all-errors "$base/monthly-sunspots.csv" -o public-data/p04.csv
+          curl -fsSL --retry 4 --retry-all-errors "$base/temps.csv" -o public-data/p05.csv
+          curl -fsSL --retry 4 --retry-all-errors "$base/us_gasoline.csv" -o public-data/p06.csv
+          test "$(find public-data -type f -name '*.csv' | wc -l)" -eq 6
+
+      - name: Seal public data and rolling-origin manifest
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          root = Path('public-data').resolve()
+          specs = {
+              'p01': {'source':'AirPassengers.csv','time_column':'Month','value_column':'#Passengers','seasonal_periods':[12],'horizon':18},
+              'p02': {'source':'ausbeer.csv','time_column':'date','value_column':'Y','seasonal_periods':[4],'horizon':12},
+              'p03': {'source':'monthly-milk.csv','time_column':'Month','value_column':'Pounds per cow','seasonal_periods':[12],'horizon':18},
+              'p04': {'source':'monthly-sunspots.csv','time_column':'Month','value_column':'Sunspots','seasonal_periods':[132],'horizon':24,'max_history':1800},
+              'p05': {'source':'temps.csv','time_column':'Date','value_column':'Daily minimum temperatures','seasonal_periods':[7,365],'horizon':30,'max_history':3650},
+              'p06': {'source':'us_gasoline.csv','time_column':'Week','value_column':'Gasoline','seasonal_periods':[52],'horizon':26,'max_history':1800},
+          }
+          files, datasets = [], []
+          for role in sorted(specs):
+              path = root / f'{role}.csv'
+              spec = specs[role]
+              files.append({'role':role,'source_file':spec['source'],'bytes':path.stat().st_size,'sha256':hashlib.sha256(path.read_bytes()).hexdigest()})
+              datasets.append({'role':role,'path':str(path),**{key:value for key,value in spec.items() if key != 'source'}})
+          data_manifest = {
+              'schema':'data-science-god-level/time-series-public-data/1',
+              'source_repository':'unit8co/darts',
+              'source_commit':'080b5340366b8df25e048f4cfd11ca99e3806e97',
+              'public_files':files,
+              'official_suite_accessed':False,
+          }
+          benchmark_manifest = {
+              'schema':'data-science-god-level/time-series-manifest/1',
+              'suite':'public-development',
+              'interval_level':0.90,
+              'datasets':datasets,
+              'candidate_future_access':False,
+              'official_suite_accessed':False,
+          }
+          Path('public-logs/data-manifest.json').write_text(json.dumps(data_manifest, indent=2, sort_keys=True) + '\n')
+          Path('public-logs/benchmark-manifest.json').write_text(json.dumps(benchmark_manifest, indent=2, sort_keys=True) + '\n')
+          print(json.dumps(data_manifest, indent=2, sort_keys=True))
+          PY
+
+      - name: Execute public prospective forecasting benchmark
+        env:
+          OMP_NUM_THREADS: '4'
+          MKL_NUM_THREADS: '4'
+          OPENBLAS_NUM_THREADS: '4'
+        run: |
+          cd data_science_god_level/time_series_transfer
+          python benchmark.py \
+            --manifest "${GITHUB_WORKSPACE}/public-logs/benchmark-manifest.json" \
+            --output "${GITHUB_WORKSPACE}/public-logs/public-report.json" \
+            2>&1 | tee "${GITHUB_WORKSPACE}/public-logs/evaluation-output.txt"
+
+      - name: Freeze and adjudicate public gate
+        if: always()
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          report_path = Path('public-logs/public-report.json')
+          report = json.loads(report_path.read_text()) if report_path.exists() else None
+          thresholds = {
+              'dataset_count':6,
+              'candidate_mean_mase_max':1.20,
+              'candidate_mean_smape_max':25.0,
+              'candidate_mean_owa_max':1.00,
+              'mean_advantage_vs_best_min':-0.05,
+              'wins_vs_best_min':3,
+              'worst_advantage_vs_best_min':-0.35,
+              'candidate_mean_coverage_min':0.70,
+              'candidate_mean_normalized_width_max':8.0,
+          }
+          if report:
+              summary = report['summary']
+              checks = {
+                  'dataset_count':summary['dataset_count'] == thresholds['dataset_count'],
+                  'finite_all':bool(summary['finite_all']),
+                  'candidate_mean_mase':summary['candidate_mean_mase'] <= thresholds['candidate_mean_mase_max'],
+                  'candidate_mean_smape':summary['candidate_mean_smape'] <= thresholds['candidate_mean_smape_max'],
+                  'candidate_mean_owa':summary['candidate_mean_owa'] <= thresholds['candidate_mean_owa_max'],
+                  'mean_advantage_vs_best':summary['mean_advantage_vs_best'] >= thresholds['mean_advantage_vs_best_min'],
+                  'wins_vs_best':summary['wins_vs_best'] >= thresholds['wins_vs_best_min'],
+                  'worst_advantage_vs_best':summary['worst_advantage_vs_best'] >= thresholds['worst_advantage_vs_best_min'],
+                  'candidate_mean_coverage':summary['candidate_mean_coverage'] >= thresholds['candidate_mean_coverage_min'],
+                  'candidate_mean_normalized_width':summary['candidate_mean_normalized_width'] <= thresholds['candidate_mean_normalized_width_max'],
+              }
+              verdict = 'PASS' if all(checks.values()) else 'FAIL'
+          else:
+              summary = None
+              checks = {'report_exists':False}
+              verdict = 'INVALID_RUN'
+
+          def digest(path):
+              path = Path(path)
+              return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+
+          receipt = {
+              'schema':'data-science-god-level/time-series-public-freeze/1',
+              'verdict':verdict,
+              'thresholds':thresholds,
+              'checks':checks,
+              'summary':summary,
+              'candidate_future_access':False,
+              'official_suite_accessed':False,
+              'post_hoc_retuning_permitted_after_official_evaluation':False,
+              'hashes':{
+                  'capsule_sha256':'7c0bbf1f64e5aa091f72acf39198cdc4e18d5ed5bc53da7fe3bb4270d9aa0bfb',
+                  'forecaster_sha256':'1de1c1127d7380703f6b8fd56e9c8449456d23e878ee13e59fb23ec64a8f7d15',
+                  'benchmark_sha256':'b9ea871c52a72594019058e6834ba4557591fb80bfe45a4bae98a2dc226fe3d5',
+                  'logic_plan_receipt_sha256':digest('data_science_god_level/time_series_transfer/logic-plan-receipt.json'),
+                  'static_audit_sha256':digest('public-logs/static-audit.json'),
+                  'data_manifest_sha256':digest('public-logs/data-manifest.json'),
+                  'report_sha256':digest(report_path),
+              },
+          }
+          payload = json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          Path('public-logs/public-freeze-receipt.json').write_text(payload)
+          Path('public-logs/public-freeze-receipt.sha256').write_text(hashlib.sha256(payload.encode()).hexdigest() + '  public-freeze-receipt.json\n')
+          print(payload)
+          PY
+
+      - name: Upload immutable public evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-god-level-time-series-public
+          retention-days: 90
+          path: |
+            data_science_god_level/time_series_transfer/time_series_code.tar.gz
+            data_science_god_level/time_series_transfer/forecaster.py
+            data_science_god_level/time_series_transfer/benchmark.py
+            data_science_god_level/time_series_transfer/test_forecaster.py
+            data_science_god_level/time_series_transfer/logic-plan-receipt.json
+            public-logs/**
+
+      - name: Enforce public verdict
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('public-logs/public-freeze-receipt.json')
+          if not path.exists():
+              raise SystemExit('public receipt missing')
+          verdict = json.loads(path.read_text())['verdict']
+          if verdict != 'PASS':
+              raise SystemExit(f'public time-series gate: {verdict}; evidence preserved')
+          print('public time-series gate: PASS; candidate frozen')
+          PY
