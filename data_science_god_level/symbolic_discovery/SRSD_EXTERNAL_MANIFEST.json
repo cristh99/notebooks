@@ -1,5 +1,5 @@
 {
-  "schema": "data-science-god-level/symbolic-discovery-srsd-external-manifest/1",
+  "schema": "data-science-god-level/symbolic-discovery-srsd-external-manifest/2",
   "frozen_from_commit": "a133de401d80ff5b1e669181c0e3a685408869d6",
   "candidate": {
     "source_path": "data_science_god_level/symbolic_discovery/estimator.py",
@@ -9,19 +9,23 @@
     "filesystem_network_process_access": false,
     "post_hoc_retuning_permitted": false
   },
-  "external_code_capsule": {
-    "path": "data_science_god_level/symbolic_discovery/srsd_external_code.tar.gz.b64",
-    "base64_sha256": "20516f7a1f352fa46d27d9c45a32fd219681a29fc62bbd43e5ff9019d253abb9",
-    "decoded_sha256": "819abfcb5b5d348e5bf0466dc2bce63f73c1dfa48b17268c5e46c2a3ea8b5e9f",
-    "sources": {
-      "srsd_external_runner.py": "f004ba4a421425d34a15d07107ebf253108f3c29b9dfa5977f1c86a5421708af",
-      "srsd_external_plan.py": "45406ff9156fcad56584a71f9f661ab94bab888135919d9a60dd5cb7d8d93187",
-      "test_srsd_external_runner.py": "90fd5e7562f74ebc6ffe5f2baf19a42db9a75ff6c44b21903b2cd9b33df10518"
-    },
-    "ci_orchestrator": {
-      "path": "data_science_god_level/symbolic_discovery/srsd_external_ci.py",
-      "sha256": "db7e2b95fa982892d3097e4ec92315b6fd65bdc7a706433a84f60790b15f8af9"
-    }
+  "execution_sources": {
+    "transport": "direct_git_blobs",
+    "srsd_external_runner.py": "f004ba4a421425d34a15d07107ebf253108f3c29b9dfa5977f1c86a5421708af",
+    "srsd_external_plan.py": "45406ff9156fcad56584a71f9f661ab94bab888135919d9a60dd5cb7d8d93187",
+    "test_srsd_external_runner.py": "90fd5e7562f74ebc6ffe5f2baf19a42db9a75ff6c44b21903b2cd9b33df10518",
+    "srsd_external_ci.py": "db7e2b95fa982892d3097e4ec92315b6fd65bdc7a706433a84f60790b15f8af9"
+  },
+  "invalid_predata_transport_run": {
+    "run_id": 30885500036,
+    "artifact_id": 8882904793,
+    "artifact_sha256": "78788e5fb58194ab322da5e2c0a2764936781af047fd5e50546299fa2b760cf7",
+    "status": "INVALID_RUN_BEFORE_DATA_ACCESS",
+    "cause": "manually transported Base64 source capsule failed its frozen textual SHA-256",
+    "candidate_or_external_dataset_executed": false,
+    "external_dataset_bytes_accessed": false,
+    "counts_as_external_evaluation": false,
+    "deprecated_capsule_path": "data_science_god_level/symbolic_discovery/srsd_external_code.tar.gz.b64"
   },
   "source": {
     "dataset": "yoshitomo-matsubara/srsd-feynman_easy_dummy",
@@ -130,6 +134,7 @@
   "pre_data_access_proof": {
     "unit_tests": "4/4 PASS",
     "python_compile": "PASS",
-    "external_dataset_bytes_accessed_by_candidate_or_runner_before_freeze": false
+    "external_dataset_bytes_accessed_before_freeze": false,
+    "candidate_or_baselines_evaluated_before_activation": false
   }
 }
