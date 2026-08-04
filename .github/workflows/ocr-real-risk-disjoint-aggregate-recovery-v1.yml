@@ -1,0 +1,176 @@
+name: OCR disjoint aggregate recovery v1
+
+on:
+  push:
+    branches:
+      - agent/ocr-real-risk-disjoint-aggregate-recovery-v1
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: ocr-disjoint-aggregate-recovery-v1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  aggregate-existing-shards:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      SOURCE_RUN_ID: '30953079172'
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Physical evidence reuse tests
+        run: |
+          python -m unittest -v \
+            ocr_real_risk_v1.test_aggregate_disjoint_validation
+          python -m compileall -q ocr_real_risk_v1
+      - name: Recover and verify all sixteen validated shard artifacts
+        run: |
+          mkdir -p shards aggregate
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+          from pathlib import Path
+
+          repository = os.environ['GITHUB_REPOSITORY']
+          run_id = os.environ['SOURCE_RUN_ID']
+          token = os.environ['GITHUB_TOKEN']
+          request = urllib.request.Request(
+              f'https://api.github.com/repos/{repository}/actions/runs/{run_id}/artifacts?per_page=100',
+              headers={
+                  'Authorization': f'Bearer {token}',
+                  'Accept': 'application/vnd.github+json',
+                  'X-GitHub-Api-Version': '2022-11-28',
+              },
+          )
+          with urllib.request.urlopen(request, timeout=60) as response:
+              payload = json.load(response)
+          artifacts = [
+              row for row in payload['artifacts']
+              if row['name'].startswith('ocr-isolated-disjoint-shard-')
+          ]
+          artifacts.sort(key=lambda row: int(row['name'].rsplit('-', 1)[1]))
+          if [int(row['name'].rsplit('-', 1)[1]) for row in artifacts] != list(range(16)):
+              raise SystemExit('the source run does not contain exactly shards 0..15')
+          Path('artifacts.json').write_text(
+              json.dumps(artifacts, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          with Path('artifacts.tsv').open('w', encoding='utf-8') as output:
+              for row in artifacts:
+                  output.write(
+                      f"{row['id']}\t{row['name']}\t{row['digest']}\n"
+                  )
+          PY
+          while IFS=$'\t' read -r artifact_id artifact_name digest; do
+            curl --fail --location \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" \
+              --output "${artifact_name}.zip"
+            echo "${digest#sha256:}  ${artifact_name}.zip" \
+              | sha256sum --check --strict
+            mkdir -p "shards/${artifact_name}"
+            unzip -q "${artifact_name}.zip" \
+              -d "shards/${artifact_name}"
+            (cd "shards/${artifact_name}" \
+              && sha256sum --check --strict SHA256SUMS.txt)
+          done < artifacts.tsv
+      - name: Aggregate by unique physical evidence
+        env:
+          PYTHONPATH: ${{ github.workspace }}/ocr_real_risk_v1:${{ github.workspace }}
+        run: |
+          python -m ocr_real_risk_v1.aggregate_disjoint_validation \
+            shards/ocr-isolated-disjoint-shard-* \
+            --output-dir aggregate \
+            | tee aggregate-stdout.json
+      - name: Independent conservative aggregate gates
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          data = json.loads(
+              Path('aggregate/isolated_disjoint_aggregate.json').read_text()
+          )
+          reuse = json.loads(
+              Path('aggregate/physical_evidence_reuse.json').read_text()
+          )
+          assert data['schema'] == 'ocr-real-risk-isolated-disjoint-aggregate/2'
+          assert data['inputs']['shard_count'] == 16
+          assert data['inputs']['processes'] == 1399
+          execution = data['execution']
+          assert execution['documents_attempted'] == 1399
+          assert execution['documents_acquired'] == 1340
+          assert execution['unique_source_pdfs_acquired'] == 1301
+          assert execution['processes_with_locations'] == 175
+          assert execution['unique_physical_locations'] == 174
+          assert execution['institutions_with_unique_locations'] == 50
+          assert execution['physical_evidence_reuse']['duplicate_process_associations'] == 1
+          assert execution['physical_evidence_reuse']['reused_physical_location_groups'] == 1
+          assert data['baseline']['predictions'] == 174
+          assert data['baseline']['false_predictions'] == 0
+          assert data['verifier']['accepted'] == 68
+          assert data['verifier']['false_accepted'] == 0
+          assert data['verifier']['simultaneous_95pct_coverage_lower'] > 0.30
+          assert data['counterfactual']['cases'] == 174
+          assert data['counterfactual']['false_accepts'] == 0
+          assert data['counterfactual']['simultaneous_95pct_upper'] < 0.03
+          assert data['certificate_readiness']['baseline_informative'] is False
+          assert data['decision'] == {
+              'development_validation_complete': True,
+              'pass_statistical_10x': False,
+              'automatic_production_change': False,
+              'final_holdout_should_remain_sealed': True,
+              'verdict': (
+                  'DEVELOPMENT_VALIDATED_BASELINE_TOO_CLEAN_FOR_RELATIVE_10X'
+              ),
+          }
+          assert data['constraints'] == {
+              'final_partitions_10_99_opened': False,
+              'external_spend_usd': 0,
+              'gcloud_used': False,
+              'gpu_used': False,
+              'paid_api_used': False,
+              'production_modified': False,
+          }
+          assert reuse['process_associated_locations'] == 175
+          assert reuse['unique_physical_locations'] == 174
+          assert len(reuse['groups']) == 1
+          group = reuse['groups'][0]
+          assert group['associated_process_count'] == 2
+          assert group['truth'] == '4000'
+          assert group['outcomes_identical'] is True
+          assert set(group['associated_shards']) == {1, 13}
+          print(json.dumps({
+              'execution': execution,
+              'baseline': data['baseline'],
+              'verifier': data['verifier'],
+              'counterfactual': data['counterfactual'],
+              'certificate_readiness': data['certificate_readiness'],
+              'decision': data['decision'],
+              'reuse': reuse,
+              'stable_payload_sha256': data['stable_payload_sha256'],
+          }, indent=2, sort_keys=True))
+          PY
+          (cd aggregate && sha256sum --check --strict SHA256SUMS.txt)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-isolated-disjoint-aggregate-recovery-v1
+          path: |
+            aggregate
+            aggregate-stdout.json
+            artifacts.json
+          if-no-files-found: error
+          retention-days: 30
