@@ -1,0 +1,90 @@
+{
+  "schema": "data-science-god-level/acic16-causal-final/1",
+  "campaign_verdict": "PROTOCOL_INVALID_AFTER_COMPLETE_STATISTICAL_PASS",
+  "score_credit": 0,
+  "absolute_score_before": 541,
+  "absolute_score_after": 541,
+  "public_gate": {
+    "verdict": "PASS",
+    "run_id": 30867660577,
+    "artifact_id": 8876726334,
+    "artifact_sha256": "e6fa7bd434fbbf9e0de85e0ef013d8fc8b7e6051d78700d886ee67eb2a13d12d",
+    "head_sha": "e37044a1d8b7b6b1b49c07d67a6b69b603e09788",
+    "estimator_sha256": "159fed18dce6a1dafe6f4906b1673d19b791dac28af73275d3d83b5385960f33",
+    "benchmark_sha256": "a72837fcabe8b4df5fef1a79222c82d6deb0adfb56feaf9b61ec7065cdff8a35",
+    "receipt_sha256": "f5de9b0366f97980f51cf9b737a41c470538d70f1a609e1cc7838c6c1b855ea7",
+    "report_sha256": "396d9d4aea4accc3bd9d54e38df37894efb257df66bd1e80a3dad7d26efe2ff3",
+    "metrics": {
+      "ate_rmse": 0.19702638752108298,
+      "att_rmse": 0.15605799493154898,
+      "mean_pehe": 1.0991146415907649,
+      "ate_interval_coverage": 1.0,
+      "ate_wins_vs_naive": 6,
+      "att_wins_vs_naive": 6,
+      "pehe_wins_vs_ridge": 5
+    }
+  },
+  "official_gate": {
+    "protocol_verdict": "INVALID_RUN",
+    "statistical_verdict": "PASS",
+    "recorded_workflow_verdict": "FAIL",
+    "run_id": 30867946738,
+    "artifact_id": 8876819187,
+    "artifact_sha256": "794cb7b79912509dc6c6ab6f964403be923de8c84c092a401db97737133b24b1",
+    "head_sha": "907b039c9da682a500fb8d34013883c8f75125f9",
+    "official_evaluation_count": 1,
+    "official_instances": [7, 8, 9, 10],
+    "candidate_modified_after_public_freeze": false,
+    "post_hoc_retuning_permitted": false,
+    "safe_retry_on_same_instances": false,
+    "metrics": {
+      "ate_rmse": 0.20243662203450102,
+      "att_rmse": 0.15768805727330173,
+      "mean_pehe": 2.4640906306173616,
+      "ate_interval_coverage": 1.0,
+      "ate_wins_vs_naive": 4,
+      "att_wins_vs_naive": 4,
+      "ate_wins_vs_ridge": 4,
+      "att_wins_vs_ridge": 3,
+      "pehe_wins_vs_ridge": 4
+    },
+    "substantive_checks": {
+      "finite_all": true,
+      "ate_rmse_below_naive": true,
+      "ate_rmse_below_ridge_t_learner": true,
+      "att_rmse_below_naive": true,
+      "att_rmse_below_ridge_t_learner": true,
+      "mean_pehe_below_ridge_t_learner": true,
+      "ate_interval_coverage_at_least_half": true,
+      "ate_wins_vs_naive_at_least_3": true,
+      "att_wins_vs_naive_at_least_3": true,
+      "ate_wins_vs_ridge_at_least_2": true,
+      "att_wins_vs_ridge_at_least_2": true,
+      "pehe_wins_vs_ridge_at_least_2": true,
+      "candidate_ground_truth_access_false": true
+    },
+    "failed_operational_check": "benchmark_exit_status_zero",
+    "root_cause": {
+      "type": "POST_REPORT_HARNESS_PERMISSION_ERROR",
+      "message": "After writing the complete official report, benchmark.py attempted to create /public-logs because it was executed from /tmp/acic16-candidate; mkdir failed with PermissionError.",
+      "candidate_estimation_completed": true,
+      "official_report_completed": true,
+      "failure_occurred_after_report_write": true,
+      "candidate_caused_failure": false,
+      "receipt_sha256": "3d8c56a52681fb900f72d0afff57b68b179b84ba2bbf5bfaf72eb7388c015122",
+      "report_sha256": "15ab1f8a195d58865bbe18c92f227a3567d95073d02d7687f0fcde141ae4b539",
+      "evaluation_output_sha256": "a7bc2eb05d9c0eef324fcd3e744025718ccc1627ad894f067bc7ee240dfd705d"
+    }
+  },
+  "claim_boundary": {
+    "allowed": "The frozen estimator achieved all predeclared statistical thresholds on four previously hidden ACIC16 sample DGPs.",
+    "forbidden": [
+      "official sealed PASS",
+      "broad data-science capability proven",
+      "historical novelty",
+      "causal inference SOTA"
+    ],
+    "reason": "The predeclared protocol also required a zero benchmark process exit status, which the harness violated after the complete report had been written. Changing that contract after exposure would be post hoc."
+  },
+  "next_action": "Start a fresh campaign on previously unseen external causal datasets with the corrected harness; never rerun instances 7-10 for score credit."
+}
