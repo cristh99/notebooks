@@ -1,0 +1,39 @@
+name: Export public time-series development data
+
+on:
+  push:
+    branches:
+      - agent/data-science-god-level-time-series-transfer
+    paths:
+      - '.github/workflows/export-time-series-public-data.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  export-public-data:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Download only the public Darts series
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p public-data
+          ref='080b5340366b8df25e048f4cfd11ca99e3806e97'
+          base="https://raw.githubusercontent.com/unit8co/darts/${ref}/datasets"
+          curl -fsSL "$base/AirPassengers.csv" -o public-data/p01.csv
+          curl -fsSL "$base/ausbeer.csv" -o public-data/p02.csv
+          curl -fsSL "$base/monthly-milk.csv" -o public-data/p03.csv
+          curl -fsSL "$base/monthly-sunspots.csv" -o public-data/p04.csv
+          curl -fsSL "$base/temps.csv" -o public-data/p05.csv
+          curl -fsSL "$base/us_gasoline.csv" -o public-data/p06.csv
+          test "$(find public-data -type f -name '*.csv' | wc -l)" -eq 6
+
+      - name: Upload public development data
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-god-level-time-series-public-data
+          retention-days: 7
+          compression-level: 0
+          path: public-data/**
