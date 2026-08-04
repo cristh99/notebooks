@@ -1,0 +1,279 @@
+name: Data Science God-Level — public unsupervised anomaly gate
+
+on:
+  push:
+    branches:
+      - agent/data-science-god-level-unsupervised-anomaly
+    paths:
+      - '.github/workflows/data-science-god-level-unsupervised-anomaly-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-unsupervised-anomaly:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install pinned CPU environment
+        run: |
+          mkdir -p public-data public-logs
+          python -m pip install --disable-pip-version-check \
+            'numpy==1.26.4' 'scipy==1.14.1' 'scikit-learn==1.5.2'
+          python -m pip freeze | sort > public-logs/pip-freeze.txt
+
+      - name: Reconstruct and replay original Logic Power v10
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _logic_power_v10
+          cat logic_power_v10_capsule/parts/part_00.b64 \
+              logic_power_v10_capsule/parts/part_01.b64 \
+              logic_power_v10_capsule/parts/part_02.b64 \
+              logic_power_v10_capsule/parts/part_03.b64 \
+              logic_power_v10_capsule/parts/part_04.b64 \
+              logic_power_v10_capsule/parts/part_05_00.b64 \
+              logic_power_v10_capsule/parts/part_05_01.b64 \
+              logic_power_v10_capsule/parts/part_05_02.b64 > /tmp/lp.b64
+          echo '3548f31fcaa9696eabb063023c905fbb04a2b3db73c96df9f9ee8bc8e0c64fc1  /tmp/lp.b64' | sha256sum -c -
+          base64 -d /tmp/lp.b64 > /tmp/lp.tar.gz
+          echo 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31  /tmp/lp.tar.gz' | sha256sum -c -
+          tar xzf /tmp/lp.tar.gz -C _logic_power_v10
+          (cd _logic_power_v10 && sha256sum -c SOURCE_SHA256SUMS && test "$(cat PRIVATE_HEAD_SHA.txt)" = 'ba10d0edc7eb20d499d0481fda2537e782b6efb2')
+          (cd data_science_god_level/unsupervised_anomaly && PYTHONPATH="${GITHUB_WORKSPACE}/_logic_power_v10" python logic_plan.py)
+
+      - name: Freeze candidate and prove label isolation before data access
+        run: |
+          python - <<'PY'
+          import ast, hashlib, json
+          from pathlib import Path
+
+          root = Path('data_science_god_level/unsupervised_anomaly')
+          names = ['estimator.py', 'benchmark.py', 'test_estimator.py', 'logic_plan.py']
+          hashes = {name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in names}
+
+          tree = ast.parse((root / 'estimator.py').read_text(encoding='utf-8'))
+          imports, symbols, calls = set(), set(), []
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                  imports.update(alias.name.split('.')[0] for alias in node.names)
+              elif isinstance(node, ast.ImportFrom) and node.level == 0:
+                  imports.add((node.module or '').split('.')[0])
+              elif isinstance(node, ast.Name):
+                  symbols.add(node.id)
+              elif isinstance(node, ast.Attribute):
+                  symbols.add(node.attr)
+              elif isinstance(node, ast.Call):
+                  if isinstance(node.func, ast.Name):
+                      calls.append(node.func.id)
+                  elif isinstance(node.func, ast.Attribute):
+                      calls.append(node.func.attr)
+          assert not (imports - {'__future__','dataclasses','typing','numpy','scipy','sklearn'})
+          assert not (set(calls) & {'open','eval','exec','compile','__import__','system','popen','run','urlopen','request','read_csv','load'})
+          assert not (symbols & {'Path','dataset_name','filename','labels','y','requests','socket','subprocess','pandas'})
+
+          receipt = {
+              'schema': 'data-science-god-level/unsupervised-anomaly-static-audit/1',
+              'hashes': hashes,
+              'candidate_label_access': False,
+              'candidate_dataset_identifier_access': False,
+              'candidate_filesystem_network_process_access': False,
+              'official_suite_accessed': False,
+          }
+          Path('public-logs/static-audit.json').write_text(
+              json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          )
+          print(json.dumps(receipt, indent=2, sort_keys=True))
+          PY
+          (cd data_science_god_level/unsupervised_anomaly && python -m unittest -v test_estimator.py)
+
+      - name: Download only the predeclared public ADBench suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          ref='3dac8221081e190f157d78e93bfa8867f90d0965'
+          base="https://raw.githubusercontent.com/Minqi824/ADBench/${ref}/adbench/datasets/Classical"
+          fetch_data() {
+            local source_name="$1"
+            local role="$2"
+            curl -fsSL --retry 4 --retry-all-errors \
+              "$base/$source_name" -o "public-data/$role.npz"
+          }
+          fetch_data 6_cardio.npz p01
+          fetch_data 14_glass.npz p02
+          fetch_data 23_mammography.npz p03
+          fetch_data 27_PageBlocks.npz p04
+          fetch_data 36_speech.npz p05
+          fetch_data 41_Waveform.npz p06
+          test "$(find public-data -type f -name '*.npz' | wc -l)" -eq 6
+          python - <<'PY'
+          import numpy as np
+          from pathlib import Path
+          for path in sorted(Path('public-data').glob('*.npz')):
+              data = np.load(path, allow_pickle=True)
+              assert set(data.files) >= {'X', 'y'}
+              assert len(data['X']) == len(data['y'])
+              print(path.name, data['X'].shape)
+          PY
+
+      - name: Seal public data and benchmark manifest
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          root = Path('public-data').resolve()
+          source = {
+              'p01': '6_cardio.npz',
+              'p02': '14_glass.npz',
+              'p03': '23_mammography.npz',
+              'p04': '27_PageBlocks.npz',
+              'p05': '36_speech.npz',
+              'p06': '41_Waveform.npz',
+          }
+          seed = {'p01':211,'p02':223,'p03':227,'p04':229,'p05':233,'p06':239}
+          files, datasets = [], []
+          for role in sorted(source):
+              path = root / f'{role}.npz'
+              files.append({
+                  'role': role,
+                  'source_file': source[role],
+                  'bytes': path.stat().st_size,
+                  'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+              })
+              datasets.append({'role': role, 'seed': seed[role], 'path': str(path)})
+          data_manifest = {
+              'schema': 'data-science-god-level/unsupervised-anomaly-public-data/1',
+              'source_repository': 'Minqi824/ADBench',
+              'source_commit': '3dac8221081e190f157d78e93bfa8867f90d0965',
+              'public_files': files,
+              'official_suite_accessed': False,
+          }
+          benchmark_manifest = {
+              'schema': 'data-science-god-level/unsupervised-anomaly-manifest/1',
+              'suite': 'public-development',
+              'datasets': datasets,
+              'candidate_label_access': False,
+              'official_suite_accessed': False,
+          }
+          Path('public-logs/data-manifest.json').write_text(json.dumps(data_manifest, indent=2, sort_keys=True) + '\n')
+          Path('public-logs/benchmark-manifest.json').write_text(json.dumps(benchmark_manifest, indent=2, sort_keys=True) + '\n')
+          print(json.dumps(data_manifest, indent=2, sort_keys=True))
+          PY
+
+      - name: Execute public label-free anomaly benchmark
+        env:
+          OMP_NUM_THREADS: '4'
+          MKL_NUM_THREADS: '4'
+          OPENBLAS_NUM_THREADS: '4'
+        run: |
+          cd data_science_god_level/unsupervised_anomaly
+          python benchmark.py \
+            --manifest "${GITHUB_WORKSPACE}/public-logs/benchmark-manifest.json" \
+            --output "${GITHUB_WORKSPACE}/public-logs/public-report.json" \
+            2>&1 | tee "${GITHUB_WORKSPACE}/public-logs/evaluation-output.txt"
+
+      - name: Freeze and adjudicate public gate
+        if: always()
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          report_path = Path('public-logs/public-report.json')
+          report = json.loads(report_path.read_text()) if report_path.exists() else None
+          thresholds = {
+              'dataset_count': 6,
+              'candidate_mean_roc_auc_min': 0.72,
+              'candidate_min_roc_auc_min': 0.48,
+              'candidate_mean_ap_skill_min': 0.15,
+              'candidate_mean_combined_skill_min': 0.30,
+              'mean_advantage_vs_best_min': -0.015,
+              'wins_vs_best_min': 3,
+              'worst_advantage_vs_best_min': -0.15,
+          }
+          if report:
+              summary = report['summary']
+              checks = {
+                  'dataset_count': summary['dataset_count'] == thresholds['dataset_count'],
+                  'finite_all': bool(summary['finite_all']),
+                  'candidate_mean_roc_auc': summary['candidate_mean_roc_auc'] >= thresholds['candidate_mean_roc_auc_min'],
+                  'candidate_min_roc_auc': summary['candidate_min_roc_auc'] >= thresholds['candidate_min_roc_auc_min'],
+                  'candidate_mean_ap_skill': summary['candidate_mean_ap_skill'] >= thresholds['candidate_mean_ap_skill_min'],
+                  'candidate_mean_combined_skill': summary['candidate_mean_combined_skill'] >= thresholds['candidate_mean_combined_skill_min'],
+                  'mean_advantage_vs_best': summary['mean_advantage_vs_best'] >= thresholds['mean_advantage_vs_best_min'],
+                  'wins_vs_best': summary['wins_vs_best'] >= thresholds['wins_vs_best_min'],
+                  'worst_advantage_vs_best': summary['worst_advantage_vs_best'] >= thresholds['worst_advantage_vs_best_min'],
+              }
+              verdict = 'PASS' if all(checks.values()) else 'FAIL'
+          else:
+              summary = None
+              checks = {'report_exists': False}
+              verdict = 'INVALID_RUN'
+
+          def digest(path):
+              path = Path(path)
+              return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+
+          static = json.loads(Path('public-logs/static-audit.json').read_text()) if Path('public-logs/static-audit.json').exists() else None
+          receipt = {
+              'schema': 'data-science-god-level/unsupervised-anomaly-public-freeze/1',
+              'verdict': verdict,
+              'thresholds': thresholds,
+              'checks': checks,
+              'summary': summary,
+              'candidate_label_access': False,
+              'official_suite_accessed': False,
+              'post_hoc_retuning_permitted_after_official_evaluation': False,
+              'hashes': {
+                  'estimator_sha256': static['hashes']['estimator.py'] if static else None,
+                  'benchmark_sha256': static['hashes']['benchmark.py'] if static else None,
+                  'test_sha256': static['hashes']['test_estimator.py'] if static else None,
+                  'logic_plan_source_sha256': static['hashes']['logic_plan.py'] if static else None,
+                  'logic_plan_receipt_sha256': digest('data_science_god_level/unsupervised_anomaly/logic-plan-receipt.json'),
+                  'static_audit_sha256': digest('public-logs/static-audit.json'),
+                  'data_manifest_sha256': digest('public-logs/data-manifest.json'),
+                  'report_sha256': digest(report_path),
+              },
+          }
+          payload = json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          Path('public-logs/public-freeze-receipt.json').write_text(payload)
+          Path('public-logs/public-freeze-receipt.sha256').write_text(hashlib.sha256(payload.encode()).hexdigest() + '  public-freeze-receipt.json\n')
+          print(payload)
+          PY
+
+      - name: Upload immutable public evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-god-level-unsupervised-anomaly-public
+          retention-days: 90
+          path: |
+            data_science_god_level/unsupervised_anomaly/estimator.py
+            data_science_god_level/unsupervised_anomaly/benchmark.py
+            data_science_god_level/unsupervised_anomaly/test_estimator.py
+            data_science_god_level/unsupervised_anomaly/logic-plan-receipt.json
+            public-logs/**
+
+      - name: Enforce public verdict
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('public-logs/public-freeze-receipt.json')
+          if not path.exists():
+              raise SystemExit('public receipt missing')
+          verdict = json.loads(path.read_text())['verdict']
+          if verdict != 'PASS':
+              raise SystemExit(f'public unsupervised anomaly gate: {verdict}; evidence preserved')
+          print('public unsupervised anomaly gate: PASS; candidate frozen')
+          PY
