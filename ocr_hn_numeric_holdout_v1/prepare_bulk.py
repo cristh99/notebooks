@@ -4,6 +4,11 @@ The portal's paginated API can stall before its first response. This wrapper
 keeps the frozen selection logic in :mod:`prepare` but supplies compiled ONCAE
 releases from the Open Contracting Data Registry's small, line-delimited gzip
 snapshots. Each JSON line remains one OCDS contracting process.
+
+This vector-truth tier uses only document types that are commonly born digital.
+The filter is metadata-only and is frozen before OCR. Signed contracts remain a
+separate natural-scan tier because prioritizing them here wastes downloads on
+full-page scans and contaminates vector-text ground truth.
 """
 from __future__ import annotations
 
@@ -27,6 +32,18 @@ DEFAULT_BULK_URLS = (
     "https://data.open-contracting.org/en/publication/122/download?name=2026.jsonl.gz",
     "https://data.open-contracting.org/en/publication/122/download?name=2025.jsonl.gz",
 )
+VECTOR_DOCUMENT_PRIORITIES = {
+    "biddingDocuments": 0,
+    "technicalSpecifications": 0,
+    "clarifications": 0,
+    "amendment": 0,
+    "solicitationDocumentAnnexe": 1,
+    "tenderNotice": 1,
+    "awardNotice": 2,
+    "recordOpeningTendersReceived": 3,
+    "evaluationReports": 3,
+}
+VECTOR_DOCUMENT_TYPES = frozenset(VECTOR_DOCUMENT_PRIORITIES)
 
 
 def session() -> requests.Session:
@@ -46,7 +63,7 @@ def session() -> requests.Session:
     client.mount("http://", adapter)
     client.headers.update(
         {
-            "User-Agent": "OCR-HN-Numeric-Holdout/2.1 zero-cost public-research",
+            "User-Agent": "OCR-HN-Numeric-Holdout/2.2 zero-cost public-research",
             "Accept": "application/json,application/gzip,application/pdf;q=0.9,*/*;q=0.1",
         }
     )
@@ -129,7 +146,7 @@ def collect_bulk_metadata(client: requests.Session, args: argparse.Namespace, fa
             failures[f"BULK_{source['status']}"] += 1
             logs.append(source)
             continue
-        scanned = seen = added = malformed = 0
+        scanned = seen = added = excluded_types = malformed = 0
         try:
             with gzip.open(path, "rt", encoding="utf-8") as handle:
                 for line_number, line in enumerate(handle, start=1):
@@ -156,10 +173,16 @@ def collect_bulk_metadata(client: requests.Session, args: argparse.Namespace, fa
                     )
                     seen += len(rows)
                     for row in rows:
+                        document_type = str(row.get("document_type") or "unknown")
+                        if document_type not in VECTOR_DOCUMENT_TYPES:
+                            excluded_types += 1
+                            failures["NON_VECTOR_PRIORITY_DOCUMENT_TYPE"] += 1
+                            continue
                         if row["url"] in seen_urls:
                             continue
                         seen_urls.add(row["url"])
                         row = dict(row)
+                        row["document_type_priority"] = VECTOR_DOCUMENT_PRIORITIES[document_type]
                         row["bulk_source_index"] = index
                         row["bulk_line_number"] = line_number
                         row["metadata_selector_key"] = deterministic_key(
@@ -183,6 +206,7 @@ def collect_bulk_metadata(client: requests.Session, args: argparse.Namespace, fa
                                     "candidate_documents": len(documents),
                                     "candidate_institutions": institutions,
                                     "target_unit_pool": target_units,
+                                    "excluded_non_vector_priority_documents": excluded_types,
                                 },
                                 ensure_ascii=False,
                             ),
@@ -198,6 +222,8 @@ def collect_bulk_metadata(client: requests.Session, args: argparse.Namespace, fa
                 "records_scanned": scanned,
                 "documents_seen": seen,
                 "documents_added": added,
+                "documents_excluded_by_type": excluded_types,
+                "allowed_document_types": sorted(VECTOR_DOCUMENT_TYPES),
                 "malformed_lines": malformed,
                 "candidate_units_total": len(units),
                 "candidate_documents_total": len(documents),
@@ -215,6 +241,7 @@ def collect_bulk_metadata(client: requests.Session, args: argparse.Namespace, fa
                     "candidate_units": len(units),
                     "candidate_documents": len(documents),
                     "candidate_institutions": source["candidate_institutions_total"],
+                    "excluded_non_vector_priority_documents": excluded_types,
                 },
                 ensure_ascii=False,
             ),
@@ -248,6 +275,12 @@ def main() -> int:
         "public_data_license": "Creative Commons Attribution 4.0 International",
         "candidate_documents": old_source.get("candidate_documents"),
         "candidate_units": old_source.get("candidate_units"),
+    }
+    report["selection_policy"]["metadata_document_type_filter"] = {
+        "purpose": "vector-ground-truth tier; exclude commonly scanned signed contracts before download",
+        "allowed_document_types": sorted(VECTOR_DOCUMENT_TYPES),
+        "priority": VECTOR_DOCUMENT_PRIORITIES,
+        "ocr_used": False,
     }
     report = stable_manifest(report)
     path = args.output_dir / "manifest.json"
