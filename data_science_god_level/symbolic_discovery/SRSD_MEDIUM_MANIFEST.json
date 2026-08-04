@@ -1,0 +1,188 @@
+{
+  "schema": "data-science-god-level/symbolic-discovery-srsd-medium-manifest/1",
+  "frozen_from_commit": "a133de401d80ff5b1e669181c0e3a685408869d6",
+  "candidate": {
+    "source_path": "data_science_god_level/symbolic_discovery/estimator.py",
+    "sha256": "97c9fd1a3f371ca30bd29b924ac0e6d1ea21d985e513df8b5de977f0a70be381",
+    "truth_access": false,
+    "dataset_identifier_access": false,
+    "filesystem_network_process_access": false,
+    "post_hoc_retuning_permitted": false
+  },
+  "execution_sources": {
+    "transport": "direct_git_blobs",
+    "srsd_medium_runner.py": "73aa5719f131b7fc2b2fd878afcab8320edad7e4829fb1a1e22ceaeae7e54f7f",
+    "srsd_medium_plan.py": "cea0f518b9a519310dc0f699d8e91bf7b80b0d29afc4fff8f43c3521464773c9",
+    "test_srsd_medium_runner.py": "a99b4a93a7949482a9bcb7fa5465d89ce2b5479c52c69655793153400bfd89c0",
+    "srsd_medium_ci.py": "d76273d224e272c6441652269c57aa273daab9c3ee8cd301abc172df8c056bfb"
+  },
+  "retired_easy_suite": {
+    "dataset": "yoshitomo-matsubara/srsd-feynman_easy_dummy",
+    "status": "RETIRED_AFTER_PROTOCOL_INVALID_RUNS_WITHOUT_COMPLETE_METRICS",
+    "reason": "the first run failed before data access; the second accessed data but aborted on a constant-target training subsample before a complete report",
+    "runs": [
+      {
+        "run_id": 30885500036,
+        "artifact_id": 8882904793,
+        "artifact_sha256": "78788e5fb58194ab322da5e2c0a2764936781af047fd5e50546299fa2b760cf7",
+        "external_data_accessed": false,
+        "complete_metrics": false,
+        "counts_as_evaluation": false
+      },
+      {
+        "run_id": 30886098840,
+        "artifact_id": 8883156474,
+        "artifact_sha256": "5f4aaf8f7b024fd1dd0cc428948cc473838876558452ef81fd4d91b707cc69bc",
+        "external_data_accessed": true,
+        "complete_metrics": false,
+        "counts_as_evaluation": false
+      }
+    ],
+    "reused_for_promotion": false
+  },
+  "source": {
+    "dataset": "yoshitomo-matsubara/srsd-feynman_medium_dummy",
+    "commit": "8d562c9ea19be1e9de336e3d2a30000723c5c8f6",
+    "license": "CC-BY-4.0",
+    "dataset_doi": "10.57967/hf/0759",
+    "paper": "Rethinking Symbolic Regression Datasets and Benchmarks for Scientific Discovery",
+    "selection_rule": "all 40 SRSD-Feynman Medium tasks with dummy variables; no compatibility filtering",
+    "untouched_before_freeze": true
+  },
+  "dataset_ids": [
+    "I.10.7",
+    "I.12.2",
+    "I.13.12",
+    "I.16.6",
+    "I.32.5",
+    "I.43.31",
+    "II.11.3",
+    "II.34.2",
+    "II.34.29a",
+    "III.14.14",
+    "III.15.14",
+    "B8",
+    "I.11.19",
+    "I.12.11",
+    "I.13.4",
+    "I.15.10",
+    "I.18.4",
+    "I.24.6",
+    "I.34.8",
+    "I.38.12",
+    "I.39.11",
+    "I.43.43",
+    "I.48.2",
+    "II.6.11",
+    "II.21.32",
+    "II.34.2a",
+    "III.4.32",
+    "III.13.18",
+    "III.15.12",
+    "III.17.37",
+    "I.8.14",
+    "I.29.4",
+    "I.34.10",
+    "I.34.27",
+    "I.39.10",
+    "II.8.7",
+    "II.37.1",
+    "III.8.54",
+    "III.19.51",
+    "B18"
+  ],
+  "dummy_variable_contract": {
+    "one_dummy": [
+      "I.10.7",
+      "I.12.2",
+      "I.13.12",
+      "I.16.6",
+      "I.32.5",
+      "I.43.31",
+      "II.11.3",
+      "II.34.2",
+      "II.34.29a",
+      "III.14.14",
+      "III.15.14",
+      "B8"
+    ],
+    "two_dummies": [
+      "I.11.19",
+      "I.12.11",
+      "I.13.4",
+      "I.15.10",
+      "I.18.4",
+      "I.24.6",
+      "I.34.8",
+      "I.38.12",
+      "I.39.11",
+      "I.43.43",
+      "I.48.2",
+      "II.6.11",
+      "II.21.32",
+      "II.34.2a",
+      "III.4.32",
+      "III.13.18",
+      "III.15.12",
+      "III.17.37"
+    ],
+    "three_dummies": [
+      "I.8.14",
+      "I.29.4",
+      "I.34.10",
+      "I.34.27",
+      "I.39.10",
+      "II.8.7",
+      "II.37.1",
+      "III.8.54",
+      "III.19.51",
+      "B18"
+    ],
+    "truth_pickle_execution": false,
+    "truth_symbol_extraction": "pickletools opcode scan for exact xN strings"
+  },
+  "evaluation": {
+    "actual_external_evaluations_authorized": 1,
+    "train_rows_per_task": 8000,
+    "test_rows_per_task": 1000,
+    "candidate_max_terms": 4,
+    "candidate_failure_scoring": {
+      "test_r2": -10.0,
+      "test_nrmse": 1000.0,
+      "candidate_failures_gate": 0
+    },
+    "baselines": [
+      "standardized_linear",
+      "standardized_polynomial_degree_3_ridge",
+      "random_forest_160"
+    ],
+    "thresholds": {
+      "task_count": 40,
+      "candidate_failures_max": 0,
+      "candidate_mean_test_r2_min": 0.8,
+      "candidate_median_test_r2_min": 0.9,
+      "candidate_worst_test_r2_min": -1.0,
+      "high_fidelity_count_min": 12,
+      "usable_count_min": 24,
+      "candidate_mean_variable_f1_min": 0.7,
+      "exact_variable_sets_min": 18,
+      "mean_gap_vs_best_min": -0.12,
+      "within_0_02_of_best_count_min": 16,
+      "candidate_mean_term_count_max": 4.0
+    }
+  },
+  "environment": {
+    "python": "3.11",
+    "numpy": "1.26.4",
+    "scipy": "1.14.1",
+    "scikit_learn": "1.5.2",
+    "cpu_only": true,
+    "paid_compute": false
+  },
+  "pre_data_access_proof": {
+    "unit_tests": "4/4 PASS",
+    "python_compile": "PASS",
+    "medium_dataset_bytes_accessed_before_freeze": false,
+    "candidate_or_baselines_evaluated_before_activation": false
+  }
+}
