@@ -1,8 +1,8 @@
 """Dual-source anchors for trustworthy numeric OCR ground truth.
 
 A PDF text-layer token is eligible only when the same canonical number also
-appears in the frozen OCDS record that selected the document.  This does not
-make the two observations statistically independent, but it prevents an
+appears in the frozen OCDS record that selected the document. This does not
+make the observations statistically independent, but it prevents an
 unanchored or corrupt hidden text layer from becoming the sole oracle.
 """
 from __future__ import annotations
@@ -18,27 +18,42 @@ from .core import canonical_truth, normalized_url
 
 
 SCHEMA = "ocr-real-risk-truth-anchor/1"
-RAW_NUMBER_RE = re.compile(r"(?<!\d)\d[\d\s.,:/-]{2,}\d(?!\d)|(?<!\d)\d{4,12}(?!\d)")
+RAW_NUMBER_RE = re.compile(
+    r"(?<!\d)\d[\d\s.,:/-]{2,}\d(?!\d)|(?<!\d)\d{4,24}(?!\d)"
+)
+ANCHOR_DIGIT_RE = re.compile(r"^\d{4,24}$")
+YEAR_RE = re.compile(r"^(?:19|20)\d{2}$")
+
+
+def canonical_anchor_number(value: str) -> str | None:
+    """Canonicalize structured identifiers without widening OCR truth scope.
+
+    Source records may contain long invoice or payment identifiers such as
+    ``000-001-01-00000524``. They are useful anchors even though the measured
+    OCR token protocol remains restricted to 4–12 digits by ``canonical_truth``.
+    """
+    compact = re.sub(r"\D", "", value or "")
+    if not ANCHOR_DIGIT_RE.fullmatch(compact):
+        return None
+    if YEAR_RE.fullmatch(compact):
+        return None
+    if len(set(compact)) == 1 and len(compact) >= 6:
+        return None
+    return compact
 
 
 def anchored_numbers(value: str) -> set[str]:
     numbers: set[str] = set()
     for match in RAW_NUMBER_RE.finditer(value or ""):
-        raw = match.group(0).strip()
-        candidates = [raw]
-        # Project and contract identifiers may contain separators.  Preserve
-        # an all-digit form only when it remains within the declared length.
-        compact = re.sub(r"\D", "", raw)
-        if compact != raw:
-            candidates.append(compact)
-        for candidate in candidates:
-            truth = canonical_truth(candidate)
-            if truth is not None:
-                numbers.add(truth)
+        anchor = canonical_anchor_number(match.group(0))
+        if anchor is not None:
+            numbers.add(anchor)
     return numbers
 
 
-def build_url_anchor_map(source_path: Path) -> tuple[dict[str, set[str]], dict[str, int]]:
+def build_url_anchor_map(
+    source_path: Path,
+) -> tuple[dict[str, set[str]], dict[str, int]]:
     mapping: dict[str, set[str]] = defaultdict(set)
     source_records = invalid_lines = document_references = 0
     for raw_line in source_path.read_text(encoding="utf-8").splitlines():
@@ -69,7 +84,9 @@ def build_url_anchor_map(source_path: Path) -> tuple[dict[str, set[str]], dict[s
                     str(document.get("title") or ""),
                     str(document.get("description") or ""),
                     str(document.get("documentType") or ""),
-                    urllib.parse.unquote(Path(urllib.parse.urlsplit(url).path).name),
+                    urllib.parse.unquote(
+                        Path(urllib.parse.urlsplit(url).path).name
+                    ),
                 ]
             )
             mapping[url].update(anchored_numbers(text))
