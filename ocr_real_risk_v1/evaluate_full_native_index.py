@@ -183,6 +183,12 @@ def execute_full_native_index(
     index_seconds = sum(
         float(state.get("index_seconds") or 0.0) for state in states.values()
     )
+    page_reports = [
+        page
+        for document in report["documents"]
+        for page in document.get("pages", [])
+    ]
+    rendered_pages = sum("image_size" in page for page in page_reports)
     report["protocol"]["ground_truth"] = (
         "one native PDF word location whose canonical digits also occur in "
         "frozen raw OCDS metadata bound to the same document URL"
@@ -212,7 +218,15 @@ def execute_full_native_index(
             if totals["documents_indexed"]
             else None
         ),
-        "selected_pages_rendered": totals["documents_with_index_candidate"],
+        "selected_page_reports": len(page_reports),
+        "selected_pages_rendered": rendered_pages,
+        "selected_pages_ocrd": len(report["observations"]),
+        "documents_without_index_candidate_rendered": sum(
+            bool(document.get("pages"))
+            for document in report["documents"]
+            if document.get("native_index", {}).get("status")
+            == "NO_DUAL_ANCHORED_LOCATION"
+        ),
         "yield_per_attempted_document": (
             report["execution"]["documents_with_tokens"]
             / report["execution"]["documents_attempted"]
