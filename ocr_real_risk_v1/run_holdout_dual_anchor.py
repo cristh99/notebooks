@@ -1,4 +1,4 @@
-"""CLI for the process-disjoint, dual-source OCR risk holdout."""
+"""CLI for the process-partitioned, dual-source OCR risk holdout."""
 from __future__ import annotations
 
 import argparse
@@ -7,9 +7,12 @@ import os
 from pathlib import Path
 
 from . import evaluate
-from .core import parse_candidate_sources
+from .core import canonical_json, parse_candidate_sources, sha256_bytes
 from .evaluate import write_outputs
-from .evaluate_dual_anchor import execute_dual_anchor
+from .evaluate_dual_anchor import (
+    execute_dual_anchor,
+    partition_process_disjoint_candidates,
+)
 from .exact_bounds import clopper_pearson_lower, clopper_pearson_upper
 from .run_holdout import parse_partitions
 
@@ -42,9 +45,18 @@ def main() -> int:
         str(path) for path in args.source
     )
     os.environ["OCR_HOLDOUT_PARTITIONS"] = args.partitions
-    candidates, census = parse_candidate_sources(
+
+    # Parse the complete frozen population first. URL-level filtering here would
+    # allow different documents from the same procurement process to enter the
+    # canary and final partitions. The process-level partition is applied only
+    # after one born-digital document has been selected per process.
+    all_candidates, census = parse_candidate_sources(
         args.source,
-        partitions=partitions,
+        partitions=None,
+    )
+    candidates, partition_census = partition_process_disjoint_candidates(
+        all_candidates,
+        partitions,
     )
 
     # Preserve the existing holdout implementation while replacing its
@@ -59,7 +71,24 @@ def main() -> int:
         args.stage,
         args.source,
     )
+    report["protocol"]["process_partition"] = partition_census
+    report["execution"]["process_partition"] = {
+        "partitions": partition_census["partitions"],
+        "population_unique_processes": partition_census["unique_processes"],
+        "eligible_processes_in_partition": partition_census[
+            "eligible_processes_in_partition"
+        ],
+        "selected_process_key_set_sha256": partition_census[
+            "selected_process_key_set_sha256"
+        ],
+    }
+    report.pop("stable_payload_sha256", None)
+    report["stable_payload_sha256"] = sha256_bytes(
+        canonical_json(report).encode("utf-8")
+    )
+
     combined_census = dict(census)
+    combined_census["process_partition"] = partition_census
     combined_census["dual_source_anchor"] = anchor_census
     write_outputs(report, combined_census, args.output_dir)
     print(
