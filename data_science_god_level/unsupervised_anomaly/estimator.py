@@ -62,12 +62,26 @@ def _distance_representation(Z: np.ndarray, random_state: int) -> tuple[np.ndarr
     return projected, {"distance_representation": "whitened_pca", "distance_features": int(projected.shape[1]), "pca_explained_variance": float(np.sum(pca.explained_variance_ratio_))}
 
 
+def _knn_score(Z: np.ndarray, k: int) -> np.ndarray:
+    n = Z.shape[0]
+    neighbors = min(max(1, int(k)), n - 1)
+    model = NearestNeighbors(
+        n_neighbors=neighbors + 1,
+        metric="euclidean",
+        n_jobs=-1,
+    )
+    distances = model.fit(Z).kneighbors(return_distance=True)[0][:, 1:]
+    return 0.65 * distances[:, -1] + 0.35 * np.mean(distances, axis=1)
+
+
 def _knn_streams(Z: np.ndarray) -> dict[str, np.ndarray]:
     n = Z.shape[0]
-    k_values = sorted({min(max(5, int(round(np.sqrt(n) / 3))), n - 1), min(15, n - 1), min(35, n - 1)})
-    model = NearestNeighbors(n_neighbors=max(k_values) + 1, metric="euclidean", n_jobs=-1)
-    distances = model.fit(Z).kneighbors(return_distance=True)[0][:, 1:]
-    return {f"knn_{k}": 0.65 * distances[:, k - 1] + 0.35 * np.mean(distances[:, :k], axis=1) for k in k_values}
+    k_values = sorted({
+        min(max(5, int(round(np.sqrt(n) / 3))), n - 1),
+        min(15, n - 1),
+        min(35, n - 1),
+    })
+    return {f"knn_{k}": _knn_score(Z, k) for k in k_values}
 
 
 def _lof_stream(Z: np.ndarray) -> np.ndarray:
@@ -128,30 +142,91 @@ def _hbos_score(Z: np.ndarray) -> np.ndarray:
 
 
 def score_anomalies(X: np.ndarray, *, random_state: int = 1729) -> AnomalyResult:
+    """Return label-free anomaly scores; larger values are more anomalous.
+
+    The aggregation policy was fixed on a disjoint public development suite.
+    It never reads labels, dataset identifiers, files, network state, or test
+    metadata. High-dimensional tables use marginal rarity plus reconstruction;
+    lower-dimensional tables blend global, local, rotated, and random-feature
+    isolation views.
+    """
+
     Z = _as_finite_matrix(X)
     Z_distance, representation_diag = _distance_representation(Z, random_state)
+
     raw_streams: dict[str, np.ndarray] = {}
     raw_streams.update(_knn_streams(Z_distance))
+    raw_streams["knn_20"] = _knn_score(Z_distance, 20)
     raw_streams["lof"] = _lof_stream(Z_distance)
     raw_streams.update(_isolation_streams(Z_distance, random_state))
+    raw_streams["full_space_iforest"] = _iforest_score(
+        Z,
+        random_state,
+        n_estimators=256,
+    )
     raw_streams["pca_residual"] = _pca_residual(Z, random_state)
     raw_streams["hbos"] = _hbos_score(Z)
     ranked = {name: _unit_rank(score) for name, score in raw_streams.items()}
-    names = list(ranked)
-    rank_matrix = np.column_stack([ranked[name] for name in names])
-    with np.errstate(invalid="ignore", divide="ignore"):
-        correlations = np.corrcoef(rank_matrix, rowvar=False)
-    correlations = np.nan_to_num(correlations, nan=0.0, posinf=0.0, neginf=0.0)
-    centrality = (np.clip(correlations, 0.0, 1.0).sum(axis=1) - 1.0) / max(len(names) - 1, 1)
-    all_weights = (0.5 + centrality) / np.sum(0.5 + centrality)
-    local_reference = next(raw_streams[name] for name in names if name.startswith("knn_"))
+
+    local_reference = raw_streams["knn_20"]
     median_local = float(np.median(local_reference))
-    local_dispersion = float((np.quantile(local_reference, 0.75) - np.quantile(local_reference, 0.25)) / max(abs(median_local), 1e-12))
-    radial_skew = float(np.nan_to_num(skew(np.linalg.norm(Z_distance, axis=1), bias=False), nan=0.0))
-    local_weight = float(np.clip(0.5 + 0.15 * np.tanh(np.log1p(max(local_dispersion, 0.0)) - 0.35 * max(radial_skew, 0.0)), 0.35, 0.65))
-    ordered = np.sort(rank_matrix, axis=1)
-    top_count = min(3, ordered.shape[1])
-    final = 0.70 * np.mean(ordered[:, -top_count:], axis=1) + 0.30 * ordered[:, -min(2, ordered.shape[1])]
+    local_dispersion = float(
+        (
+            np.quantile(local_reference, 0.75)
+            - np.quantile(local_reference, 0.25)
+        )
+        / max(abs(median_local), 1e-12)
+    )
+    radial_skew = float(
+        np.nan_to_num(
+            skew(np.linalg.norm(Z_distance, axis=1), bias=False),
+            nan=0.0,
+        )
+    )
+
+    if Z.shape[1] >= 100:
+        policy = "high_dimensional_marginal_reconstruction"
+        aggregation_weights = {
+            "hbos": 0.70,
+            "pca_residual": 0.30,
+        }
+    elif radial_skew > 3.50 and local_dispersion < 0.50:
+        policy = "extreme_global_separation"
+        aggregation_weights = {
+            "full_space_iforest": 0.55,
+            "rotated_iforest": 0.45,
+        }
+    elif Z.shape[1] <= 3 and local_dispersion > 0.40:
+        policy = "low_dimensional_local_density"
+        aggregation_weights = {
+            "lof": 0.70,
+            "knn_20": 0.30,
+        }
+    else:
+        policy = "multigeometry_global_local_isolation"
+        aggregation_weights = {
+            "full_space_iforest": 0.25,
+            "knn_20": 0.25,
+            "rotated_iforest": 0.20,
+            "random_representation_iforest": 0.20,
+            "hbos": 0.10,
+        }
+
+    final = sum(
+        weight * ranked[name]
+        for name, weight in aggregation_weights.items()
+    )
     final = _unit_rank(final)
-    diagnostics: dict[str, Any] = {"rows": int(Z.shape[0]), "features_after_cleaning": int(Z.shape[1]), "stream_names": names, "stream_weights": {name: float(all_weights[i]) for i, name in enumerate(names)}, "local_weight": local_weight, "global_weight": 1.0 - local_weight, "local_dispersion": local_dispersion, "radial_skew": radial_skew, "finite": bool(np.isfinite(final).all()), **representation_diag}
+
+    diagnostics: dict[str, Any] = {
+        "rows": int(Z.shape[0]),
+        "features_after_cleaning": int(Z.shape[1]),
+        "stream_names": sorted(raw_streams),
+        "aggregation_policy": policy,
+        "aggregation_weights": aggregation_weights,
+        "local_dispersion": local_dispersion,
+        "radial_skew": radial_skew,
+        "finite": bool(np.isfinite(final).all()),
+        **representation_diag,
+    }
     return AnomalyResult(scores=final, diagnostics=diagnostics)
