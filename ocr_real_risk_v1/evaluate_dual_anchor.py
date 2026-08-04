@@ -3,10 +3,10 @@
 A native PDF numeric token remains eligible only when the same canonical number
 is present in frozen raw OCDS metadata bound to that document URL. All sampling
 choices in this module are metadata-only or page-count-only and occur before
-OCR: one document per process, a born-digital document-type scope, and fixed
-quantile pages. Unanchored numeric words are blanked before the existing
-pre-OCR hash selection while non-numeric words remain available to page-quality
-gates.
+OCR: one document per process, process-level partitioning, a born-digital
+document-type scope, and fixed quantile pages. Unanchored numeric words are
+blanked before the existing pre-OCR hash selection while non-numeric words
+remain available to page-quality gates.
 """
 from __future__ import annotations
 
@@ -23,6 +23,7 @@ from .core import (
     normalized_url,
     sha256_bytes,
 )
+from .final_partition import process_key, process_partition
 from .raw_truth_anchor import build_raw_url_anchor_map
 
 VECTOR_TRUTH_DOCUMENT_PRIORITY = {
@@ -86,7 +87,7 @@ def quantile_pages(page_count: int, maximum_pages: int = 8) -> tuple[int, ...]:
 def prepare_process_disjoint_candidates(
     candidates: Sequence[Candidate],
 ) -> tuple[list[Candidate], dict[str, Any]]:
-    """Keep one born-digital candidate per process using metadata only."""
+    """Keep one born-digital candidate per canonical process identity."""
     eligible = [
         candidate
         for candidate in candidates
@@ -94,10 +95,10 @@ def prepare_process_disjoint_candidates(
     ]
     grouped: dict[str, list[Candidate]] = defaultdict(list)
     for candidate in eligible:
-        process = candidate.process or candidate.ocid or candidate.url
-        grouped[process].append(candidate)
+        grouped[process_key(candidate)].append(candidate)
     selected: list[Candidate] = []
-    for rows in grouped.values():
+    for key in sorted(grouped):
+        rows = grouped[key]
         rows.sort(
             key=lambda candidate: (
                 VECTOR_TRUTH_DOCUMENT_PRIORITY[candidate.document_type],
@@ -108,6 +109,7 @@ def prepare_process_disjoint_candidates(
     selected.sort(
         key=lambda candidate: (
             VECTOR_TRUTH_DOCUMENT_PRIORITY[candidate.document_type],
+            process_key(candidate),
             candidate.key,
         )
     )
@@ -119,7 +121,42 @@ def prepare_process_disjoint_candidates(
         "selected_process_disjoint_documents": len(selected),
         "allowed_document_types": sorted(VECTOR_TRUTH_DOCUMENT_TYPES),
         "document_type_priority": VECTOR_TRUTH_DOCUMENT_PRIORITY,
+        "process_identity": "SHA-256 of OCID, falling back to process then URL",
         "selection_uses_ocr": False,
+    }
+
+
+def partition_process_disjoint_candidates(
+    candidates: Sequence[Candidate],
+    partitions: frozenset[int],
+) -> tuple[list[Candidate], dict[str, Any]]:
+    """Assign an entire process to exactly one partition before OCR."""
+    if not partitions or any(value < 0 or value > 99 for value in partitions):
+        raise ValueError("partitions must be a non-empty subset of 0..99")
+    prepared, scope = prepare_process_disjoint_candidates(candidates)
+    selected = [
+        candidate
+        for candidate in prepared
+        if process_partition(candidate) in partitions
+    ]
+    selected.sort(
+        key=lambda candidate: (
+            process_partition(candidate),
+            process_key(candidate),
+        )
+    )
+    keys = [process_key(candidate) for candidate in selected]
+    if len(keys) != len(set(keys)):
+        raise AssertionError("duplicate process identity after partitioning")
+    return selected, {
+        **scope,
+        "partition_unit": "procurement process",
+        "partitions": sorted(partitions),
+        "eligible_processes_in_partition": len(selected),
+        "selected_process_key_set_sha256": sha256_bytes(
+            canonical_json(sorted(keys)).encode("utf-8")
+        ),
+        "partition_uses_ocr": False,
     }
 
 
