@@ -4,15 +4,55 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from collections import defaultdict
 from pathlib import Path
 
 from . import evaluate
 from .core import canonical_json, parse_candidate_sources, sha256_bytes
 from .evaluate import write_outputs
-from .evaluate_dual_anchor import execute_dual_anchor
+from .evaluate_dual_anchor import (
+    VECTOR_TRUTH_DOCUMENT_PRIORITY,
+    VECTOR_TRUTH_DOCUMENT_TYPES,
+    execute_dual_anchor,
+)
 from .exact_bounds import clopper_pearson_lower, clopper_pearson_upper
 from .final_partition import process_key, process_partition
 from .run_holdout import parse_partitions
+
+
+def select_one_document_per_process_before_partition(candidates):
+    """Choose one born-digital document per canonical process without OCR."""
+    grouped = defaultdict(list)
+    excluded = 0
+    for row in candidates:
+        if row.document_type not in VECTOR_TRUTH_DOCUMENT_TYPES:
+            excluded += 1
+            continue
+        grouped[process_key(row)].append(row)
+    selected = []
+    for key in sorted(grouped):
+        rows = grouped[key]
+        selected.append(
+            min(
+                rows,
+                key=lambda row: (
+                    VECTOR_TRUTH_DOCUMENT_PRIORITY[row.document_type],
+                    row.key,
+                    row.url,
+                ),
+            )
+        )
+    return selected, {
+        "input_candidates": len(candidates),
+        "excluded_out_of_vector_truth_scope": excluded,
+        "eligible_document_references": len(candidates) - excluded,
+        "unique_processes": len(grouped),
+        "selected_process_disjoint_documents": len(selected),
+        "allowed_document_types": sorted(VECTOR_TRUTH_DOCUMENT_TYPES),
+        "document_type_priority": VECTOR_TRUTH_DOCUMENT_PRIORITY,
+        "process_identity": "SHA-256 of OCID, falling back to process then URL",
+        "selection_uses_ocr": False,
+    }
 
 
 def main() -> int:
@@ -44,35 +84,35 @@ def main() -> int:
     )
     os.environ["OCR_HOLDOUT_PARTITIONS"] = args.partitions
 
-    # Parse the complete frozen population first. URL-level filtering here
-    # would allow different PDFs from one procurement process to leak across
-    # canary and final partitions. Every document from a process is therefore
-    # filtered by the same process hash before born-digital document selection.
+    # Parse the complete frozen population. Select one document by declared
+    # metadata for each canonical process and only then assign the entire
+    # process to a partition. No URL-level split can leak sibling documents.
     all_candidates, census = parse_candidate_sources(
         args.source,
         partitions=None,
     )
-    population_process_keys = {process_key(row) for row in all_candidates}
+    process_candidates, document_scope = (
+        select_one_document_per_process_before_partition(all_candidates)
+    )
     candidates = [
         row
-        for row in all_candidates
+        for row in process_candidates
         if process_partition(row) in partitions
     ]
     selected_process_keys = {process_key(row) for row in candidates}
+    if len(selected_process_keys) != len(candidates):
+        raise AssertionError("duplicate canonical process after document selection")
     partition_census = {
+        **document_scope,
         "partition_unit": "procurement process",
         "partitions": sorted(partitions),
-        "population_unique_processes": len(population_process_keys),
-        "eligible_processes_in_partition": len(selected_process_keys),
-        "candidate_documents_in_partition": len(candidates),
+        "eligible_processes_in_partition": len(candidates),
         "selected_process_key_set_sha256": sha256_bytes(
             canonical_json(sorted(selected_process_keys)).encode("utf-8")
         ),
         "partition_uses_ocr": False,
     }
 
-    # Preserve the existing holdout implementation while replacing its
-    # unstable numerical primitive before report construction.
     evaluate.clopper_pearson_lower = clopper_pearson_lower
     evaluate.clopper_pearson_upper = clopper_pearson_upper
     report, anchor_census = execute_dual_anchor(
