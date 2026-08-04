@@ -1,10 +1,6 @@
 name: Data Science God-Level — ResNet bit-flip transfer development
 
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/data-science-god-level-resnet-bitflip-public.yml'
-      - 'data_science_god_level/resnet_bitflip/**'
   workflow_dispatch:
 
 permissions:
