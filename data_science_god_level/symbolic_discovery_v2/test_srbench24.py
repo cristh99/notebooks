@@ -47,25 +47,26 @@ class SRBench24GateTests(unittest.TestCase):
         np.testing.assert_allclose(X, frame[["x0", "x1"]].to_numpy())
         np.testing.assert_allclose(y, frame["target"].to_numpy())
 
-    def test_split_is_deterministic_and_disjoint(self) -> None:
+    def test_split_matches_srbench_75_25_and_is_deterministic(self) -> None:
         train_a, test_a = split_indices(500, "example")
         train_b, test_b = split_indices(500, "example")
         np.testing.assert_array_equal(train_a, train_b)
         np.testing.assert_array_equal(test_a, test_b)
         self.assertTrue(set(train_a).isdisjoint(test_a))
-        self.assertGreater(train_a.size, test_a.size)
+        self.assertEqual(train_a.size, 375)
+        self.assertEqual(test_a.size, 125)
         self.assertNotEqual(stable_seed("example"), stable_seed("different"))
 
-    def test_official_small_sample_split_is_supported(self) -> None:
-        train, test = split_indices(14, "first_principles_absorption")
-        self.assertEqual(train.size, 11)
-        self.assertEqual(test.size, 3)
+    def test_official_six_row_split_is_supported(self) -> None:
+        train, test = split_indices(6, "first_principles_kepler")
+        self.assertEqual(train.size, 4)
+        self.assertEqual(test.size, 2)
         self.assertTrue(set(train).isdisjoint(test))
-        X = np.arange(28, dtype=float).reshape(14, 2)
-        y = np.linspace(1.0, 2.0, 14)
+        X = np.arange(12, dtype=float).reshape(6, 2)
+        y = np.linspace(1.0, 2.0, 6)
         cleaned = clean_arrays(X[train], X[test], y[train], y[test])
-        self.assertEqual(cleaned[0].shape[0], 11)
-        self.assertEqual(cleaned[1].shape[0], 3)
+        self.assertEqual(cleaned[0].shape[0], 4)
+        self.assertEqual(cleaned[1].shape[0], 2)
 
     def test_relative_scale_keeps_tiny_varying_targets(self) -> None:
         rng = np.random.default_rng(7)
