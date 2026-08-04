@@ -35,8 +35,8 @@ if (ep.schema !== 'fin-abs-004/fdic-entity-disjoint-panel/1') errors.push('entit
 if (pp.schema !== 'fin-abs-004/fdic-preflight/1') errors.push('preflight-schema');
 if (ep.status !== 'PASS_ENTITY_SPLIT') errors.push('entity-status');
 if (pp.status !== 'PASS_PREFLIGHT') errors.push('preflight-status');
-if (ep.protocol?.seed !== 'FIN-ABS-004B-ENTITY-SPLIT-V1') errors.push('seed');
-if (canonical(ep.protocol?.bucket_rule) !== canonical({train:[0,19], validation:[20,29], test:[30,99]})) errors.push('bucket-rule');
+if (ep.protocol?.seed !== 'FIN-ABS-004B-ENTITY-SPLIT-V2') errors.push('seed');
+if (canonical(ep.protocol?.bucket_rule) !== canonical({train:[0,29], validation:[30,49], test:[50,99]})) errors.push('bucket-rule');
 if (panelSha !== ep.evaluation_panel?.feature_file_sha256) errors.push('entity-panel-file-hash');
 if (panelSha !== pp.panel_file_sha256) errors.push('preflight-panel-file-hash');
 if (pp.panel_report_sha256 !== entity.sha256) errors.push('report-binding');
@@ -47,7 +47,7 @@ if (Object.values(pp.entity_overlap_counts ?? {}).some(value => Number(value) !=
 const expectedDates = {
   train:{start:'1992-12-31', end:'2004-12-31'},
   validation:{start:'2007-03-31', end:'2009-12-31'},
-  test:{start:'2012-03-31', end:'2013-12-31'},
+  test:{start:'2012-03-31', end:'2014-12-31'},
 };
 if (canonical(pp.split_dates) !== canonical(expectedDates)) errors.push('split-dates');
 const counts = pp.split_counts ?? {};
@@ -59,13 +59,15 @@ if (canonical(pp.absolute_score) !== canonical({before:423, after:423, delta:0})
 
 const uniqueErrors = [...new Set(errors)].sort();
 const payload = {
-  schema:'fin-abs-004b/fdic-stage0-node-receipt/1',
+  schema:'fin-abs-004b/fdic-stage0-node-receipt/2',
   valid:uniqueErrors.length === 0,
   errors:uniqueErrors,
   entity_report_sha256:entity.sha256,
   preflight_report_sha256:preflight.sha256,
   panel_file_sha256:panelSha,
   split_counts:counts,
+  split_dates:pp.split_dates ?? null,
+  seed:ep.protocol?.seed ?? null,
   bucket_rule:ep.protocol?.bucket_rule ?? null,
   absolute_score:{before:423, after:423, delta:0},
 };
