@@ -1,0 +1,43 @@
+{
+  "schema": "open-world-discovery-power/preregistration/1",
+  "status": "FROZEN_BEFORE_PUBLIC_CI",
+  "objective": "Measure verified power to expand and honestly certify an incompletely known universe by canonical acquisition, unseen-mass estimation, adaptive source choice, exact/estimated stopping, and impossibility certificates.",
+  "definition": "Open-world discovery power is the verified capacity to acquire distinct valid objects, estimate residual unseen mass, select the next admissible source by marginal unique value, detect change, and terminate only with an exact, estimated, blocked, or impossible certificate.",
+  "domains": ["research", "software", "finance", "logistics", "physical", "governance"],
+  "archetypes": ["canonical_deduplication", "invalid_observation_gate", "sample_coverage_missing_mass", "chao_lower_bound", "capture_recapture_estimate", "overlap_adjusted_marginal", "adaptive_source_selection", "denominator_blindness", "honest_stopping", "impossibility_certificate", "snapshot_drift", "aggregate_real_diagnostic"],
+  "scenario_count": 72,
+  "unit_test_count": 12,
+  "real_case": {
+    "name": "IAIP Honduras aggregate acquisition diagnostic",
+    "declared_records": 2574240,
+    "declared_document_urls": 2571210,
+    "physical_files": 2530927,
+    "non_document_links": 3030,
+    "known_missing_files": 40283,
+    "source": "Notion Ola documental 3 v1.1, 2026-08-01",
+    "source_url": "https://www.notion.so/3af790f0ca698188a8b4f33c2ade4ffa"
+  },
+  "acceptance_gates": {
+    "exact_conformance": 1.0,
+    "canonical_duplicates_do_not_inflate_power": true,
+    "invalid_observations_contribute_zero": true,
+    "good_turing_coverage_exact": "5/7",
+    "good_turing_missing_mass_exact": "2/7",
+    "chao_unseen_exact": "1/2",
+    "chapman_population_exact": "22/3",
+    "raw_rows_four_unique_gain_one": true,
+    "adaptive_probe_changes_next_source": true,
+    "denominator_blind_stop_rejected": true,
+    "exact_and_estimated_completion_separated": true,
+    "indistinguishable_worlds_emit_impossibility": true,
+    "snapshot_drift_partitioned": true,
+    "iaip_known_missing_files": 40283,
+    "iaip_unseen_estimation_requires_f1_f2_and_capture_overlap": true,
+    "tampered_receipt_rejected": true
+  },
+  "score": {"baseline_before_slice": 896, "eligible_after_public_pass": 918, "claim_bounded": true},
+  "claim_boundary": {
+    "supports": ["finite exact canonical discovery accounting", "coverage and lower-bound unseen estimators under declared assumptions", "two-list capture-recapture estimate", "adaptive marginal source selection", "honest exact/estimated/blocked/impossible terminals", "real IAIP aggregate known-gap diagnosis", "deterministic cross-domain reproducibility"],
+    "does_not_support": ["universal open-world completeness", "unbiased unseen estimation under arbitrary dependence or heterogeneity", "continuous-time discovery", "arbitrary web access or anti-bot circumvention", "complete IAIP possession", "independent scientific novelty"]
+  }
+}
