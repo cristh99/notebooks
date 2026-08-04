@@ -1,0 +1,264 @@
+name: Public Statistical Execution Orchestrator v1 corrected verification
+
+on:
+  push:
+    branches:
+      - agent/statistical-execution-orchestrator-v1-public
+    paths:
+      - 'inference_power_compiler_v2/verify_execution_orchestrator_public.py'
+      - 'inference_power_compiler_v2/verify_execution_orchestrator_public_corrected.py'
+      - 'inference_power_compiler_v2/verify_statistical_power_router_public.py'
+      - 'ExecutionOrchestratorPublic.lean'
+      - '.github/workflows/statistical-execution-orchestrator-public-corrected.yml'
+  pull_request:
+    paths:
+      - 'inference_power_compiler_v2/verify_execution_orchestrator_public.py'
+      - 'inference_power_compiler_v2/verify_execution_orchestrator_public_corrected.py'
+      - 'inference_power_compiler_v2/verify_statistical_power_router_public.py'
+      - 'ExecutionOrchestratorPublic.lean'
+      - '.github/workflows/statistical-execution-orchestrator-public-corrected.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-execution-orchestrator-public-corrected:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+
+      - name: Compile and execute corrected independent orchestrator
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            inference_power_compiler_v2/verify_statistical_power_router_public.py \
+            inference_power_compiler_v2/verify_execution_orchestrator_public.py \
+            inference_power_compiler_v2/verify_execution_orchestrator_public_corrected.py
+          python inference_power_compiler_v2/verify_execution_orchestrator_public_corrected.py \
+            | tee execution-orchestrator-public-corrected.log
+          test -s inference_power_compiler_v2/EXECUTION_ORCHESTRATOR_PUBLIC_REPORT.json
+          test -s inference_power_compiler_v2/EXECUTION_ORCHESTRATOR_PUBLIC_CERTIFICATE.json
+          sha256sum \
+            inference_power_compiler_v2/EXECUTION_ORCHESTRATOR_PUBLIC_REPORT.json \
+            inference_power_compiler_v2/EXECUTION_ORCHESTRATOR_PUBLIC_CERTIFICATE.json \
+            > /tmp/orchestrator-corrected-before.sha256
+          python inference_power_compiler_v2/verify_execution_orchestrator_public_corrected.py \
+            > /tmp/orchestrator-corrected-rebuild.log
+          sha256sum \
+            inference_power_compiler_v2/EXECUTION_ORCHESTRATOR_PUBLIC_REPORT.json \
+            inference_power_compiler_v2/EXECUTION_ORCHESTRATOR_PUBLIC_CERTIFICATE.json \
+            > /tmp/orchestrator-corrected-after.sha256
+          cmp \
+            /tmp/orchestrator-corrected-before.sha256 \
+            /tmp/orchestrator-corrected-after.sha256
+
+      - name: Audit exact outputs, tie break and private binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path(
+                  'inference_power_compiler_v2/'
+                  'EXECUTION_ORCHESTRATOR_PUBLIC_REPORT.json'
+              ).read_text()
+          )
+          assert report['status'] == 'SOLVED'
+          assert report['comparison_target']['pull_request'] == 109
+          assert report['comparison_target']['head'] == \
+              '0ec1abdbe53b67c12a391f1e834028133439fc98'
+          assert report['adapters'] == [
+              'adaptive_eprocess',
+              'crossfit_finite',
+              'finite_causal_id',
+              'lower_bound_metacompiler',
+          ]
+          controls = report['controls']
+          lower = controls['lower_bound']['artifacts'][0]['summary']
+          assert controls['lower_bound']['status'] == 'SOLVED'
+          assert lower['selected_method'] == 'le_cam_two_point'
+          assert lower['selected_lower_bound'] == [9, 320]
+          assert lower['work_units'] == 10
+          assert lower['matching_packing_lower_bound'] == [9, 320]
+          assert lower['matching_packing_work_units'] == 26
+          sequential = controls['sequential']['artifacts'][0]['summary']
+          assert controls['sequential']['status'] == 'SOLVED'
+          assert sequential['anytime_alpha_bound'] == [1, 9]
+          assert sequential['null_worlds']['null_a'][
+              'threshold_crossing_probability'
+          ] == [1, 16]
+          assert sequential['null_worlds']['null_b'][
+              'threshold_crossing_probability'
+          ] == [1, 9]
+          full = controls['full_causal']['artifacts']
+          assert controls['full_causal']['status'] == 'SOLVED'
+          assert [item['capability'] for item in full] == [
+              'finite_causal_id',
+              'lower_bound_metacompiler',
+              'crossfit_finite',
+          ]
+          assert full[0]['summary']['identified_expression'] == 'P(Y|X)'
+          assert full[1]['summary']['selected_method'] == 'le_cam_two_point'
+          assert full[1]['summary']['selected_lower_bound'] == [9, 320]
+          assert full[2]['summary']['estimate'] == [1, 2]
+          assert full[2]['summary']['empirical_variance'] == [5, 8]
+          assert controls['nonidentified']['status'] == 'IMPOSSIBLE'
+          assert controls['unsafe_crossfit']['status'] == 'UNSAFE'
+          assert controls['missing_input']['obligation'] == 'BLOCKED_INPUT'
+          assert controls['missing_adapter']['obligation'] == 'BLOCKED_ADAPTER'
+          assert controls['underfunded']['status'] == 'BUDGET_EXHAUSTED'
+          logic = report['logic_power_v10_independent_reconstruction']
+          assert logic['hypotheses'] == 512
+          assert logic['conflict_pairs'] == 511
+          assert logic['fixed_cost'] == [142, 1]
+          assert logic['worst_cost'] == [142, 1]
+          assert len(logic['clean_path']) == 9
+          assert report['semantic_replay'] == 'PASS'
+          assert report['tampered_certificate'] == 'REJECTED:payload-hash'
+          assert report['forged_certificate'] == 'REJECTED:semantic-replay'
+          PY
+
+      - name: Install pinned Lean
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -sSf \
+            https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          "$HOME/.elan/bin/elan" toolchain install leanprover/lean4:v4.33.0-rc1
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Compile public formal boundary without axioms
+        shell: bash
+        run: |
+          set -euo pipefail
+          elan run leanprover/lean4:v4.33.0-rc1 lean \
+            -o ExecutionOrchestratorPublic.olean \
+            ExecutionOrchestratorPublic.lean \
+            2>&1 | tee execution-orchestrator-public-corrected-lean.log
+          test -s ExecutionOrchestratorPublic.olean
+          if grep -Eq 'sorryAx|depends on axioms:' \
+            execution-orchestrator-public-corrected-lean.log; then
+            echo 'Unexpected Lean axiom dependency' >&2
+            exit 1
+          fi
+
+      - name: Build corrected public verification receipt
+        shell: bash
+        env:
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PUBLIC_EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          files = {
+              'report': Path(
+                  'inference_power_compiler_v2/'
+                  'EXECUTION_ORCHESTRATOR_PUBLIC_REPORT.json'
+              ),
+              'certificate': Path(
+                  'inference_power_compiler_v2/'
+                  'EXECUTION_ORCHESTRATOR_PUBLIC_CERTIFICATE.json'
+              ),
+              'core_verifier': Path(
+                  'inference_power_compiler_v2/'
+                  'verify_execution_orchestrator_public.py'
+              ),
+              'corrected_verifier': Path(
+                  'inference_power_compiler_v2/'
+                  'verify_execution_orchestrator_public_corrected.py'
+              ),
+              'router_verifier': Path(
+                  'inference_power_compiler_v2/'
+                  'verify_statistical_power_router_public.py'
+              ),
+              'lean': Path('ExecutionOrchestratorPublic.lean'),
+          }
+          receipt = {
+              'schema': (
+                  'statistical-execution-orchestrator-public-receipt/2'
+              ),
+              'repository': 'cristh99/notebooks',
+              'head': os.environ['PUBLIC_HEAD_SHA'],
+              'event_sha': os.environ['PUBLIC_EVENT_SHA'],
+              'comparison_target': {
+                  'repository': 'cristh99/my_first_repository',
+                  'pull_request': 109,
+                  'head': '0ec1abdbe53b67c12a391f1e834028133439fc98',
+              },
+              'sha256': {
+                  name: hashlib.sha256(path.read_bytes()).hexdigest()
+                  for name, path in files.items()
+              },
+              'independent_router': 'Dijkstra fact-closure search',
+              'independent_causal_id': 'PASS',
+              'independent_lower_bound': 'PASS',
+              'lower_bound_tie_break': 'LE_CAM_BY_WORK_UNITS',
+              'le_cam_work_units': 10,
+              'packing_work_units': 26,
+              'independent_crossfit': 'PASS',
+              'independent_eprocess': 'PASS',
+              'adapter_count': 4,
+              'full_causal_execution': 'PASS',
+              'anytime_execution': 'PASS',
+              'impossibility_propagation': 'PASS',
+              'unsafe_propagation': 'PASS',
+              'missing_input_fail_closed': 'PASS',
+              'missing_adapter_fail_closed': 'PASS',
+              'budget_terminal_propagation': 'PASS',
+              'output_closure': 'PASS',
+              'semantic_replay': 'PASS',
+              'deterministic_rebuild': 'PASS',
+              'certificate_tamper_rejection': 'PASS',
+              'semantic_forgery_rejection': 'PASS',
+              'lean': 'PASS',
+              'sorryAx': 'ABSENT',
+              'axiom_dependencies': 'ABSENT',
+          }
+          path = Path(
+              'inference_power_compiler_v2/'
+              'EXECUTION_ORCHESTRATOR_PUBLIC_RECEIPT_V2.json'
+          )
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path(
+              'inference_power_compiler_v2/'
+              'EXECUTION_ORCHESTRATOR_PUBLIC_RECEIPT_V2.sha256'
+          ).write_text(
+              f'{digest}  EXECUTION_ORCHESTRATOR_PUBLIC_RECEIPT_V2.json\n'
+          )
+          print(path.read_text())
+          print(digest)
+          PY
+
+      - name: Upload corrected public execution evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: statistical-execution-orchestrator-public-evidence-v2
+          path: |
+            inference_power_compiler_v2/EXECUTION_ORCHESTRATOR_PUBLIC_*.json
+            inference_power_compiler_v2/EXECUTION_ORCHESTRATOR_PUBLIC_RECEIPT_V2.sha256
+            inference_power_compiler_v2/verify_execution_orchestrator_public.py
+            inference_power_compiler_v2/verify_execution_orchestrator_public_corrected.py
+            inference_power_compiler_v2/verify_statistical_power_router_public.py
+            ExecutionOrchestratorPublic.lean
+            ExecutionOrchestratorPublic.olean
+            execution-orchestrator-public-corrected.log
+            execution-orchestrator-public-corrected-lean.log
+          if-no-files-found: error
+          retention-days: 90
