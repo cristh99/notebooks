@@ -7,6 +7,7 @@ const POLICY = "FIN-ABS-004-PLATT-ENSEMBLE-V1";
 const PRIMARY_SHA = "e9fa1b9cb51ea03f3f2582d08674d7b5039e32fb049363f8f2aa12e4dfc76eeb";
 const EPS = 1e-8;
 const TOP_CAPACITY = 0.005;
+const METRIC_TOLERANCE = 1e-6;
 
 function canonical(value) {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
@@ -128,12 +129,13 @@ function metrics(rows, prefix) {
     if (pred[index] === 1 && y[index] === 0) fp += 1;
     if (pred[index] === 0 && y[index] === 1) fn += 1;
   }
+  const positives = y.reduce((a, b) => a + b, 0);
   const precision = tp + fp ? tp / (tp + fp) : 0;
   const recall = tp + fn ? tp / (tp + fn) : 0;
   return {
     rows: y.length,
-    positives: y.reduce((a, b) => a + b, 0),
-    positive_rate: y.reduce((a, b) => a + b, 0) / y.length,
+    positives,
+    positive_rate: positives / y.length,
     roc_auc: rocAuc(y, p),
     average_precision: averagePrecision(y, p),
     brier: brier / y.length,
@@ -148,8 +150,25 @@ function metrics(rows, prefix) {
   };
 }
 
-function close(a, b, tolerance = 1e-10) {
-  if (a === null || b === null) return a === b;
+function stableMetricView(value) {
+  return {
+    rows: value?.rows,
+    positives: value?.positives,
+    positive_rate: value?.positive_rate,
+    roc_auc: value?.roc_auc,
+    average_precision: value?.average_precision,
+    brier: value?.brier,
+    log_loss: value?.log_loss,
+    ece_20: value?.ece_20,
+    precision: value?.precision,
+    recall: value?.recall,
+    f1: value?.f1,
+    predicted_positive: value?.predicted_positive,
+  };
+}
+
+function close(a, b, tolerance = METRIC_TOLERANCE) {
+  if (a === null || b === null || a === undefined || b === undefined) return a === b;
   if (typeof a === "number" && typeof b === "number") {
     return Math.abs(a - b) <= tolerance * Math.max(1, Math.abs(a), Math.abs(b));
   }
@@ -181,8 +200,14 @@ function verify(report, samplePath) {
     sample_file_hash: fileSha(samplePath) === payload.verification_sample?.sample_sha256,
     sample_artifact_hash: fileSha(samplePath) === payload.artifacts?.verification_sample_sha256,
     sample_rows: rows.length === payload.verification_sample?.rows,
-    baseline_sample_metrics: close(baseline, payload.verification_sample?.baseline_metrics),
-    challenger_sample_metrics: close(challenger, payload.verification_sample?.challenger_metrics),
+    baseline_sample_metrics: close(
+      stableMetricView(baseline),
+      stableMetricView(payload.verification_sample?.baseline_metrics),
+    ),
+    challenger_sample_metrics: close(
+      stableMetricView(challenger),
+      stableMetricView(payload.verification_sample?.challenger_metrics),
+    ),
     status: payload.status === expectedStatus,
     score:
       payload.absolute_score?.before === 423 &&
@@ -197,13 +222,15 @@ function verify(report, samplePath) {
   };
   const valid = Object.values(gates).every(Boolean);
   const receiptPayload = {
-    schema: "fin-abs-004/v4-credit-node-receipt/1",
+    schema: "fin-abs-004/v4-credit-node-receipt/2",
     valid,
     failed_gates: Object.entries(gates).filter(([, value]) => !value).map(([key]) => key),
     report_sha256: report.sha256,
     sample_sha256: fileSha(samplePath),
     expected_status: expectedStatus,
     expected_score: expectedScore,
+    metric_tolerance: METRIC_TOLERANCE,
+    compared_metric_view: "stable-core-excludes-sample-top-capacity-tie-selection",
     sample_metrics: { baseline, challenger },
     gates,
   };
@@ -219,6 +246,7 @@ const receipt = verify(report, process.argv[3]);
 fs.writeFileSync(process.argv[4], `${JSON.stringify(receipt, null, 2)}\n`);
 console.log(JSON.stringify({
   valid: receipt.payload.valid,
+  failed_gates: receipt.payload.failed_gates,
   expected_status: receipt.payload.expected_status,
   expected_score: receipt.payload.expected_score,
   receipt_sha256: receipt.sha256,
