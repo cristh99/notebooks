@@ -1,8 +1,8 @@
 {
   "actual_external_evaluations_authorized": 1,
   "archive": {
-    "base64_sha256": "fb9f8c6b7cd4a498ef9dbe9335c9d3f1ffc18e3701ec0e22265bac4985855674",
-    "decoded_sha256": "3e30f9658932b7fdb215eeb83c1c02055a571c122a0aaf593ed468adf92b79f4",
+    "base64_sha256": "9d670d554eaef804d16f054dbad027bc9526ed2e83aa25eb14796bcbd0c8f0ed",
+    "decoded_sha256": "8978fd6210be7539e7212ae1009f48a14bbcb521225dcc0f8d01054f30238328",
     "deterministic_tar": true
   },
   "candidate_freeze_commit": "9c54be4054c5447a654a5735d41c7a011f3baafc",
@@ -10,11 +10,12 @@
   "gate_manifest_sha256": "140e65b2570245964f0f5f4352d51edce56e7c62b106c8ac65c0213865e18050",
   "post_hoc_retuning_permitted": false,
   "pre_data_proof": {
+    "complete_acquisition_required_before_candidate_access": true,
     "dataset_values_accessed": false,
     "python_compile": "PASS",
     "unit_tests": "4/4 PASS"
   },
-  "schema": "data-science-god-level/symbolic-v2-srbench-harness-manifest/1",
+  "schema": "data-science-god-level/symbolic-v2-srbench-harness-manifest/2",
   "source_definition": {
     "commit": "dc3f6daa93bf10955df8775256a6f8644f38fd93",
     "path": "datasets/download_data.py",
@@ -22,8 +23,8 @@
   },
   "sources": {
     "srbench_external_plan.py": "85d012b88161da056b840859ada642763554dcde7a8b21dc7987194e019d44c7",
-    "srbench_external_runner.py": "b14ede55ec4d6efa3b9ab82e93f18e46dcad7ec717af44fca8840baed4a5e193",
+    "srbench_external_runner.py": "5d9dd4ab1223ccb1d8fa67ff7eb1dc77261fdaa56f430b607ca76e54e3deb4f4",
     "test_srbench_external.py": "bff97f1549a4d6b1b5b2e2be716bc84928788c5b619b108ec98a7ed7c1234e09",
-    "tests.txt": "ce81a9b2ea13f4c88fe642dadbf20bab2066c07021987a60ce8fd29d4b9cccc9"
+    "tests.txt": "7c074090b6ff00c5867336e5bbecd2996fee8994663d9623fabf6ac6bd40fb5a"
   }
 }
