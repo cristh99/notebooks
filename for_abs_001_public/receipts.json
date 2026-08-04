@@ -1,0 +1,82 @@
+{
+  "receipts": {
+    "stage0": {
+      "claim_limit": "Metadata readiness only; no row is labeled corrupt or clean.",
+      "domains_present": [
+        "procurement",
+        "financial_flow",
+        "identity_ownership",
+        "documentary_evidence",
+        "external_positive_evidence"
+      ],
+      "relevant_inventory_tables": 1789,
+      "schema_version": "hn_for_abs_001_label_graph_stage0/v1",
+      "shared_join_keys": [
+        "amount",
+        "contract_id",
+        "document_id",
+        "event_date",
+        "institution_id",
+        "ocid",
+        "outcome",
+        "rtn",
+        "supplier_id"
+      ],
+      "source_receipt_sha256": "a4585f42a21b7ea9cfdd03e8918c8bfecde774ad465e24c730c0615ecfe43642",
+      "status": "PROCEED_TO_ROW_LEVEL_LABEL_AND_GRAPH_AUDIT",
+      "writes_performed": 0
+    },
+    "stage1": {
+      "candidate_documents": 5084,
+      "candidate_pages": 95785,
+      "claim_limit": "Keyword-bearing TSC pages are review candidates, not universal corruption labels.",
+      "page_counts": {
+        "HALLAZGO": 14538,
+        "INCUMPLIMIENTO_CONTROL": 4053,
+        "RECOMENDACION": 49257,
+        "RECUPERACION_PERJUICIO": 7326,
+        "RESPONSABILIDAD_REPARO": 16065
+      },
+      "schema_version": "hn_for_abs_001_tsc_label_audit_stage1/v1",
+      "source_receipt_sha256": "4c27a7c6941e43b45f32b6b966c436b3bc72271526a53bf3164aa2f771f2eeb4",
+      "status": "PROCEED_TO_PROVENANCE_STRATIFIED_POSITIVE_UNLABELED_COHORT",
+      "writes_performed": 0
+    },
+    "stage2": {
+      "gates": {
+        "dated_documents_at_least_50": true,
+        "hash_matched_documents_at_least_50": true,
+        "institution_candidates_at_least_30": true,
+        "priority_digest_has_at_least_50_documents": true,
+        "provenance_complete_positive_documents_at_least_20": true,
+        "provenance_complete_positive_pages_at_least_40": true,
+        "unlabeled_not_clean": true,
+        "writes_performed_zero": true
+      },
+      "metrics": {
+        "amount_mention_pages": 314,
+        "candidate_pages": 995,
+        "control_breach_pages": 64,
+        "dated_documents": 71,
+        "digest_documents": 71,
+        "eligible_rowset_sha256": "dbbdb9e288d3048ed26db9c8860ae41150f39a4d975bf232df9de28801c91392",
+        "finding_pages": 341,
+        "hash_matched_documents": 71,
+        "high_confidence_pages": 995,
+        "institution_document_candidates": 71,
+        "provenance_complete_positive_documents": 69,
+        "provenance_complete_positive_pages": 590,
+        "recovery_pages": 193,
+        "responsibility_pages": 397,
+        "rtn_mention_pages": 226
+      },
+      "positive_definition": "TSC responsibility/reparo or recovery/perjuicio candidate page with document hash match, publication timestamp, institution metadata, and OCR confidence >= 0.70; external forensic-review evidence, not a universal corruption label.",
+      "schema_version": "hn_for_abs_001_tsc_priority_cohort_preflight/v1",
+      "source_receipt_sha256": "53c18e89b4a1696194239126783e9c17df5e762b29863ee55d1e631604184558",
+      "status": "PROCEED_TO_FREEZE_PROVENANCE_COMPLETE_POSITIVE_COHORT",
+      "writes_performed": 0
+    }
+  },
+  "schema_version": "for_abs_001_public_receipts/1",
+  "sha256": "27de2406507baed83135c2890a42b9f973806e07f49e3d497347a3d9759e4cee"
+}
