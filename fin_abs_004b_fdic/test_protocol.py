@@ -60,8 +60,8 @@ class UntouchedFdicProtocolTests(unittest.TestCase):
     def test_bucket_contract_is_complete_and_disjoint(self) -> None:
         self.assertEqual(ENTITY_SPLIT_SEED, "FIN-ABS-004B-ENTITY-SPLIT-V2")
         self.assertEqual(EXPECTED_BUCKET_RULE["train"], [0, 29])
-        self.assertEqual(EXPECTED_BUCKET_RULE["validation"], [30, 49])
-        self.assertEqual(EXPECTED_BUCKET_RULE["test"], [50, 99])
+        self.assertEqual(EXPECTED_BUCKET_RULE["validation"], [30, 44])
+        self.assertEqual(EXPECTED_BUCKET_RULE["test"], [45, 99])
         covered = (
             set(range(0, TRAIN_BUCKET_END))
             | set(range(TRAIN_BUCKET_END, VALIDATION_BUCKET_END))
@@ -69,7 +69,7 @@ class UntouchedFdicProtocolTests(unittest.TestCase):
         )
         self.assertEqual(covered, set(range(100)))
 
-    def test_assignment_uses_new_seed_and_declared_boundaries(self) -> None:
+    def test_assignment_uses_final_declared_boundaries(self) -> None:
         old = (
             base_split.ENTITY_SPLIT_SEED,
             base_split.TRAIN_BUCKET_END,
@@ -85,7 +85,7 @@ class UntouchedFdicProtocolTests(unittest.TestCase):
                     "train"
                     if bucket < 30
                     else "validation"
-                    if bucket < 50
+                    if bucket < 45
                     else "test"
                 )
                 self.assertEqual(base_split.assigned_split(expected, bucket), expected)
