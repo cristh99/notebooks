@@ -1,0 +1,207 @@
+name: Data Science God-Level — RealCause public causal gate v3
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/data-science-god-level-causal-realcause-public-v3.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-realcause-gate-v3:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install pinned environment
+        run: |
+          mkdir -p public-data public-logs
+          python -m pip install --disable-pip-version-check \
+            'numpy==1.26.4' 'pandas==2.2.3' 'scipy==1.14.1' \
+            'scikit-learn==1.5.2'
+          python -m pip freeze | sort > public-logs/pip-freeze.txt
+
+      - name: Reconstruct and replay original Logic Power v10
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _logic_power_v10
+          cat logic_power_v10_capsule/parts/part_00.b64 \
+              logic_power_v10_capsule/parts/part_01.b64 \
+              logic_power_v10_capsule/parts/part_02.b64 \
+              logic_power_v10_capsule/parts/part_03.b64 \
+              logic_power_v10_capsule/parts/part_04.b64 \
+              logic_power_v10_capsule/parts/part_05_00.b64 \
+              logic_power_v10_capsule/parts/part_05_01.b64 \
+              logic_power_v10_capsule/parts/part_05_02.b64 > /tmp/lp.b64
+          echo '3548f31fcaa9696eabb063023c905fbb04a2b3db73c96df9f9ee8bc8e0c64fc1  /tmp/lp.b64' | sha256sum -c -
+          base64 -d /tmp/lp.b64 > /tmp/lp.tar.gz
+          echo 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31  /tmp/lp.tar.gz' | sha256sum -c -
+          tar xzf /tmp/lp.tar.gz -C _logic_power_v10
+          (cd _logic_power_v10 && sha256sum -c SOURCE_SHA256SUMS && test "$(cat PRIVATE_HEAD_SHA.txt)" = 'ba10d0edc7eb20d499d0481fda2537e782b6efb2')
+          (cd data_science_god_level/causal_realcause && PYTHONPATH="${GITHUB_WORKSPACE}/_logic_power_v10" python logic_plan.py)
+
+      - name: Verify frozen candidate and isolation
+        run: |
+          python - <<'PY'
+          import ast, hashlib, json
+          from pathlib import Path
+          path = Path('data_science_god_level/causal_realcause/estimator.py')
+          expected = 'eb50ff9cfaaa8f76843ccabab2eeebb1d65d9e29219164a0df7d0cc0b3b623c7'
+          assert hashlib.sha256(path.read_bytes()).hexdigest() == expected
+          tree = ast.parse(path.read_text())
+          imports, names, calls = set(), set(), []
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                  imports.update(a.name.split('.')[0] for a in node.names)
+              elif isinstance(node, ast.ImportFrom) and node.level == 0:
+                  imports.add((node.module or '').split('.')[0])
+              elif isinstance(node, ast.Name):
+                  names.add(node.id)
+              elif isinstance(node, ast.Attribute):
+                  names.add(node.attr)
+              elif isinstance(node, ast.Call):
+                  if isinstance(node.func, ast.Name): calls.append(node.func.id)
+                  elif isinstance(node.func, ast.Attribute): calls.append(node.func.attr)
+          assert not (imports - {'__future__','dataclasses','math','typing','numpy','sklearn'})
+          assert not (set(calls) & {'open','eval','exec','compile','__import__','system','popen','run','urlopen','request','read_csv'})
+          assert not (names & {'Path','y0','y1','sample','dataset','requests','socket','subprocess'})
+          receipt = {
+              'schema': 'data-science-god-level/realcause-static-audit/4',
+              'estimator_sha256': expected,
+              'candidate_ground_truth_access': False,
+              'candidate_dataset_identifier_access': False,
+              'candidate_filesystem_network_process_access': False,
+          }
+          Path('public-logs/static-audit.json').write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          PY
+          (cd data_science_god_level/causal_realcause && python -m unittest -v test_estimator.py)
+
+      - name: Download only predeclared public files through pinned GitHub Contents API
+        shell: bash
+        run: |
+          set -euo pipefail
+          ref='7411cc26f10d750aa011b25f2a46cb572d8b8540'
+          base='https://api.github.com/repos/bradyneal/realcause/contents/realcause_datasets'
+          fetch_csv() {
+            local name="$1"
+            curl -fsSL --retry 4 --retry-all-errors \
+              -H 'Accept: application/vnd.github.raw+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "$base/$name?ref=$ref" -o "public-data/$name"
+          }
+          for sample in 0 1 2 3 4 5; do
+            fetch_csv "lalonde_psid_sample${sample}.csv"
+            fetch_csv "lalonde_cps_sample${sample}.csv"
+          done
+          for path in public-data/*.csv; do
+            test "$(stat -c%s "$path")" -gt 1000
+            head -n1 "$path" | grep -q 'y0'
+            head -n1 "$path" | grep -q 'y1'
+          done
+          test "$(find public-data -type f -name '*.csv' | wc -l)" -eq 12
+          test "$(find public-data -type f -name 'twins*' | wc -l)" -eq 0
+
+      - name: Seal public data manifest
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          files = sorted(Path('public-data').glob('*.csv'))
+          manifest = {
+              'schema': 'data-science-god-level/realcause-public-data/3',
+              'source_repository': 'bradyneal/realcause',
+              'source_commit': '7411cc26f10d750aa011b25f2a46cb572d8b8540',
+              'transport': 'github-contents-api-raw',
+              'public_families': ['lalonde_psid','lalonde_cps'],
+              'public_samples': [0,1,2,3,4,5],
+              'official_family_accessed': False,
+              'official_files_read': [],
+              'files': [
+                  {'name': p.name, 'bytes': p.stat().st_size, 'sha256': hashlib.sha256(p.read_bytes()).hexdigest()}
+                  for p in files
+              ],
+          }
+          payload = json.dumps(manifest, indent=2, sort_keys=True) + '\n'
+          Path('public-logs/data-manifest.json').write_text(payload)
+          print(payload)
+          PY
+
+      - name: Evaluate public families
+        env:
+          OMP_NUM_THREADS: '4'
+          MKL_NUM_THREADS: '4'
+          OPENBLAS_NUM_THREADS: '4'
+        run: |
+          cd data_science_god_level/causal_realcause
+          python benchmark.py --files "${GITHUB_WORKSPACE}"/public-data/*.csv \
+            --output "${GITHUB_WORKSPACE}/public-logs/public-report.json" \
+            2>&1 | tee "${GITHUB_WORKSPACE}/public-logs/evaluation-output.txt"
+
+      - name: Freeze and adjudicate
+        if: always()
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          def dig(path):
+              path = Path(path)
+              return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+          root = Path('data_science_god_level/causal_realcause')
+          report_path = Path('public-logs/public-report.json')
+          report = json.loads(report_path.read_text()) if report_path.exists() else None
+          receipt = {
+              'schema': 'data-science-god-level/realcause-public-freeze/4',
+              'verdict': report['summary']['verdict'] if report else 'INVALID_RUN',
+              'estimator_sha256': dig(root / 'estimator.py'),
+              'benchmark_sha256': dig(root / 'benchmark.py'),
+              'logic_plan_sha256': dig(root / 'logic-plan-receipt.json'),
+              'static_audit_sha256': dig('public-logs/static-audit.json'),
+              'data_manifest_sha256': dig('public-logs/data-manifest.json'),
+              'report_sha256': dig(report_path),
+              'public_families': ['lalonde_psid','lalonde_cps'],
+              'official_family': 'twins',
+              'official_samples': [90,91,92,93,94,95,96,97,98,99],
+              'official_truth_accessed': False,
+              'summary': report['summary'] if report else None,
+              'post_hoc_retuning_permitted_after_official_evaluation': False,
+          }
+          payload = json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          Path('public-logs/public-freeze-receipt.json').write_text(payload)
+          Path('public-logs/public-freeze-receipt.sha256').write_text(
+              hashlib.sha256(payload.encode()).hexdigest() + '  public-freeze-receipt.json\n'
+          )
+          print(payload)
+          PY
+
+      - name: Upload immutable evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-god-level-realcause-public-v3
+          retention-days: 90
+          path: |
+            data_science_god_level/causal_realcause/estimator.py
+            data_science_god_level/causal_realcause/benchmark.py
+            data_science_god_level/causal_realcause/logic-plan-receipt.json
+            public-logs/**
+
+      - name: Enforce verdict
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('public-logs/public-freeze-receipt.json')
+          if not path.exists(): raise SystemExit('public receipt missing')
+          verdict = json.loads(path.read_text())['verdict']
+          if verdict != 'PASS': raise SystemExit(f'RealCause public gate: {verdict}; evidence preserved')
+          print('RealCause public gate: PASS; candidate frozen')
+          PY
