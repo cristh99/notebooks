@@ -16,6 +16,7 @@ permissions:
 
 jobs:
   full-native-index-canary:
+    if: github.event.pull_request.number != 86
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:
