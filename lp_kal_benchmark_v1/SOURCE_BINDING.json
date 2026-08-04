@@ -1,0 +1,10 @@
+{
+  "schema": "logic-power-knowledge-action-loop/benchmark-source-binding/1",
+  "private_repository": "cristh99/my_first_repository",
+  "private_branch": "agent/lp-kal-benchmark-v1",
+  "private_head": "fbcbf50bae6f29f594d8366b9db0d70fbdd36996",
+  "private_pull_request": 93,
+  "private_issue": 92,
+  "formal_base_pull_request": 37,
+  "scope": "synthetic conformance and single-gate causal-ablation benchmark; no private Notion content"
+}
