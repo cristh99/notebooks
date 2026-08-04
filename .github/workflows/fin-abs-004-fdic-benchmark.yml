@@ -42,12 +42,13 @@ jobs:
           python -m unittest -v fin_abs_004_fdic.test_audit
           python -m unittest -v fin_abs_004_fdic.test_panel
           python -m unittest -v fin_abs_004_fdic.test_model
+          python -m unittest -v fin_abs_004_fdic.test_serialization
 
       - name: Acquire official quarterly panel and construct labels
         run: |
           rm -rf .cache/fin_abs_004_fdic reports/fin_abs_004_fdic_benchmark
           mkdir -p .cache/fin_abs_004_fdic reports/fin_abs_004_fdic_benchmark/panel
-          python -m fin_abs_004_fdic.panel \
+          python -m fin_abs_004_fdic.panel_cli \
             --cache .cache/fin_abs_004_fdic \
             --output-dir reports/fin_abs_004_fdic_benchmark/panel
 
