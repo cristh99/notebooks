@@ -60,7 +60,7 @@ jobs:
           root = Path('data_science_god_level/tabular_transfer')
           expected = {
               'estimator.py': '6b0e275b6e60ec766ba5d8d19c27234c252bbcae22a3f7df6d0e3908f81e1c90',
-              'benchmark.py': 'b7efc11df11cd76b28d0eb5832355844859d9c31f06d624316e563d89fb9b51c',
+              'benchmark.py': '20423fb992b7627c321db58a6f613f02e8a1a46bf6f8ebf51a5f52c6ab2f049f',
               'test_estimator.py': '9f33fcd5f7e285d2606cb2b737e6a8565435c5a7ec8897bdabdbb6627cb4921c',
               'logic_plan.py': 'ee6cbaf957eece0428ced177d1cfb7a5663813b9a874f0388df83da41f99d088',
           }
@@ -248,7 +248,7 @@ jobs:
               'post_hoc_retuning_permitted_after_official_evaluation': False,
               'hashes': {
                   'estimator_sha256': '6b0e275b6e60ec766ba5d8d19c27234c252bbcae22a3f7df6d0e3908f81e1c90',
-                  'benchmark_sha256': 'b7efc11df11cd76b28d0eb5832355844859d9c31f06d624316e563d89fb9b51c',
+                  'benchmark_sha256': '20423fb992b7627c321db58a6f613f02e8a1a46bf6f8ebf51a5f52c6ab2f049f',
                   'logic_plan_sha256': digest('data_science_god_level/tabular_transfer/logic-plan-receipt.json'),
                   'static_audit_sha256': digest('public-logs/static-audit.json'),
                   'data_manifest_sha256': digest('public-logs/data-manifest.json'),
