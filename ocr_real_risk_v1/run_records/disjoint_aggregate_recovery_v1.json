@@ -1,0 +1,13 @@
+{
+  "aggregate_file_sha256": "400ea1cfe254703620f62ecf8fe4ce89393ce4dbd8b4c6ba98cf4807a0803117",
+  "aggregate_stable_payload_sha256": "8b33ee2cd43847737bbc5fe07d7f764dc9b247f50e5e11e8b6558d1a93948754",
+  "artifact_digest": "7596442a184278e55cd30e20804c144896affb30875b94412973951f6f8a61d4",
+  "artifact_id": 8910607579,
+  "commit_sha": "c875b97da9358d3797ec0796b0a759cb0e225631",
+  "job": "aggregate-existing-shards",
+  "run_id": 30954894843,
+  "schema": "ocr-real-risk-run-record/1",
+  "source_validation_run_id": 30953079172,
+  "verdict": "DEVELOPMENT_VALIDATED_BASELINE_TOO_CLEAN_FOR_RELATIVE_10X",
+  "workflow": "OCR disjoint aggregate recovery v1"
+}
