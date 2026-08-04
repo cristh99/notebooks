@@ -70,7 +70,7 @@ jobs:
           python -m ocr_real_risk_v1.replay_isolated_crop \
             prior \
             --output-dir isolated-replay \
-            | tee isolated-replay/stdout.json
+            | tee isolated-replay-stdout.json
       - name: Independent outcome checks
         run: |
           python - <<'PY'
@@ -106,6 +106,8 @@ jobs:
         if: always()
         with:
           name: ocr-real-risk-isolated-crop-replay-v1
-          path: isolated-replay
+          path: |
+            isolated-replay
+            isolated-replay-stdout.json
           if-no-files-found: error
           retention-days: 30
