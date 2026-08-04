@@ -2,9 +2,14 @@ from __future__ import annotations
 
 import unittest
 
+import fitz
 from PIL import Image
 
-from .evaluate_robust import sanitize_numeric_tokens
+from .evaluate_robust import (
+    robust_pil_page,
+    rotation_aware_pdf_bbox_to_pixels,
+    sanitize_numeric_tokens,
+)
 
 
 class RobustEvaluationTests(unittest.TestCase):
@@ -34,6 +39,40 @@ class RobustEvaluationTests(unittest.TestCase):
         )
         self.assertEqual(valid, [])
         self.assertEqual(rejected, 2)
+
+    def test_rotated_pdf_bbox_maps_inside_rendered_image(self) -> None:
+        document = fitz.open()
+        page = document.new_page(width=595, height=842)
+        page.insert_text((100, 200), "3814", fontsize=12)
+        bbox = page.get_text("rawdict")["blocks"][0]["lines"][0]["spans"][0]["bbox"]
+        page.set_rotation(90)
+        image = robust_pil_page(page, 300)
+        pixels = rotation_aware_pdf_bbox_to_pixels(bbox, 300)
+        self.assertGreater(pixels[2], pixels[0])
+        self.assertGreater(pixels[3], pixels[1])
+        self.assertGreaterEqual(pixels[0], 0)
+        self.assertGreaterEqual(pixels[1], 0)
+        self.assertLessEqual(pixels[2], image.width)
+        self.assertLessEqual(pixels[3], image.height)
+        # A naive unrotated scaling maps the token to a different quadrant.
+        simple = [float(value) * 300 / 72 for value in bbox]
+        self.assertNotAlmostEqual(pixels[0], simple[0], places=3)
+        self.assertNotAlmostEqual(pixels[1], simple[1], places=3)
+        document.close()
+
+    def test_unrotated_pdf_bbox_remains_simple_dpi_scaling(self) -> None:
+        document = fitz.open()
+        page = document.new_page(width=300, height=200)
+        page.insert_text((40, 70), "109071", fontsize=12)
+        bbox = page.get_text("rawdict")["blocks"][0]["lines"][0]["spans"][0]["bbox"]
+        image = robust_pil_page(page, 300)
+        pixels = rotation_aware_pdf_bbox_to_pixels(bbox, 300)
+        expected = [float(value) * 300 / 72 for value in bbox]
+        for observed, target in zip(pixels, expected, strict=True):
+            self.assertAlmostEqual(observed, target, places=4)
+        self.assertLessEqual(pixels[2], image.width)
+        self.assertLessEqual(pixels[3], image.height)
+        document.close()
 
 
 if __name__ == "__main__":
