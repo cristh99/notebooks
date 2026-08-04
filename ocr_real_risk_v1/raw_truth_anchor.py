@@ -1,16 +1,23 @@
 """Build URL-bound numeric anchors from frozen raw OCDS releases.
 
 The anchor source is independent of the PDF text layer used as visual ground
-truth.  For each public document URL, this module collects canonical numbers
+truth. For each public document URL, this module collects canonical numbers
 from structured metadata in the same OCDS release plus that document's own
 metadata. URLs, source links and date fields are excluded from numeric parsing
 to prevent path digits or concatenated timestamps from acting as truth.
+
+Structured numeric scalars and PDF-formatted amounts share one representation:
+integer values may appear either without decimals or with an equivalent ``.00``;
+non-integer values preserve their exact one- or two-digit fractional part. This
+prevents ``9,158,922.75`` in a PDF from being compared with the incompatible
+integer-only anchor ``9158922``.
 """
 from __future__ import annotations
 
 import math
 import re
 from collections import Counter, defaultdict
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Iterable, Iterator, Mapping, Sequence
 
@@ -23,7 +30,7 @@ from .core import (
 )
 from .truth_anchor import canonical_anchor_number
 
-SCHEMA = "ocr-real-risk-raw-ocds-anchor/1"
+SCHEMA = "ocr-real-risk-raw-ocds-anchor/2"
 RAW_NUMBER_RE = re.compile(
     r"(?<!\d)\d[\d\s.,:/-]{2,}\d(?!\d)|(?<!\d)\d{4,24}(?!\d)"
 )
@@ -51,28 +58,53 @@ _DOCUMENT_FIELDS = (
 )
 
 
+def _validated_anchor(value: str) -> set[str]:
+    anchor = canonical_anchor_number(value)
+    return {anchor} if anchor is not None else set()
+
+
 def _numbers_from_text(value: str) -> set[str]:
     result: set[str] = set()
     for match in RAW_NUMBER_RE.finditer(value or ""):
-        anchor = canonical_anchor_number(match.group(0))
-        if anchor is not None:
-            result.add(anchor)
+        result.update(_validated_anchor(match.group(0)))
+    return result
+
+
+def _decimal_scalar_variants(value: int | float) -> set[str]:
+    """Return exact display-equivalent digit strings for a numeric scalar."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return set()
+    try:
+        decimal_value = Decimal(str(abs(value)))
+    except (InvalidOperation, ValueError):
+        return set()
+    if not decimal_value.is_finite():
+        return set()
+
+    integral = decimal_value.to_integral_value()
+    if decimal_value == integral:
+        integer_text = format(integral, "f").split(".", 1)[0]
+        result = _validated_anchor(integer_text)
+        result.update(_validated_anchor(f"{integer_text}00"))
+        return result
+
+    normalized = decimal_value.normalize()
+    fraction_digits = max(0, -normalized.as_tuple().exponent)
+    if fraction_digits < 1 or fraction_digits > 2:
+        return set()
+    minimal = format(normalized, "f").replace(".", "")
+    result = _validated_anchor(minimal)
+    if fraction_digits == 1:
+        padded = format(decimal_value, ".2f").replace(".", "")
+        result.update(_validated_anchor(padded))
     return result
 
 
 def _numbers_from_scalar(value: object) -> set[str]:
     if isinstance(value, bool) or value is None:
         return set()
-    if isinstance(value, int):
-        anchor = canonical_anchor_number(str(abs(value)))
-        return {anchor} if anchor is not None else set()
-    if isinstance(value, float):
-        if not math.isfinite(value):
-            return set()
-        # Integer parts are useful for structured amounts and quantities;
-        # decimal punctuation itself is outside the measured OCR token scope.
-        anchor = canonical_anchor_number(str(abs(int(value))))
-        return {anchor} if anchor is not None else set()
+    if isinstance(value, (int, float)):
+        return _decimal_scalar_variants(value)
     return _numbers_from_text(str(value))
 
 
@@ -162,7 +194,10 @@ def build_raw_url_anchor_map(
         "document_type_counts": dict(sorted(document_type_counts.items())),
         "excluded_metadata": sorted(_EXCLUDED_KEYS),
         "anchor_length": "4-24 digits; years and repeated-digit junk excluded",
-        "measured_pdf_truth_length": "unchanged at 4-12 digits",
+        "structured_numeric_normalization": (
+            "integers: N and exact N.00; non-integers: exact 1-2 fractional digits"
+        ),
+        "measured_pdf_truth_length": "4-12 canonical digits",
     }
     return result, census
 
