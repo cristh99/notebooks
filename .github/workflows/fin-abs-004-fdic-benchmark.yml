@@ -31,6 +31,12 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Restore immutable FDIC acquisition cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae
+        with:
+          path: .cache/fin_abs_004_fdic
+          key: fdic-panel-v1-${{ runner.os }}-20260803
+
       - name: Install deterministic modeling dependencies
         run: |
           python -m pip install --disable-pip-version-check --no-cache-dir \
@@ -47,7 +53,7 @@ jobs:
 
       - name: Acquire official quarterly panel and construct labels
         run: |
-          rm -rf .cache/fin_abs_004_fdic reports/fin_abs_004_fdic_benchmark
+          rm -rf reports/fin_abs_004_fdic_benchmark
           mkdir -p .cache/fin_abs_004_fdic reports/fin_abs_004_fdic_benchmark/panel
           python -m fin_abs_004_fdic.panel_cli \
             --cache .cache/fin_abs_004_fdic \
