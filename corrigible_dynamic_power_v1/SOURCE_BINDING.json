@@ -1,0 +1,20 @@
+{
+  "schema": "corrigible-dynamic-power/public-source-binding/1",
+  "private_repository": "cristh99/my_first_repository",
+  "private_branch": "agent/corrigible-dynamic-power-v1",
+  "private_head": "6d80296e2e679b8b28fd24d37e793f8d71af3787",
+  "private_pull_request": 100,
+  "private_issue": 99,
+  "private_base": "agent/verified-power-frontier-v1",
+  "scope": "finite changing-preference and corrigibility gates only",
+  "encoded_bundle_sha256": "2eb22fa6da63549233d2da93a060d1a3d3e0265f9471d3a470d44bfdc20c7965",
+  "gzip_bundle_sha256": "7cfd97cb4156f2bb52e736e1fab59d4ae781cdb801e453ff1aef15556c3f84e2",
+  "source_sha256": {
+    "dynamic_power.py": "e281250c02c38ebafda388e5a0f3bfd871a56a2c25403ba41cf707237d261323",
+    "benchmark.py": "7586e9624a1900f3a6ff160782457e6fb0a240e6ca454bcc4b92b7d0ef004f18",
+    "test_dynamic_power.py": "d127905c3d0a401e6426c6ed84acb48751d98c625de6a65e989abd19d81a7fda",
+    "preregistration.json": "70036348230f4455b40814b34b59ef7481b0982ccf587a729ab14bf1c8fb1b81",
+    "README.md": "a842fe1abde22d59f5255006231d525179a3decfcc976cb2caa9b2d944e9d900",
+    "verify_receipt.js": "d24f1e5d930a527e59f960fd874d3067083949105a565d3ceb1fed17aa61e9fe"
+  }
+}
