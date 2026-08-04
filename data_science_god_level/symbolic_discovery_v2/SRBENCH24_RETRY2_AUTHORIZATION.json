@@ -1,0 +1,49 @@
+{
+  "schema": "data-science-god-level/symbolic-v2-srbench24-retry-authorization/2",
+  "prior_runs": [
+    {
+      "run_id": 30947880043,
+      "head_sha": "a307571d750c1a5f414239801b3096c62fd5d221",
+      "artifact_id": 8907856366,
+      "artifact_sha256": "ff2f04be87d94aea260908cf5801ee56586c7cc854ae8293dcd669126b760810",
+      "verdict": "INVALID_RUN",
+      "actual_external_evaluation_count": 0,
+      "failure_stage": "dataset acquisition",
+      "failure_reason": "released pmlb package lacked datasets present at the pinned repository commit"
+    },
+    {
+      "run_id": 30952139226,
+      "head_sha": "e3e8bdfb6284d810fbd9fd18ee4e8e3e23973cfc",
+      "artifact_id": 8909551242,
+      "artifact_sha256": "eb93a19257c7be71b5158d4b8b92d3169504d22499fb54d875dc6f9bb9be6c58",
+      "verdict": "INVALID_RUN",
+      "actual_external_evaluation_count": 0,
+      "failure_stage": "pre-evaluation shape validation",
+      "failure_reason": "the official first-principles suite contains a 14-row task while the generic harness required 40 rows"
+    }
+  ],
+  "candidate": {
+    "path": "data_science_god_level/symbolic_discovery_v2/estimator.py",
+    "sha256": "4e80f120c08581d10497e916a86464062df157d99ec6215ad6f7bfd1b7ea557d",
+    "changed_after_prior_runs": false
+  },
+  "repair": {
+    "scope": "general small-sample protocol only",
+    "minimum_total_rows": 8,
+    "minimum_train_rows": 6,
+    "minimum_test_rows": 3,
+    "candidate_changed": false,
+    "dataset_selection_changed": false,
+    "dataset_bytes_changed": false,
+    "metrics_changed": false,
+    "thresholds_changed": false,
+    "baselines_changed": false,
+    "split_randomization_changed": false,
+    "split_ratio_changed": false
+  },
+  "authorization": {
+    "one_new_workflow_attempt": true,
+    "one_external_evaluation_authorized": true,
+    "post_hoc_candidate_retuning_permitted": false
+  }
+}
