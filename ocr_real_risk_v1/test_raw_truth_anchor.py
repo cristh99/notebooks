@@ -53,16 +53,37 @@ class RawTruthAnchorTests(unittest.TestCase):
         self.assertNotIn("999999", first)
         self.assertEqual(census["urls_with_anchors"], 2)
 
-    def test_date_fields_are_excluded_but_structured_amounts_remain(self) -> None:
+    def test_date_fields_are_excluded_and_decimal_amount_is_exact(self) -> None:
         release = {
             "date": "2025-08-04T12:34:56Z",
             "award": {"value": {"amount": 9158922.75}},
             "description": "Proyecto 108919",
         }
         anchors = release_common_anchors(release)
-        self.assertIn("9158922", anchors)
+        self.assertIn("915892275", anchors)
+        self.assertNotIn("9158922", anchors)
         self.assertIn("108919", anchors)
         self.assertNotIn("20250804123456", anchors)
+
+    def test_integer_amount_supports_plain_and_dot_zero_zero_display(self) -> None:
+        anchors = release_common_anchors(
+            {"award": {"value": {"amount": 1200}}}
+        )
+        self.assertIn("1200", anchors)
+        self.assertIn("120000", anchors)
+
+    def test_one_decimal_amount_supports_minimal_and_padded_display(self) -> None:
+        anchors = release_common_anchors(
+            {"award": {"value": {"amount": 1200.5}}}
+        )
+        self.assertIn("12005", anchors)
+        self.assertIn("120050", anchors)
+
+    def test_more_than_two_fractional_digits_are_out_of_scope(self) -> None:
+        anchors = release_common_anchors(
+            {"award": {"value": {"amount": 1200.555}}}
+        )
+        self.assertNotIn("1200555", anchors)
 
     def test_native_truth_requires_same_url_anchor(self) -> None:
         mapping = {"https://example.test/a.pdf": {"110509"}}
