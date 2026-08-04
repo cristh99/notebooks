@@ -37,6 +37,10 @@ const shaText = value =>
 const shaFile = file =>
   crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 
+function pathKey(root, file) {
+  return path.relative(root, file).split(path.sep).join('/');
+}
+
 function listFiles(root, current = root) {
   const output = [];
   for (const entry of fs.readdirSync(current, {withFileTypes: true})) {
@@ -45,9 +49,11 @@ function listFiles(root, current = root) {
     if (entry.isDirectory()) output.push(...listFiles(root, absolute));
     else if (entry.isFile()) output.push(absolute);
   }
-  return output.sort((left, right) =>
-    path.relative(root, left).localeCompare(path.relative(root, right))
-  );
+  return output.sort((left, right) => {
+    const leftKey = pathKey(root, left);
+    const rightKey = pathKey(root, right);
+    return leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0;
+  });
 }
 
 const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
@@ -92,7 +98,7 @@ if (payload.selection?.sha256 !== SELECTION_SHA) {
 
 const files = listFiles(sourcePath);
 const manifest = files.map(file => ({
-  path: path.relative(sourcePath, file).split(path.sep).join('/'),
+  path: pathKey(sourcePath, file),
   bytes: fs.statSync(file).size,
   sha256: shaFile(file),
 }));
