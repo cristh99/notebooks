@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from typing import Any
 
 from fin_abs_004_fdic import panel as base
@@ -8,32 +9,51 @@ from fin_abs_004_fdic import panel as base
 from .protocol import FETCH_RANGES, WINDOWS
 
 
-def _json_default(value: object) -> object:
+def _json_safe(value: object) -> object:
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    isna = getattr(value, "isna", None)
+    if callable(isna):
+        try:
+            if bool(isna()):
+                return None
+        except (TypeError, ValueError):
+            pass
     isoformat = getattr(value, "isoformat", None)
     if callable(isoformat):
-        return isoformat()
+        try:
+            return isoformat()
+        except (TypeError, ValueError):
+            pass
     item = getattr(value, "item", None)
     if callable(item):
-        return item()
-    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+        scalar = item()
+        if isinstance(scalar, float) and not math.isfinite(scalar):
+            return None
+        return _json_safe(scalar)
+    return value
 
 
 def canonical_with_dates(value: Any) -> str:
-    """Canonical JSON that changes representation, never financial values."""
+    """Canonicalize representation only: timestamps to ISO, missing to null."""
     return json.dumps(
-        value,
+        _json_safe(value),
         ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),
         allow_nan=False,
-        default=_json_default,
     )
 
 
 def main() -> None:
-    # The inherited acquisition and feature engine remains unchanged. Only the
-    # preregistered temporal windows and deterministic date serialization are
-    # rebound before any data are read.
+    # Acquisition, labels, financial values and rows remain unchanged. Only
+    # preregistered windows and deterministic hash serialization are rebound.
     base.WINDOWS = dict(WINDOWS)
     base.FETCH_RANGES = tuple(FETCH_RANGES)
     base.canonical = canonical_with_dates
