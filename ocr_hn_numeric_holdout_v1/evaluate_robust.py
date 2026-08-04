@@ -1,21 +1,29 @@
 """Fail-closed wrapper for real-document OCR evaluation.
 
-Tesseract occasionally emits numeric tokens with zero-area or fully out-of-page
-bounding boxes. Those boxes cannot support a production pixel decision. This
-wrapper filters or clips them before spatial matching, so the evaluator records
-an abstention instead of aborting or falling back to truth geometry for a
-primary decision.
+Two real-document edge cases are handled before evidence scoring:
+
+* Tesseract may emit zero-area, non-finite, or out-of-page numeric boxes;
+* PyMuPDF text coordinates are unrotated while page rendering applies the page
+  rotation, so a raw PDF bbox can otherwise map outside the rendered image.
+
+Invalid OCR boxes are removed and therefore become abstentions. PDF truth boxes
+are transformed by the current page's rotation matrix before they are used for
+spatial matching or diagnostic-only crops. Neither repair creates a primary
+claim or uses ground truth to override Tesseract.
 """
 from __future__ import annotations
 
 import math
 from typing import Any, Mapping, Sequence
 
+import fitz
 from PIL import Image
 
 from . import evaluate as base
 
 _ORIGINAL_TESSERACT_TOKENS = base.tesseract_tokens
+_ORIGINAL_PIL_PAGE = base.pil_page
+_CURRENT_PAGE: fitz.Page | None = None
 
 
 def sanitize_numeric_tokens(
@@ -72,8 +80,36 @@ def robust_tesseract_tokens(image: Image.Image, language: str, psm: int):
     return valid, enriched
 
 
+def robust_pil_page(page: fitz.Page, dpi: int) -> Image.Image:
+    """Record the exact page whose rotation is applied during rendering."""
+    global _CURRENT_PAGE
+    _CURRENT_PAGE = page
+    return _ORIGINAL_PIL_PAGE(page, dpi)
+
+
+def rotation_aware_pdf_bbox_to_pixels(
+    bbox_pdf: Sequence[float], dpi: int
+) -> list[float]:
+    """Map unrotated PDF text coordinates into the rendered page image."""
+    rect = fitz.Rect(*(float(value) for value in bbox_pdf))
+    if rect.is_empty or rect.is_infinite:
+        raise ValueError("invalid PDF truth bbox")
+    page = _CURRENT_PAGE
+    if page is not None:
+        rect = rect * page.rotation_matrix
+    scale = dpi / 72.0
+    return [
+        float(rect.x0) * scale,
+        float(rect.y0) * scale,
+        float(rect.x1) * scale,
+        float(rect.y1) * scale,
+    ]
+
+
 def main() -> int:
     base.tesseract_tokens = robust_tesseract_tokens
+    base.pil_page = robust_pil_page
+    base.pdf_bbox_to_pixels = rotation_aware_pdf_bbox_to_pixels
     return int(base.main())
 
 
