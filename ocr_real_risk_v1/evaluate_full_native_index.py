@@ -1,11 +1,8 @@
-"""Run the dual-source holdout after indexing every native PDF page.
+"""Memory-bounded all-page native-index evaluator.
 
-The existing evaluator remains responsible for acquisition, image exclusion,
-rasterization, crop quality, Tesseract, the frozen verifier, risk bounds and
-artifacts. This wrapper changes only truth preparation: when ``pdf_page_count``
-is called, it indexes the entire native text layer, seals one URL-anchored
-location by SHA-256, and exposes only that page and location to the evaluator.
-Documents without an anchored location never reach rasterization or OCR.
+This variant is behaviorally identical to ``evaluate_full_native_index`` but
+retains only the selected native page after indexing each PDF. It is prepared
+as a fallback and does not run automatically.
 """
 from __future__ import annotations
 
@@ -16,10 +13,7 @@ from typing import Any, Sequence
 
 from . import evaluate as base
 from .core import Candidate, canonical_json, normalized_url, sha256_bytes
-from .evaluate_dual_anchor import (
-    canonical_dual_truth,
-    prepare_process_disjoint_candidates,
-)
+from .evaluate_dual_anchor import canonical_dual_truth, prepare_process_disjoint_candidates
 from .full_native_index import (
     IndexedPage,
     isolate_selected_location,
@@ -40,13 +34,8 @@ def execute_full_native_index(
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     prepared, document_scope = prepare_process_disjoint_candidates(candidates)
     anchor_map, anchor_census = build_raw_url_anchor_map(source_paths)
-    anchor_payload = {
-        url: sorted(values) for url, values in sorted(anchor_map.items())
-    }
-    anchor_map_sha256 = sha256_bytes(
-        canonical_json(anchor_payload).encode("utf-8")
-    )
-
+    anchor_payload = {url: sorted(values) for url, values in sorted(anchor_map.items())}
+    anchor_map_sha256 = sha256_bytes(canonical_json(anchor_payload).encode("utf-8"))
     candidate_by_id = {candidate.key[:16]: candidate for candidate in prepared}
     if len(candidate_by_id) != len(prepared):
         raise RuntimeError("document-id collision in prepared candidate set")
@@ -70,14 +59,7 @@ def execute_full_native_index(
         started = time.perf_counter()
         try:
             run(
-                [
-                    "pdftotext",
-                    "-bbox-layout",
-                    "-enc",
-                    "UTF-8",
-                    str(pdf_path),
-                    str(output),
-                ],
+                ["pdftotext", "-bbox-layout", "-enc", "UTF-8", str(pdf_path), str(output)],
                 timeout=180,
             )
             pages = parse_bbox_document(output)
@@ -87,6 +69,14 @@ def execute_full_native_index(
                 set(anchor_map.get(normalized_url(candidate.url), set())),
                 canonical_dual_truth,
             )
+            selected_page = None
+            if selected:
+                selected_page = next(
+                    (page for page in pages if page.page_number == int(selected["page_number"])),
+                    None,
+                )
+                if selected_page is None:
+                    raise RuntimeError("selected page missing from native index")
             state = {
                 "status": "SELECTED" if selected else "NO_DUAL_ANCHORED_LOCATION",
                 "reported_page_count": page_count,
@@ -94,14 +84,15 @@ def execute_full_native_index(
                 "selected": selected,
                 "metrics": metrics,
                 "index_seconds": time.perf_counter() - started,
-                "pages": {page.page_number: page for page in pages},
+                "selected_page": selected_page,
             }
             totals.update(metrics)
             totals["documents_indexed"] += 1
-            if selected:
-                totals["documents_with_index_candidate"] += 1
-            else:
-                totals["documents_without_index_candidate"] += 1
+            totals[
+                "documents_with_index_candidate"
+                if selected
+                else "documents_without_index_candidate"
+            ] += 1
             if len(pages) != page_count:
                 totals["page_count_mismatches"] += 1
         except Exception as exc:  # noqa: BLE001
@@ -113,37 +104,29 @@ def execute_full_native_index(
                 "metrics": {},
                 "index_seconds": time.perf_counter() - started,
                 "error": f"{type(exc).__name__}: {exc}",
-                "pages": {},
+                "selected_page": None,
             }
             totals["native_index_failures"] += 1
         states[document_id] = state
         return page_count
 
     def indexed_selected_pages(_page_count: int) -> tuple[int, ...]:
-        document_id = current_document_id[0]
-        state = states.get(str(document_id), {})
+        state = states.get(str(current_document_id[0]), {})
         selected = state.get("selected")
-        if not selected:
-            return ()
-        return (int(selected["page_number"]),)
+        return (int(selected["page_number"]),) if selected else ()
 
     def indexed_extract_word_boxes(
         _pdf_path: Path,
         page_number: int,
         work_dir: Path,
     ) -> tuple[float, float, list[dict[str, object]]]:
-        document_id = work_dir.name
-        state = states.get(document_id)
+        state = states.get(work_dir.name)
         if state is None or not state.get("selected"):
             raise RuntimeError("native-index state has no selected location")
-        page: IndexedPage | None = state["pages"].get(page_number)
-        if page is None:
+        page: IndexedPage | None = state.get("selected_page")
+        if page is None or page.page_number != page_number:
             raise RuntimeError("selected native-index page is unavailable")
-        words = isolate_selected_location(
-            page,
-            state["selected"],
-            canonical_dual_truth,
-        )
+        words = isolate_selected_location(page, state["selected"], canonical_dual_truth)
         return page.width_pt, page.height_pt, words
 
     base.pdf_page_count = indexed_page_count
@@ -151,13 +134,7 @@ def execute_full_native_index(
     base.extract_word_boxes = indexed_extract_word_boxes
     base.canonical_truth = canonical_dual_truth
     try:
-        report = base.execute(
-            prepared,
-            output_dir,
-            max_documents,
-            target_tokens,
-            stage,
-        )
+        report = base.execute(prepared, output_dir, max_documents, target_tokens, stage)
     finally:
         base.pdf_page_count = original_page_count
         base.selected_pages = original_selected_pages
@@ -166,27 +143,19 @@ def execute_full_native_index(
 
     for document in report["documents"]:
         state = states.get(str(document["document_id"]))
-        if state is None:
-            continue
-        document["native_index"] = {
-            key: value
-            for key, value in state.items()
-            if key != "pages"
-        }
+        if state is not None:
+            document["native_index"] = {
+                key: value for key, value in state.items() if key != "selected_page"
+            }
     for observation in report["observations"]:
-        state = states.get(str(observation["document_id"]), {})
-        selected = state.get("selected") or {}
+        selected = states.get(str(observation["document_id"]), {}).get("selected") or {}
         observation["native_index_selection_rank_sha256"] = selected.get(
             "selection_rank_sha256"
         )
 
-    index_seconds = sum(
-        float(state.get("index_seconds") or 0.0) for state in states.values()
-    )
+    index_seconds = sum(float(state.get("index_seconds") or 0.0) for state in states.values())
     page_reports = [
-        page
-        for document in report["documents"]
-        for page in document.get("pages", [])
+        page for document in report["documents"] for page in document.get("pages", [])
     ]
     rendered_pages = sum("image_size" in page for page in page_reports)
     report["protocol"]["ground_truth"] = (
@@ -207,6 +176,7 @@ def execute_full_native_index(
         "pages_rendered_before_selection": 0,
         "pages_ocrd_before_selection": 0,
         "render_after_selection": "selected page only",
+        "retained_native_pages_per_document": 1,
         "uses_ocr_for_selection": False,
     }
     report["protocol"]["document_scope"] = document_scope
@@ -214,9 +184,7 @@ def execute_full_native_index(
         **dict(sorted(totals.items())),
         "index_seconds_total": index_seconds,
         "index_seconds_mean_per_indexed_document": (
-            index_seconds / totals["documents_indexed"]
-            if totals["documents_indexed"]
-            else None
+            index_seconds / totals["documents_indexed"] if totals["documents_indexed"] else None
         ),
         "selected_page_reports": len(page_reports),
         "selected_pages_rendered": rendered_pages,
@@ -236,7 +204,5 @@ def execute_full_native_index(
     }
     report["anchor_census"] = anchor_census
     report.pop("stable_payload_sha256", None)
-    report["stable_payload_sha256"] = sha256_bytes(
-        canonical_json(report).encode("utf-8")
-    )
+    report["stable_payload_sha256"] = sha256_bytes(canonical_json(report).encode("utf-8"))
     return report, anchor_census
