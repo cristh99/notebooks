@@ -1,0 +1,142 @@
+name: LP-KAL benchmark v1 public verification
+
+on:
+  push:
+    branches: [agent/lp-kal-benchmark-v1]
+  pull_request:
+    paths:
+      - 'lp_kal_benchmark_v1/**'
+      - '.github/workflows/lp-kal-benchmark-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Verify private-source binding and frozen preregistration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('lp_kal_benchmark_v1')
+          binding = json.loads((root / 'SOURCE_BINDING.json').read_text())
+          prereg = json.loads((root / 'preregistration.json').read_text())
+          assert binding['schema'] == 'logic-power-knowledge-action-loop/benchmark-source-binding/1'
+          assert binding['private_repository'] == 'cristh99/my_first_repository'
+          assert binding['private_branch'] == 'agent/lp-kal-benchmark-v1'
+          assert binding['private_head'] == 'fbcbf50bae6f29f594d8366b9db0d70fbdd36996'
+          assert binding['private_pull_request'] == 93
+          assert binding['private_issue'] == 92
+          assert prereg['schema'] == 'logic-power-knowledge-action-loop/preregistration/1'
+          assert prereg['status'] == 'FROZEN_BEFORE_PUBLIC_CI'
+          assert len(prereg['hypotheses']) == 6
+          assert prereg['acceptance_gates']['mutation_score'] == 1.0
+          PY
+          sha256sum \
+            lp_kal_benchmark_v1/lp_kal_benchmark.py \
+            lp_kal_benchmark_v1/preregistration.json \
+            lp_kal_benchmark_v1/SOURCE_BINDING.json
+
+      - name: Execute benchmark and tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd lp_kal_benchmark_v1
+          python lp_kal_benchmark.py
+          python -m unittest discover -s tests -v 2>&1 | tee reports/unittest.log
+
+      - name: Enforce preregistered acceptance gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('lp_kal_benchmark_v1')
+          summary = json.loads((root / 'reports/benchmark_summary.json').read_text())
+          receipt = json.loads((root / 'reports/benchmark_receipt.json').read_text())
+          assert receipt['status'] == 'PASS'
+          assert receipt['scenario_count'] == 96
+          assert receipt['full_policy_pass'] is True
+          assert receipt['mutation_score'] == 1.0
+          assert receipt['monolithic_behavioral_equivalence'] is True
+          assert receipt['negative_control_equivalence'] is True
+          full = next(e for e in summary['evaluations'] if e['policy'] == 'lp_kal_full')
+          assert full['exact_match_rate'] == 1.0
+          assert full['positive_completion_rate'] == 1.0
+          assert full['total_violations'] == 0
+          assert len(summary['targeted_mutants']) == 13
+          assert all(v['killed_all_domains'] for v in summary['targeted_mutants'].values())
+          assert all(v['killed_domain_count'] == 6 for v in summary['targeted_mutants'].values())
+          PY
+
+      - name: Build public benchmark receipt
+        shell: bash
+        env:
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root = Path('lp_kal_benchmark_v1')
+          reports = root / 'reports'
+          def sha(path):
+              return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+          local = json.loads((reports / 'benchmark_receipt.json').read_text())
+          receipt = {
+              'schema': 'logic-power-knowledge-action-loop/public-benchmark-receipt/1',
+              'status': 'PASS',
+              'private_repository': 'cristh99/my_first_repository',
+              'private_head': 'fbcbf50bae6f29f594d8366b9db0d70fbdd36996',
+              'private_pull_request': 93,
+              'private_issue': 92,
+              'public_repository': 'cristh99/notebooks',
+              'public_head': os.environ['PUBLIC_HEAD_SHA'],
+              'event_sha': os.environ['EVENT_SHA'],
+              'scenario_count': local['scenario_count'],
+              'domain_count': 6,
+              'archetype_count': 16,
+              'targeted_mutant_count': 13,
+              'mutation_score': local['mutation_score'],
+              'full_policy_pass': local['full_policy_pass'],
+              'monolithic_behavioral_equivalence': local['monolithic_behavioral_equivalence'],
+              'negative_control_equivalence': local['negative_control_equivalence'],
+              'engine_sha256': sha(root / 'lp_kal_benchmark.py'),
+              'preregistration_sha256': sha(root / 'preregistration.json'),
+              'binding_sha256': sha(root / 'SOURCE_BINDING.json'),
+              'manifest_sha256': sha(reports / 'scenario_manifest.json'),
+              'summary_sha256': sha(reports / 'benchmark_summary.json'),
+              'matrix_sha256': sha(reports / 'benchmark_matrix.csv'),
+              'local_receipt_sha256': sha(reports / 'benchmark_receipt.json'),
+          }
+          path = reports / 'lp-kal-public-benchmark-receipt-v1.json'
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          (reports / 'lp-kal-public-benchmark-receipt-v1.sha256').write_text(
+              f'{digest}  lp-kal-public-benchmark-receipt-v1.json\n'
+          )
+          print(path.read_text())
+          print(digest)
+          PY
+
+      - name: Upload benchmark evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lp-kal-benchmark-v1
+          path: |
+            lp_kal_benchmark_v1/reports/
+            lp_kal_benchmark_v1/README.md
+            lp_kal_benchmark_v1/preregistration.json
+            lp_kal_benchmark_v1/SOURCE_BINDING.json
+            lp_kal_benchmark_v1/lp_kal_benchmark.py
+            lp_kal_benchmark_v1/tests/test_benchmark.py
