@@ -86,7 +86,7 @@ def main() -> None:
         "selected_experiment": selected,
         "selection_reason": "the untouched complete 40-task medium suite is the least-cost admissible experiment after the easy suite became protocol-exposed without producing metrics",
         "rejected_experiments": {
-            "medium_grammar_compatible_subset": "post-selection compatibity filtering would not separate a closed grammar specialist",
+            "medium_grammar_compatible_subset": "post-selection compatibility filtering would not separate a closed grammar specialist",
             "gpu_sota_medium_comparison": "separating but dominated by paid compute before CPU transfer is established",
             "retune_after_medium_truth": "post-hoc and inadmissible",
         },
