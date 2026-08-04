@@ -1,0 +1,170 @@
+name: Data Science God-Level — repaired one-shot SRBench-24 symbolic V2 gate
+
+on:
+  push:
+    branches:
+      - agent/data-science-god-level-symbolic-v2-srbench
+    paths:
+      - '.github/workflows/data-science-god-level-symbolic-v2-srbench24-v2.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  srbench24-symbolic-v2-repaired:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove workflow-only activation after acquisition repair freeze
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_EVENT_NAME}" = 'push'
+          test "${GITHUB_RUN_ATTEMPT}" = '1'
+          test "$(git rev-parse HEAD^)" = 'f5090ed2940b1398ae7a75567e9c2feea7fc85b5'
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/data-science-god-level-symbolic-v2-srbench24-v2.yml'
+          echo "SRBENCH24_ACTIVATION_PARENT_SHA=$(git rev-parse HEAD^)" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install pinned CPU environment
+        run: |
+          mkdir -p srbench24-data srbench24-cache srbench24-logs _logic_power_v10 /tmp/symbolic-v2-source
+          python -m pip install --disable-pip-version-check \
+            'numpy==1.26.4' 'scipy==1.14.1' 'pandas==2.2.3' \
+            'scikit-learn==1.5.2'
+          python -m pip freeze | sort > srbench24-logs/pip-freeze.txt
+
+      - name: Reconstruct and verify the exact frozen V2 candidate and retry contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          root='data_science_god_level/symbolic_discovery_v2'
+          echo 'b2a2f9604165f60b869d41c8913442f4d1f52598f746d213247970fa8380bd06  data_science_god_level/symbolic_discovery_v2/symbolic_v2_code.tar.gz.b64' | sha256sum -c -
+          base64 -d "$root/symbolic_v2_code.tar.gz.b64" > /tmp/symbolic-v2-source.tar.gz
+          echo '103e282beb5a59898b4be34334e8449e572271b20063029b47dda1267e72bd0f  /tmp/symbolic-v2-source.tar.gz' | sha256sum -c -
+          tar xzf /tmp/symbolic-v2-source.tar.gz -C /tmp/symbolic-v2-source
+          candidate="$(find /tmp/symbolic-v2-source -type f -name estimator.py -print -quit)"
+          test -n "$candidate"
+          source_dir="$(dirname "$candidate")"
+          cp -f "$source_dir"/* "$root"/
+          echo '4e80f120c08581d10497e916a86464062df157d99ec6215ad6f7bfd1b7ea557d  data_science_god_level/symbolic_discovery_v2/estimator.py' | sha256sum -c -
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('data_science_god_level/symbolic_discovery_v2/SRBENCH24_RETRY_AUTHORIZATION.json')
+          r = json.loads(p.read_text())
+          assert r['prior_run']['actual_external_evaluation_count'] == 0
+          assert r['candidate']['changed_after_prior_run'] is False
+          assert r['candidate']['sha256'] == '4e80f120c08581d10497e916a86464062df157d99ec6215ad6f7bfd1b7ea557d'
+          assert r['repair']['candidate_changed'] is False
+          assert r['repair']['dataset_selection_changed'] is False
+          assert r['authorization']['one_external_evaluation_authorized'] is True
+          PY
+          python -m py_compile \
+            "$root/estimator.py" \
+            "$root/srbench24_runner.py" \
+            "$root/srbench24_data.py" \
+            "$root/srbench24_plan.py" \
+            "$root/test_srbench24.py" \
+            "$root/srbench24_ci.py"
+          python "$root/srbench24_ci.py" preflight \
+            --code-root "$root" --logs-dir srbench24-logs
+
+      - name: Replay original Logic Power v10 and pre-data protocol tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat logic_power_v10_capsule/parts/part_00.b64 \
+              logic_power_v10_capsule/parts/part_01.b64 \
+              logic_power_v10_capsule/parts/part_02.b64 \
+              logic_power_v10_capsule/parts/part_03.b64 \
+              logic_power_v10_capsule/parts/part_04.b64 \
+              logic_power_v10_capsule/parts/part_05_00.b64 \
+              logic_power_v10_capsule/parts/part_05_01.b64 \
+              logic_power_v10_capsule/parts/part_05_02.b64 > /tmp/lp.b64
+          echo '3548f31fcaa9696eabb063023c905fbb04a2b3db73c96df9f9ee8bc8e0c64fc1  /tmp/lp.b64' | sha256sum -c -
+          base64 -d /tmp/lp.b64 > /tmp/lp.tar.gz
+          echo 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31  /tmp/lp.tar.gz' | sha256sum -c -
+          tar xzf /tmp/lp.tar.gz -C _logic_power_v10
+          (cd _logic_power_v10 && sha256sum -c SOURCE_SHA256SUMS && test "$(cat PRIVATE_HEAD_SHA.txt)" = 'ba10d0edc7eb20d499d0481fda2537e782b6efb2')
+          root='data_science_god_level/symbolic_discovery_v2'
+          (cd "$root" && PYTHONPATH="${GITHUB_WORKSPACE}/_logic_power_v10" python srbench24_plan.py) \
+            2>&1 | tee srbench24-logs/logic-plan-output.txt
+          (cd "$root" && PYTHONPATH="${GITHUB_WORKSPACE}/$root" python -m unittest -v test_estimator.py test_srbench24.py) \
+            2>&1 | tee srbench24-logs/unit-tests.txt
+
+      - name: Download and seal all 24 datasets from the pinned PMLB repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_RUN_ATTEMPT}" = '1'
+          root='data_science_god_level/symbolic_discovery_v2'
+          PYTHONPATH="${GITHUB_WORKSPACE}/$root" python "$root/srbench24_data.py" \
+            --data-root srbench24-data \
+            --cache-root srbench24-cache \
+            --manifest srbench24-logs/data-manifest.json \
+            2>&1 | tee srbench24-logs/data-download-output.txt
+          test "$(find srbench24-data -maxdepth 1 -type f -name '*.npz' | wc -l)" -eq 24
+          test "$(find srbench24-cache -maxdepth 1 -type f -name '*.tsv.gz' | wc -l)" -eq 24
+
+      - name: Run the first and only actual external evaluation
+        env:
+          OMP_NUM_THREADS: '4'
+          MKL_NUM_THREADS: '4'
+          OPENBLAS_NUM_THREADS: '4'
+        shell: bash
+        run: |
+          set +e
+          test "${GITHUB_RUN_ATTEMPT}" = '1' || exit 99
+          root='data_science_god_level/symbolic_discovery_v2'
+          PYTHONPATH="${GITHUB_WORKSPACE}/$root" python "$root/srbench24_runner.py" \
+            --data-root srbench24-data \
+            --output srbench24-logs/srbench24-report.json \
+            2>&1 | tee srbench24-logs/runner-output.txt
+          status=${PIPESTATUS[0]}
+          echo "$status" > srbench24-logs/runner-exit-status.txt
+          exit 0
+
+      - name: Finalize immutable custody and verdict
+        if: always()
+        env:
+          SRBENCH24_ACTIVATION_PARENT_SHA: ${{ env.SRBENCH24_ACTIVATION_PARENT_SHA }}
+        run: |
+          root='data_science_god_level/symbolic_discovery_v2'
+          python "$root/srbench24_ci.py" finalize \
+            --code-root "$root" --logs-dir srbench24-logs
+
+      - name: Upload complete immutable evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-god-level-symbolic-v2-srbench24-v2
+          retention-days: 90
+          path: |
+            data_science_god_level/symbolic_discovery_v2/SOURCE_MANIFEST.json
+            data_science_god_level/symbolic_discovery_v2/SRBENCH24_MANIFEST.json
+            data_science_god_level/symbolic_discovery_v2/SRBENCH24_RETRY_AUTHORIZATION.json
+            data_science_god_level/symbolic_discovery_v2/symbolic_v2_code.tar.gz.b64
+            data_science_god_level/symbolic_discovery_v2/estimator.py
+            data_science_god_level/symbolic_discovery_v2/srbench24_runner.py
+            data_science_god_level/symbolic_discovery_v2/srbench24_data.py
+            data_science_god_level/symbolic_discovery_v2/srbench24_plan.py
+            data_science_god_level/symbolic_discovery_v2/srbench24-plan-receipt.json
+            data_science_god_level/symbolic_discovery_v2/test_srbench24.py
+            data_science_god_level/symbolic_discovery_v2/srbench24_ci.py
+            srbench24-logs/**
+
+      - name: Enforce the repaired one-shot external verdict
+        if: always()
+        run: |
+          root='data_science_god_level/symbolic_discovery_v2'
+          python "$root/srbench24_ci.py" enforce \
+            --code-root "$root" --logs-dir srbench24-logs
