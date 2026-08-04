@@ -1,0 +1,54 @@
+{
+  "schema": "data-science-god-level/symbolic-v2-srbench24-retry-authorization/3",
+  "prior_runs": [
+    {
+      "run_id": 30947880043,
+      "artifact_id": 8907856366,
+      "artifact_sha256": "ff2f04be87d94aea260908cf5801ee56586c7cc854ae8293dcd669126b760810",
+      "actual_external_evaluation_count": 0,
+      "failure_stage": "dataset acquisition"
+    },
+    {
+      "run_id": 30952139226,
+      "artifact_id": 8909551242,
+      "artifact_sha256": "eb93a19257c7be71b5158d4b8b92d3169504d22499fb54d875dc6f9bb9be6c58",
+      "actual_external_evaluation_count": 0,
+      "failure_stage": "pre-evaluation shape validation at 14 rows"
+    },
+    {
+      "run_id": 30952854772,
+      "artifact_id": 8909832349,
+      "artifact_sha256": "12a97ea56b3e8080d29441f2ab7d71b524a6d5b0e0ae5beeb93391ad9473c95a",
+      "actual_external_evaluation_count": 0,
+      "failure_stage": "pre-evaluation shape validation at 6 rows"
+    }
+  ],
+  "candidate": {
+    "path": "data_science_god_level/symbolic_discovery_v2/estimator.py",
+    "sha256": "4e80f120c08581d10497e916a86464062df157d99ec6215ad6f7bfd1b7ea557d",
+    "changed_after_prior_runs": false
+  },
+  "repair": {
+    "scope": "align split protocol to pinned SRBench 2025 source",
+    "source_repository": "cavalab/srbench",
+    "source_commit": "dc3f6daa93bf10955df8775256a6f8644f38fd93",
+    "source_path": "experiment/evaluate_model.py",
+    "train_fraction": 0.75,
+    "test_fraction": 0.25,
+    "minimum_total_rows": 6,
+    "minimum_train_rows": 4,
+    "minimum_test_rows": 2,
+    "candidate_changed": false,
+    "dataset_selection_changed": false,
+    "dataset_bytes_changed": false,
+    "metrics_changed": false,
+    "thresholds_changed": false,
+    "baselines_changed": false,
+    "random_seed_function_changed": false
+  },
+  "authorization": {
+    "one_new_workflow_attempt": true,
+    "one_external_evaluation_authorized": true,
+    "post_hoc_candidate_retuning_permitted": false
+  }
+}
