@@ -1,0 +1,246 @@
+"""Evaluate a sealed Honduran numeric holdout with selective pixel verification."""
+from __future__ import annotations
+
+import argparse
+import io
+import json
+import math
+import os
+import time
+from collections import defaultdict
+from pathlib import Path
+from typing import Any, Mapping
+
+import fitz
+import numpy as np
+import pytesseract
+import requests
+from PIL import Image, ImageEnhance, ImageFilter, ImageOps
+from pytesseract import Output
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+from .core import (
+    SCHEMA_REPORT, absolute_risk_gate, canonical_digits, canonical_json,
+    match_ocr_claim, one_digit_counterfactual, risk_gate, sha256_bytes,
+    verify_manifest_hash,
+)
+from .pixel_digit_alignment import AlignmentStatus, PixelDigitAligner
+
+SUPPORTED_TIERS = ("native_300", "scan_stress_v1")
+
+
+def session():
+    client = requests.Session()
+    retry = Retry(total=4,connect=4,read=4,status=4,backoff_factor=.7,
+                  status_forcelist=(429,500,502,503,504),allowed_methods=frozenset({"GET"}),
+                  respect_retry_after_header=True)
+    adapter=HTTPAdapter(max_retries=retry,pool_connections=4,pool_maxsize=4)
+    client.mount("https://",adapter); client.mount("http://",adapter)
+    client.headers.update({"User-Agent":"OCR-HN-Numeric-Holdout/2.0 evaluation zero-cost"})
+    return client
+
+
+def fetch_bound_pdf(client,document,timeout,pdf_cache):
+    expected=str(document["source_sha256"])
+    filename=str(document.get("cache_filename") or f"{expected}.pdf")
+    if pdf_cache is not None and (pdf_cache/filename).exists():
+        data=(pdf_cache/filename).read_bytes()
+    else:
+        response=client.get(str(document["url"]),timeout=timeout); response.raise_for_status(); data=response.content
+    observed=sha256_bytes(data)
+    if observed!=expected: raise RuntimeError(f"source hash mismatch: {observed} != {expected}")
+    return data
+
+
+def pil_page(page,dpi):
+    scale=dpi/72.0
+    pix=page.get_pixmap(matrix=fitz.Matrix(scale,scale),alpha=False,colorspace=fitz.csRGB)
+    return Image.frombytes("RGB",(pix.width,pix.height),pix.samples)
+
+
+def apply_page_tier(image,tier):
+    if tier=="native_300": return image.convert("RGB")
+    if tier!="scan_stress_v1": raise ValueError(f"unsupported image tier: {tier}")
+    size=image.size; degraded=ImageOps.grayscale(image).resize((max(1,round(size[0]*.55)),max(1,round(size[1]*.55))),Image.Resampling.LANCZOS)
+    degraded=degraded.filter(ImageFilter.GaussianBlur(.45))
+    degraded=ImageEnhance.Contrast(degraded).enhance(.88)
+    degraded=ImageEnhance.Brightness(degraded).enhance(.98)
+    buffer=io.BytesIO(); degraded.save(buffer,format="JPEG",quality=45,optimize=False,progressive=False); buffer.seek(0)
+    with Image.open(buffer) as opened: decoded=opened.convert("L")
+    return decoded.resize(size,Image.Resampling.BICUBIC).convert("RGB")
+
+
+def tesseract_tokens(image,language,psm):
+    os.environ["OMP_THREAD_LIMIT"]="1"; started=time.perf_counter()
+    data=pytesseract.image_to_data(image,lang=language,config=f"--oem 1 --psm {psm}",output_type=Output.DICT)
+    elapsed=time.perf_counter()-started; tokens=[]
+    for i,text in enumerate(data.get("text") or []):
+        digits=canonical_digits(str(text))
+        if not digits: continue
+        x,y,w,h=(int(data[key][i]) for key in ("left","top","width","height"))
+        try: confidence=float(data["conf"][i])
+        except Exception: confidence=-1.0
+        tokens.append({"text":str(text),"digits":digits,"bbox":[x,y,x+w,y+h],"confidence":confidence})
+    return tokens,{"wall_seconds":elapsed,"tokens":len(tokens)}
+
+
+def crop_from_bbox(image,bbox_pdf,dpi,margin=2):
+    scale=dpi/72.0; x0,y0,x1,y1=[float(v)*scale for v in bbox_pdf]
+    box=[max(0,int(np.floor(x0))-margin),max(0,int(np.floor(y0))-margin),min(image.width,int(np.ceil(x1))+margin),min(image.height,int(np.ceil(y1))+margin)]
+    if box[2]<=box[0] or box[3]<=box[1]: raise ValueError("empty crop")
+    return image.crop(tuple(box)),box
+
+
+def png_bytes(image):
+    buffer=io.BytesIO(); image.save(buffer,format="PNG",optimize=False); return buffer.getvalue()
+
+
+def eligibility(truth,matched):
+    if matched is None: return "",False,"NO_SPATIAL_MATCH"
+    claim=canonical_digits(str(matched.get("text") or ""))
+    if not claim: return "",False,"EMPTY_CLAIM"
+    if len(claim)!=len(truth): return claim,False,"LENGTH_MISMATCH_OUTSIDE_SUBSTITUTION_SCOPE"
+    if float((matched.get("match") or {}).get("truth_coverage") or 0)<.50: return claim,False,"LOW_SPATIAL_COVERAGE"
+    return claim,True,"ELIGIBLE_EQUAL_LENGTH_SPATIAL_CLAIM"
+
+
+def gate_rows(rows,factor,alpha,minimum_accepted,minimum_coverage):
+    eligible=[r for r in rows if r["tesseract"]["eligible"]]
+    accepted=[r for r in eligible if r["verifier"]["accept"]]
+    return risk_gate(
+        baseline_false=sum(not r["tesseract"]["claim_correct"] for r in eligible),baseline_total=len(eligible),
+        candidate_false=sum(r["verifier"]["false_accept"] for r in accepted),candidate_total=len(accepted),
+        eligible_total=max(len(eligible),1),factor=factor,alpha=alpha,
+        minimum_accepted=minimum_accepted,minimum_coverage=minimum_coverage,
+    )
+
+
+def evaluate_manifest(manifest:Mapping[str,Any],*,dpi,language,psm,tier,pdf_timeout,pdf_cache,evidence_dir,
+                      minimum_accepted,minimum_coverage,factor,alpha,minimum_institution_fold_pass_fraction,
+                      counterfactual_maximum_risk,counterfactual_minimum_total):
+    if not verify_manifest_hash(manifest): raise RuntimeError("manifest hash verification failed")
+    if not manifest.get("summary",{}).get("complete"): raise RuntimeError("manifest is incomplete")
+    if tier not in SUPPORTED_TIERS: raise ValueError(tier)
+    client=session(); evidence_dir.mkdir(parents=True,exist_ok=True)
+    started=time.perf_counter(); aligner=PixelDigitAligner(); _=aligner._bank; aligner_init=time.perf_counter()-started
+    crops_by_doc=defaultdict(list)
+    for crop in manifest["crops"]: crops_by_doc[int(crop["document_index"])].append(crop)
+    observations=[]; page_runtimes=[]
+    for index,document in enumerate(manifest["documents"]):
+        selected=crops_by_doc[index]
+        if len(selected)!=1: raise RuntimeError("exactly one crop per OCID required")
+        spec=selected[0]; data=fetch_bound_pdf(client,document,pdf_timeout,pdf_cache); pdf=fitz.open(stream=data,filetype="pdf")
+        try:
+            page_index=int(spec["page_index"]); image=apply_page_tier(pil_page(pdf[page_index],dpi),tier)
+            tokens,runtime=tesseract_tokens(image,language,psm)
+            page_runtimes.append({"document_index":index,"unit_id":spec["unit_id"],"page_index":page_index,**runtime})
+            crop_image,crop_box=crop_from_bbox(image,spec["bbox_pdf"],dpi); crop_data=png_bytes(crop_image)
+            crop_path=evidence_dir/f"{spec['crop_id']}.png"; crop_path.write_bytes(crop_data)
+            truth_bbox=[float(v)*dpi/72.0 for v in spec["bbox_pdf"]]; matched=match_ocr_claim(truth_bbox,tokens)
+            claim,eligible,reason=eligibility(str(spec["truth"]),matched); correct=eligible and claim==spec["truth"]
+            t0=time.perf_counter()
+            if eligible:
+                decision=aligner.align(crop_image,claim); status=decision.status.value; prediction=decision.predicted; details=decision.to_data(include_positions=False)
+            else:
+                status=AlignmentStatus.INDETERMINATE.value; prediction=""; details={"status":status,"reason":reason}
+            verifier_seconds=time.perf_counter()-t0
+            counter=one_digit_counterfactual(str(spec["truth"]),str(spec["crop_id"])); t0=time.perf_counter(); cdecision=aligner.align(crop_image,counter); counter_seconds=time.perf_counter()-t0
+            observations.append({
+                "crop_id":spec["crop_id"],"unit_id":spec["unit_id"],"document_index":index,
+                "institution":spec["institution"],"ocid":spec["ocid"],"page_index":page_index,
+                "truth":spec["truth"],"bbox_pdf":spec["bbox_pdf"],"bbox_pixels":crop_box,
+                "image_tier":tier,"crop_file":f"crops/{crop_path.name}","crop_png_sha256":sha256_bytes(crop_data),
+                "tesseract":{"claim":claim,"eligible":eligible,"eligibility_reason":reason,"claim_correct":correct,"matched":matched},
+                "verifier":{"status":status,"prediction":prediction,"accept":eligible and status=="ALIGNED",
+                            "correct_accept":eligible and status=="ALIGNED" and correct,
+                            "false_accept":eligible and status=="ALIGNED" and not correct,
+                            "runtime_seconds":verifier_seconds,"details":details},
+                "counterfactual":{"claim":counter,"status":cdecision.status.value,"prediction":cdecision.predicted,
+                                  "false_accept":cdecision.status==AlignmentStatus.ALIGNED,"runtime_seconds":counter_seconds},
+            })
+        finally: pdf.close()
+        print(json.dumps({"document":index+1,"total_documents":len(manifest["documents"]),"observations":len(observations),"tier":tier},ensure_ascii=False),flush=True)
+    eligible=[r for r in observations if r["tesseract"]["eligible"]]; accepted=[r for r in eligible if r["verifier"]["accept"]]
+    main_gate=gate_rows(observations,factor,alpha,minimum_accepted,minimum_coverage)
+    institutions=sorted({str(r["institution"]) for r in observations}); folds=[]
+    for institution in institutions:
+        subset=[r for r in observations if r["institution"]!=institution]
+        fold_eligible=sum(r["tesseract"]["eligible"] for r in subset)
+        scaled=max(1,math.floor(minimum_accepted*(fold_eligible/max(len(eligible),1))*.75))
+        folds.append({"held_out_institution":institution,"remaining_crops":len(subset),"gate":gate_rows(subset,factor,alpha,scaled,minimum_coverage)})
+    fold_passes=sum(bool(r["gate"]["pass"]) for r in folds); fold_fraction=fold_passes/len(folds) if folds else 0
+    stability={"folds":folds,"fold_count":len(folds),"passes":fold_passes,"pass_fraction":fold_fraction,
+               "minimum_required_pass_fraction":minimum_institution_fold_pass_fraction,
+               "pass":bool(folds and fold_fraction>=minimum_institution_fold_pass_fraction)}
+    cf_false=sum(r["counterfactual"]["false_accept"] for r in observations)
+    cf_gate=absolute_risk_gate(false_accepts=cf_false,total=len(observations),maximum_upper_risk=counterfactual_maximum_risk,minimum_total=counterfactual_minimum_total,alpha=alpha)
+    if not main_gate["pass"]: verdict=main_gate["reason"]
+    elif not stability["pass"]: verdict="INSTITUTION_STABILITY_GATE_FAILED"
+    elif not cf_gate["pass"]: verdict="COUNTERFACTUAL_RISK_GATE_FAILED"
+    else: verdict="PASS_HN_NUMERIC_SUBSTITUTION_RISK_10X"
+    institution_summary={}
+    for institution in institutions:
+        rows=[r for r in observations if r["institution"]==institution]
+        institution_summary[institution]={
+            "crops":len(rows),"eligible_baseline_claims":sum(r["tesseract"]["eligible"] for r in rows),
+            "baseline_false":sum(r["tesseract"]["eligible"] and not r["tesseract"]["claim_correct"] for r in rows),
+            "candidate_accepts":sum(r["verifier"]["accept"] for r in rows),
+            "candidate_false":sum(r["verifier"]["false_accept"] for r in rows),
+        }
+    vtimes=[r["verifier"]["runtime_seconds"] for r in observations]; ctimes=[r["counterfactual"]["runtime_seconds"] for r in observations]; ptimes=[r["wall_seconds"] for r in page_runtimes]
+    mean_page=sum(ptimes)/len(ptimes) if ptimes else None; mean_verifier=sum(vtimes)/len(vtimes) if vtimes else None
+    payload={
+        "schema":SCHEMA_REPORT,"source":{"manifest_sha256":manifest["manifest_sha256"],"manifest_summary":manifest["summary"]},
+        "runtime":{"dpi":dpi,"image_tier":tier,
+                   "image_tier_recipe":"native 300-DPI render" if tier=="native_300" else "55% downsample, blur 0.45, contrast 0.88, brightness 0.98, JPEG Q45, upscale",
+                   "tesseract_language":language,"tesseract_psm":psm,"aligner_initialization_seconds":aligner_init,
+                   "pages":len(page_runtimes),"mean_tesseract_page_seconds":mean_page,
+                   "mean_verifier_token_ms":1000*mean_verifier if mean_verifier is not None else None,
+                   "median_verifier_token_ms":1000*float(np.median(vtimes)) if vtimes else None,
+                   "p95_verifier_token_ms":1000*float(np.quantile(vtimes,.95)) if vtimes else None,
+                   "mean_counterfactual_token_ms":1000*sum(ctimes)/len(ctimes) if ctimes else None,
+                   "mean_verifier_overhead_fraction_of_page_ocr":mean_verifier/mean_page if mean_page and mean_verifier is not None else None},
+        "summary":{"crops":len(observations),"unique_ocids":len({r["unit_id"] for r in observations}),
+                   "eligible_equal_length_spatial_claims":len(eligible),"ineligible_claims":len(observations)-len(eligible),
+                   "baseline_correct":sum(r["tesseract"]["claim_correct"] for r in eligible),
+                   "baseline_false":sum(not r["tesseract"]["claim_correct"] for r in eligible),
+                   "candidate_accepts":len(accepted),"candidate_correct":sum(r["verifier"]["correct_accept"] for r in accepted),
+                   "candidate_false":sum(r["verifier"]["false_accept"] for r in accepted),
+                   "counterfactual_false_accepts":cf_false,"counterfactual_total":len(observations),"institutions":len(institutions)},
+        "risk_gate":main_gate,"institution_stability":stability,"counterfactual_gate":cf_gate,
+        "institution_summary":institution_summary,"page_runtimes":page_runtimes,"observations":observations,
+        "decision":{"verdict":verdict,"pass":verdict=="PASS_HN_NUMERIC_SUBSTITUTION_RISK_10X","automatic_production_change":False,
+                    "next":"freeze and open an untouched native holdout" if verdict=="PASS_HN_NUMERIC_SUBSTITUTION_RISK_10X" else "retain abstention and enlarge the predeclared unique-OCID sample without tuning"},
+        "research_design":{"unit_of_inference":"one crop from one unique OCDS OCID","selective_prediction":"accept or abstain; false acceptance is primary",
+                           "substitution_scope":"same-length spatial claims only","threshold_tuning_on_holdout":False,"same_holdout_baseline":True,
+                           "one_sided_exact_binomial_bounds":True,"leave_one_institution_out_stability":True,"counterfactual_single_digit_negatives":True},
+        "constraints":manifest["constraints"],
+    }
+    payload["stable_payload_sha256"]=sha256_bytes(canonical_json(payload).encode("utf-8")); return payload
+
+
+def parser():
+    p=argparse.ArgumentParser(); p.add_argument("manifest",type=Path)
+    p.add_argument("--output-dir",type=Path,default=Path("ocr_hn_numeric_holdout_v1/run/evaluation")); p.add_argument("--pdf-cache",type=Path)
+    p.add_argument("--dpi",type=int,default=300); p.add_argument("--language",default="spa"); p.add_argument("--psm",type=int,default=3)
+    p.add_argument("--tier",choices=SUPPORTED_TIERS,default="scan_stress_v1"); p.add_argument("--pdf-timeout",type=float,default=90)
+    p.add_argument("--minimum-accepted",type=int,default=40); p.add_argument("--minimum-coverage",type=float,default=.30)
+    p.add_argument("--target-reduction-factor",type=float,default=10); p.add_argument("--alpha",type=float,default=.05)
+    p.add_argument("--minimum-institution-fold-pass-fraction",type=float,default=.80)
+    p.add_argument("--counterfactual-maximum-risk",type=float,default=.03); p.add_argument("--counterfactual-minimum-total",type=int,default=100)
+    return p
+
+
+def main():
+    args=parser().parse_args(); manifest=json.loads(args.manifest.read_text(encoding="utf-8")); args.output_dir.mkdir(parents=True,exist_ok=True)
+    report=evaluate_manifest(manifest,dpi=args.dpi,language=args.language,psm=args.psm,tier=args.tier,pdf_timeout=args.pdf_timeout,pdf_cache=args.pdf_cache,
+                             evidence_dir=args.output_dir/"crops",minimum_accepted=args.minimum_accepted,minimum_coverage=args.minimum_coverage,
+                             factor=args.target_reduction_factor,alpha=args.alpha,minimum_institution_fold_pass_fraction=args.minimum_institution_fold_pass_fraction,
+                             counterfactual_maximum_risk=args.counterfactual_maximum_risk,counterfactual_minimum_total=args.counterfactual_minimum_total)
+    path=args.output_dir/"evaluation.json"; path.write_text(json.dumps(report,ensure_ascii=False,indent=2,sort_keys=True)+"\n",encoding="utf-8")
+    (args.output_dir/"evaluation.sha256").write_text(f"{sha256_bytes(path.read_bytes())}  evaluation.json\n",encoding="utf-8")
+    print(json.dumps({"report":str(path),"summary":report["summary"],"risk_gate":report["risk_gate"],"institution_stability":{k:report["institution_stability"][k] for k in ("fold_count","passes","pass_fraction","pass")},"counterfactual_gate":report["counterfactual_gate"],"decision":report["decision"],"stable_payload_sha256":report["stable_payload_sha256"]},ensure_ascii=False,indent=2)); return 0
+
+
+if __name__=="__main__": raise SystemExit(main())
