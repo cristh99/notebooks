@@ -1,0 +1,58 @@
+{
+  "archive": {
+    "base64_sha256": "b2a2f9604165f60b869d41c8913442f4d1f52598f746d213247970fa8380bd06",
+    "decoded_sha256": "103e282beb5a59898b4be34334e8449e572271b20063029b47dda1267e72bd0f",
+    "deterministic_tar": true,
+    "path": "data_science_god_level/symbolic_discovery_v2/symbolic_v2_code.tar.gz.b64"
+  },
+  "base_commit": "a133de401d80ff5b1e669181c0e3a685408869d6",
+  "candidate": {
+    "dataset_identifier_access": false,
+    "filesystem_network_process_access": false,
+    "path": "estimator.py",
+    "post_hoc_retuning_permitted_after_external_evaluation": false,
+    "sha256": "4e80f120c08581d10497e916a86464062df157d99ec6215ad6f7bfd1b7ea557d",
+    "truth_access": false
+  },
+  "canonical_score_before_external_gate": 570,
+  "external_gate_contract": {
+    "actual_external_evaluations_authorized": 1,
+    "benchmark": "SRBench 2025 black-box PMLB suite",
+    "dataset_values_accessed_before_candidate_freeze": false,
+    "paid_compute": false,
+    "selected_by": "original Logic Power v10",
+    "selection_rule": "all 24 official PMLB black-box datasets; no compatibility filtering",
+    "source_commit": "dc3f6daa93bf10955df8775256a6f8644f38fd93",
+    "source_repository": "cavalab/srbench"
+  },
+  "internal_results_add_points": false,
+  "local_proof": {
+    "exact_variable_sets": 12,
+    "mean_r2": 0.9999999896551143,
+    "mean_runtime_seconds": 0.8263539761666626,
+    "mean_term_count": 1.75,
+    "mean_variable_f1": 1.0,
+    "synthetic_tasks": 12,
+    "unit_tests": "5/5 PASS",
+    "worst_r2": 0.999999901477244
+  },
+  "repair_scope": [
+    "relative target variation instead of absolute tolerance",
+    "scale-normalized target and features",
+    "Laurent monomials and protected ratios",
+    "nonlinear atoms, interactions, and radial forms",
+    "interaction-aware supervised screening",
+    "complexity-penalized held-out model selection"
+  ],
+  "schema": "data-science-god-level/symbolic-discovery-v2-source-manifest/1",
+  "sources": {
+    "README.md": "a8e07bcf14a17f6550dd2f699b1585b7adc0f653e6899f9ae2d6b505ebc37449",
+    "estimator.py": "4e80f120c08581d10497e916a86464062df157d99ec6215ad6f7bfd1b7ea557d",
+    "logic_plan.py": "208ef03694235013c4bb48079fead677114a9c52440521a736bb95dc91baeb92",
+    "run_synthetic_benchmark.py": "7feddb2421a49c4303086e673beb0d1bcfa82747f56f103438bf3cd30ad5f3f9",
+    "synthetic-benchmark-receipt.json": "8478703c2328d67132781ee8909002f83595611cc892fa8a26e16a251b73dd1a",
+    "synthetic_suite.py": "d9f0978e9423eb03ddad70f06efae6f31300c72c7e969a9ae76c41b72cd04ce4",
+    "test_estimator.py": "852d4cb46ea2aa8d4df402ffb296132b582e99b7220013cd5bf1f23df55c3fa1",
+    "unit-tests.txt": "57a51f190db6633cf17c08d443df2a9d7c5ed7e7117757cd1b3269ea1ac6764c"
+  }
+}
