@@ -5,6 +5,10 @@ on:
     branches:
       - agent/fin-abs-004b-fdic-rf-untouched
     paths:
+      - 'README_FIN_ABS_004B_FDIC_RF.md'
+      - 'fin_abs_004b_fdic/protocol.py'
+      - 'fin_abs_004b_fdic/panel_cli.py'
+      - 'fin_abs_004b_fdic/test_protocol.py'
       - 'fin_abs_004b_fdic/model.py'
       - 'fin_abs_004b_fdic/benchmark.py'
       - 'fin_abs_004b_fdic/verify_benchmark_v2.mjs'
@@ -48,4 +52,4 @@ jobs:
       - name: Confirm no external test was opened
         run: |
           test ! -e reports/fin_abs_004b_fdic_benchmark/report.json
-          echo 'Synthetic model-contract CI only; 2012-2013 remains unopened.'
+          echo 'Synthetic model-contract CI only; 2012-2014 remains unopened.'
