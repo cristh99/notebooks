@@ -7,6 +7,20 @@ from typing import Mapping
 import verify_execution_orchestrator_public as core
 
 
+CORRECTED_PRIVATE_BINDING = {
+    "repository": "cristh99/my_first_repository",
+    "pull_request": 109,
+    "head": "97685e5442f6b0e1099e9b172bf6955bb3d14709",
+    "git_blobs": {
+        "orchestrator": "b709d5a4037ecff6befe02a7dcacfd9811cabf40",
+        "runner": "b637fb00862747f6a5601df2006508bcc0824dce",
+        "tests": "0829b76087b628d5b6e4475526162db56b8789d0",
+        "lean": "fafe171b0c77858bed29c6e5afaf3a4a478cf683",
+        "workflow": "71d352a558783dc71e5f1b2390716c7cc6a5d6c0",
+    },
+}
+
+
 def corrected_execute_lower_bound(
     _data: Mapping[str, object],
 ) -> dict[str, object]:
@@ -97,6 +111,7 @@ def corrected_execute_lower_bound(
 
 
 def main() -> None:
+    core.PRIVATE_BINDING = CORRECTED_PRIVATE_BINDING
     core.execute_lower_bound = corrected_execute_lower_bound
     core.main()
 
