@@ -36,7 +36,7 @@ if (pp.schema !== 'fin-abs-004/fdic-preflight/1') errors.push('preflight-schema'
 if (ep.status !== 'PASS_ENTITY_SPLIT') errors.push('entity-status');
 if (pp.status !== 'PASS_PREFLIGHT') errors.push('preflight-status');
 if (ep.protocol?.seed !== 'FIN-ABS-004B-ENTITY-SPLIT-V2') errors.push('seed');
-if (canonical(ep.protocol?.bucket_rule) !== canonical({train:[0,29], validation:[30,49], test:[50,99]})) errors.push('bucket-rule');
+if (canonical(ep.protocol?.bucket_rule) !== canonical({train:[0,29], validation:[30,44], test:[45,99]})) errors.push('bucket-rule');
 if (panelSha !== ep.evaluation_panel?.feature_file_sha256) errors.push('entity-panel-file-hash');
 if (panelSha !== pp.panel_file_sha256) errors.push('preflight-panel-file-hash');
 if (pp.panel_report_sha256 !== entity.sha256) errors.push('report-binding');
@@ -59,7 +59,7 @@ if (canonical(pp.absolute_score) !== canonical({before:423, after:423, delta:0})
 
 const uniqueErrors = [...new Set(errors)].sort();
 const payload = {
-  schema:'fin-abs-004b/fdic-stage0-node-receipt/2',
+  schema:'fin-abs-004b/fdic-stage0-node-receipt/3',
   valid:uniqueErrors.length === 0,
   errors:uniqueErrors,
   entity_report_sha256:entity.sha256,
@@ -69,6 +69,7 @@ const payload = {
   split_dates:pp.split_dates ?? null,
   seed:ep.protocol?.seed ?? null,
   bucket_rule:ep.protocol?.bucket_rule ?? null,
+  final_redesign:true,
   absolute_score:{before:423, after:423, delta:0},
 };
 const receipt = {payload, sha256:shaText(canonical(payload))};
