@@ -29,7 +29,7 @@ class FullPageSpatialReplayTests(unittest.TestCase):
         ]
         matched = match_ocr_claim(truth, tokens)
         self.assertIsNotNone(matched)
-        self.assertEqual(matched["digits"], "1234")
+        self.assertEqual(matched["text"], "1234")
         self.assertGreater(matched["match"]["truth_coverage"], 0.95)
 
     def test_equal_length_wrong_claim_is_an_eligible_baseline_error(self) -> None:
