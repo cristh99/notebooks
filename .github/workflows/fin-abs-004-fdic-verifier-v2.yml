@@ -1,0 +1,120 @@
+name: FIN-ABS-004 — independent verifier v2
+
+on:
+  pull_request:
+    branches:
+      - agent/finance-absolute-423-public-replay
+    paths:
+      - 'fin_abs_004_fdic/verify_benchmark_v2.mjs'
+      - '.github/workflows/fin-abs-004-fdic-verifier-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: fin-abs-004-fdic-verifier-v2
+  cancel-in-progress: true
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout corrected verifier only
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify tie-handling contracts
+        run: node fin_abs_004_fdic/verify_benchmark_v2.mjs --self-test
+
+      - name: Download immutable sealed artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          curl --location --fail --show-error --silent \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            'https://api.github.com/repos/cristh99/notebooks/actions/artifacts/8877703718/zip' \
+            --output /tmp/fdic-sealed.zip
+          echo '05c01780731de7cac00f492aaa8842e1ed24832590841fa115e77b88addbd6e2  /tmp/fdic-sealed.zip' \
+            | sha256sum -c -
+          unzip -q /tmp/fdic-sealed.zip -d evidence
+          test -s evidence/result/report.json
+          test -s evidence/result/predictions.jsonl
+          test -s evidence/panel/preflight_report.json
+          test -s evidence/panel/entity_panel_report.json
+
+      - name: Replay metrics with corrected independent semantics
+        run: |
+          node fin_abs_004_fdic/verify_benchmark_v2.mjs \
+            evidence/result/report.json \
+            evidence/result/node_metric_receipt_v2.json
+
+      - name: Replay split and score boundaries
+        run: |
+          node fin_abs_004_fdic/verify_boundaries.mjs \
+            evidence/result/report.json \
+            evidence/panel/preflight_report.json \
+            evidence/panel/entity_panel_report.json \
+            evidence/result/node_boundary_receipt_v2.json
+
+      - name: Reject forged score and metric
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import copy, hashlib, json
+          from pathlib import Path
+          source = json.loads(Path('evidence/result/report.json').read_text())
+          for name, mutate in {
+              'score': lambda value: value['payload']['absolute_score'].update({'after':1000,'delta':577}),
+              'metric': lambda value: value['payload']['sealed_test']['challenger']['metrics'].update({'average_precision':1.0}),
+          }.items():
+              forged = copy.deepcopy(source)
+              mutate(forged)
+              canonical = json.dumps(forged['payload'], sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+              forged['payload_canonical'] = canonical
+              forged['sha256'] = hashlib.sha256(canonical.encode()).hexdigest()
+              Path(f'/tmp/forged_{name}.json').write_text(json.dumps(forged, indent=2, sort_keys=True) + '\n')
+          PY
+          for forged in /tmp/forged_score.json /tmp/forged_metric.json; do
+            if node fin_abs_004_fdic/verify_benchmark_v2.mjs "$forged" /tmp/forged_receipt.json; then
+              echo "forgery accepted: $forged" >&2
+              exit 1
+            fi
+          done
+
+      - name: Build bounded receipt
+        run: |
+          mkdir -p receipts
+          cp evidence/result/node_metric_receipt_v2.json receipts/
+          cp evidence/result/node_boundary_receipt_v2.json receipts/
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('evidence/result/report.json').read_text())
+          summary = {
+              'schema':'fin-abs-004/fdic-verifier-v2-summary/1',
+              'sealed_artifact_id':8877703718,
+              'sealed_artifact_sha256':'05c01780731de7cac00f492aaa8842e1ed24832590841fa115e77b88addbd6e2',
+              'report_sha256':report['sha256'],
+              'status':report['payload']['status'],
+              'candidate_pass':report['payload']['performance_candidate_pass'],
+              'failed_python_gates':sorted(k for k, v in report['payload']['python_gate_checks'].items() if not v),
+              'absolute_score':report['payload']['absolute_score'],
+          }
+          Path('receipts/summary.json').write_text(json.dumps(summary, indent=2, sort_keys=True) + '\n')
+          PY
+          sha256sum receipts/* > receipts/manifest.sha256
+
+      - name: Upload verifier receipts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-abs-004-fdic-independent-verifier-v2
+          path: receipts/
+          if-no-files-found: error
+          retention-days: 90
