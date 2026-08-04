@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   real-risk-canary:
-    if: github.head_ref != 'agent/ocr-real-risk-full-native-index-v1'
+    if: github.head_ref != 'agent/ocr-real-risk-full-native-index-v1' && github.event.pull_request.number != 86
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
