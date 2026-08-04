@@ -1,0 +1,145 @@
+name: FIN-ABS-005 — blind QFBench source audit
+
+on:
+  pull_request:
+    branches:
+      - agent/finance-absolute-423-public-replay
+    paths:
+      - 'fin_abs_005_qfbench/**'
+      - 'README_FIN_ABS_005_QFBENCH.md'
+      - '.github/workflows/fin-abs-005-qfbench-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout audit capsule
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Checkout only the frozen QFBench instructions and environments
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: QF-Bench/QuantitativeFinance-Bench
+          ref: d2fc28b3492f2d73d192fa7eabadf150a19a62fb
+          path: qfbench
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /README.md
+            /LICENSE
+            /tasks/structured-note-risk/task.toml
+            /tasks/structured-note-risk/instruction.md
+            /tasks/structured-note-risk/environment/
+            /tasks/swap-curve-bootstrap-ois/task.toml
+            /tasks/swap-curve-bootstrap-ois/instruction.md
+            /tasks/swap-curve-bootstrap-ois/environment/
+            /tasks/double-sort/task.toml
+            /tasks/double-sort/instruction.md
+            /tasks/double-sort/environment/
+            /tasks/bs-greeks-pde/task.toml
+            /tasks/bs-greeks-pde/instruction.md
+            /tasks/bs-greeks-pde/environment/
+            /tasks/kelly-var-sizing/task.toml
+            /tasks/kelly-var-sizing/instruction.md
+            /tasks/kelly-var-sizing/environment/
+
+      - name: Prove the sparse checkout contains no oracle paths
+        run: |
+          set -euo pipefail
+          find qfbench -type f -not -path '*/.git/*' -printf '%P\n' \
+            | LC_ALL=C sort > selected_paths.txt
+          if grep -E '(^|/)(solution|tests)/' selected_paths.txt; then
+            echo 'QFBench oracle material entered the blind workspace' >&2
+            exit 1
+          fi
+          test "$(git -C qfbench rev-parse HEAD)" = \
+            'd2fc28b3492f2d73d192fa7eabadf150a19a62fb'
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Compile and test blind-audit invariants
+        run: |
+          python -m compileall -q fin_abs_005_qfbench
+          python -m unittest -v fin_abs_005_qfbench.test_audit
+
+      - name: Audit the frozen external workspace
+        run: |
+          mkdir -p reports/fin_abs_005_qfbench
+          python -m fin_abs_005_qfbench.audit \
+            --source qfbench \
+            --observed-commit "$(git -C qfbench rev-parse HEAD)" \
+            --output reports/fin_abs_005_qfbench/blind_audit.json
+
+      - name: Independent Node anti-leakage replay
+        run: |
+          node fin_abs_005_qfbench/verify_audit.mjs \
+            reports/fin_abs_005_qfbench/blind_audit.json \
+            qfbench \
+            reports/fin_abs_005_qfbench/node_audit_receipt.json
+
+      - name: Reject score and oracle-path forgeries
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          source = json.loads(
+              Path('reports/fin_abs_005_qfbench/blind_audit.json').read_text()
+          )
+          source['payload']['absolute_score']['after'] = 1000
+          source['payload']['absolute_score']['delta'] = 577
+          canonical = json.dumps(
+              source['payload'],
+              sort_keys=True,
+              separators=(',', ':'),
+              ensure_ascii=False,
+          )
+          source['payload_canonical'] = canonical
+          source['sha256'] = hashlib.sha256(canonical.encode()).hexdigest()
+          Path('/tmp/forged_score.json').write_text(
+              json.dumps(source, indent=2, sort_keys=True) + '\n'
+          )
+          PY
+
+          if node fin_abs_005_qfbench/verify_audit.mjs \
+              /tmp/forged_score.json qfbench /tmp/forged_score_receipt.json; then
+            echo 'forged QFBench score accepted' >&2
+            exit 1
+          fi
+
+          mkdir -p qfbench/tasks/structured-note-risk/tests
+          printf 'oracle-leak\n' \
+            > qfbench/tasks/structured-note-risk/tests/hidden.txt
+          if node fin_abs_005_qfbench/verify_audit.mjs \
+              reports/fin_abs_005_qfbench/blind_audit.json \
+              qfbench /tmp/forged_workspace_receipt.json; then
+            echo 'forbidden QFBench path accepted' >&2
+            exit 1
+          fi
+          rm -rf qfbench/tasks/structured-note-risk/tests
+
+      - name: Build bounded evidence manifest
+        run: |
+          cp selected_paths.txt reports/fin_abs_005_qfbench/selected_paths.txt
+          sha256sum \
+            reports/fin_abs_005_qfbench/blind_audit.json \
+            reports/fin_abs_005_qfbench/node_audit_receipt.json \
+            reports/fin_abs_005_qfbench/selected_paths.txt \
+            > reports/fin_abs_005_qfbench/manifest.sha256
+
+      - name: Upload blind Stage 0 evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fin-abs-005-qfbench-blind-audit
+          path: reports/fin_abs_005_qfbench/
+          if-no-files-found: error
+          retention-days: 90
