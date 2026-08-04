@@ -16,7 +16,10 @@
   "candidate_contract": {
     "all_competitors_receive_same_preprocessed_features": true,
     "candidate_may_select_or_blend_current_leaders": true,
+    "code_module_loading": "fixed local legacy estimator only",
     "dataset_identifier_access": false,
+    "dataset_or_test_label_filesystem_access": false,
+    "network_or_process_access": false,
     "post_hoc_retuning_permitted": false,
     "test_labels_access": false,
     "training_only_model_selection": true
@@ -43,6 +46,7 @@
     "python": "3.11",
     "scikit_learn": "1.5.2",
     "scipy": "1.14.1",
+    "tabicl_commit": "46b91961db4f8873dd049ec09990698a435e1e29",
     "xgboost": "3.1.3"
   },
   "novelty_weight": 0,
@@ -51,7 +55,7 @@
     "python_compile": "PASS",
     "unit_tests": "4/4 PASS"
   },
-  "schema": "data-science-dominance/tabarena-fresh12-source-manifest/1",
+  "schema": "data-science-dominance/tabarena-fresh12-source-manifest/2",
   "score_before": 465,
   "source_branch_base": {
     "branch": "agent/data-science-god-level-tabular-transfer-official",
