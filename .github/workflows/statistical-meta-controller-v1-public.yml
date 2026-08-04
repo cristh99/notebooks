@@ -1,0 +1,169 @@
+name: Statistical Meta-Controller v1 public verification
+
+on:
+  push:
+    branches:
+      - agent/statistical-meta-controller-v1
+  pull_request:
+    paths:
+      - 'statistical_meta_controller_v1/**'
+      - '.github/workflows/statistical-meta-controller-v1-public.yml'
+
+permissions:
+  contents: read
+
+env:
+  PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  EVENT_SHA: ${{ github.sha }}
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Verify source binding and reconstruct frozen source
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          binding = json.loads(Path('statistical_meta_controller_v1/SOURCE_BINDING.json').read_text())
+          assert binding['schema'] == 'statistical-meta-controller/public-source-binding/1'
+          assert binding['private_repository'] == 'cristh99/my_first_repository'
+          assert binding['private_branch'] == 'agent/statistical-meta-controller-v1'
+          assert binding['private_head'] == '41df2ce6319eac75e0ebf4e176da0fee43fa8bf7'
+          assert binding['private_pull_request'] == 107
+          assert binding['private_issue'] == 106
+          PY
+          echo 'dd3842131dee55ab5ac23ca77f6c2427901f3395d7e7e5b7382a1655b9d1c21b  statistical_meta_controller_v1/source_bundle.tar.gz.b64' | sha256sum -c -
+          base64 --decode statistical_meta_controller_v1/source_bundle.tar.gz.b64 > source_bundle.tar.gz
+          echo '0071e3ceb00542a4bcf71bbdaa7bff1d193416c83cdc53741192f48e484d5cd4  source_bundle.tar.gz' | sha256sum -c -
+          tar -xzf source_bundle.tar.gz
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          root = Path('statistical_meta_controller_v1')
+          binding = json.loads((root / 'SOURCE_BINDING.json').read_text())
+          for name, expected in binding['expected_source_sha256'].items():
+              actual = hashlib.sha256((root / name).read_bytes()).hexdigest()
+              assert actual == expected, (name, actual, expected)
+          PY
+
+      - name: Verify frozen preregistration
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path('statistical_meta_controller_v1/preregistration.json').read_text())
+          assert data['schema'] == 'statistical-meta-controller/preregistration/1'
+          assert data['status'] == 'FROZEN_BEFORE_PUBLIC_CI'
+          assert data['source_issue'] == 106
+          assert data['scenario_count'] == 72
+          assert data['unit_test_minimum'] == 12
+          assert len(data['domains']) == 6
+          assert len(data['archetypes']) == 12
+          assert data['acceptance_gates']['exact_conformance'] == 1
+          PY
+
+      - name: Compile and execute regression contract
+        run: |
+          python -m compileall -q statistical_meta_controller_v1
+          python -m unittest -v statistical_meta_controller_v1/test_meta_controller.py
+
+      - name: Build frozen benchmark and local receipt
+        run: |
+          mkdir -p statistical_meta_controller_v1/reports
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from statistical_meta_controller_v1.benchmark import run_benchmark
+          from statistical_meta_controller_v1.meta_controller import build_receipt, verify_receipt
+
+          root = Path('statistical_meta_controller_v1/reports')
+          result = run_benchmark()
+          receipt = build_receipt(result)
+          assert result['scenario_count'] == 72
+          assert result['passed'] == 72
+          assert result['failed'] == 0
+          assert result['exact_conformance'] == 1.0
+          assert verify_receipt(receipt) == []
+          (root / 'benchmark.json').write_text(json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False) + '\n')
+          (root / 'receipt.json').write_text(json.dumps(receipt, indent=2, sort_keys=True, ensure_ascii=False) + '\n')
+          print(json.dumps({k: result[k] for k in ('scenario_count', 'passed', 'failed', 'exact_conformance', 'rows_sha256')}, indent=2, sort_keys=True))
+          print(json.dumps({'receipt_sha256': receipt['sha256']}, indent=2))
+          PY
+
+      - name: Independent Node verification
+        run: node statistical_meta_controller_v1/verify_receipt.js statistical_meta_controller_v1/reports/receipt.json
+
+      - name: Reject altered evidence
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          source = Path('statistical_meta_controller_v1/reports/receipt.json')
+          data = json.loads(source.read_text())
+          data['payload']['passed'] = 71
+          Path('statistical_meta_controller_v1/reports/tampered.json').write_text(json.dumps(data, sort_keys=True))
+          PY
+          if node statistical_meta_controller_v1/verify_receipt.js statistical_meta_controller_v1/reports/tampered.json; then
+            echo 'tampered receipt was incorrectly accepted'
+            exit 1
+          fi
+
+      - name: Build public receipt and evidence hashes
+        run: |
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root = Path('statistical_meta_controller_v1')
+          reports = root / 'reports'
+          local = json.loads((reports / 'receipt.json').read_text())
+          def sha(path):
+              return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+          body = {
+              'schema': 'statistical-meta-controller/public-receipt/1',
+              'status': 'PASS',
+              'private_repository': 'cristh99/my_first_repository',
+              'private_head': '41df2ce6319eac75e0ebf4e176da0fee43fa8bf7',
+              'private_pull_request': 107,
+              'private_issue': 106,
+              'public_repository': 'cristh99/notebooks',
+              'public_head': os.environ['PUBLIC_HEAD_SHA'],
+              'event_sha': os.environ['EVENT_SHA'],
+              'scenario_count': local['payload']['scenario_count'],
+              'passed': local['payload']['passed'],
+              'source_bundle_sha256': sha(root / 'source_bundle.tar.gz.b64'),
+              'source_binding_sha256': sha(root / 'SOURCE_BINDING.json'),
+              'preregistration_sha256': sha(root / 'preregistration.json'),
+              'controller_sha256': sha(root / 'meta_controller.py'),
+              'benchmark_source_sha256': sha(root / 'benchmark.py'),
+              'tests_sha256': sha(root / 'test_meta_controller.py'),
+              'node_verifier_sha256': sha(root / 'verify_receipt.js'),
+              'benchmark_output_sha256': sha(reports / 'benchmark.json'),
+              'local_receipt_file_sha256': sha(reports / 'receipt.json'),
+              'local_receipt_semantic_sha256': local['sha256'],
+          }
+          canonical = json.dumps(body, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
+          receipt = {**body, 'sha256': hashlib.sha256(canonical).hexdigest()}
+          path = reports / 'public_receipt.json'
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          print(path.read_text())
+          PY
+          cd statistical_meta_controller_v1
+          sha256sum \
+            SOURCE_BINDING.json README_PUBLIC.md source_bundle.tar.gz.b64 \
+            meta_controller.py benchmark.py test_meta_controller.py verify_receipt.js \
+            preregistration.json README.md reports/benchmark.json reports/receipt.json \
+            reports/public_receipt.json \
+            > reports/SHA256SUMS-PUBLIC
+          cat reports/SHA256SUMS-PUBLIC
+
+      - name: Upload public evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: statistical-meta-controller-v1-public
+          path: statistical_meta_controller_v1/
+          retention-days: 90
+          if-no-files-found: error
