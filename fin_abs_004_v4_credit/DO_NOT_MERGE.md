@@ -1,0 +1,1 @@
+This capsule remains draft and unmerged until the audit artifact is inspected and the next stage is separately preregistered.

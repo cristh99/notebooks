@@ -1,0 +1,9 @@
+See `README_FIN_ABS_004_V4_CREDIT.md` and `PROTOCOL.md` for the frozen audit contract.
+
+The runner branch exists only to expose the public pull-request replay; no code or evidence is merged automatically.
+
+The audit remains score-neutral until its artifact and independent receipt pass.
+
+The adversarial replay now toggles the terminal state, so it cannot mistake the authentic PASS status for a forgery.
+
+Runner v2 fixes the pull-request base snapshot before the final public replay.
