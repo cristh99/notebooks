@@ -1,0 +1,39 @@
+{
+  "schema": "data-science-god-level/symbolic-discovery-source-manifest/1",
+  "capsule": {
+    "path": "data_science_god_level/symbolic_discovery/symbolic_code.tar.gz",
+    "sha256": "026919c635f6f04d082d3b2a74276fef150a331dcceeea461be1e3553ae9d027",
+    "deterministic_tar": true
+  },
+  "sources": {
+    "estimator.py": "97c9fd1a3f371ca30bd29b924ac0e6d1ea21d985e513df8b5de977f0a70be381",
+    "suite.py": "6a0077eb961f2617182ed35cf1cf56e21999dfb5a93db24bec181b47af27d10d",
+    "benchmark.py": "d070e71bd4900f9172a7432c14008a2de2aa88ea415d9d2b699cbad71eec3325",
+    "test_estimator.py": "e0b33d6a52145c9a6933d20fe320a12cc92660df982642743eaf1e8fed543e0a",
+    "logic_plan.py": "02b4f0ba2e847ae9f4837e2ae484f3049bb767834a729be69ff5a7d0e9557ae6",
+    "public_runner.py": "a68e7d6fc9a1f42b7c3b771bad0c7730c770a65c051e6651c0424e8a8c281c45",
+    "official_runner.py": "a4ea808ac30dcb5af55d9392be6b5cb4eaeb860bc620ad9b58751bb08a5629cc"
+  },
+  "public_master_seed": "public-symbolic-discovery-v1-consensus-srbench-srsd",
+  "official_seed_derivation": "sha256(symbolic-official-v1|public_artifact_sha256|public_run_id|public_artifact_id)",
+  "scientific_contract": {
+    "families": 8,
+    "train_rows_per_task": 600,
+    "in_domain_test_rows_per_task": 1000,
+    "extrapolation_rows_per_task": 1000,
+    "feature_count_range": [8, 9],
+    "dummy_variables": true,
+    "noise_fraction_set": [0.0, 0.005, 0.015, 0.03],
+    "candidate_truth_access": false,
+    "official_equations_exist_before_freeze": false,
+    "actual_official_evaluations_authorized": 1,
+    "post_hoc_retuning_permitted": false
+  },
+  "local_proof": {
+    "unit_tests": "4/4 PASS",
+    "public_exact_recoveries": "6/8",
+    "public_semantic_recoveries": "8/8",
+    "public_wins_vs_best_baseline": "8/8",
+    "public_mean_extrapolation_nrmse": 0.005826643218482177
+  }
+}
