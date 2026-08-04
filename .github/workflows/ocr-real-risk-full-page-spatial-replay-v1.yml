@@ -1,0 +1,279 @@
+name: OCR full-page spatial replay v1
+
+on:
+  push:
+    branches:
+      - agent/ocr-real-risk-full-page-spatial-replay-v1
+    paths:
+      - 'ocr_real_risk_v1/full_page_spatial_replay.py'
+      - 'ocr_real_risk_v1/test_full_page_spatial_replay.py'
+      - '.github/workflows/ocr-real-risk-full-page-spatial-replay-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: ocr-full-page-spatial-replay-v1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  replay-sealed-full-pages:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      SOURCE_RUN_ID: '30953079172'
+      OCR_VERIFIER_VENDOR_BLOB: '34180d164f3f5b05542217fd750ca26cbdd08e62'
+      GITHUB_TOKEN: ${{ github.token }}
+      OMP_THREAD_LIMIT: '1'
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Install frozen free CPU dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            poppler-utils tesseract-ocr tesseract-ocr-eng tesseract-ocr-spa \
+            fonts-dejavu-core fonts-lato
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 pytesseract==0.3.13 \
+            numpy==2.2.6 opencv-python-headless==4.10.0.84
+      - name: Full-page matching and eligibility tests
+        run: |
+          python -m unittest -v \
+            ocr_real_risk_v1.test_full_page_spatial_replay \
+            ocr_real_risk_v1.test_aggregate_disjoint_validation
+          python -m compileall -q ocr_real_risk_v1
+          test "$(git hash-object ocr_real_risk_v1/pixel_digit_alignment.py)" = \
+            "${OCR_VERIFIER_VENDOR_BLOB}"
+      - name: Recover and verify all source validation shards
+        run: |
+          mkdir -p shards full-page-replay
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+          from pathlib import Path
+
+          repository = os.environ['GITHUB_REPOSITORY']
+          run_id = os.environ['SOURCE_RUN_ID']
+          token = os.environ['GITHUB_TOKEN']
+          request = urllib.request.Request(
+              f'https://api.github.com/repos/{repository}/actions/runs/{run_id}/artifacts?per_page=100',
+              headers={
+                  'Authorization': f'Bearer {token}',
+                  'Accept': 'application/vnd.github+json',
+                  'X-GitHub-Api-Version': '2022-11-28',
+              },
+          )
+          with urllib.request.urlopen(request, timeout=60) as response:
+              payload = json.load(response)
+          artifacts = [
+              row for row in payload['artifacts']
+              if row['name'].startswith('ocr-isolated-disjoint-shard-')
+          ]
+          artifacts.sort(key=lambda row: int(row['name'].rsplit('-', 1)[1]))
+          if [int(row['name'].rsplit('-', 1)[1]) for row in artifacts] != list(range(16)):
+              raise SystemExit('the source run does not contain exactly shards 0..15')
+          Path('source-artifacts.json').write_text(
+              json.dumps(artifacts, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          with Path('source-artifacts.tsv').open('w', encoding='utf-8') as output:
+              for row in artifacts:
+                  output.write(
+                      f"{row['id']}\t{row['name']}\t{row['digest']}\n"
+                  )
+          PY
+          while IFS=$'\t' read -r artifact_id artifact_name digest; do
+            curl --fail --location \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" \
+              --output "${artifact_name}.zip"
+            echo "${digest#sha256:}  ${artifact_name}.zip" \
+              | sha256sum --check --strict
+            mkdir -p "shards/${artifact_name}"
+            unzip -q "${artifact_name}.zip" \
+              -d "shards/${artifact_name}"
+            (cd "shards/${artifact_name}" \
+              && sha256sum --check --strict SHA256SUMS.txt)
+          done < source-artifacts.tsv
+      - name: OCR every sealed location from its full natural page
+        env:
+          PYTHONPATH: ${{ github.workspace }}/ocr_real_risk_v1:${{ github.workspace }}
+        run: |
+          python -m ocr_real_risk_v1.full_page_spatial_replay \
+            shards/ocr-isolated-disjoint-shard-* \
+            --output-dir full-page-replay \
+            | tee full-page-replay-stdout.json
+      - name: Independent replay integrity gates
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          manifest = json.loads(Path('full-page-replay/manifest.json').read_text())
+          report = json.loads(
+              Path('full-page-replay/full_page_spatial_replay.json').read_text()
+          )
+          assert manifest['schema'] == 'ocr-real-risk-full-page-spatial-manifest/1'
+          assert len(manifest['records']) == 174
+          assert len({row['evidence_key'] for row in manifest['records']}) == 174
+          assert manifest['physical_evidence_reuse']['process_associated_locations'] == 175
+          assert manifest['physical_evidence_reuse']['unique_physical_locations'] == 174
+          protocol = manifest['protocol']
+          assert protocol['page_input'] == 'full natural page rendered at 300 DPI'
+          assert protocol['primary_verifier_crop'] == 'matched Tesseract token bbox + 2 px'
+          assert protocol['truth_bbox_primary_decision_use'] is False
+          assert protocol['alpha_per_leg_bonferroni'] == 0.0125
+
+          assert report['schema'] == 'ocr-real-risk-full-page-spatial-replay/1'
+          assert report['manifest_sha256'] == manifest['manifest_sha256']
+          assert report['execution']['unique_physical_locations'] == 174
+          assert report['execution']['full_pages_rendered'] == 174
+          assert report['execution']['full_pages_ocrd'] == 174
+          assert len(report['observations']) == 174
+          assert all(
+              row['acquisition']['sha256'] == row['source_sha256']
+              for row in report['observations']
+          )
+          assert all(
+              row['verifier']['crop_source'] == 'tesseract_matched_bbox'
+              for row in report['observations']
+              if row['tesseract']['eligible']
+          )
+          assert all(
+              row['verifier']['crop_source'] == 'truth_bbox_diagnostic_only'
+              for row in report['observations']
+              if not row['tesseract']['eligible']
+          )
+          eligible = [
+              row for row in report['observations']
+              if row['tesseract']['eligible']
+          ]
+          assert report['baseline']['claims'] == len(eligible)
+          assert report['baseline']['false_predictions'] == sum(
+              not row['tesseract']['claim_correct'] for row in eligible
+          )
+          accepted = [row for row in eligible if row['verifier']['accepted']]
+          assert report['verifier']['accepted'] == len(accepted)
+          assert report['verifier']['false_accepted'] == sum(
+              row['verifier']['false_accept'] for row in accepted
+          )
+          assert report['counterfactual']['cases'] == len(eligible)
+          assert report['counterfactual']['false_accepts'] == sum(
+              row['counterfactual']['false_accept'] for row in eligible
+          )
+          assert report['decision']['pass_statistical_10x'] is False
+          assert report['decision']['automatic_production_change'] is False
+          assert report['decision']['final_holdout_opened'] is False
+          assert report['constraints'] == {
+              'external_spend_usd': 0,
+              'gcloud_used': False,
+              'gpu_used': False,
+              'paid_api_used': False,
+              'production_modified': False,
+          }
+          print(json.dumps({
+              'execution': report['execution'],
+              'baseline': report['baseline'],
+              'verifier': report['verifier'],
+              'counterfactual': report['counterfactual'],
+              'timing': report['timing'],
+              'decision': report['decision'],
+              'stable_payload_sha256': report['stable_payload_sha256'],
+          }, indent=2, sort_keys=True))
+          PY
+          (cd full-page-replay && sha256sum --check --strict SHA256SUMS.txt)
+      - id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-real-risk-full-page-spatial-replay-v1
+          path: |
+            full-page-replay
+            full-page-replay-stdout.json
+            source-artifacts.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Record the successful replay run and artifact
+        env:
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+        run: |
+          python - <<'PY'
+          import base64
+          import hashlib
+          import json
+          import os
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+          from pathlib import Path
+
+          repository = os.environ['GITHUB_REPOSITORY']
+          branch = os.environ['GITHUB_REF_NAME']
+          token = os.environ['GITHUB_TOKEN']
+          path = 'ocr_real_risk_v1/run_records/full_page_spatial_replay_v1.json'
+          report_path = Path('full-page-replay/full_page_spatial_replay.json')
+          report = json.loads(report_path.read_text())
+          record = {
+              'schema': 'ocr-real-risk-run-record/1',
+              'workflow': 'OCR full-page spatial replay v1',
+              'run_id': int(os.environ['GITHUB_RUN_ID']),
+              'job': os.environ['GITHUB_JOB'],
+              'commit_sha': os.environ['GITHUB_SHA'],
+              'source_validation_run_id': int(os.environ['SOURCE_RUN_ID']),
+              'artifact_id': int(os.environ['ARTIFACT_ID']),
+              'artifact_digest': os.environ['ARTIFACT_DIGEST'],
+              'report_file_sha256': hashlib.sha256(
+                  report_path.read_bytes()
+              ).hexdigest(),
+              'stable_payload_sha256': report['stable_payload_sha256'],
+              'verdict': report['decision']['verdict'],
+          }
+          body = {
+              'message': '[skip ci] Record full-page spatial replay evidence',
+              'content': base64.b64encode(
+                  (json.dumps(record, indent=2, sort_keys=True) + '\n').encode()
+              ).decode(),
+              'branch': branch,
+          }
+          url = f'https://api.github.com/repos/{repository}/contents/{path}'
+          headers = {
+              'Authorization': f'Bearer {token}',
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+          }
+          try:
+              with urllib.request.urlopen(
+                  urllib.request.Request(
+                      f'{url}?ref={urllib.parse.quote(branch, safe="")}',
+                      headers=headers,
+                  ),
+                  timeout=60,
+              ) as response:
+                  existing = json.load(response)
+              body['sha'] = existing['sha']
+          except urllib.error.HTTPError as exc:
+              if exc.code != 404:
+                  raise
+          request = urllib.request.Request(
+              url,
+              data=json.dumps(body).encode(),
+              headers={**headers, 'Content-Type': 'application/json'},
+              method='PUT',
+          )
+          with urllib.request.urlopen(request, timeout=60) as response:
+              result = json.load(response)
+          print(json.dumps({'record': record, 'commit': result['commit']['sha']}, indent=2))
+          PY
