@@ -1,0 +1,69 @@
+{
+  "schema": "data-science-god-level/resnet-bitflip-final/1",
+  "campaign": "official_seed_42_sealed_adjudication",
+  "verdict": "PASS",
+  "official_run": {
+    "run_id": 30866105549,
+    "artifact_id": 8876246455,
+    "artifact_sha256": "0d81cb4c5b72640789f0c6bf663ebc1b2d92c25f5bfcbba1edcdff8f955216d1",
+    "head_sha": "56dc0435560626cb3b29067d1bb41cb4cde1800d"
+  },
+  "official_result": {
+    "seed": 42,
+    "accuracy": 0.0998,
+    "bits_flipped": 40,
+    "solve_time_seconds": 5.889281,
+    "eval_time_seconds": 2.762821,
+    "reward": 0.5125,
+    "reference_accuracy_strictly_below": 0.12,
+    "reference_bits": 40
+  },
+  "official_evaluation_count": 1,
+  "candidate_modified_after_public_freeze": false,
+  "post_hoc_retuning_permitted": false,
+  "candidate": {
+    "solve_sha256": "d9ba5be9caff03d7b73478ae008760d3ae723708a62071d90a6fdf85c93cc902",
+    "logic_plan_sha256": "006cf32ab7cf6926c762fa10cebd11aa884cee3ab017408e63f45a6962e554e2",
+    "public_gate_receipt_sha256": "8f8753e2793cee3082cb5b677bfce50ed2513106e9fae5c8690a52ba391f4d8f",
+    "public_run_id": 30859954376,
+    "public_artifact_id": 8874857536,
+    "public_artifact_sha256": "22758a4f03629e7c55b75869e1a4473cc5ce93eef8b94b781ce5b8630e5f2571"
+  },
+  "official_evidence": {
+    "official_gate_receipt_sha256": "b3353539fbacefdfe8890a64c6084d2bc349e10acd027b44de6b4431bc68093f",
+    "freeze_receipt_sha256": "43cbad8071982179c8dba59a9bcf92f19014d6c90872b2106be95f9625066c67",
+    "retry_authorization_sha256": "6cf3b6e0076653abebfad452ce82a9b3ed35ba2ca18c677189d7e4232477b4bb",
+    "evaluation_log_sha256": "f4c3f6eee2b88c89a3a9a643980841c2857184a9b7f065029ac8b4b97b82627b",
+    "model_sha256": "9ed94caedc5503aa9fc2ec1c360a2218f90b7873ed770b4299531f3ede73fb25",
+    "cifar10_archive_md5": "c58f30108f718f92721af3b95e74349a",
+    "cifar10_archive_sha256": "6d958be074577803d12ecdefd02955f39262c83c16fe9348329d7fe0b5c001ce"
+  },
+  "prior_attempt": {
+    "run_id": 30863689442,
+    "artifact_id": 8875963672,
+    "corrected_verdict": "NOT_RUN",
+    "evaluation_count": 0,
+    "artifact_sha256": "7da24017f9c954ca24b8779e66d0e79e64fdb4a6660fb01affe86b4eca696412"
+  },
+  "development_transfer": [
+    {
+      "seed": 43,
+      "accuracy": 0.0881,
+      "bits_flipped": 40,
+      "verdict": "PASS"
+    },
+    {
+      "seed": 314159,
+      "accuracy": 0.0998,
+      "bits_flipped": 40,
+      "verdict": "PASS"
+    }
+  ],
+  "absolute_score": {
+    "before": 505,
+    "after": 541,
+    "scale": 1000,
+    "historical_originality_increment": 0,
+    "reason": "sealed external transfer from systems optimization into adaptive neural-model analysis; matched the task reference but does not establish historical novelty or global bit-flip SOTA"
+  }
+}
