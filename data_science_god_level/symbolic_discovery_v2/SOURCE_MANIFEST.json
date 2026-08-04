@@ -17,11 +17,11 @@
   "canonical_score_before_external_gate": 570,
   "external_gate_contract": {
     "actual_external_evaluations_authorized": 1,
-    "benchmark": "SRBench 2025 black-box PMLB suite",
+    "benchmark": "SRBench 2025 complete CPU dataset suite",
     "dataset_values_accessed_before_candidate_freeze": false,
     "paid_compute": false,
     "selected_by": "original Logic Power v10",
-    "selection_rule": "all 24 official PMLB black-box datasets; no compatibility filtering",
+    "selection_rule": "all 12 official PMLB black-box datasets plus all 12 official first-principles datasets; no compatibility filtering",
     "source_commit": "dc3f6daa93bf10955df8775256a6f8644f38fd93",
     "source_repository": "cavalab/srbench"
   },
