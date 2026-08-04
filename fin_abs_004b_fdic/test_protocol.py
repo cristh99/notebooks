@@ -30,6 +30,7 @@ class UntouchedFdicProtocolTests(unittest.TestCase):
             (WINDOWS["test"][0] - WINDOWS["validation"][1]).days,
             730,
         )
+        self.assertEqual(WINDOWS["test"][1], pd.Timestamp("2014-12-31"))
 
     def test_fetch_ranges_supply_trailing_history(self) -> None:
         for (fetch_start, fetch_end), split in zip(
@@ -57,9 +58,10 @@ class UntouchedFdicProtocolTests(unittest.TestCase):
         self.assertEqual(canonical_with_dates(value), canonical_with_dates(value))
 
     def test_bucket_contract_is_complete_and_disjoint(self) -> None:
-        self.assertEqual(EXPECTED_BUCKET_RULE["train"], [0, 19])
-        self.assertEqual(EXPECTED_BUCKET_RULE["validation"], [20, 29])
-        self.assertEqual(EXPECTED_BUCKET_RULE["test"], [30, 99])
+        self.assertEqual(ENTITY_SPLIT_SEED, "FIN-ABS-004B-ENTITY-SPLIT-V2")
+        self.assertEqual(EXPECTED_BUCKET_RULE["train"], [0, 29])
+        self.assertEqual(EXPECTED_BUCKET_RULE["validation"], [30, 49])
+        self.assertEqual(EXPECTED_BUCKET_RULE["test"], [50, 99])
         covered = (
             set(range(0, TRAIN_BUCKET_END))
             | set(range(TRAIN_BUCKET_END, VALIDATION_BUCKET_END))
@@ -81,9 +83,9 @@ class UntouchedFdicProtocolTests(unittest.TestCase):
                 bucket = base_split.entity_bucket(cert)
                 expected = (
                     "train"
-                    if bucket < 20
-                    else "validation"
                     if bucket < 30
+                    else "validation"
+                    if bucket < 50
                     else "test"
                 )
                 self.assertEqual(base_split.assigned_split(expected, bucket), expected)
