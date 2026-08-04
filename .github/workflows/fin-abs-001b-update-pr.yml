@@ -1,0 +1,100 @@
+name: FIN-ABS-001B — synchronize verified PR result
+
+on:
+  push:
+    branches:
+      - agent/fin-abs-001b-sec-direct
+    paths:
+      - '.github/workflows/fin-abs-001b-update-pr.yml'
+      - 'results/fin_abs_001b_sec_direct/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  update-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: agent/fin-abs-001b-sec-direct
+
+      - name: Build exact PR summary
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path('results/fin_abs_001b_sec_direct/report.json').read_text())
+          p = report['payload']
+          failed = [name for name, value in p['gate_checks'].items() if not value]
+          exact = p['exact_metrics']
+          rounded = p['rounded_metrics']
+          permutation = p['permutation_control']['metrics']
+          title = (
+              f"FIN-ABS-001B: SEC direct breadth — {p['score']['before']}→{p['score']['after']} "
+              f"({p['cohort']['eligible_companies']} companies)"
+          )
+          body = f'''## Canonical verified result
+
+- status: `{p['status']}`;
+- absolute Finance score: **{p['score']['before']} → {p['score']['after']}**;
+- eligible companies: **{p['cohort']['eligible_companies']}**;
+- companies with at least two direct relations: **{p['cohort']['companies_with_two_relations']}**;
+- direct relations: **{p['cohort']['direct_relations']}**;
+- distinct SIC codes: **{p['cohort']['sic_codes']}**;
+- benchmark rows: **{p['cohort']['benchmark_rows']}**.
+
+## Performance
+
+| Variant | Recall | Precision | FPR | Coverage |
+|---|---:|---:|---:|---:|
+| Exact | {exact['recall']:.6f} | {exact['precision']:.6f} | {exact['false_positive_rate']:.6f} | {exact['coverage']:.6f} |
+| Rounded millions | {rounded['recall']:.6f} | {rounded['precision']:.6f} | {rounded['false_positive_rate']:.6f} | {rounded['coverage']:.6f} |
+
+Permutation control: recall `{permutation['recall']:.6f}`, FPR `{permutation['false_positive_rate']:.6f}`.
+
+## Gates
+
+Failed gates: **{', '.join(failed) if failed else 'none'}**.
+
+All values were read directly from official SEC Company Facts and each tested relation was constrained to one accession and reporting context. No residual accounting adapter, imputation or sector-equivalence inference was allowed.
+
+## Score authority
+
+The only authorized increase is the preregistered **+8** for generality and external validation when every gate passes. This result awards no world-SOTA, historical-originality or universal-Finance points.
+
+## Verification
+
+- report SHA-256: `{report['sha256']}`;
+- independent Node receipt and the complete manifest are committed under `results/fin_abs_001b_sec_direct/`;
+- forged score evidence was rejected in CI.
+
+## Boundary
+
+{p['boundary']}
+
+Keep draft and unmerged.
+'''
+          Path('/tmp/pr_title.txt').write_text(title)
+          Path('/tmp/pr_body.md').write_text(body)
+          PY
+
+      - name: Update branch PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          number=$(gh pr list \
+            --repo cristh99/notebooks \
+            --head agent/fin-abs-001b-sec-direct \
+            --state open \
+            --json number \
+            --jq '.[0].number')
+          test -n "$number"
+          gh pr edit "$number" \
+            --repo cristh99/notebooks \
+            --title "$(cat /tmp/pr_title.txt)" \
+            --body-file /tmp/pr_body.md
