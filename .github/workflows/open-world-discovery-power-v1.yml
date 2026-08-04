@@ -1,0 +1,209 @@
+name: Open-World Discovery Power v1 public verification
+
+on:
+  pull_request:
+    paths:
+      - 'open_world_discovery_power_v1/**'
+      - '.github/workflows/open-world-discovery-power-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Verify source binding, preregistration and IAIP source note
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('open_world_discovery_power_v1')
+          binding = json.loads((root / 'SOURCE_BINDING.json').read_text())
+          prereg = json.loads((root / 'preregistration.json').read_text())
+          iaip = json.loads((root / 'iaip_source_note.json').read_text())
+          assert binding['schema'] == 'open-world-discovery-power/public-source-binding/1'
+          assert binding['private_repository'] == 'cristh99/my_first_repository'
+          assert binding['private_branch'] == 'agent/open-world-discovery-power-v1'
+          assert binding['private_pull_request'] == 105
+          assert binding['private_issue'] == 104
+          assert prereg['schema'] == 'open-world-discovery-power/preregistration/1'
+          assert prereg['status'] == 'FROZEN_BEFORE_PUBLIC_CI'
+          assert prereg['scenario_count'] == 72
+          assert prereg['unit_test_count'] == 12
+          assert len(prereg['domains']) == 6
+          assert len(prereg['archetypes']) == 12
+          assert prereg['score']['baseline_before_slice'] == 896
+          assert prereg['score']['eligible_after_public_pass'] == 918
+          assert iaip['declared_document_urls'] - iaip['physical_files'] == 40283
+          assert iaip['known_missing_files'] == 40283
+          assert iaip['unseen_estimation_status'] == 'BLOCKED_INPUTS'
+          PY
+
+      - name: Compile and execute frozen benchmark
+        run: |
+          set -euo pipefail
+          cd open_world_discovery_power_v1
+          python -m compileall -q .
+          python benchmark.py --output reports
+          python -m unittest -v test_discovery_power.py 2>&1 | tee reports/unittest.log
+
+      - name: Enforce preregistered acceptance gates
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('open_world_discovery_power_v1/reports')
+          summary = json.loads((root / 'benchmark_summary.json').read_text())
+          receipt = json.loads((root / 'benchmark_receipt.json').read_text())
+          iaip = json.loads((root / 'iaip_aggregate_diagnostic.json').read_text())
+          assert summary['scenario_count'] == 72
+          assert summary['passed'] == 72
+          assert summary['failed'] == 0
+          assert summary['exact_conformance'] == 1.0
+          assert receipt['schema'] == 'open-world-discovery-power/receipt/1'
+          assert receipt['payload']['status'] == 'PASS'
+          assert receipt['payload']['scenario_count'] == 72
+          assert receipt['payload']['passed'] == 72
+          assert iaip['known_missing_files'] == 40283
+          assert iaip['status'] == 'CONTINUE_KNOWN_GAP'
+          assert set(iaip['missing_inputs_for_unseen_estimation']) == {
+              'frequency_of_frequencies_f1_f2',
+              'independent_source_capture_overlap',
+          }
+          PY
+          node open_world_discovery_power_v1/verify_receipt.js open_world_discovery_power_v1/reports/benchmark_receipt.json
+
+      - name: Verify exact statistical and adaptive values
+        run: |
+          set -euo pipefail
+          cd open_world_discovery_power_v1
+          python - <<'PY'
+          from fractions import Fraction
+          from benchmark import aggregate_fixture, frequency_inventory, planner_fixture
+          from discovery_power import chapman_population_estimate, DiscoveryPlanner
+          stats = frequency_inventory('research').stats()
+          assert stats.sample_coverage == Fraction(5, 7)
+          assert stats.missing_mass == Fraction(2, 7)
+          assert stats.chao_unseen_estimate == Fraction(1, 2)
+          assert stats.chao_lower_bound == Fraction(9, 2)
+          assert chapman_population_estimate({'a','b','c','d'}, {'c','d','e','f'}) == Fraction(22, 3)
+          planner, sources = planner_fixture('software')
+          duplicate = planner.source_value(sources['software:duplicate_source'], ['software:known'])
+          assert duplicate.expected_valid_observations == 4
+          assert duplicate.expected_unique_gain == 1
+          assert duplicate.expected_duplicate_observations == 3
+          exhausted = ['software:probe', 'software:duplicate_source', 'software:positive_source']
+          before = planner.choose_next_source([], exhausted=exhausted)
+          posterior = planner.posterior_after(source_name='software:probe', observed_canonical_ids=['software:signal_rich'])
+          after = DiscoveryPlanner(worlds=planner.worlds, prior=posterior, sources=planner.sources).choose_next_source([], exhausted=exhausted)
+          assert before.source == 'software:a_lean_source'
+          assert after.source == 'software:z_rich_source'
+          iaip = aggregate_fixture('governance')
+          assert iaip.known_missing_files == 40283
+          print({
+              'coverage': str(stats.sample_coverage),
+              'missing_mass': str(stats.missing_mass),
+              'chao_unseen': str(stats.chao_unseen_estimate),
+              'chapman': str(Fraction(22,3)),
+              'unique_gain': str(duplicate.expected_unique_gain),
+              'source_before': before.source,
+              'source_after': after.source,
+              'iaip_known_gap': iaip.known_missing_files,
+          })
+          PY
+
+      - name: Reject altered evidence
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          source = Path('open_world_discovery_power_v1/reports/benchmark_receipt.json')
+          data = json.loads(source.read_text())
+          data['payload']['passed'] = 71
+          Path('open_world_discovery_power_v1/reports/tampered_receipt.json').write_text(json.dumps(data, sort_keys=True))
+          PY
+          if node open_world_discovery_power_v1/verify_receipt.js open_world_discovery_power_v1/reports/tampered_receipt.json; then
+            echo 'tampered receipt was incorrectly accepted'
+            exit 1
+          fi
+
+      - name: Build public receipt and evidence hashes
+        env:
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root = Path('open_world_discovery_power_v1')
+          reports = root / 'reports'
+          def sha(path):
+              return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+          local = json.loads((reports / 'benchmark_receipt.json').read_text())
+          iaip = json.loads((reports / 'iaip_aggregate_diagnostic.json').read_text())
+          body = {
+              'schema': 'open-world-discovery-power/public-receipt/1',
+              'status': 'PASS',
+              'private_repository': 'cristh99/my_first_repository',
+              'private_branch': 'agent/open-world-discovery-power-v1',
+              'private_pull_request': 105,
+              'private_issue': 104,
+              'public_repository': 'cristh99/notebooks',
+              'public_head': os.environ['PUBLIC_HEAD_SHA'],
+              'event_sha': os.environ['EVENT_SHA'],
+              'scenario_count': local['payload']['scenario_count'],
+              'passed': local['payload']['passed'],
+              'exact_conformance': 1.0,
+              'iaip_known_missing_files': iaip['known_missing_files'],
+              'iaip_unseen_estimation_status': 'BLOCKED_INPUTS',
+              'source_binding_sha256': sha(root / 'SOURCE_BINDING.json'),
+              'discovery_power_sha256': sha(root / 'discovery_power.py'),
+              'benchmark_sha256': sha(root / 'benchmark.py'),
+              'tests_sha256': sha(root / 'test_discovery_power.py'),
+              'preregistration_sha256': sha(root / 'preregistration.json'),
+              'readme_sha256': sha(root / 'README.md'),
+              'node_verifier_sha256': sha(root / 'verify_receipt.js'),
+              'iaip_source_note_sha256': sha(root / 'iaip_source_note.json'),
+              'manifest_sha256': sha(reports / 'scenario_manifest.json'),
+              'summary_sha256': sha(reports / 'benchmark_summary.json'),
+              'matrix_sha256': sha(reports / 'benchmark_matrix.csv'),
+              'iaip_diagnostic_sha256': sha(reports / 'iaip_aggregate_diagnostic.json'),
+              'local_receipt_sha256': sha(reports / 'benchmark_receipt.json')
+          }
+          canonical = json.dumps(body, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
+          receipt = {**body, 'sha256': hashlib.sha256(canonical).hexdigest()}
+          path = reports / 'open-world-discovery-power-public-receipt-v1.json'
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          (reports / 'open-world-discovery-power-public-receipt-v1.sha256').write_text(
+              f"{hashlib.sha256(path.read_bytes()).hexdigest()}  open-world-discovery-power-public-receipt-v1.json\n"
+          )
+          print(path.read_text())
+          PY
+          cd open_world_discovery_power_v1
+          sha256sum \
+            SOURCE_BINDING.json discovery_power.py benchmark.py test_discovery_power.py \
+            preregistration.json README.md verify_receipt.js iaip_source_note.json __init__.py \
+            reports/scenario_manifest.json reports/benchmark_summary.json \
+            reports/benchmark_matrix.csv reports/benchmark_receipt.json \
+            reports/iaip_aggregate_diagnostic.json \
+            reports/open-world-discovery-power-public-receipt-v1.json \
+            > reports/SHA256SUMS-PUBLIC
+          cat reports/SHA256SUMS-PUBLIC
+
+      - name: Upload public evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: open-world-discovery-power-v1-public
+          path: |
+            open_world_discovery_power_v1/
+          if-no-files-found: error
+          retention-days: 90
