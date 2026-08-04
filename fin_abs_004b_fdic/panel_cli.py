@@ -19,8 +19,7 @@ def _json_safe(value: object) -> object:
     if isinstance(value, (list, tuple)):
         return [_json_safe(item) for item in value]
     try:
-        missing = pd.isna(value)
-        if isinstance(missing, (bool, type(pd.NA))) and bool(missing):
+        if bool(pd.isna(value)):
             return None
     except (TypeError, ValueError, OverflowError):
         pass
