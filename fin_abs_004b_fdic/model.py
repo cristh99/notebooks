@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, replace
-from typing import Any, Mapping
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -34,6 +34,8 @@ BASELINES = (
     "CAMELS_LITE",
     "LOGISTIC_L2",
     "SURVIVAL_LOGIT",
+    "LOGISTIC_L2_PLATT",
+    "SURVIVAL_LOGIT_PLATT",
     "RF_BALANCED",
     "RF_COST_SENSITIVE",
     "RF_BALANCED_PLATT",
@@ -41,6 +43,7 @@ BASELINES = (
 )
 CHALLENGERS = (
     "MONOTONIC_HGB_HORIZON",
+    "MONOTONIC_HGB_HORIZON_PLATT",
     "RF_HGB_PLATT",
     "LOGIT_RF_HGB_PLATT",
 )
@@ -88,7 +91,10 @@ def split_validation_entities(
         ),
         "entity_overlap": int(len(calibration_entities & selection_entities)),
     }
-    if min(report["calibration_positive_entities"], report["selection_positive_entities"]) < 5:
+    if min(
+        report["calibration_positive_entities"],
+        report["selection_positive_entities"],
+    ) < 5:
         raise ValueError("validation calibration split has insufficient positive entities")
     if report["entity_overlap"] != 0:
         raise ValueError("calibration and selection entities overlap")
@@ -123,12 +129,9 @@ def platt_model() -> LogisticRegression:
 
 
 def _fit_platt(raw: np.ndarray, labels: np.ndarray) -> LogisticRegression:
+    """Calibrate to observed prevalence; class weights would distort PD levels."""
     calibrator = platt_model()
-    calibrator.fit(
-        logit(raw).reshape(-1, 1),
-        labels,
-        sample_weight=balanced_weights(labels),
-    )
+    calibrator.fit(logit(raw).reshape(-1, 1), labels)
     return calibrator
 
 
@@ -145,17 +148,15 @@ def train_models(
     days = train["days_to_failure"].to_numpy(dtype=float)
 
     camels = platt_model()
-    camels.fit(
-        camels_score(train).reshape(-1, 1),
-        y,
-        sample_weight=balanced_weights(y),
-    )
+    camels.fit(camels_score(train).reshape(-1, 1), y)
 
     models: dict[str, Any] = {}
     models["LOGISTIC_L2"] = logistic_model()
     models["LOGISTIC_L2"].fit(x, y, sample_weight=balanced_weights(y))
     models["SURVIVAL_LOGIT"] = logistic_model()
-    models["SURVIVAL_LOGIT"].fit(x, y, sample_weight=horizon_weights(y, days))
+    models["SURVIVAL_LOGIT"].fit(
+        x, y, sample_weight=horizon_weights(y, days)
+    )
     models["MONOTONIC_HGB_HORIZON"] = hgb_model(state.monotonic_constraints)
     models["MONOTONIC_HGB_HORIZON"].fit(
         x, y, sample_weight=horizon_weights(y, days)
@@ -198,10 +199,15 @@ def fit_calibrators(
     raw = raw_predictions(bundle, calibration)
     labels = calibration["label"].to_numpy(dtype=int)
     mixtures = {
+        "LOGISTIC_L2_PLATT": raw["LOGISTIC_L2"],
+        "SURVIVAL_LOGIT_PLATT": raw["SURVIVAL_LOGIT"],
         "RF_BALANCED_PLATT": raw["RF_BALANCED"],
         "RF_COST_PLATT": raw["RF_COST_SENSITIVE"],
-        "RF_HGB_PLATT": 0.5 * raw["RF_BALANCED"]
-        + 0.5 * raw["MONOTONIC_HGB_HORIZON"],
+        "MONOTONIC_HGB_HORIZON_PLATT": raw["MONOTONIC_HGB_HORIZON"],
+        "RF_HGB_PLATT": (
+            raw["RF_BALANCED"] + raw["MONOTONIC_HGB_HORIZON"]
+        )
+        / 2.0,
         "LOGIT_RF_HGB_PLATT": (
             raw["SURVIVAL_LOGIT"]
             + raw["RF_BALANCED"]
@@ -216,21 +222,32 @@ def fit_calibrators(
 
 
 def predict(bundle: ExtendedBundle, frame: pd.DataFrame) -> dict[str, np.ndarray]:
-    if set(bundle.calibrators) != {
+    expected_calibrators = {
+        "LOGISTIC_L2_PLATT",
+        "SURVIVAL_LOGIT_PLATT",
         "RF_BALANCED_PLATT",
         "RF_COST_PLATT",
+        "MONOTONIC_HGB_HORIZON_PLATT",
         "RF_HGB_PLATT",
         "LOGIT_RF_HGB_PLATT",
-    }:
+    }
+    if set(bundle.calibrators) != expected_calibrators:
         raise ValueError("all preregistered calibrators must be fitted before prediction")
     raw = raw_predictions(bundle, frame)
-    raw["RF_BALANCED_PLATT"] = _apply_platt(
-        bundle.calibrators["RF_BALANCED_PLATT"], raw["RF_BALANCED"]
-    )
-    raw["RF_COST_PLATT"] = _apply_platt(
-        bundle.calibrators["RF_COST_PLATT"], raw["RF_COST_SENSITIVE"]
-    )
-    rf_hgb = 0.5 * raw["RF_BALANCED"] + 0.5 * raw["MONOTONIC_HGB_HORIZON"]
+    direct = {
+        "LOGISTIC_L2_PLATT": "LOGISTIC_L2",
+        "SURVIVAL_LOGIT_PLATT": "SURVIVAL_LOGIT",
+        "RF_BALANCED_PLATT": "RF_BALANCED",
+        "RF_COST_PLATT": "RF_COST_SENSITIVE",
+        "MONOTONIC_HGB_HORIZON_PLATT": "MONOTONIC_HGB_HORIZON",
+    }
+    for calibrated_name, raw_name in direct.items():
+        raw[calibrated_name] = _apply_platt(
+            bundle.calibrators[calibrated_name], raw[raw_name]
+        )
+    rf_hgb = (
+        raw["RF_BALANCED"] + raw["MONOTONIC_HGB_HORIZON"]
+    ) / 2.0
     raw["RF_HGB_PLATT"] = _apply_platt(
         bundle.calibrators["RF_HGB_PLATT"], rf_hgb
     )
