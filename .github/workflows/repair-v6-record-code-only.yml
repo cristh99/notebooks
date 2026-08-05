@@ -1,0 +1,80 @@
+name: Repair v6 record hash in code and evidence only
+
+on:
+  push:
+    branches:
+      - agent/ocr-consensus-v6-coru-freeze
+    paths:
+      - '.github/workflows/repair-v6-record-code-only.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: repair-v6-record-code-only-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 20
+      - name: Move to latest branch and repair non-workflow bindings
+        run: |
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard "origin/${GITHUB_REF_NAME}"
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          old = '144182c4147834d4e09f159ba70686ecb2563854b9415b83255342d06ca412dc'
+          new = '6dc760c9441a1e44da9dd6cd5a16ddf8dcfa5114d9750056269ef1ebbb2a3fe1'
+          paths = [
+              Path(
+                  'ocr_real_risk_v1/run_records/'
+                  'wildreceipt_v6_gate_completion_lab.json'
+              ),
+              Path('ocr_real_risk_v1/numeric_consensus_candidate_v6_coru.py'),
+          ]
+          for path in paths:
+              text = path.read_text(encoding='utf-8')
+              if old not in text:
+                  raise SystemExit(f'{path}: old binding missing')
+              path.write_text(text.replace(old, new), encoding='utf-8')
+
+          record = json.loads(paths[0].read_text(encoding='utf-8'))
+          observed = record.pop('record_stable_payload_sha256')
+          expected = hashlib.sha256(
+              json.dumps(
+                  record,
+                  ensure_ascii=False,
+                  sort_keys=True,
+                  separators=(',', ':'),
+              ).encode('utf-8')
+          ).hexdigest()
+          assert observed == expected == new
+          print({
+              'record_stable_payload_sha256': observed,
+              'record_file_sha256': hashlib.sha256(
+                  paths[0].read_bytes()
+              ).hexdigest(),
+          })
+          PY
+          python -m py_compile \
+            ocr_real_risk_v1/numeric_consensus_candidate_v6_coru.py
+      - name: Commit code and evidence repair
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            ocr_real_risk_v1/run_records/wildreceipt_v6_gate_completion_lab.json \
+            ocr_real_risk_v1/numeric_consensus_candidate_v6_coru.py
+          git commit -m 'Repair canonical v6 record binding in code and evidence'
+          git fetch origin "${GITHUB_REF_NAME}"
+          git rebase "origin/${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
