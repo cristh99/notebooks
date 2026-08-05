@@ -1,0 +1,61 @@
+{
+  "dataset_id": "naver-clova-ix/cord-v2",
+  "expected_rows": {
+    "test": 100,
+    "train": 800,
+    "validation": 100
+  },
+  "expected_total_rows": 1000,
+  "files": [
+    {
+      "download_url": "https://huggingface.co/datasets/naver-clova-ix/cord-v2/resolve/7f0115a4b758a71d6473b8d085751692da2fef98/data/test-00000-of-00001-9c204eb3f4e11791.parquet?download=true",
+      "lfs_oid": "sha256:51c65f1788faff392abe2a0b55b023eb23e9be551c509138eaa3a832514224e7",
+      "path": "data/test-00000-of-00001-9c204eb3f4e11791.parquet",
+      "size_bytes": 234202795
+    },
+    {
+      "download_url": "https://huggingface.co/datasets/naver-clova-ix/cord-v2/resolve/7f0115a4b758a71d6473b8d085751692da2fef98/data/train-00000-of-00004-b4aaeceff1d90ecb.parquet?download=true",
+      "lfs_oid": "sha256:da3994eee1bf9bd3c57f0d53a72c3a6812c8696c5ba26245987949ddf73483cc",
+      "path": "data/train-00000-of-00004-b4aaeceff1d90ecb.parquet",
+      "size_bytes": 490224630
+    },
+    {
+      "download_url": "https://huggingface.co/datasets/naver-clova-ix/cord-v2/resolve/7f0115a4b758a71d6473b8d085751692da2fef98/data/train-00001-of-00004-7dbbe248962764c5.parquet?download=true",
+      "lfs_oid": "sha256:cce4def16a0d6a6c75f80be712f7494c56c318a8829b712f5c62650155c9e58e",
+      "path": "data/train-00001-of-00004-7dbbe248962764c5.parquet",
+      "size_bytes": 441418432
+    },
+    {
+      "download_url": "https://huggingface.co/datasets/naver-clova-ix/cord-v2/resolve/7f0115a4b758a71d6473b8d085751692da2fef98/data/train-00002-of-00004-688fe1305a55e5cc.parquet?download=true",
+      "lfs_oid": "sha256:591e2db8fe8b1d364b054f46e8c375b7f00e72578914ba46a573b6858162cab2",
+      "path": "data/train-00002-of-00004-688fe1305a55e5cc.parquet",
+      "size_bytes": 443802181
+    },
+    {
+      "download_url": "https://huggingface.co/datasets/naver-clova-ix/cord-v2/resolve/7f0115a4b758a71d6473b8d085751692da2fef98/data/train-00003-of-00004-2d0cd200555ed7fd.parquet?download=true",
+      "lfs_oid": "sha256:1ffd9de8d6fbcee7630fd4cdfedff05b9b7fabc0fae4fc17557c5fe7cf178748",
+      "path": "data/train-00003-of-00004-2d0cd200555ed7fd.parquet",
+      "size_bytes": 455555434
+    },
+    {
+      "download_url": "https://huggingface.co/datasets/naver-clova-ix/cord-v2/resolve/7f0115a4b758a71d6473b8d085751692da2fef98/data/validation-00000-of-00001-cc3c5779fe22e8ca.parquet?download=true",
+      "lfs_oid": "sha256:0d0f6dac11fdcc549de2746aa9f53136a3bc22a2a1aff2b0b847f7622ad60c15",
+      "path": "data/validation-00000-of-00001-cc3c5779fe22e8ca.parquet",
+      "size_bytes": 242080800
+    }
+  ],
+  "license": "cc-by-4.0",
+  "outcomes_opened": false,
+  "parquet_rows_read": 0,
+  "purpose": "freeze external validation source before candidate evaluation",
+  "resolved_revision": "7f0115a4b758a71d6473b8d085751692da2fef98",
+  "schema": "ocr-cord-source-seal/1",
+  "stable_payload_sha256": "b8178f894a8a133b18ad425494e70f36f110cb2868f74827425b74e1bcb25ebb",
+  "total_source_bytes": 2307284272,
+  "workflow_evidence": {
+    "artifact_digest": "be40a9330a4e37f716758742e0d1725ab663f8bd737a6584f9792064160806f1",
+    "artifact_id": 8917473921,
+    "commit_sha": "9a1531beb66ccd05c5e7196ecbb50d718c97516d",
+    "run_id": 30973726270
+  }
+}
