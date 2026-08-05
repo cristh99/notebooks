@@ -1,0 +1,111 @@
+{
+  "candidate_commit": "968ab666327d98dd5a93b7b70c6453412c24ff4f",
+  "constraints": {
+    "external_spend_usd": 0.0,
+    "gcloud_used": false,
+    "github_actions_used": false,
+    "gpu_used": false,
+    "omp_thread_limit": 1,
+    "paid_api_used": false,
+    "production_modified": false,
+    "python": "3.13.5",
+    "tesseract": "tesseract 5.5.0"
+  },
+  "decision": {
+    "next_gate": "evaluate v4.1 on an untouched outcome-blind sample of semantic-flagged numeric claims; certify the selective risk unit rather than diluting errors over all tokens",
+    "production_promotion": false,
+    "quality_10x_status": "BLOCKED_NO_ERROR_EXPOSURE",
+    "reason": "zero false decisions and essentially zero overhead, but the sealed batch contained no baseline errors or semantic flags",
+    "speed_10x_status": "NOT_A_SPEED_REPLACEMENT",
+    "verdict": "PASS_NO_ERROR_EXPOSURE_NOT_CERTIFYING"
+  },
+  "full_report_sha256": "373deb07e53fff7474cf2f3d74afafc4ba9fad947d6fbefb2666fd09527978bb",
+  "full_report_stable_payload_sha256": "35b093cec94542ee7e8820e47c0aab994f0495f2cb167f79bf821eb1ec9e3509",
+  "manifest_commit": "db468623c75bb8041ff65ce76fc12c676965f174",
+  "manifest_sha256": "0c0df5723de9d860da3ac16f45121a9125a3c4e0b6b3e6b0e349e7ddeb7de2bb",
+  "metrics": {
+    "accepted": 5,
+    "accepted_coverage": 1.0,
+    "baseline_errors": 0,
+    "baseline_observed_error_rate": 0.0,
+    "conservative_error_reduction_lower": 0.0,
+    "corrected_errors": 0,
+    "eligible_claims": 5,
+    "false_replacements": 0,
+    "final_errors": 0,
+    "final_observed_error_rate": 0.0,
+    "observed_baseline_errors_eliminated_fraction": null,
+    "one_sided_95pct_baseline_error_lower": 0.0,
+    "one_sided_95pct_final_error_upper": 0.450719728346941,
+    "quarantined": 0,
+    "replacements": 0,
+    "semantic_flags": 0,
+    "statistical_10x_certified": false
+  },
+  "page_receipts": [
+    {
+      "annotation_sha256": "d582a3122a5e56fc5a8e6f55bd00a8035e4c6c64ad04c8e3cdb97c64bcea617f",
+      "eligible_claims": 0,
+      "image_sha256": "90b7b59ed5c8e697407b5a3ab7fe04a2eb86056c516ce578f71ee2e92d7412fa",
+      "numeric_annotations_in_scope": 0,
+      "semantic_flags": 0,
+      "stem": "X51008099048"
+    },
+    {
+      "annotation_sha256": "7e28b4fcb9153a60f42bc38e038317de28db592023cd33f94c3469f24023a871",
+      "eligible_claims": 0,
+      "image_sha256": "e120123d6ea02169e177dbcae64233faf35e0c0b9d7919eb4ee9218c990354bb",
+      "numeric_annotations_in_scope": 0,
+      "semantic_flags": 0,
+      "stem": "X51008099041"
+    },
+    {
+      "annotation_sha256": "1a9156b0ffddc531d281a61d946a040cb22d230af54f231c9fb1147d061c90ef",
+      "eligible_claims": 1,
+      "image_sha256": "820d1e41efde81599376a7b58d305d3d4671154601e959ac018c12e4c3d3733c",
+      "numeric_annotations_in_scope": 4,
+      "semantic_flags": 0,
+      "stem": "X51008099073"
+    },
+    {
+      "annotation_sha256": "60c57f29a22bf2e436ffc09ca706a0bab8da604e1c925e798d369591961b7970",
+      "eligible_claims": 4,
+      "image_sha256": "dfd45d5933cbcbcec8ee24ecc1e304b737d5b58b5c22653e2f81f07e70b00f52",
+      "numeric_annotations_in_scope": 4,
+      "semantic_flags": 0,
+      "stem": "X51008099071"
+    },
+    {
+      "annotation_sha256": "f5ef9b0c6373c9e9375381dc626327e911eb2a76d52442a63fb87fc4d4d7fbc0",
+      "eligible_claims": 0,
+      "image_sha256": "44976083ea6a9bf6085b3927c2c937572b872ec6eaaa555016a892b5af0c9366",
+      "numeric_annotations_in_scope": 0,
+      "semantic_flags": 0,
+      "stem": "X51008099046"
+    }
+  ],
+  "record_sha256": "61e43ddb9af7d6ed2446d5bca46666f5e94a1be613dfb711b744989e900ae730",
+  "schema": "ocr-semantic-numeric-resolver-v4-1-holdout-record/1",
+  "source": {
+    "annotations_used_at_inference": false,
+    "annotations_used_for_post_decision_evaluation": true,
+    "corpus": "ICDAR2019 SROIE Task 1 natural receipt images",
+    "pages": 5,
+    "stems": [
+      "X51008099048",
+      "X51008099041",
+      "X51008099073",
+      "X51008099071",
+      "X51008099046"
+    ]
+  },
+  "status": "RECEIPT_DISJOINT_SEALED_CANARY_V4_1",
+  "timing": {
+    "baseline_full_page_seconds": 2.9459175850001884,
+    "candidate_to_baseline_runtime_ratio": 1.0003255732627423,
+    "candidate_total_seconds": 2.946876697000107,
+    "crop_resolver_wall_seconds": 0.0,
+    "semantic_trigger_seconds": 0.0009591119999186049,
+    "speed_10x_certified": false
+  }
+}
