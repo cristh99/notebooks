@@ -12,9 +12,18 @@ check() {
   printf '%s  %s\n' "$digest" "$path" | sha256sum -c -
 }
 
-check bd23e380db9610095f7fc3fd38d4c65d0168c421fc989fb14534c5d09115276b "$OVERLAY/part_00.b64"
+check 82b6809b76ffd9a9b4748c7af21e84ceb01ea1453852eb3be83528b8c245a5b5 "$OVERLAY/part_00_00.b64"
+check 7f3116d9a9d0b84039bf269e5e8574eb070896769de6aa6dfb60301e37ca06a2 "$OVERLAY/part_00_01.b64"
+check 456da3483c8460a3ca2c401d02b9b9a6dd1f8ea15ef68eb54c5ff9027a4abc97 "$OVERLAY/part_00_02.b64"
+check 23770bd5ad55728513530fd12ab58b77aaab6511811c7ab849e34df5654d206e "$OVERLAY/part_00_03.b64"
 check 9f9cb3d8901445039919c1de0de250f9cd07f2b1238b32a20eb5141fc1a10bb3 "$OVERLAY/part_01.b64"
-cat "$OVERLAY/part_00.b64" "$OVERLAY/part_01.b64" > "$TMP/browser-overlay.b64"
+cat \
+  "$OVERLAY/part_00_00.b64" \
+  "$OVERLAY/part_00_01.b64" \
+  "$OVERLAY/part_00_02.b64" \
+  "$OVERLAY/part_00_03.b64" \
+  "$OVERLAY/part_01.b64" \
+  > "$TMP/browser-overlay.b64"
 check e0723066c37d62181536ae8be0c20eb06d6145cef601cc6e65bb7a4f168e64ae "$TMP/browser-overlay.b64"
 base64 -d "$TMP/browser-overlay.b64" > "$TMP/browser-overlay.tar.gz"
 check 21be4eb3d4d73cb763806bb2f1bb7bb68c18926b9a4099054a409fcb03353197 "$TMP/browser-overlay.tar.gz"
