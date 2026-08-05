@@ -1,0 +1,72 @@
+{
+  "schema": "ocr-sroie-multi-psm-development-canary-v1-summary/1",
+  "status": "DEVELOPMENT_CANARY_ONLY",
+  "promotion_status": "BLOCKED",
+  "external_certification": false,
+  "spend_usd": 0.0,
+  "source": {
+    "repository": "zzzDavid/ICDAR-2019-SROIE",
+    "image_ids": ["000", "001", "002", "003", "004", "005", "006", "008"],
+    "pages": 8,
+    "selection": "convenience subset; non-random",
+    "truth_use": "annotations used only for post-run development evaluation"
+  },
+  "environment": {
+    "tesseract_version": "5.5.0",
+    "language": "eng",
+    "oem": 1,
+    "psms": [3, 6, 11],
+    "omp_thread_limit": 1
+  },
+  "numeric_scope": {
+    "ascii_digits_only": true,
+    "minimum_digits": 4,
+    "maximum_digits": 12,
+    "truth_units": 95
+  },
+  "baseline_psm3": {
+    "candidate_count": 118,
+    "matched_truth": 72,
+    "correct_truth": 54,
+    "wrong_matched_truth": 18,
+    "missed_truth": 23,
+    "unmatched_candidates": 46,
+    "coverage": 0.7578947368421053,
+    "exact_recall": 0.5684210526315789,
+    "precision_matched": 0.75,
+    "precision_all_candidates": 0.4576271186440678,
+    "total_seconds": 3.976689193000084
+  },
+  "multi_psm_consensus": {
+    "candidate_count": 93,
+    "matched_truth": 59,
+    "correct_truth": 49,
+    "wrong_matched_truth": 10,
+    "missed_truth": 36,
+    "unmatched_candidates": 34,
+    "coverage": 0.6210526315789474,
+    "exact_recall": 0.5157894736842106,
+    "precision_matched": 0.8305084745762712,
+    "precision_all_candidates": 0.5268817204301075,
+    "total_seconds": 11.814548887000456
+  },
+  "derived": {
+    "matched_error_reduction_factor": 1.8,
+    "matched_wrong_reduction_fraction": 0.4444444444444444,
+    "coverage_change_points": -0.13684210526315788,
+    "exact_recall_change_points": -0.05263157894736836,
+    "runtime_ratio_multi_psm_to_psm3": 2.9709510383152056
+  },
+  "decision": {
+    "global_multi_psm_route": "REJECT",
+    "selective_verifier": "CONTINUE",
+    "reason_codes": [
+      "QUALITY_IMPROVED_BUT_BELOW_10X",
+      "COVERAGE_REGRESSED",
+      "FULL_PAGE_RUNTIME_REGRESSED",
+      "TINY_NONRANDOM_DEVELOPMENT_SET"
+    ],
+    "next_gate": "Use multi-PSM only on unresolved numeric risk boxes, combine with an independent pixel modality, and replay on a sealed natural holdout."
+  },
+  "full_report_sha256": "5f326c990ba01a279f4a55fa4e881c6a08fe10da793183693c850b24b934bddf"
+}
