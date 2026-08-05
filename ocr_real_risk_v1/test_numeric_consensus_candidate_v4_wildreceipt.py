@@ -23,6 +23,17 @@ class NumericConsensusCandidateV4WildReceiptTests(unittest.TestCase):
         self.assertEqual(protocol["dataset"], "kaydee/wildreceipt")
         self.assertEqual(protocol["revision"], DATASET_REVISION)
         self.assertEqual(set(protocol["source_objects"]), set(SOURCE_OBJECTS))
+        self.assertEqual(
+            protocol["annotation_geometry"]["source_coordinate_space"],
+            "layoutlm_normalized_xyxy_0_1000",
+        )
+        self.assertTrue(
+            protocol["annotation_geometry"]["repair_fixed_before_ocr"]
+        )
+        self.assertFalse(protocol["schema_discovery"]["ocr_executed"])
+        self.assertFalse(
+            protocol["schema_discovery"]["candidate_inference_executed"]
+        )
         self.assertIn("at most one unit", protocol["risk_unit"])
         self.assertTrue(protocol["selection"]["performed_before_ocr"])
         self.assertFalse(protocol["selection"]["uses_candidate_outcome"])
@@ -48,6 +59,9 @@ class NumericConsensusCandidateV4WildReceiptTests(unittest.TestCase):
         self.assertEqual(protocol["exact_gates"]["minimum_accepted"], 400)
         self.assertTrue(
             protocol["power_plan"]["underpower_is_an_allowed_terminal_result"]
+        )
+        self.assertFalse(
+            protocol["claim_limits"]["untouched_external_certificate_claimed"]
         )
         self.assertFalse(protocol["claim_limits"]["general_ocr_superiority_claimed"])
         self.assertFalse(

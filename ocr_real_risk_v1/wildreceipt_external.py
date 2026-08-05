@@ -1,9 +1,10 @@
 """Sealed external validation of numeric-consensus-v4 on WildReceipt.
 
-The candidate, adapter, source objects, detector, model, guard, risk unit, and
-exact gates are frozen before any Parquet row is opened. Exactly one selected
-numeric annotation may survive per unique decoded receipt image. Expert text
-and geometry are used only for pre-OCR selection and post-inference scoring.
+The model, thresholds, risk unit, corrected LayoutLM coordinate projection,
+evaluator, and exact gates are frozen before any OCR outcome is generated. A
+prior manifest-only attempt exposed the normalized bbox schema; it installed
+no OCR binary and executed neither OCR nor candidate inference. Exactly one
+selected numeric annotation may survive per unique decoded receipt image.
 """
 from __future__ import annotations
 
@@ -110,19 +111,32 @@ def load_candidate_bundle(root: Path) -> tuple[dict[str, Any], Any]:
     if not verify_candidate_manifest(manifest):
         raise RuntimeError("WildReceipt candidate stable payload failed")
     if manifest.get("status") != (
-        "FROZEN_FOR_UNTOUCHED_WILDRECEIPT_EXTERNAL_VALIDATION_ONLY"
+        "FROZEN_AFTER_WILDRECEIPT_GEOMETRY_SCHEMA_DISCOVERY_"
+        "BEFORE_ANY_OCR_OUTCOMES"
     ):
         raise RuntimeError("WildReceipt candidate has an unexpected status")
     if manifest.get("external_protocol") != external_protocol():
         raise RuntimeError("WildReceipt external protocol changed")
-    if manifest.get("external_source_binding", {}).get(
-        "outcomes_opened_before_freeze"
+    source_binding = manifest.get("external_source_binding", {})
+    if source_binding.get("source_rows_opened_before_this_freeze") is not True:
+        raise RuntimeError("WildReceipt schema discovery is not disclosed")
+    if source_binding.get("ocr_executed_before_this_freeze") is not False:
+        raise RuntimeError("WildReceipt OCR outcomes were opened before freeze")
+    if source_binding.get(
+        "candidate_inference_executed_before_this_freeze"
     ) is not False:
-        raise RuntimeError("WildReceipt outcomes were opened before freeze")
-    if manifest.get("decision", {}).get(
-        "candidate_frozen_before_wildreceipt_outcomes"
+        raise RuntimeError("candidate inference ran before repaired freeze")
+    decision = manifest.get("decision", {})
+    if decision.get(
+        "candidate_frozen_before_wildreceipt_ocr_outcomes"
     ) is not True:
-        raise RuntimeError("WildReceipt candidate was not frozen before outcomes")
+        raise RuntimeError("candidate was not frozen before OCR outcomes")
+    if decision.get(
+        "candidate_frozen_before_wildreceipt_source_opening"
+    ) is not False:
+        raise RuntimeError("source-opening chronology is misstated")
+    if decision.get("untouched_external_certificate_claimed") is not False:
+        raise RuntimeError("candidate improperly claims an untouched corpus")
     if manifest.get("decision", {}).get("production_ready") is not False:
         raise RuntimeError("WildReceipt candidate improperly claims production readiness")
     model_candidate, model = load_frozen_candidate(root / "model")
@@ -346,7 +360,9 @@ def build_protocol_bundle(
         )
     protocol: dict[str, Any] = {
         "schema": PROTOCOL_SCHEMA,
-        "status": "SEALED_BEFORE_WILDRECEIPT_OCR",
+        "status": (
+            "SEALED_AFTER_GEOMETRY_SCHEMA_REPAIR_BEFORE_WILDRECEIPT_OCR"
+        ),
         "dataset": {
             "repo": DATASET_ID,
             "revision": DATASET_REVISION,
@@ -393,6 +409,8 @@ def build_protocol_bundle(
         "execution_plan": {
             "candidate_bytes_fixed_before_ocr": True,
             "selection_completed_before_ocr": True,
+            "geometry_schema_repair_disclosed": True,
+            "untouched_external_certificate": False,
             "three_source_shards": True,
             "one_worker_per_source_shard": True,
             "aggregate_recomputes_exact_bounds": True,
@@ -783,8 +801,10 @@ def aggregate_reports(
         raise RuntimeError("unexpected WildReceipt protocol schema")
     if not verify_stable_payload(protocol, "stable_payload_sha256"):
         raise RuntimeError("WildReceipt protocol stable payload failed")
-    if protocol.get("status") != "SEALED_BEFORE_WILDRECEIPT_OCR":
-        raise RuntimeError("WildReceipt protocol was not sealed before OCR")
+    if protocol.get("status") != (
+        "SEALED_AFTER_GEOMETRY_SCHEMA_REPAIR_BEFORE_WILDRECEIPT_OCR"
+    ):
+        raise RuntimeError("WildReceipt repaired protocol was not sealed before OCR")
     reports: dict[str, dict[str, Any]] = {}
     observations: list[dict[str, Any]] = []
     for root in shard_roots:
@@ -836,7 +856,10 @@ def aggregate_reports(
     )
     external_pass = bool(overall["pass"] and stability_pass)
     if external_pass:
-        verdict = "PASS_EXTERNAL_WILDRECEIPT_NUMERIC_10X_CERTIFICATE"
+        verdict = (
+            "PASS_EXTERNAL_WILDRECEIPT_SCHEMA_REPAIRED_"
+            "NUMERIC_10X_CERTIFICATE"
+        )
     elif overall["selected"] < MINIMUM_SELECTED:
         verdict = "WILDRECEIPT_UNDERPOWERED_SELECTED_DENOMINATOR"
     elif overall["baseline_false"] == 0:
@@ -913,8 +936,9 @@ def aggregate_reports(
             "details": folds,
         },
         "decision": {
-            "external_validation_complete": True,
-            "candidate_bound_before_outcomes": True,
+            "schema_repaired_external_validation_complete": True,
+            "candidate_bound_before_ocr_outcomes": True,
+            "untouched_external_certificate_claimed": False,
             "pass_statistical_10x": external_pass,
             "tenfold_bound_reached": bool(overall["pass"]),
             "shard_stability_passed": stability_pass,

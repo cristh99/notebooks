@@ -27,11 +27,35 @@ from .numeric_consensus_candidate_v4 import (
     _verify_development,
 )
 from .numeric_digit_forest_deterministic import load_frozen_candidate
-from .wildreceipt_adapter import DATASET_ID, DATASET_REVISION, REQUIRED_COLUMNS
+from .wildreceipt_adapter import (
+    BBOX_COORDINATE_SPACE,
+    DATASET_ID,
+    DATASET_REVISION,
+    REQUIRED_COLUMNS,
+)
 from .wildreceipt_source_seal import verify as verify_source_seal
 
-CANDIDATE_SCHEMA = "ocr-numeric-consensus-wildreceipt-candidate/4"
-CANDIDATE_ID = "numeric-consensus-v4-wildreceipt"
+CANDIDATE_SCHEMA = "ocr-numeric-consensus-wildreceipt-candidate/5"
+CANDIDATE_ID = "numeric-consensus-v4-wildreceipt-schema-v2"
+SCHEMA_DISCOVERY = {
+    "workflow_run_id": 30991994931,
+    "failure_stage": "outcome_blind_manifest_build_before_ocr",
+    "opened_source_scope": (
+        "prefix of the WildReceipt test split during manifest-only "
+        "geometry census"
+    ),
+    "source_objects_downloaded": 3,
+    "ocr_binary_installed": False,
+    "ocr_executed": False,
+    "candidate_inference_executed": False,
+    "observed_schema_defect": (
+        "LayoutLM-normalized 0-1000 bboxes were interpreted as "
+        "image pixels"
+    ),
+    "repair_scope": "deterministic coordinate projection only",
+    "numeric_text_scope_changed": False,
+    "model_or_threshold_changed": False,
+}
 SOURCE_SEAL_STABLE_SHA256 = (
     "7775f57d92aa293b05e45298179154f54a3ffec1adb73087434fe54a1aa731f5"
 )
@@ -73,7 +97,9 @@ SOURCE_FILES = (
 
 def external_protocol() -> dict[str, Any]:
     return {
-        "protocol_id": "wildreceipt-one-numeric-word-per-receipt-v1",
+        "protocol_id": (
+            "wildreceipt-one-numeric-word-per-receipt-v2-layoutlm-geometry"
+        ),
         "dataset": DATASET_ID,
         "revision": DATASET_REVISION,
         "lineage": {
@@ -83,6 +109,21 @@ def external_protocol() -> dict[str, Any]:
         },
         "source_objects": dict(SOURCE_OBJECTS),
         "required_columns": list(REQUIRED_COLUMNS),
+        "annotation_geometry": {
+            "source_coordinate_space": BBOX_COORDINATE_SPACE,
+            "source_canvas": [1000, 1000],
+            "target_coordinate_space": "original_image_pixels",
+            "projection": (
+                "floor lower bounds and ceil upper bounds after "
+                "independent width/height scaling"
+            ),
+            "clipping": (
+                "clip to normalized 0-1000 canvas; fail closed on "
+                "non-positive, fully outside, or pixel-collapsed boxes"
+            ),
+            "repair_fixed_before_ocr": True,
+        },
+        "schema_discovery": dict(SCHEMA_DISCOVERY),
         "risk_unit": (
             "one SHA-256-selected eligible numeric annotation per unique physical "
             "receipt image; at most one unit survives per decoded image SHA-256"
@@ -97,7 +138,7 @@ def external_protocol() -> dict[str, Any]:
             ),
             "rank": (
                 "SHA-256(dataset revision, shard, receipt id, image SHA-256, "
-                "clipped annotation bbox, canonical truth)"
+                "projected pixel bbox, canonical truth)"
             ),
             "deduplicate_candidates_within_receipt": "canonical truth plus bbox",
             "deduplicate_receipts_across_shards": "decoded image SHA-256",
@@ -154,7 +195,8 @@ def external_protocol() -> dict[str, Any]:
             "aggregate_recomputes_deduplication_and_all_exact_bounds": True,
         },
         "claim_limits": {
-            "external_numeric_quality_certificate_only": True,
+            "schema_repaired_external_numeric_certificate_only": True,
+            "untouched_external_certificate_claimed": False,
             "general_ocr_superiority_claimed": False,
             "honduras_production_readiness_claimed": False,
             "production_change_automatic": False,
@@ -275,7 +317,10 @@ def build_candidate(
     manifest: dict[str, Any] = {
         "schema": CANDIDATE_SCHEMA,
         "candidate_id": CANDIDATE_ID,
-        "status": "FROZEN_FOR_UNTOUCHED_WILDRECEIPT_EXTERNAL_VALIDATION_ONLY",
+        "status": (
+            "FROZEN_AFTER_WILDRECEIPT_GEOMETRY_SCHEMA_DISCOVERY_"
+            "BEFORE_ANY_OCR_OUTCOMES"
+        ),
         "source_commit": source_commit,
         "source_files": source_records,
         "runtime": {
@@ -308,7 +353,11 @@ def build_candidate(
             "source_seal_stable_payload_sha256": source_seal[
                 "stable_payload_sha256"
             ],
-            "outcomes_opened_before_freeze": False,
+            "original_source_seal_unopened": True,
+            "source_rows_opened_before_this_freeze": True,
+            "ocr_executed_before_this_freeze": False,
+            "candidate_inference_executed_before_this_freeze": False,
+            "schema_discovery": dict(SCHEMA_DISCOVERY),
         },
         "external_protocol": external_protocol(),
         "development_evidence": {
@@ -327,8 +376,10 @@ def build_candidate(
             "internal_only": True,
         },
         "decision": {
-            "candidate_frozen_before_wildreceipt_outcomes": True,
-            "ready_for_one_wildreceipt_external_evaluation": True,
+            "candidate_frozen_before_wildreceipt_ocr_outcomes": True,
+            "candidate_frozen_before_wildreceipt_source_opening": False,
+            "ready_for_one_wildreceipt_schema_repaired_external_evaluation": True,
+            "untouched_external_certificate_claimed": False,
             "external_certificate_claimed": False,
             "tenfold_reduction_claimed": False,
             "production_ready": False,

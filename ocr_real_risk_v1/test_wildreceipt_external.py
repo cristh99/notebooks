@@ -55,6 +55,13 @@ class WildReceiptExternalTests(unittest.TestCase):
         )
         self.assertEqual(gates["minimum_accepted"], MINIMUM_ACCEPTED)
         self.assertEqual(gates["minimum_coverage_lower"], MINIMUM_COVERAGE)
+        self.assertEqual(
+            protocol["annotation_geometry"]["source_coordinate_space"],
+            "layoutlm_normalized_xyxy_0_1000",
+        )
+        self.assertFalse(
+            protocol["claim_limits"]["untouched_external_certificate_claimed"]
+        )
 
     def test_exact_summary_can_certify_zero_retained_errors(self) -> None:
         rows = []
