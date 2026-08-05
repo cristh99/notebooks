@@ -1,0 +1,205 @@
+name: Data Science dominance — canonical DAB audit v1
+
+on:
+  push:
+    branches:
+      - agent/data-science-dominance-dab-slice
+    paths:
+      - .github/workflows/data-science-dominance-dab-slice-canonical-audit-v1.yml
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  canonical-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout frozen branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove workflow-only activation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_EVENT_NAME}" = "push"
+          test "${GITHUB_RUN_ATTEMPT}" = "1"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/data-science-dominance-dab-slice-canonical-audit-v1.yml"
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned database dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check \
+            'duckdb==1.3.1' 'psycopg2-binary==2.9.9' 'pymongo==4.13.2'
+          python -m pip freeze | sort > dab-canonical-pip-freeze.txt
+
+      - name: Reconstruct candidate and tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          root='data_science_dominance/dab_slice'
+          bash "$root/reconstruct_dab_slice.sh"
+          if test -f "$root/test_dab_slice_agent.py.gz.b64"; then
+            base64 -d "$root/test_dab_slice_agent.py.gz.b64" | gzip -dc > "$root/test_dab_slice_agent.py"
+          fi
+          python -m py_compile "$root/dab_slice_agent.py" "$root/test_dab_slice_agent.py"
+
+      - name: Static isolation and freeze audit
+        shell: bash
+        run: |
+          set +e
+          python - <<'PY' 2>&1 | tee dab-canonical-static-audit.log
+          import ast, hashlib, json
+          from pathlib import Path
+
+          root = Path('data_science_dominance/dab_slice')
+          candidate = root / 'dab_slice_agent.py'
+          freeze_path = root / 'DAB_SLICE_FREEZE.json'
+          source = candidate.read_text(encoding='utf-8')
+          tree = ast.parse(source)
+          forbidden_imports = {'requests', 'urllib', 'httpx', 'socket', 'subprocess', 'selenium', 'playwright'}
+          imports = set()
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                  imports.update(alias.name.split('.')[0] for alias in node.names)
+              elif isinstance(node, ast.ImportFrom) and node.module:
+                  imports.add(node.module.split('.')[0])
+          forbidden_strings = [
+              token for token in ('ground_truth', 'validate.py', 'query1/validate', 'query1\\validate')
+              if token in source.lower()
+          ]
+          candidate_sha = hashlib.sha256(candidate.read_bytes()).hexdigest()
+          freeze = json.loads(freeze_path.read_text()) if freeze_path.exists() else {}
+          expected_sha = (freeze.get('candidate') or {}).get('sha256')
+          receipt = {
+              'schema': 'data-science-dominance/dab-canonical-static-audit/1',
+              'candidate_sha256': candidate_sha,
+              'freeze_expected_sha256': expected_sha,
+              'freeze_matches_candidate': expected_sha == candidate_sha,
+              'forbidden_imports': sorted(imports & forbidden_imports),
+              'forbidden_strings': forbidden_strings,
+              'isolated': not (imports & forbidden_imports) and not forbidden_strings,
+          }
+          Path('dab-canonical-static-audit.json').write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          print(json.dumps(receipt, indent=2, sort_keys=True))
+          raise SystemExit(0 if receipt['isolated'] and receipt['freeze_matches_candidate'] else 1)
+          PY
+          echo "${PIPESTATUS[0]}" > dab-canonical-static-exit.txt
+          exit 0
+
+      - name: Execute synthetic multibase battery
+        shell: bash
+        run: |
+          set +e
+          cd data_science_dominance/dab_slice
+          python -m unittest -v test_dab_slice_agent.py 2>&1 | tee ../../../dab-canonical-synthetic-tests.log
+          echo "${PIPESTATUS[0]}" > ../../../dab-canonical-tests-exit.txt
+          exit 0
+
+      - name: Seal canonical status
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, os, re
+          from pathlib import Path
+
+          root = Path('data_science_dominance/dab_slice')
+          static = json.loads(Path('dab-canonical-static-audit.json').read_text())
+          static_exit = int(Path('dab-canonical-static-exit.txt').read_text().strip())
+          tests_exit = int(Path('dab-canonical-tests-exit.txt').read_text().strip())
+          log = Path('dab-canonical-synthetic-tests.log').read_text(errors='replace')
+          ran = re.search(r'Ran\s+(\d+)\s+tests?', log)
+          failures = len(re.findall(r'\.\.\.\s+FAIL\s*$', log, flags=re.MULTILINE))
+          errors = len(re.findall(r'\.\.\.\s+ERROR\s*$', log, flags=re.MULTILINE))
+          passed = int(ran.group(1)) - failures - errors if ran else None
+          verdict = 'PASS' if static_exit == 0 and tests_exit == 0 else 'FAIL'
+          protocol = root / 'NEXT_FRESH_GATE_PROTOCOL.md'
+          receipt = {
+              'schema': 'data-science-dominance/dab-canonical-audit/1',
+              'verdict': verdict,
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_run_attempt': int(os.environ['GITHUB_RUN_ATTEMPT']),
+              'activation_sha': os.environ['GITHUB_SHA'],
+              'candidate_sha256': static['candidate_sha256'],
+              'freeze_expected_sha256': static['freeze_expected_sha256'],
+              'freeze_matches_candidate': static['freeze_matches_candidate'],
+              'candidate_isolated': static['isolated'],
+              'synthetic': {
+                  'tests_ran': int(ran.group(1)) if ran else None,
+                  'tests_passed': passed,
+                  'failures': failures,
+                  'errors': errors,
+                  'exit_status': tests_exit,
+              },
+              'score_before': 465,
+              'score_after': 465,
+              'score_changed': False,
+              'merge_authorized': False,
+              'fresh_external_gate_required': True,
+              'hashes': {
+                  'test_log_sha256': hashlib.sha256(log.encode()).hexdigest(),
+                  'static_audit_sha256': hashlib.sha256(Path('dab-canonical-static-audit.json').read_bytes()).hexdigest(),
+                  'protocol_sha256': hashlib.sha256(protocol.read_bytes()).hexdigest() if protocol.exists() else None,
+              },
+          }
+          payload = json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          json_path = root / 'CANONICAL_AUDIT_STATUS.json'
+          json_path.write_text(payload)
+          md = f'''# Canonical DataAgentBench audit\n\n**Verdict: {verdict}.**\n\n- Synthetic battery: `{passed}/{int(ran.group(1)) if ran else "unknown"}`; failures `{failures}`; errors `{errors}`.\n- Candidate SHA-256: `{static["candidate_sha256"]}`.\n- Freeze matches candidate: `{static["freeze_matches_candidate"]}`.\n- Isolation audit: `{static["isolated"]}`.\n- Score: `465/1000`; unchanged.\n- Merge: not authorized.\n- Next admissible evidence: one fresh external gate following `NEXT_FRESH_GATE_PROTOCOL.md`.\n- GitHub run: `{os.environ["GITHUB_RUN_ID"]}`.\n'''
+          (root / 'CANONICAL_AUDIT_STATUS.md').write_text(md)
+          Path('dab-canonical-receipt.json').write_text(payload)
+          Path('dab-canonical-receipt.sha256').write_text(hashlib.sha256(payload.encode()).hexdigest() + '  dab-canonical-receipt.json\n')
+          print(payload)
+          PY
+
+      - name: Preserve status in branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data_science_dominance/dab_slice/CANONICAL_AUDIT_STATUS.json \
+                  data_science_dominance/dab_slice/CANONICAL_AUDIT_STATUS.md
+          if git diff --cached --quiet; then
+            echo 'Canonical status already current.'
+          else
+            git commit -m 'Preserve canonical DAB audit status [skip ci]'
+            git push origin HEAD:agent/data-science-dominance-dab-slice
+          fi
+
+      - name: Upload immutable audit evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-dominance-dab-canonical-audit
+          retention-days: 90
+          path: |
+            data_science_dominance/dab_slice/CANONICAL_AUDIT_STATUS.json
+            data_science_dominance/dab_slice/CANONICAL_AUDIT_STATUS.md
+            dab-canonical-static-audit.json
+            dab-canonical-static-audit.log
+            dab-canonical-synthetic-tests.log
+            dab-canonical-receipt.json
+            dab-canonical-receipt.sha256
+            dab-canonical-pip-freeze.txt
+
+      - name: Enforce canonical audit gate
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path('dab-canonical-receipt.json').read_text())
+          if receipt['verdict'] != 'PASS':
+              raise SystemExit('Canonical DAB audit: FAIL; evidence preserved; no merge and no score change')
+          print('Canonical DAB audit: PASS; fresh external gate remains required')
+          PY
