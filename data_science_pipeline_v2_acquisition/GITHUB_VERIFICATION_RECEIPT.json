@@ -1,0 +1,58 @@
+{
+  "schema": "data-science-pipeline/browser-capture-github-verification/3",
+  "verdict": "PASS",
+  "github_run_id": 31056891210,
+  "github_job_id": 92476216678,
+  "github_sha": "15028fea4f8a0e752465978ea1d2459eea53a5a9",
+  "artifact": {
+    "id": 8950583269,
+    "name": "data-science-pipeline-v21-browser-capture-canary-v3",
+    "zip_sha256": "64eee9b4250b3ac7d4d67d9080849a0c480527fe4af30f945ac564855cedd62c",
+    "size_bytes": 13921,
+    "retention_days": 90
+  },
+  "checks": {
+    "accepted_one": true,
+    "acquire_passed": true,
+    "content_bytes": true,
+    "content_hash": true,
+    "cost_zero": true,
+    "exit_zero": true,
+    "lineage_exact": true,
+    "materialized": true,
+    "package_exact": true,
+    "preserve_passed": true,
+    "provider_exact": true,
+    "quarantine_zero": true,
+    "raw_one": true,
+    "rendered_not_origin": true,
+    "run_passed": true,
+    "source_exact": true,
+    "stages_exact": true,
+    "tests_39": true
+  },
+  "accepted": 1,
+  "quarantined": 0,
+  "external_cost_usd": 0.0,
+  "manifest_hash": "526a8afa4a7dd913b345d7349ef455fbeb317ec50f2df6acdc359f494861c2d3",
+  "ledger_head_hash": "856a56df84e9a9da354b8bab28930627115b04fe8fa416562962458ddcaaeadc",
+  "capture": {
+    "source_url": "https://portalunico.iaip.gob.hn/348/",
+    "kind": "rendered_extracted_text",
+    "provider": "openai-web-open",
+    "content_sha256": "d58e99970a34b0c4f197e270a41b7dc9f436dafcfcb974a9f1611200f3024573",
+    "content_bytes": 405,
+    "origin_bytes_equivalent": false
+  },
+  "tests": "39/39 PASS",
+  "compileall": "PASS",
+  "gcloud_used": false,
+  "paid_compute_used": false,
+  "production_mass_acquisition_authorized": false,
+  "legal_authenticity_claim_authorized": false,
+  "boundaries": [
+    "provider provenance is hash-locked but not provider-signed",
+    "rendered text is not origin HTML response bytes",
+    "linked original document bytes are not acquired by this adapter"
+  ]
+}
