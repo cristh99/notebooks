@@ -1,0 +1,246 @@
+name: OCR CORU OCR frozen-schema audit v1
+
+on:
+  push:
+    branches:
+      - agent/ocr-consensus-detector-v4
+    paths:
+      - '.github/workflows/ocr-coru-ocr-schema-audit-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: ocr-coru-ocr-schema-audit-v1-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CANDIDATE_ARTIFACT_ID: '8922946340'
+  CANDIDATE_ARTIFACT_DIGEST: 03653a5c447b694b13528e1fe83d157353a4b89668ed13443a10782bd5065330
+  CANDIDATE_STABLE_SHA256: 9bfd5721f8c21e5d92460c73a29e399f028ffaecba46c4496aba87317b4c77c8
+  CORU_REVISION: c3c4b97b232bbe03046c78a974f516d439c1124e
+  TEST_ZIP_SHA256: 724f93707d135e861c63dbb4743ff11b187820273f3de6b7f7a9050ed4816f2c
+  GITHUB_TOKEN: ${{ github.token }}
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Recover the byte-frozen candidate and parser
+        run: |
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${CANDIDATE_ARTIFACT_ID}/zip" \
+            --output candidate.zip
+          echo "${CANDIDATE_ARTIFACT_DIGEST}  candidate.zip" | \
+            sha256sum --check --strict
+          mkdir candidate-artifact
+          unzip -q candidate.zip -d candidate-artifact
+          test -d candidate-artifact/frozen-numeric-consensus-v4-ocr-a
+          (
+            cd candidate-artifact/frozen-numeric-consensus-v4-ocr-a
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('candidate-artifact/frozen-numeric-consensus-v4-ocr-a')
+          manifest = json.loads((root / 'frozen_candidate.json').read_text())
+          assert manifest['candidate_id'] == 'numeric-consensus-v4-coru-ocr'
+          assert manifest['stable_payload_sha256'] == \
+              '9bfd5721f8c21e5d92460c73a29e399f028ffaecba46c4496aba87317b4c77c8'
+          assert manifest['decision'][
+              'candidate_frozen_before_coru_ocr_outcomes'
+          ] is True
+          assert manifest['external_source_binding'][
+              'outcomes_opened_before_freeze'
+          ] is False
+          assert manifest['external_protocol']['archive_adapter'][
+              'schema_change_after_opening'
+          ] is False
+          assert manifest['external_protocol']['expected_total_images'] == 30000
+          print({
+              'candidate': manifest['candidate_id'],
+              'stable_payload_sha256': manifest['stable_payload_sha256'],
+              'source_commit': manifest['source_commit'],
+              'outcomes_opened_before_freeze': False,
+          })
+          PY
+      - name: Download the first sealed archive after candidate freeze
+        run: |
+          curl --fail --location --retry 10 --retry-all-errors \
+            --retry-delay 10 \
+            "https://huggingface.co/datasets/abdoelsayed/CORU/resolve/${CORU_REVISION}/OCR/test.zip?download=true" \
+            --output test.zip
+          echo "${TEST_ZIP_SHA256}  test.zip" | sha256sum --check --strict
+          test "$(stat -c %s test.zip)" = "38735132"
+      - name: Execute only the frozen archive adapter
+        env:
+          PYTHONPATH: candidate-artifact/frozen-numeric-consensus-v4-ocr-a/source
+        run: |
+          rm -rf schema-audit
+          mkdir schema-audit
+          python - <<'PY'
+          import hashlib
+          import json
+          import unicodedata
+          from collections import Counter
+          from pathlib import Path
+          from ocr_real_risk_v1.coru_ocr_archive import discover_pairs
+
+          result = discover_pairs(Path('test.zip'))
+          pairs = result.pop('pairs')
+          numeric_pairs = result.pop('numeric_pairs')
+
+          def ascii_scope(label: str):
+              text = unicodedata.normalize('NFKC', label).strip()
+              digits = []
+              for character in text:
+                  if '0' <= character <= '9':
+                      digits.append(character)
+                      continue
+                  category = unicodedata.category(character)
+                  if (
+                      character.isspace()
+                      or character in ",.:'’`/-_()[]{}+"
+                      or category in {'Sc', 'Pd', 'Po', 'Ps', 'Pe'}
+                  ):
+                      continue
+                  return None
+              canonical = ''.join(digits)
+              if not 4 <= len(canonical) <= 12:
+                  return None
+              if len(set(canonical)) == 1:
+                  return None
+              if len(canonical) == 4 and 1900 <= int(canonical) <= 2099:
+                  return None
+              return canonical
+
+          ascii_numeric = []
+          for row in pairs:
+              canonical = ascii_scope(row['label'])
+              if canonical is not None:
+                  ascii_numeric.append({
+                      'image_member': row['image_member'],
+                      'canonical_numeric_label': canonical,
+                      'label_source': row['source_kind'],
+                  })
+          lengths = Counter(len(row['canonical_numeric_label']) for row in ascii_numeric)
+          prefixes = Counter(
+              Path(row['image_member']).parts[0]
+              for row in pairs
+              if Path(row['image_member']).parts
+          )
+          report = {
+              'schema': 'ocr-coru-ocr-schema-audit/1',
+              'candidate_artifact_id': 8922946340,
+              'candidate_stable_payload_sha256':
+                  '9bfd5721f8c21e5d92460c73a29e399f028ffaecba46c4496aba87317b4c77c8',
+              'candidate_frozen_before_opening': True,
+              'archive': {
+                  'split': 'test',
+                  'sha256': hashlib.sha256(Path('test.zip').read_bytes()).hexdigest(),
+                  'size_bytes': Path('test.zip').stat().st_size,
+                  **result,
+              },
+              'ascii_numeric_scope': {
+                  'pair_count': len(ascii_numeric),
+                  'yield': len(ascii_numeric) / len(pairs),
+                  'length_distribution': {
+                      str(key): value for key, value in sorted(lengths.items())
+                  },
+                  'pair_set_sha256': hashlib.sha256(
+                      json.dumps(
+                          ascii_numeric,
+                          sort_keys=True,
+                          separators=(',', ':'),
+                      ).encode()
+                  ).hexdigest(),
+              },
+              'top_level_member_prefixes': dict(prefixes.most_common(20)),
+              'sample_pair_bindings': [
+                  {
+                      'image_member_sha256': hashlib.sha256(
+                          row['image_member'].encode()
+                      ).hexdigest(),
+                      'label_sha256': hashlib.sha256(row['label'].encode()).hexdigest(),
+                      'label_source': row['source_kind'],
+                  }
+                  for row in pairs[:20]
+              ],
+              'outcomes_opened_after_freeze': True,
+              'ocr_executed': False,
+              'production_modified': False,
+              'external_spend_usd': 0,
+          }
+          stable = dict(report)
+          report['stable_payload_sha256'] = hashlib.sha256(
+              json.dumps(
+                  stable,
+                  sort_keys=True,
+                  separators=(',', ':'),
+              ).encode()
+          ).hexdigest()
+          path = Path('schema-audit/coru_ocr_test_schema.json')
+          path.write_text(json.dumps(report, indent=2, sort_keys=True) + '\n')
+          Path('schema-audit/SHA256SUMS.txt').write_text(
+              f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n"
+          )
+          print(json.dumps(report, indent=2, sort_keys=True))
+          PY
+      - name: Independent schema gates
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          root = Path('schema-audit')
+          report = json.loads((root / 'coru_ocr_test_schema.json').read_text())
+          stable = dict(report)
+          observed = stable.pop('stable_payload_sha256')
+          expected = hashlib.sha256(
+              json.dumps(stable, sort_keys=True, separators=(',', ':')).encode()
+          ).hexdigest()
+          assert observed == expected
+          assert report['candidate_frozen_before_opening'] is True
+          assert report['candidate_stable_payload_sha256'] == \
+              '9bfd5721f8c21e5d92460c73a29e399f028ffaecba46c4496aba87317b4c77c8'
+          archive = report['archive']
+          assert archive['sha256'] == \
+              '724f93707d135e861c63dbb4743ff11b187820273f3de6b7f7a9050ed4816f2c'
+          assert archive['size_bytes'] == 38735132
+          assert archive['pair_count'] == archive['image_count']
+          assert archive['pair_count'] > 0
+          assert archive['label_sources']
+          assert report['ascii_numeric_scope']['pair_count'] > 0
+          assert report['ocr_executed'] is False
+          assert report['production_modified'] is False
+          assert report['external_spend_usd'] == 0
+          print({
+              'image_count': archive['image_count'],
+              'label_sources': archive['label_sources'],
+              'ascii_numeric_pairs': report['ascii_numeric_scope']['pair_count'],
+              'stable_payload_sha256': report['stable_payload_sha256'],
+          })
+          PY
+          (
+            cd schema-audit
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-coru-ocr-test-schema-audit-v1
+          path: schema-audit
+          if-no-files-found: error
+          retention-days: 90
