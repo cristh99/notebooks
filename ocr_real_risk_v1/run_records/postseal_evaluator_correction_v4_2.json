@@ -1,0 +1,23 @@
+{
+  "affected_evidence": [
+    {"after_unresolved":0,"baseline_correct":true,"batch":3,"before_unresolved":1,"resolved_truth":"20.00 SR"},
+    {"after_unresolved":0,"baseline_correct":false,"batch":4,"before_unresolved":1,"resolved_truth":"2.50"}
+  ],
+  "candidate_commit": "fe8865e9182f8ef62babcc1bdda0ac4c107cebfd",
+  "candidate_unchanged": true,
+  "constraints": {"external_spend_usd":0.0,"production_modified":false,"significance_look_performed":false},
+  "correction": [
+    "apply year rejection only to bare integer lexemes",
+    "allow decimal lexemes with at least two digits while keeping bare integers at four digits"
+  ],
+  "defects_corrected": [
+    "bare calendar-year filter incorrectly excluded decimal amount 20.00 after punctuation removal",
+    "minimum four-digit filter incorrectly excluded short decimal amounts such as 2.60 even though frozen semantic trigger includes them"
+  ],
+  "evaluator_source_sha256": "8f750f317ca2c0b5a9e93cc07634ec54c00e115b7d1d1610b0e0b8e6b271df96",
+  "schema": "ocr-v4-2-postseal-evaluator-correction/1",
+  "scope": "post-seal truth parsing only; no candidate inference, trigger, pixel policy, threshold, or sealed decision changed",
+  "stable_payload_sha256": "2ba6408e77b7bf5dd5c04859a8cc83f4d14c00b05cefebcd5d01f06365f30c9e",
+  "test_source_sha256": "9e915b697da9c7a59a0a5a3d05aa17b6f77e97e68f8de4d8e3ba60af13dc24ec",
+  "validation": {"compileall":"PASS","errors":0,"failures":0,"unit_tests":3}
+}
