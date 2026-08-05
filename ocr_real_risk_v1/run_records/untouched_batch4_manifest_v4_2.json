@@ -1,0 +1,37 @@
+{
+  "candidate_commit": "fe8865e9182f8ef62babcc1bdda0ac4c107cebfd",
+  "constraints": {
+    "annotations_opened": false,
+    "external_spend_usd": 0.0,
+    "gcloud_used": false,
+    "github_actions_used": false,
+    "gpu_used": false,
+    "ocr_run": false,
+    "paid_api_used": false,
+    "production_modified": false,
+    "significance_look_performed": false
+  },
+  "governance": {
+    "alpha_spending_plan": "51 -> 87 -> 148",
+    "candidate_change_from_batch_outcomes_allowed": false,
+    "first_significance_look_at_accumulated_flags": 51,
+    "open_annotations_only_after_flag_decisions_sealed": true
+  },
+  "schema": "ocr-v4-2-untouched-batch4-manifest/1",
+  "selection": {
+    "basis": "next ten previously unused image identities in the pre-existing Drive folder order after batch3, skipping identities already used in development or prior sealed batches",
+    "images": [
+      {"drive_file_id": "13hDPf-CIhUaO6Gx8OQWLLnMYXZL0fQxt", "order": 1, "stem": "X51008114216"},
+      {"drive_file_id": "10msInvVCXMHK6TMXWglyj98k1zRzTDNM", "order": 2, "stem": "X51008099102"},
+      {"drive_file_id": "1g0AeMcEc6-N1Lkefzag51ZkAqBlQQQR-", "order": 3, "stem": "X51008114262"},
+      {"drive_file_id": "1zMrQc0eLdIvZf6uerjM8uUNEYE_0lQf5", "order": 4, "stem": "X51008114260"},
+      {"drive_file_id": "1B1ALu3v2qs_GrVzyiQAtrhTYItTcgG5R", "order": 5, "stem": "X51008099087"},
+      {"drive_file_id": "1A8fsp_tH6Fe9eKIOQ3xmp6I6pxUQ_WiB", "order": 6, "stem": "X51008099089"},
+      {"drive_file_id": "1JBVDHod7xjsTXiBOoQ_9Yc0ATxFf-0DY", "order": 7, "stem": "X51008099084"},
+      {"drive_file_id": "1jVt1exgfDak0LMlo3w6DExl0VKYVGj9G", "order": 8, "stem": "X51008099085"},
+      {"drive_file_id": "1rdh4MMw6ORVIHjOqaFqqlJcuUHt0ypzr", "order": 9, "stem": "X51008099083"},
+      {"drive_file_id": "1bKgs9qfXTpnWZYYVuNuwHnZwXqmUQDjV", "order": 10, "stem": "X51008099081"}
+    ]
+  },
+  "status": "PRE_OUTCOME_SELECTION_SEALED"
+}
