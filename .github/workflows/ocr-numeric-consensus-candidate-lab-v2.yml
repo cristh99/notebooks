@@ -90,7 +90,7 @@ jobs:
               assert verify_stable_payload(manifest, 'manifest_sha256')
               assert verify_stable_payload(report, 'stable_payload_sha256')
               assert len(manifest['records']) == expected[split]
-              assert report['execution']['eligible_equal_length_spatial_claims'] == eligible[split]
+              assert report['execution']['eligible_claims'] == eligible[split]
               assert report['decision']['pass_statistical_10x'] is False
           PY
       - name: Run the post-outcome development laboratory
