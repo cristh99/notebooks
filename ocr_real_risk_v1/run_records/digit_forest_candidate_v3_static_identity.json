@@ -1,0 +1,30 @@
+{
+  "automatic_production_change": false,
+  "candidate_id": "digit-forest-v3",
+  "candidate_stable_payload_sha256": "3ee998aa28a889d89462a5e970454dc1a21e964cb517c27a35b0b52a905c5cc0",
+  "development": {
+    "baseline_eligible_claims": 571,
+    "baseline_false_predictions": 63,
+    "combined_accepted": 362,
+    "combined_counterfactual_false_accepts": 0,
+    "combined_natural_false_accepts": 0,
+    "combined_selected_locations": 845,
+    "development_error_reduction_lower_if_treated_as_validation": 6.872833707816346,
+    "simultaneous_95pct_counterfactual_upper": 0.007644930064511057,
+    "simultaneous_95pct_natural_risk_upper": 0.012032074620604516,
+    "simultaneous_95pct_selected_coverage_lower": 0.3900422851882863,
+    "test_accepted": 140,
+    "test_eligible": 216,
+    "train_oof_accepted": 222,
+    "train_oof_eligible": 355
+  },
+  "development_report_stable_payload_sha256": "f83dcf37703cb447ec390dec096cc7dff4f0ea61b7ccab92fc0cb35f4507fb1e",
+  "model_sha256": "e1e3d8a9e1ff12206d5127c14053221225eb539c88072e40b1444b86b751bcce",
+  "pass_statistical_10x_claimed": false,
+  "production_ready": false,
+  "schema": "ocr-frozen-candidate-static-identity/1",
+  "status": "FROZEN_FOR_UNTOUCHED_EXTERNAL_VALIDATION_ONLY",
+  "threshold": 0.25,
+  "training_receipt_set_sha256": "5764fbb4f3c6cef9bccc8024f158b7d1957d404c65666c9844fda1fe02c07c57",
+  "untouched_external_validation_required": true
+}
