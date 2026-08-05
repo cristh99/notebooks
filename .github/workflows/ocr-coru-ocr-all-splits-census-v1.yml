@@ -1,0 +1,333 @@
+name: OCR CORU OCR all-splits frozen census v1
+
+on:
+  push:
+    branches:
+      - agent/ocr-consensus-detector-v4
+    paths:
+      - '.github/workflows/ocr-coru-ocr-all-splits-census-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: ocr-coru-ocr-all-splits-census-v1-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CANDIDATE_ARTIFACT_ID: '8922946340'
+  CANDIDATE_ARTIFACT_DIGEST: 03653a5c447b694b13528e1fe83d157353a4b89668ed13443a10782bd5065330
+  CANDIDATE_STABLE_SHA256: 9bfd5721f8c21e5d92460c73a29e399f028ffaecba46c4496aba87317b4c77c8
+  CORU_REVISION: c3c4b97b232bbe03046c78a974f516d439c1124e
+  GITHUB_TOKEN: ${{ github.token }}
+
+jobs:
+  census:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Recover and verify byte-frozen candidate and adapter
+        run: |
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${CANDIDATE_ARTIFACT_ID}/zip" \
+            --output candidate.zip
+          echo "${CANDIDATE_ARTIFACT_DIGEST}  candidate.zip" | sha256sum --check --strict
+          mkdir candidate-artifact
+          unzip -q candidate.zip -d candidate-artifact
+          test -d candidate-artifact/frozen-numeric-consensus-v4-ocr-a
+          (
+            cd candidate-artifact/frozen-numeric-consensus-v4-ocr-a
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('candidate-artifact/frozen-numeric-consensus-v4-ocr-a')
+          manifest = json.loads((root / 'frozen_candidate.json').read_text())
+          assert manifest['candidate_id'] == 'numeric-consensus-v4-coru-ocr'
+          assert manifest['stable_payload_sha256'] == \
+              '9bfd5721f8c21e5d92460c73a29e399f028ffaecba46c4496aba87317b4c77c8'
+          assert manifest['decision']['candidate_frozen_before_coru_ocr_outcomes'] is True
+          assert manifest['external_source_binding']['outcomes_opened_before_freeze'] is False
+          assert manifest['external_protocol']['archive_adapter']['schema_change_after_opening'] is False
+          assert manifest['external_protocol']['selection']['only_ascii_digit_glyphs'] is True
+          assert manifest['external_protocol']['exact_gates'][
+              'minimum_selected_physical_pairs'
+          ] == 3000
+          assert manifest['external_protocol']['exact_gates']['minimum_accepted'] == 900
+          print({
+              'candidate_id': manifest['candidate_id'],
+              'stable_payload_sha256': manifest['stable_payload_sha256'],
+              'frozen_before_outcomes': True,
+          })
+          PY
+      - name: Download three sealed archives sequentially
+        run: |
+          cat > archives.tsv <<'EOF'
+          test	OCR/test.zip	724f93707d135e861c63dbb4743ff11b187820273f3de6b7f7a9050ed4816f2c	38735132
+          validation	OCR/val.zip	5a8f9780ef40053c9cf7d0bd43643b5784882d8d7bba34fefebab85593b60997	39074274
+          train	OCR/train.zip	5d19042b03f1e298a073d21f55749caffd692b6747ecff0aa41fc5974b95cb74	181347200
+          EOF
+          while IFS=$'\t' read -r split path digest bytes; do
+            curl --fail --location --retry 12 --retry-all-errors \
+              --retry-delay 20 \
+              "https://huggingface.co/datasets/abdoelsayed/CORU/resolve/${CORU_REVISION}/${path}?download=true" \
+              --output "${split}.zip"
+            echo "${digest}  ${split}.zip" | sha256sum --check --strict
+            test "$(stat -c %s "${split}.zip")" = "${bytes}"
+            sleep 20
+          done < archives.tsv
+      - name: Run the frozen adapter and count all predeclared scopes
+        env:
+          PYTHONPATH: candidate-artifact/frozen-numeric-consensus-v4-ocr-a/source
+        run: |
+          rm -rf census
+          mkdir census
+          python - <<'PY'
+          import hashlib
+          import json
+          import unicodedata
+          from collections import Counter
+          from pathlib import Path
+          from ocr_real_risk_v1.coru_ocr_archive import discover_pairs
+
+          sealed = {
+              'test': {
+                  'sha256': '724f93707d135e861c63dbb4743ff11b187820273f3de6b7f7a9050ed4816f2c',
+                  'size_bytes': 38735132,
+                  'protocol_expected_images': 4500,
+              },
+              'validation': {
+                  'sha256': '5a8f9780ef40053c9cf7d0bd43643b5784882d8d7bba34fefebab85593b60997',
+                  'size_bytes': 39074274,
+                  'protocol_expected_images': 4500,
+              },
+              'train': {
+                  'sha256': '5d19042b03f1e298a073d21f55749caffd692b6747ecff0aa41fc5974b95cb74',
+                  'size_bytes': 181347200,
+                  'protocol_expected_images': 21000,
+              },
+          }
+
+          def ascii_scope(label: str):
+              text = unicodedata.normalize('NFKC', label).strip()
+              digits = []
+              for character in text:
+                  if '0' <= character <= '9':
+                      digits.append(character)
+                      continue
+                  category = unicodedata.category(character)
+                  if (
+                      character.isspace()
+                      or character in ",.:'’`/-_()[]{}+"
+                      or category in {'Sc', 'Pd', 'Po', 'Ps', 'Pe'}
+                  ):
+                      continue
+                  return None
+              canonical = ''.join(digits)
+              if not 4 <= len(canonical) <= 12:
+                  return None
+              if len(set(canonical)) == 1:
+                  return None
+              if len(canonical) == 4 and 1900 <= int(canonical) <= 2099:
+                  return None
+              return canonical
+
+          splits = {}
+          all_bindings = []
+          all_images = 0
+          all_ascii_numeric = 0
+          all_unicode_numeric = 0
+          for split in ('train', 'validation', 'test'):
+              path = Path(f'{split}.zip')
+              observed = hashlib.sha256(path.read_bytes()).hexdigest()
+              assert observed == sealed[split]['sha256']
+              assert path.stat().st_size == sealed[split]['size_bytes']
+              result = discover_pairs(path)
+              pairs = result.pop('pairs')
+              unicode_numeric = result.pop('numeric_pairs')
+              ascii_numeric = []
+              for row in pairs:
+                  canonical = ascii_scope(row['label'])
+                  if canonical is not None:
+                      binding = {
+                          'split': split,
+                          'image_member': row['image_member'],
+                          'canonical_numeric_label': canonical,
+                          'label_source': row['source_kind'],
+                      }
+                      ascii_numeric.append(binding)
+                      all_bindings.append(binding)
+              lengths = Counter(
+                  len(row['canonical_numeric_label']) for row in ascii_numeric
+              )
+              actual_images = len(pairs)
+              expected_images = sealed[split]['protocol_expected_images']
+              splits[split] = {
+                  'archive': {
+                      'sha256': observed,
+                      'size_bytes': path.stat().st_size,
+                      **result,
+                  },
+                  'actual_image_count': actual_images,
+                  'protocol_expected_image_count': expected_images,
+                  'protocol_image_count_match': actual_images == expected_images,
+                  'unicode_numeric_pair_count': len(unicode_numeric),
+                  'ascii_numeric_pair_count': len(ascii_numeric),
+                  'ascii_numeric_yield': len(ascii_numeric) / actual_images,
+                  'ascii_length_distribution': {
+                      str(key): value for key, value in sorted(lengths.items())
+                  },
+                  'ascii_numeric_pair_set_sha256': hashlib.sha256(
+                      json.dumps(
+                          ascii_numeric,
+                          sort_keys=True,
+                          separators=(',', ':'),
+                      ).encode()
+                  ).hexdigest(),
+              }
+              all_images += actual_images
+              all_ascii_numeric += len(ascii_numeric)
+              all_unicode_numeric += len(unicode_numeric)
+
+          minimum_selected = 3000
+          minimum_accepted = 900
+          projected_acceptance = 319 / 993
+          projected_accepted = all_ascii_numeric * projected_acceptance
+          report = {
+              'schema': 'ocr-coru-ocr-all-splits-census/1',
+              'candidate_artifact_id': 8922946340,
+              'candidate_stable_payload_sha256':
+                  '9bfd5721f8c21e5d92460c73a29e399f028ffaecba46c4496aba87317b4c77c8',
+              'candidate_frozen_before_all_archive_outcomes': True,
+              'splits': splits,
+              'aggregate': {
+                  'actual_image_count': all_images,
+                  'protocol_expected_image_count': 30000,
+                  'protocol_image_count_match': all_images == 30000,
+                  'unicode_numeric_pair_count': all_unicode_numeric,
+                  'ascii_numeric_pair_count': all_ascii_numeric,
+                  'ascii_numeric_yield': all_ascii_numeric / all_images,
+                  'ascii_numeric_pair_set_sha256': hashlib.sha256(
+                      json.dumps(
+                          sorted(
+                              all_bindings,
+                              key=lambda row: (
+                                  row['split'],
+                                  row['image_member'],
+                                  row['canonical_numeric_label'],
+                              ),
+                          ),
+                          sort_keys=True,
+                          separators=(',', ':'),
+                      ).encode()
+                  ).hexdigest(),
+              },
+              'power_gate': {
+                  'minimum_selected_physical_pairs': minimum_selected,
+                  'minimum_accepted': minimum_accepted,
+                  'selected_denominator_available': all_ascii_numeric,
+                  'selected_denominator_pass': all_ascii_numeric >= minimum_selected,
+                  'development_acceptance_rate': projected_acceptance,
+                  'projected_accepted_if_development_rate_holds': projected_accepted,
+                  'projected_accepted_pass': projected_accepted >= minimum_accepted,
+                  'run_ocr': bool(
+                      all_ascii_numeric >= minimum_selected
+                      and projected_accepted >= minimum_accepted
+                      and all_images == 30000
+                  ),
+              },
+              'decision': {
+                  'census_complete': True,
+                  'ocr_executed': False,
+                  'external_certificate_claimed': False,
+                  'tenfold_reduction_claimed': False,
+                  'production_ready': False,
+                  'automatic_production_change': False,
+              },
+              'constraints': {
+                  'external_spend_usd': 0,
+                  'gcloud_used': False,
+                  'gpu_used': False,
+                  'paid_api_used': False,
+                  'production_modified': False,
+              },
+          }
+          stable = dict(report)
+          report['stable_payload_sha256'] = hashlib.sha256(
+              json.dumps(stable, sort_keys=True, separators=(',', ':')).encode()
+          ).hexdigest()
+          output = Path('census/coru_ocr_all_splits_census.json')
+          output.write_text(json.dumps(report, indent=2, sort_keys=True) + '\n')
+          Path('census/SHA256SUMS.txt').write_text(
+              f"{hashlib.sha256(output.read_bytes()).hexdigest()}  {output.name}\n"
+          )
+          print(json.dumps(report, indent=2, sort_keys=True))
+          PY
+      - name: Independent census and no-OCR gates
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          root = Path('census')
+          report = json.loads((root / 'coru_ocr_all_splits_census.json').read_text())
+          stable = dict(report)
+          observed = stable.pop('stable_payload_sha256')
+          expected = hashlib.sha256(
+              json.dumps(stable, sort_keys=True, separators=(',', ':')).encode()
+          ).hexdigest()
+          assert observed == expected
+          assert report['candidate_frozen_before_all_archive_outcomes'] is True
+          assert report['candidate_stable_payload_sha256'] == \
+              '9bfd5721f8c21e5d92460c73a29e399f028ffaecba46c4496aba87317b4c77c8'
+          assert set(report['splits']) == {'train', 'validation', 'test'}
+          for split, payload in report['splits'].items():
+              archive = payload['archive']
+              assert archive['pair_count'] == archive['image_count']
+              assert archive['pair_count'] == payload['actual_image_count']
+              assert archive['label_sources'] == {
+                  'same_stem_label_file': payload['actual_image_count']
+              }
+              assert payload['ascii_numeric_pair_count'] > 0
+          aggregate = report['aggregate']
+          assert aggregate['actual_image_count'] == sum(
+              row['actual_image_count'] for row in report['splits'].values()
+          )
+          assert aggregate['ascii_numeric_pair_count'] == sum(
+              row['ascii_numeric_pair_count'] for row in report['splits'].values()
+          )
+          assert report['decision']['ocr_executed'] is False
+          assert report['decision']['external_certificate_claimed'] is False
+          assert report['decision']['tenfold_reduction_claimed'] is False
+          assert report['decision']['production_ready'] is False
+          assert report['constraints']['external_spend_usd'] == 0
+          assert report['constraints']['production_modified'] is False
+          print(json.dumps({
+              'aggregate': report['aggregate'],
+              'power_gate': report['power_gate'],
+              'decision': report['decision'],
+              'stable_payload_sha256': report['stable_payload_sha256'],
+          }, indent=2, sort_keys=True))
+          PY
+          (
+            cd census
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-coru-ocr-all-splits-census-v1
+          path: census
+          if-no-files-found: error
+          retention-days: 90
