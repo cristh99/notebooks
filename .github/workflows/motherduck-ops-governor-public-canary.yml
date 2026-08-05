@@ -36,6 +36,9 @@ jobs:
       - name: Compile capsule
         run: python -m compileall -q motherduck_ops_governor_capsule
 
+      - name: Validate frozen skill contract and scan secrets
+        run: python motherduck_ops_governor_capsule/static_validate.py
+
       - name: Run exhaustive verifier
         run: python motherduck_ops_governor_capsule/verify.py
 
@@ -75,22 +78,25 @@ jobs:
           import os
           from pathlib import Path
 
-          report = json.loads(
-              Path("motherduck_ops_governor_capsule/artifacts/report.json").read_text()
-          )
+          root = Path("motherduck_ops_governor_capsule/artifacts")
+          report = json.loads((root / "report.json").read_text())
+          static = json.loads((root / "static-report.json").read_text())
           frozen = report["frozen"]
           exhaustive = report["exhaustive"]
           lines = [
               "# MotherDuck Operations Governor — Public Canary",
               "",
+              f"- Static findings: **{static['finding_count']}**",
+              f"- Secret findings: **{static['secret_findings']}**",
               f"- Frozen fixtures: **{frozen['fixture_passed']}/{frozen['fixture_count']}**",
               f"- Exhaustive configurations: **{exhaustive['cases']:,}**",
               f"- Candidate/oracle mismatches: **{exhaustive['candidate_oracle_mismatches']}**",
               f"- Network calls: **{report['network_calls']}**",
               f"- External spend: **${report['external_spend_usd']}**",
-              f"- Report digest: `{report['report_digest']}`",
+              f"- Static digest: `{static['report_digest']}`",
+              f"- Behavioral digest: `{report['report_digest']}`",
               "",
-              "This is a finite public Canary only. It grants no production authority or lifecycle promotion.",
+              "This is a finite public Canary only. It grants no production authority or Verified status.",
           ]
           Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text(
               "\n".join(lines) + "\n", encoding="utf-8"
