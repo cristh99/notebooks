@@ -1,0 +1,123 @@
+{
+  "aggregate": {
+    "artifact_digest": "902e8edce386bba88459837b5e66c5920914ba900742ad6a51c31602d2e99856",
+    "artifact_id": 8915858634,
+    "job_id": 92189516842,
+    "report_file_sha256": "5828ec9b3aac540ac6b241e7ec976dd17bc3d5515b453201e7a4e53e8ec66e72",
+    "stable_payload_sha256": "2b8b3a355858611bf595199b3ec7edc03bbeb5a147c60810a1f8a8b71ccd96c6"
+  },
+  "baseline": {
+    "claims": 571,
+    "false_predictions": 63,
+    "observed_error_rate": 0.11033274956217162,
+    "simultaneous_95pct_lower": 0.0826944480274523
+  },
+  "constraints": {
+    "automatic_production_change": false,
+    "external_spend_usd": 0,
+    "gcloud_used": false,
+    "gpu_used": false,
+    "honduras_production_readiness_claimed": false,
+    "paid_api_used": false,
+    "production_modified": false
+  },
+  "counterfactual": {
+    "cases": 845,
+    "false_accepts": 1,
+    "rejection_or_abstention_rate": 0.9988165680473373,
+    "simultaneous_95pct_upper": 0.007527392626330787
+  },
+  "dataset": {
+    "license": "cc-by-4.0",
+    "parquet_sha256": {
+      "test": "04f8f31b45944cc6e6459a7a95c851a721fc93ffec0a5c29ece9ded734a684c2",
+      "train": "b18c16b4d8481e5e4537a1700e4616907fe4acd92d6362a7e430b0e866213887"
+    },
+    "published_rows": 987,
+    "repo": "jsdnrs/ICDAR2019-SROIE",
+    "revision": "bffe40c26759f3376ec2b3ae9031dbba54cd587c",
+    "selected_locations": 845,
+    "unique_physical_locations": 845
+  },
+  "execution": {
+    "companies_with_selected_locations": 302,
+    "eligibility_reasons": {
+      "ELIGIBLE_EQUAL_LENGTH_SPATIAL_CLAIM": 571,
+      "LENGTH_MISMATCH_OUTSIDE_SUBSTITUTION_SCOPE": 90,
+      "LOW_SPATIAL_COVERAGE": 29,
+      "NO_SPATIAL_MATCH": 155
+    },
+    "ocr_timeouts": 0,
+    "physical_duplicate_associations": 0,
+    "selected_location_yield_per_published_receipt": 0.85612968591692
+  },
+  "initial_run": {
+    "packaging_failure_only": true,
+    "reason": "stdout.json changed after it had been included in SHA256SUMS.txt; OCR reports and crops were complete but not accepted as terminal evidence",
+    "run_id": 30967664665
+  },
+  "manifest_seal": {
+    "artifact_digest": "837f88c8092b9e4019d028f0db86295dc60bbb4556bcae4c5fe0fd65bbc4ac66",
+    "artifact_id": 8915425091,
+    "both_splits_sealed_before_ocr": true,
+    "test_manifest_sha256": "ec123dc28dde5bfcbd42820863013af7602648750be1c32243ead67986875a3e",
+    "test_selected": 308,
+    "train_manifest_sha256": "92f68cb906ba22e166e79c751c871baf37b92dac425a489f292c5c82a8d1cdd2",
+    "train_selected": 537
+  },
+  "protocol": {
+    "alpha_per_leg_bonferroni": 0.0125,
+    "counterfactual_maximum_upper": 0.01,
+    "minimum_accepted": 100,
+    "minimum_companies": 50,
+    "minimum_company_fold_pass_fraction": 0.8,
+    "minimum_coverage_lower": 0.25,
+    "minimum_selected": 583,
+    "selection_uses_ocr": false,
+    "target_error_reduction": 10.0,
+    "verifier_thresholds_frozen_before_dataset_execution": true
+  },
+  "recovery_run": {
+    "commit_sha": "a7705f927198016dbca2a61308b2f84252d293c9",
+    "run_id": 30968572892,
+    "test": {
+      "artifact_digest": "0dc86b73e14029fd45867ed7bbd2b83e3f6d1f22a0791a0a75371ecd3a841f90",
+      "artifact_id": 8915766909,
+      "job_id": 92187774511,
+      "stable_payload_sha256": "6eab5ca218f23b7cfef50a31cf089bd187ddb6afb5a5c764bc6286a7ba48bd4a"
+    },
+    "train": {
+      "artifact_digest": "ada46e3e9a5ac2d0a29c7f2af20ee493959e4114e299f94cfc00218e8076badd",
+      "artifact_id": 8915849860,
+      "job_id": 92187774408,
+      "stable_payload_sha256": "e3aa85682bde1e31766cecd4c754413e312bff34d6f07ce97871b65d24e168cf"
+    }
+  },
+  "schema": "ocr-real-risk-run-record/1",
+  "stability": {
+    "company_count": 302,
+    "fold_count": 302,
+    "minimum_required_pass_fraction": 0.8,
+    "pass": false,
+    "pass_fraction": 0.0,
+    "passes": 0
+  },
+  "timing": {
+    "median_full_image_tesseract_seconds": 0.7543821769999681,
+    "median_verifier_ms": 3.024206000020513,
+    "p95_full_image_tesseract_seconds": 3.0031675960000257,
+    "p95_verifier_ms": 4.877553000028456
+  },
+  "verdict": "EXTERNAL_NATURAL_SCAN_TENFOLD_BOUND_NOT_REACHED",
+  "verifier": {
+    "accepted": 47,
+    "accepted_coverage_of_selected": 0.05562130177514793,
+    "certified_error_reduction_lower": 0.9289397514465921,
+    "false_accepted": 0,
+    "observed_false_acceptance_rate": 0.0,
+    "simultaneous_95pct_coverage_lower": 0.03934828442831906,
+    "simultaneous_95pct_coverage_upper": 0.075929815994139,
+    "simultaneous_95pct_upper": 0.08902024905132577
+  },
+  "workflow": "OCR SROIE natural-scan holdout recovery v1"
+}
