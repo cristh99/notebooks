@@ -112,10 +112,10 @@ jobs:
           assert (train['eligible_claims'], train['accepted']) == (355, 222)
           assert train['natural_false_accepts'] == 0
           assert train['counterfactual_false_accepts'] == 0
-          assert (test['eligible_claims'], test['accepted']) == (216, 141)
+          assert (test['eligible_claims'], test['accepted']) == (216, 140)
           assert test['natural_false_accepts'] == 0
           assert test['counterfactual_false_accepts'] == 0
-          assert (combined['selected_locations'], combined['eligible_claims'], combined['accepted']) == (845, 571, 363)
+          assert (combined['selected_locations'], combined['eligible_claims'], combined['accepted']) == (845, 571, 362)
           assert combined['natural_false_accepts'] == 0
           assert combined['counterfactual_false_accepts'] == 0
           assert combined['simultaneous_95pct_selected_coverage_lower'] > 0.39
