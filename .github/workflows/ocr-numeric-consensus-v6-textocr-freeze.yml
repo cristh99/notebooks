@@ -1,0 +1,383 @@
+name: OCR numeric-consensus-v6 TextOCR freeze
+
+on:
+  push:
+    branches:
+      - agent/ocr-consensus-v6-textocr-freeze
+    paths:
+      - 'ocr_real_risk_v1/textocr_source_seal.py'
+      - 'ocr_real_risk_v1/textocr_adapter_v6.py'
+      - 'ocr_real_risk_v1/test_textocr_adapter_v6.py'
+      - 'ocr_real_risk_v1/textocr_external_v6.py'
+      - 'ocr_real_risk_v1/test_textocr_external_v6.py'
+      - 'ocr_real_risk_v1/numeric_consensus_candidate_v6_textocr.py'
+      - 'ocr_real_risk_v1/test_numeric_consensus_candidate_v6_textocr.py'
+      - '.github/workflows/ocr-numeric-consensus-v6-textocr-freeze.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: ocr-numeric-consensus-v6-textocr-freeze-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  MODEL_ARTIFACT_ID: '8917522937'
+  MODEL_ARTIFACT_DIGEST: 080b0efd4b91a180a1a5c6acd767d72e0a8f286718e64eb90d8ec9d370d2dc17
+  MODEL_SHA256: 53229915331c2bbea2454f9e7cb5768a26e9edb30de750747f4397f1ff4cf92c
+  TEXTOCR_SOURCE_SEAL_STABLE_SHA256: 66aeda7e52894669c04aea3d82119e2ec7bb38e5f0e294aa22b6eaf7be68131b
+  TEXTOCR_SOURCE_SHA256: f2d50b206923e4bdb70e9200e92b31bd8626acc37466bab8379fa48bb9c62823
+  TEXTOCR_REVISION: 2b1f8aab9fbba3b5be07e2cae9e3e9c43fe5487c
+  V6_RECORD_STABLE_SHA256: 6dc760c9441a1e44da9dd6cd5a16ddf8dcfa5114d9750056269ef1ebbb2a3fe1
+  V6_GATE_LAB_STABLE_SHA256: 2d31bf83f18d22f22b0f010a8ddec1773ce44d686893f3b2fd7b485598295a69
+  GITHUB_TOKEN: ${{ github.token }}
+  PYTHONHASHSEED: '0'
+  OMP_THREAD_LIMIT: '1'
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  NUMEXPR_NUM_THREADS: '1'
+
+jobs:
+  freeze:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+      artifact-digest: ${{ steps.upload.outputs.artifact-digest }}
+      candidate-stable: ${{ steps.gates.outputs.candidate_stable }}
+      source-file-set: ${{ steps.gates.outputs.source_file_set }}
+      source-file-count: ${{ steps.gates.outputs.source_file_count }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 20
+
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+
+      - name: Install complete pinned CPU runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            tesseract-ocr tesseract-ocr-eng \
+            fonts-dejavu-core fonts-lato
+          test "$(tesseract --version | head -n 1)" = 'tesseract 5.3.4'
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            scipy==1.17.1 \
+            threadpoolctl==3.6.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13 \
+            packaging==26.3 \
+            duckdb==1.5.4
+
+      - name: Run complete pre-TextOCR test suite
+        run: |
+          python -m unittest -v \
+            ocr_real_risk_v1.test_textocr_source_seal \
+            ocr_real_risk_v1.test_textocr_adapter_v6 \
+            ocr_real_risk_v1.test_textocr_external_v6 \
+            ocr_real_risk_v1.test_numeric_consensus_candidate_v6_textocr \
+            ocr_real_risk_v1.test_wildreceipt_v6_gate_completion_lab \
+            ocr_real_risk_v1.test_numeric_digit_forest
+          python -m compileall -q ocr_real_risk_v1
+
+      - name: Prove TextOCR remains completely unopened
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.textocr_source_seal import verify
+
+          path = Path(
+              'ocr_real_risk_v1/source_seals/textocr_source_seal_v1.json'
+          )
+          payload = json.loads(path.read_text())
+          assert verify(payload)
+          assert payload['stable_payload_sha256'] == \
+              '66aeda7e52894669c04aea3d82119e2ec7bb38e5f0e294aa22b6eaf7be68131b'
+          assert payload['resolved_revision'] == \
+              '2b1f8aab9fbba3b5be07e2cae9e3e9c43fe5487c'
+          assert payload['component'] == 'TextOCR'
+          assert payload['source_object']['path'] == \
+              'data/TextOCR-00000-of-00001.parquet'
+          assert payload['source_object']['sha256'] == \
+              'f2d50b206923e4bdb70e9200e92b31bd8626acc37466bab8379fa48bb9c62823'
+          assert payload['source_object']['size_bytes'] == 6196529116
+          assert payload['repository_metadata_only'] is True
+          assert payload['parquet_footer_read'] is False
+          for field in (
+              'parquet_bytes_downloaded',
+              'dataset_rows_read',
+              'texts_opened',
+              'bounding_boxes_opened',
+              'polygons_opened',
+              'images_opened',
+          ):
+              assert payload[field] == 0
+          assert payload['ocr_executed'] is False
+          assert payload['candidate_inference_executed'] is False
+          assert payload['outcomes_opened'] is False
+          assert payload['licenses']['upstream_terms_take_precedence'] is True
+          print({
+              'revision': payload['resolved_revision'],
+              'source_sha256': payload['source_object']['sha256'],
+              'source_bytes': payload['source_object']['size_bytes'],
+              'footer_opened': False,
+              'outcomes_opened': False,
+          })
+          PY
+
+      - name: Verify canonical v6 development evidence
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.numeric_consensus_candidate_v6_textocr import \
+              _verify_development_record
+
+          path = Path(
+              'ocr_real_risk_v1/run_records/'
+              'wildreceipt_v6_gate_completion_lab.json'
+          )
+          record = json.loads(path.read_text())
+          _verify_development_record(record)
+          observed = record.pop('record_stable_payload_sha256')
+          expected = hashlib.sha256(
+              json.dumps(
+                  record,
+                  ensure_ascii=False,
+                  sort_keys=True,
+                  separators=(',', ':'),
+              ).encode()
+          ).hexdigest()
+          assert observed == expected == \
+              '6dc760c9441a1e44da9dd6cd5a16ddf8dcfa5114d9750056269ef1ebbb2a3fe1'
+          assert record['lab_stable_payload_sha256'] == \
+              '2d31bf83f18d22f22b0f010a8ddec1773ce44d686893f3b2fd7b485598295a69'
+          exact = record['exact_results']['all']
+          assert exact['selected'] == 1720
+          assert exact['accepted'] == 472
+          assert exact['accepted_false'] == 0
+          assert exact['counterfactual_false'] == 0
+          assert exact['coverage_lower'] > 0.25
+          assert exact['reduction_lower'] > 10.0
+          assert record['decision'][
+              'leave_one_shard_out_stability_pass'
+          ] is False
+          assert record['decision']['external_certificate_claimed'] is False
+          assert record['decision']['candidate_ready_to_freeze'] is False
+          PY
+
+      - name: Recover byte-frozen digit-forest-v3
+        run: |
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${MODEL_ARTIFACT_ID}/zip" \
+            --output model-artifact.zip
+          echo "${MODEL_ARTIFACT_DIGEST}  model-artifact.zip" | \
+            sha256sum --check --strict
+          mkdir model-artifact
+          unzip -q model-artifact.zip -d model-artifact
+          (
+            cd model-artifact/frozen-digit-forest-v3
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+          test "$(sha256sum model-artifact/frozen-digit-forest-v3/digit_forest.joblib | cut -d' ' -f1)" = \
+            "${MODEL_SHA256}"
+
+      - name: Build byte-identical TextOCR candidates twice
+        run: |
+          rm -rf frozen-textocr-v6-a frozen-textocr-v6-b
+          for output in frozen-textocr-v6-a frozen-textocr-v6-b; do
+            python -m ocr_real_risk_v1.numeric_consensus_candidate_v6_textocr \
+              --repository-root . \
+              --model-root model-artifact/frozen-digit-forest-v3 \
+              --development-record \
+                ocr_real_risk_v1/run_records/wildreceipt_v6_gate_completion_lab.json \
+              --source-seal \
+                ocr_real_risk_v1/source_seals/textocr_source_seal_v1.json \
+              --source-commit "${GITHUB_SHA}" \
+              --output-dir "${output}" \
+              > "${output}-stdout.json"
+          done
+          diff -rq frozen-textocr-v6-a frozen-textocr-v6-b
+          diff frozen-textocr-v6-a/SHA256SUMS.txt frozen-textocr-v6-b/SHA256SUMS.txt
+
+      - name: Independent closure, protocol, bytes, and claim gates
+        id: gates
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          from ocr_real_risk_v1.core import canonical_json, sha256_bytes, sha256_file
+          from ocr_real_risk_v1.numeric_consensus_candidate_v6_textocr import (
+              CANDIDATE_ID,
+              CANDIDATE_SCHEMA,
+              SOURCE_CLOSURE_ALGORITHM,
+              discover_source_files,
+              verify_manifest,
+          )
+          from ocr_real_risk_v1.textocr_source_seal import verify as verify_source
+
+          roots = [
+              Path('frozen-textocr-v6-a'),
+              Path('frozen-textocr-v6-b'),
+          ]
+          manifests = []
+          for root in roots:
+              manifest = json.loads((root / 'frozen_candidate.json').read_text())
+              manifests.append(manifest)
+              assert manifest['schema'] == CANDIDATE_SCHEMA
+              assert manifest['candidate_id'] == CANDIDATE_ID
+              assert manifest['status'] == \
+                  'FROZEN_BEFORE_TEXTOCR_FOOTER_ROWS_OR_IMAGES'
+              assert verify_manifest(manifest)
+              assert manifest['source_commit'] == os.environ['GITHUB_SHA']
+              runtime = manifest['runtime']
+              assert runtime['source_closure_algorithm'] == SOURCE_CLOSURE_ALGORITHM
+              declared = tuple(row['path'] for row in manifest['source_files'])
+              assert declared == discover_source_files(Path('.'))
+              assert runtime['source_file_count'] == len(declared)
+              assert runtime['source_file_set_sha256'] == sha256_bytes(
+                  canonical_json(list(declared)).encode()
+              )
+              required = {
+                  'ocr_real_risk_v1/textocr_source_seal.py',
+                  'ocr_real_risk_v1/textocr_adapter_v6.py',
+                  'ocr_real_risk_v1/textocr_external_v6.py',
+                  'ocr_real_risk_v1/wildreceipt_v6_gate_completion_lab.py',
+                  'ocr_real_risk_v1/numeric_consensus_candidate_v6_textocr.py',
+              }
+              assert required.issubset(set(declared))
+              for row in manifest['source_files']:
+                  assert sha256_file(root / 'source' / row['path']) == row['sha256']
+              binding = manifest['external_source_binding']
+              assert binding['source_seal_stable_payload_sha256'] == \
+                  os.environ['TEXTOCR_SOURCE_SEAL_STABLE_SHA256']
+              assert binding[
+                  'footer_rows_or_outcomes_opened_before_freeze'
+              ] is False
+              source = json.loads((root / binding['source_seal_file']).read_text())
+              assert verify_source(source)
+              assert source['parquet_footer_read'] is False
+              assert source['dataset_rows_read'] == 0
+              assert source['images_opened'] == 0
+              assert source['outcomes_opened'] is False
+              protocol = manifest['external_protocol']
+              assert protocol['census']['image_column_read'] is False
+              assert protocol['census'][
+                  'bbox_convention_resolved_against_polygon'
+              ] is True
+              assert protocol['source_object'][
+                  'full_download_only_after_census_power_gate'
+              ] is True
+              assert protocol['selective_policy'][
+                  'frozen_before_textocr_opening'
+              ] is True
+              assert protocol['counterfactual'][
+                  'same_crop_injected_claim_replay'
+              ] is True
+              assert protocol['exact_gates']['target_error_reduction'] == 10.0
+              assert protocol['exact_gates']['minimum_selected'] == 3000
+              assert protocol['exact_gates']['minimum_accepted'] == 900
+              assert protocol['runtime']['duckdb_version'] == '1.5.4'
+              assert protocol['runtime']['partition_count'] == 12
+              assert protocol['runtime']['macrofold_count'] == 4
+              limits = protocol['claim_limits']
+              assert limits['scene_text_numeric_certificate_only'] is True
+              assert limits['receipt_domain_certificate_claimed'] is False
+              assert limits['general_ocr_superiority_claimed'] is False
+              assert limits['external_certificate_claimed'] is False
+              decision = manifest['decision']
+              assert decision['candidate_frozen_before_textocr_opening'] is True
+              assert decision['ready_for_textocr_metadata_census'] is True
+              assert decision['ready_for_full_textocr_download'] is False
+              assert decision['external_certificate_claimed'] is False
+              assert decision['production_ready'] is False
+              assert decision['honduras_production_ready'] is False
+              assert decision['general_ocr_superiority_claimed'] is False
+              assert manifest['constraints']['external_spend_usd'] == 0
+              assert manifest['constraints']['production_modified'] is False
+              assert sha256_file(root / 'model/digit_forest.joblib') == \
+                  manifest['digit_model']['model_sha256']
+          assert manifests[0] == manifests[1]
+          sums = {
+              root.name: hashlib.sha256(
+                  (root / 'SHA256SUMS.txt').read_bytes()
+              ).hexdigest()
+              for root in roots
+          }
+          assert len(set(sums.values())) == 1
+          Path('deterministic-build-replay.json').write_text(
+              json.dumps(sums, indent=2, sort_keys=True) + '\n'
+          )
+          with Path(os.environ['GITHUB_OUTPUT']).open('a') as output:
+              output.write(
+                  f"candidate_stable={manifests[0]['stable_payload_sha256']}\n"
+              )
+              output.write(
+                  f"source_file_set={manifests[0]['runtime']['source_file_set_sha256']}\n"
+              )
+              output.write(
+                  f"source_file_count={manifests[0]['runtime']['source_file_count']}\n"
+              )
+          print(json.dumps({
+              'candidate_id': manifests[0]['candidate_id'],
+              'source_commit': manifests[0]['source_commit'],
+              'source_file_count': manifests[0]['runtime']['source_file_count'],
+              'stable_payload_sha256': manifests[0]['stable_payload_sha256'],
+              'source_file_set_sha256': manifests[0]['runtime'][
+                  'source_file_set_sha256'
+              ],
+              'textocr_footer_opened_before_freeze': False,
+              'deterministic_builds': sums,
+          }, indent=2, sort_keys=True))
+          PY
+          (
+            cd frozen-textocr-v6-a
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+          (
+            cd frozen-textocr-v6-b
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+
+      - id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-numeric-consensus-v6-textocr-frozen
+          path: |
+            frozen-textocr-v6-a
+            deterministic-build-replay.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Record frozen manifest without model bytes
+        run: |
+          mkdir -p ocr_real_risk_v1/frozen_candidates
+          cp frozen-textocr-v6-a/frozen_candidate.json \
+            ocr_real_risk_v1/frozen_candidates/numeric_consensus_v6_textocr_manifest.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            ocr_real_risk_v1/frozen_candidates/numeric_consensus_v6_textocr_manifest.json
+          if ! git diff --cached --quiet; then
+            git commit -m '[skip ci] Record frozen numeric-consensus-v6 TextOCR manifest'
+            git fetch origin "${GITHUB_REF_NAME}"
+            git rebase "origin/${GITHUB_REF_NAME}"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
