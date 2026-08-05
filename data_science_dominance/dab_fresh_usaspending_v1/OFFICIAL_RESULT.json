@@ -1,0 +1,59 @@
+{
+  "artifact": {
+    "id": 8929063990,
+    "name": "fresh-usaspending-official-v2",
+    "zip_sha256": "c6b4c26d0e93a44329e7e98ac6f806668274258b4faa1a73351c8b224abf5a39"
+  },
+  "candidate": {
+    "sha256": "a0afa1d615b138e46d588401d6c228ad8dd5992033abfc3486b30e2aff633976",
+    "retuned_after_freeze": false
+  },
+  "chain_of_custody": {
+    "answer_manifest_sha256": "febda02734cac3c2cd587ba27cbd4616a7829c5c84902102c4839d349f57a776",
+    "answers_sealed_before_ground_truth_access": true,
+    "external_receipt_sha256": "c2c1d83a126134308e96a2674629de427ceb366c191d4ed6dee39cfbb0e9979d",
+    "official_harness_sha256": "1371f02e00ea9c3dccf4eba266c7309a0e0631ecac7f0a7a7ee4ec026d907dd2",
+    "official_validation_sha256": "3fdd2a84c478cefc6ffe587648b73eddd05dcdf8a1d8bd1515019c1581de4267",
+    "post_hoc_retuning_permitted": false,
+    "validators_executed_once_each": true
+  },
+  "dab_commit": "9a55e34271a2500a41cbc009e239edd94599e374",
+  "diagnosis": {
+    "query2": "Recipient-state filtering lost awards during cross-table UEI entity resolution: candidate 6, expected 75.",
+    "query3": "NAICS sector normalization missed corrupted codes or ambiguous mappings: candidate 560, expected 601.",
+    "query4": "The planner optimized total qualifying amount instead of the requested within-agency proportion: candidate Department of Defense, expected Department of Homeland Security."
+  },
+  "github": {
+    "run_attempt": 1,
+    "run_id": 31002739905,
+    "sha": "d5971e78b6245e83f18e63069cc8f847e69f99c2"
+  },
+  "promotion_points": 0,
+  "results": [
+    {
+      "answer": "6",
+      "expected": "75",
+      "passed": false,
+      "query": "How many contract awards went to recipients located in California with an award amount greater than $1,000,000?",
+      "query_number": 2
+    },
+    {
+      "answer": "560",
+      "expected": "601",
+      "passed": false,
+      "query": "How many distinct recipient UEIs are associated with contracts in NAICS sector 33?",
+      "query_number": 3
+    },
+    {
+      "answer": "Department of Defense",
+      "expected": "Department of Homeland Security",
+      "passed": false,
+      "query": "Among awarding agencies that have issued at least 10 contracts, which agency has the highest proportion of contracts with an award amount greater than $1,000,000?",
+      "query_number": 4
+    }
+  ],
+  "schema": "data-science-dominance/fresh-usaspending-official-result/1",
+  "score_after": 465,
+  "score_before": 465,
+  "verdict": "FAIL"
+}
