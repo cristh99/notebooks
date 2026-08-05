@@ -1,0 +1,36 @@
+{
+  "candidate_commit": "fe8865e9182f8ef62babcc1bdda0ac4c107cebfd",
+  "constraints": {
+    "annotations_opened": false,
+    "annotations_used_at_inference": false,
+    "external_spend_usd": 0.0,
+    "gcloud_used": false,
+    "github_actions_used": false,
+    "gpu_used": false,
+    "paid_api_used": false,
+    "production_modified": false,
+    "significance_look_performed": false
+  },
+  "decision": {
+    "candidate_modified": false,
+    "production_promotion": false,
+    "verdict": "NO_FLAGS_ACCUMULATION_ONLY"
+  },
+  "metrics": {
+    "images": 15,
+    "quarantines": 0,
+    "replacements": 0,
+    "semantic_flags": 0
+  },
+  "schema": "ocr-v4-2-untouched-batch5-evidence/1",
+  "sealed_file_sha256": "b4669164278bba64119be4b1dc8ebe02b5e931ed352212925bfce4dfb5f68d0f",
+  "sealed_stable_payload_sha256": "7c2c0ab66da86bec629e5e039b34c78edd5a1598fb31ce361f4367cb02d35abb",
+  "status": "DECISIONS_SEALED_NO_ANNOTATIONS_REQUIRED",
+  "timing": {
+    "bank_warm_seconds": 2.724544201000299,
+    "candidate_runtime_ratio_warm": 1.000262159624559,
+    "full_page_tesseract_seconds": 16.04983226100012,
+    "selective_pixel_seconds": 0.0,
+    "semantic_trigger_seconds": 0.004207617999782087
+  }
+}
