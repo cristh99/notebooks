@@ -10,6 +10,9 @@ class PostSealEvaluatorV42Tests(unittest.TestCase):
         self.assertEqual(numeric_truth("30.00 SR"), "3000")
         self.assertEqual(numeric_truth("144.68 *"), "14468")
         self.assertEqual(numeric_truth("RM 15.00"), "1500")
+        self.assertEqual(numeric_truth("20.00 SR"), "2000")
+        self.assertEqual(numeric_truth("2.60"), "260")
+        self.assertEqual(numeric_truth("0.20 ZRL"), "020")
 
     def test_dates_and_non_amounts_are_rejected(self) -> None:
         self.assertIsNone(numeric_truth("20-06-2018"))
