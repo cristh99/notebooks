@@ -1,0 +1,32 @@
+{
+  "schema_version": "hn_for_abs_001_f7_case_bundle_pointer/v2",
+  "status": "F7_CASE_BUNDLE_RECONSTRUCTED_FAIL_CLOSED",
+  "operational_table": "evidence_publica_ops.ops.for_abs_f7_case_bundle_receipts",
+  "operational_receipt_sha256": "ab87fb74280438880ecec399a296369d5f881f934cb37a0d21fbd86f6e0c5ca0",
+  "private_bundle_table": "evidence_publica_ops.ops.for_abs_f7_private_case_bundles",
+  "independent_replay_table": "evidence_publica_ops.ops.for_abs_f7_independent_adversarial_replay_v2_receipts",
+  "independent_replay_receipt_sha256": "756a53cabac04e800d653ff649d19e7ad77edd1ccd827b8ef097b93197446d8e",
+  "superseded_replay_v1_receipt_sha256": "a9c74579aefec288edb1e6e056911d01528c6c5226a0fe92623ffe647e25bfc5",
+  "promotion_v2_table": "evidence_publica_ops.ops.for_abs_f7_promotion_v2_receipts",
+  "promotion_v2_receipt_sha256": "502c3954baef512e6056f881aab3616d098e47d9cc150bbcae0d1789fae72e7a",
+  "case_commitment_sha256": "5ce51af68611ca2286f305f2c89e1b47ca53f56cf7e6bba1c9a317795c1288e4",
+  "sources": [
+    {"type":"recordOpeningTendersReceived","sha256":"d81cf7a8215f4d26fea9eee838e65ccccf67c757da3419631e228dd3a31d3cd9","pages":1},
+    {"type":"awardNotice","sha256":"03d3a386a076868c87e428e58c16746513865c8430c2ec5999756e1e10f30d5b","pages":3},
+    {"type":"contractSigned","sha256":"5bcb37d028fe98977d9d0da7efeb3c614c4d7bdb045079e964c842fb49530147","pages":4},
+    {"type":"structuredRelease","sha256":"0f049a49c70873c56b5e28dce804e0c9d3cbd22a28000ca57b0574a9c27e10ad","release_sha256":"d9863f2d933a1067491300ed16184895c888665db5e0a63162e17bf1a1f395f5"}
+  ],
+  "amounts_hnl": {"offer":29608819.99,"negotiated_offer":29500000.0,"signed_contract":17445464.86,"performance_guarantee":2616819.73,"structured_contract_value":1744546486.0},
+  "arithmetic": {"structured_exactly_100x_contract":true,"guarantee_rounds_to_15_percent_contract":true,"offer_to_negotiated_delta_hnl":108819.99,"negotiated_to_contract_delta_hnl":12054535.14,"negotiated_to_contract_reduction_percent":40.862831},
+  "independent_replay": {"schema_version":"hn_for_abs_001_f7_independent_adversarial_replay/v2","implementation":"Poppler/Tesseract PSM6+PSM11 outputs plus fresh byte tampering and executed routing attacks","expected_observation_count":5,"correct_observation_acceptance_count":5,"page_substitution_attack_count":5,"role_swap_attack_count":5,"document_substitution_attack_count":5,"ocr_perturbation_pass":true,"all_correct_observations_accepted":true,"chronology_exact":true,"source_hash_tamper_rejected":true,"page_substitution_rejected":true,"role_swap_rejected":true,"document_substitution_rejected":true},
+  "builder_module_sha256": "a57e2ed7ee0e6597c0a1f2f875a732abbd303bb61e4c2b36f56cce0ccd31617a",
+  "builder_test_receipt_sha256": "115e0ef1a7f518724682b406691e7b27eff3d91cd9e26ad6e94f829ad4274345",
+  "promotion_rule_commit": "d3bd70db9334cec5ef1b951d305b94d607769dfc",
+  "test_holdout_open_count": 0,
+  "corruption_claims_created": 0,
+  "illegality_claims_created": 0,
+  "clean_or_negative_state_created": false,
+  "raw_source_locators_exported": false,
+  "boundary": "The exact 100x discrepancy is a supported data-layer observation; the responsible layer is not yet isolated. The bundle does not establish payment, acceptance, illegality, corruption, or a clean negative.",
+  "pointer_receipt_sha256": "934c66e54f843f3cea5b5a2f2a3826b6123f3734354c28ae07b3e5ee756232e1"
+}
