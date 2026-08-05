@@ -1,0 +1,302 @@
+name: OCR numeric-consensus-v4 deterministic freeze
+
+on:
+  push:
+    branches:
+      - agent/ocr-consensus-detector-v4
+    paths:
+      - 'ocr_real_risk_v1/numeric_consensus_candidate_v4.py'
+      - 'ocr_real_risk_v1/test_numeric_consensus_candidate_v4.py'
+      - '.github/workflows/ocr-numeric-consensus-v4-freeze.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: ocr-numeric-consensus-v4-freeze-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  MODEL_ARTIFACT_ID: '8917522937'
+  MODEL_ARTIFACT_DIGEST: 080b0efd4b91a180a1a5c6acd767d72e0a8f286718e64eb90d8ec9d370d2dc17
+  DEVELOPMENT_ARTIFACT_ID: '8919281422'
+  DEVELOPMENT_ARTIFACT_DIGEST: 766be199eafc3f87437359a39d1685fb4dd67772643cb459f845a24a838bf6a1
+  MODEL_SHA256: 53229915331c2bbea2454f9e7cb5768a26e9edb30de750747f4397f1ff4cf92c
+  DEVELOPMENT_STABLE_SHA256: cdad9018a3049848ad86fc53ce9a4a201391b8d36c2106d8239160226692b58b
+  CORU_SOURCE_SEAL_STABLE_SHA256: d97900ffadd1871f2062bb33f44dd69a10a2bcb298b187e079673037e87edeb3
+  GITHUB_TOKEN: ${{ github.token }}
+  PYTHONHASHSEED: '0'
+  OMP_THREAD_LIMIT: '1'
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  NUMEXPR_NUM_THREADS: '1'
+
+jobs:
+  freeze:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Install pinned deterministic CPU runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            tesseract-ocr tesseract-ocr-eng \
+            fonts-dejavu-core fonts-lato
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13
+      - name: Tests and source compilation before artifact recovery
+        run: |
+          python -m unittest -v \
+            ocr_real_risk_v1.test_numeric_consensus_candidate_v4 \
+            ocr_real_risk_v1.test_coru_source_seal \
+            ocr_real_risk_v1.test_cord_consensus_detector_v4 \
+            ocr_real_risk_v1.test_numeric_digit_forest
+          python -m compileall -q ocr_real_risk_v1
+      - name: Verify untouched CORU source seal remains unopened
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.coru_source_seal import verify
+          path = Path(
+              'ocr_real_risk_v1/source_seals/coru_receipt_source_seal_v1.json'
+          )
+          payload = json.loads(path.read_text())
+          assert verify(payload)
+          assert payload['stable_payload_sha256'] == \
+              'd97900ffadd1871f2062bb33f44dd69a10a2bcb298b187e079673037e87edeb3'
+          assert payload['resolved_revision'] == \
+              'c3c4b97b232bbe03046c78a974f516d439c1124e'
+          assert payload['repository_metadata_only'] is True
+          assert payload['archives_downloaded'] == 0
+          assert payload['annotation_bytes_read'] == 0
+          assert payload['images_opened'] == 0
+          assert payload['outcomes_opened'] is False
+          print({
+              'resolved_revision': payload['resolved_revision'],
+              'stable_payload_sha256': payload['stable_payload_sha256'],
+              'total_source_bytes': payload['total_source_bytes'],
+              'outcomes_opened': payload['outcomes_opened'],
+          })
+          PY
+      - name: Recover and verify frozen digit-forest-v3 bytes
+        run: |
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${MODEL_ARTIFACT_ID}/zip" \
+            --output model-artifact.zip
+          echo "${MODEL_ARTIFACT_DIGEST}  model-artifact.zip" | \
+            sha256sum --check --strict
+          mkdir model-artifact
+          unzip -q model-artifact.zip -d model-artifact
+          test -d model-artifact/frozen-digit-forest-v3
+          (
+            cd model-artifact/frozen-digit-forest-v3
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+          test "$(sha256sum model-artifact/frozen-digit-forest-v3/digit_forest.joblib | cut -d' ' -f1)" = \
+            "${MODEL_SHA256}"
+      - name: Recover and verify detector-v4 development evidence
+        run: |
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${DEVELOPMENT_ARTIFACT_ID}/zip" \
+            --output development-artifact.zip
+          echo "${DEVELOPMENT_ARTIFACT_DIGEST}  development-artifact.zip" | \
+            sha256sum --check --strict
+          mkdir development-artifact
+          unzip -q development-artifact.zip -d development-artifact
+          test -f \
+            development-artifact/cord-v4-development/cord_consensus_detector_v4_development.json
+          (
+            cd development-artifact/cord-v4-development
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.sroie_natural_holdout import verify_stable_payload
+          path = Path(
+              'development-artifact/cord-v4-development/'
+              'cord_consensus_detector_v4_development.json'
+          )
+          report = json.loads(path.read_text())
+          assert verify_stable_payload(report, 'stable_payload_sha256')
+          assert report['stable_payload_sha256'] == \
+              'cdad9018a3049848ad86fc53ce9a4a201391b8d36c2106d8239160226692b58b'
+          assert report['metrics']['all']['final_accepted'] == 319
+          assert report['metrics']['all']['natural_false_accepts'] == 0
+          assert report['metrics']['all']['counterfactual_false_accepts'] == 0
+          assert report['decision']['external_certificate'] is False
+          assert report['decision']['production_ready'] is False
+          PY
+      - name: Build candidate twice from identical inputs
+        run: |
+          rm -rf frozen-numeric-consensus-v4-a frozen-numeric-consensus-v4-b
+          for output in \
+            frozen-numeric-consensus-v4-a \
+            frozen-numeric-consensus-v4-b; do
+            python -m ocr_real_risk_v1.numeric_consensus_candidate_v4 \
+              --repository-root . \
+              --model-root model-artifact/frozen-digit-forest-v3 \
+              --development-report \
+                development-artifact/cord-v4-development/cord_consensus_detector_v4_development.json \
+              --coru-source-seal \
+                ocr_real_risk_v1/source_seals/coru_receipt_source_seal_v1.json \
+              --source-commit "${GITHUB_SHA}" \
+              --output-dir "${output}" \
+              > "${output}-stdout.json"
+          done
+          diff -rq \
+            frozen-numeric-consensus-v4-a \
+            frozen-numeric-consensus-v4-b
+          diff \
+            frozen-numeric-consensus-v4-a/SHA256SUMS.txt \
+            frozen-numeric-consensus-v4-b/SHA256SUMS.txt
+      - name: Independent frozen-candidate gates
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.coru_source_seal import verify as verify_source
+          from ocr_real_risk_v1.numeric_consensus_candidate_v4 import (
+              CANDIDATE_ID,
+              CANDIDATE_SCHEMA,
+              SOURCE_FILES,
+              verify_manifest,
+          )
+          from ocr_real_risk_v1.core import sha256_file
+
+          roots = [
+              Path('frozen-numeric-consensus-v4-a'),
+              Path('frozen-numeric-consensus-v4-b'),
+          ]
+          manifests = []
+          for root in roots:
+              manifest = json.loads((root / 'frozen_candidate.json').read_text())
+              manifests.append(manifest)
+              assert manifest['schema'] == CANDIDATE_SCHEMA
+              assert manifest['candidate_id'] == CANDIDATE_ID
+              assert verify_manifest(manifest)
+              assert manifest['source_commit'] == '${{ github.sha }}'
+              assert manifest['detector']['development_stable_payload_sha256'] == \
+                  '${{ env.DEVELOPMENT_STABLE_SHA256 }}'
+              assert manifest['digit_model']['model_sha256'] == \
+                  '${{ env.MODEL_SHA256 }}'
+              assert manifest['external_source_binding'][
+                  'source_seal_stable_payload_sha256'
+              ] == '${{ env.CORU_SOURCE_SEAL_STABLE_SHA256 }}'
+              assert manifest['external_source_binding'][
+                  'outcomes_opened_before_freeze'
+              ] is False
+              assert manifest['external_protocol']['exact_gates'][
+                  'target_error_reduction'
+              ] == 10.0
+              assert manifest['external_protocol']['exact_gates'][
+                  'minimum_selected_physical_locations'
+              ] == 3000
+              assert manifest['external_protocol']['exact_gates'][
+                  'minimum_accepted'
+              ] == 900
+              assert manifest['decision'][
+                  'candidate_frozen_before_coru_outcomes'
+              ] is True
+              assert manifest['decision'][
+                  'ready_for_one_coru_external_evaluation'
+              ] is True
+              assert manifest['decision']['external_certificate_claimed'] is False
+              assert manifest['decision']['tenfold_reduction_claimed'] is False
+              assert manifest['decision']['production_ready'] is False
+              assert manifest['decision']['honduras_production_ready'] is False
+              assert manifest['constraints']['external_spend_usd'] == 0
+              assert manifest['constraints']['production_modified'] is False
+              assert {row['path'] for row in manifest['source_files']} == set(SOURCE_FILES)
+              for row in manifest['source_files']:
+                  source = root / 'source' / row['path']
+                  assert sha256_file(source) == row['sha256']
+              source_seal = json.loads(
+                  (root / manifest['external_source_binding']['source_seal_file']).read_text()
+              )
+              assert verify_source(source_seal)
+              assert source_seal['outcomes_opened'] is False
+              assert source_seal['images_opened'] == 0
+              assert source_seal['annotation_bytes_read'] == 0
+              assert sha256_file(root / 'model/digit_forest.joblib') == \
+                  manifest['digit_model']['model_sha256']
+          assert manifests[0] == manifests[1]
+          print(json.dumps({
+              'candidate_id': manifests[0]['candidate_id'],
+              'source_commit': manifests[0]['source_commit'],
+              'stable_payload_sha256': manifests[0]['stable_payload_sha256'],
+              'coru_revision': manifests[0]['external_source_binding'][
+                  'resolved_revision'
+              ],
+              'outcomes_opened_before_freeze': False,
+          }, indent=2, sort_keys=True))
+          PY
+          (
+            cd frozen-numeric-consensus-v4-a
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+          (
+            cd frozen-numeric-consensus-v4-b
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          roots = [
+              Path('frozen-numeric-consensus-v4-a'),
+              Path('frozen-numeric-consensus-v4-b'),
+          ]
+          payload = {}
+          for root in roots:
+              sums = (root / 'SHA256SUMS.txt').read_bytes()
+              payload[root.name] = hashlib.sha256(sums).hexdigest()
+          assert len(set(payload.values())) == 1
+          Path('deterministic-build-replay.json').write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + '\n'
+          )
+          print(payload)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-numeric-consensus-v4-frozen
+          path: |
+            frozen-numeric-consensus-v4-a
+            deterministic-build-replay.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Record frozen manifest without model bytes
+        run: |
+          mkdir -p ocr_real_risk_v1/frozen_candidates
+          cp frozen-numeric-consensus-v4-a/frozen_candidate.json \
+            ocr_real_risk_v1/frozen_candidates/numeric_consensus_v4_manifest.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            ocr_real_risk_v1/frozen_candidates/numeric_consensus_v4_manifest.json
+          if ! git diff --cached --quiet; then
+            git commit -m '[skip ci] Record frozen numeric-consensus-v4 manifest'
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
