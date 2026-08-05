@@ -1,0 +1,48 @@
+{
+  "candidate_commit": "fe8865e9182f8ef62babcc1bdda0ac4c107cebfd",
+  "constraints": {
+    "annotations_used_at_inference": false,
+    "external_spend_usd": 0.0,
+    "gcloud_used": false,
+    "github_actions_used": false,
+    "gpu_used": false,
+    "paid_api_used": false,
+    "production_modified": false
+  },
+  "evaluated": {
+    "evaluator_version": "v4.2.1-bare-year-fix",
+    "file_sha256": "90ec37b14b3a1864ba040d1abf65582da7e7d447627597f9e6844a0c6694d927",
+    "metrics": {
+      "accepted": 0,
+      "baseline_errors": 0,
+      "evaluated": 7,
+      "false_replacements": 0,
+      "false_semantic_flags": 7,
+      "final_errors_among_accepted": 0,
+      "flags": 7,
+      "quarantined": 7,
+      "selective_coverage": 0.0,
+      "unresolved": 0
+    },
+    "stable_payload_sha256": "d4b85e2a38cb4e8700c51b85f769b709a67bdd62264cc2919e1b679066c9a2e5"
+  },
+  "flags": [
+    {"action":"QUARANTINE","baseline":"2000","baseline_correct":true,"decision_sha256":"84db6316601faee08330ed861b2eadcf5603fe8cd310e6362ca9c1079cff7e8c","evaluation_status":"EVALUATED","final_correct_if_accepted":null,"reason":"PIXEL_VIEWS_DO_NOT_PRODUCE_RIVAL","rival":"4000","stem":"X51008142033","token_index":97,"truth":"2000","truth_text":"20.00 SR"},
+    {"action":"QUARANTINE","baseline":"11236","baseline_correct":true,"decision_sha256":"8d0249e9726f330217ff8b9fc344018b2cb27695cc1c8298006f92ed40e279f1","evaluation_status":"EVALUATED","final_correct_if_accepted":null,"reason":"PIXEL_VIEWS_DO_NOT_PRODUCE_RIVAL","rival":"11235","stem":"X51008142032","token_index":126,"truth":"11236","truth_text":"112.36"},
+    {"action":"QUARANTINE","baseline":"2200","baseline_correct":true,"decision_sha256":"9a713ac0a9f8d1798ca6daa83a08e035c9ce460625119992dba907722a978ff6","evaluation_status":"EVALUATED","final_correct_if_accepted":null,"reason":"PIXEL_VIEWS_DO_NOT_PRODUCE_RIVAL","rival":"5200","stem":"X51008142030","token_index":95,"truth":"2200","truth_text":"22.00 SR"},
+    {"action":"QUARANTINE","baseline":"2200","baseline_correct":true,"decision_sha256":"c0e499ea0e9068d23d8af73f4e002c9a2f86bccfedf382249819083d4480270d","evaluation_status":"EVALUATED","final_correct_if_accepted":null,"reason":"PIXEL_VIEWS_DO_NOT_PRODUCE_RIVAL","rival":"6200","stem":"X51008142005","token_index":89,"truth":"2200","truth_text":"22.00 SR"},
+    {"action":"QUARANTINE","baseline":"2300","baseline_correct":true,"decision_sha256":"8854c000dd5ce505414e90c9f10d2c185cdbc17f229ec08543c0905581f65cf9","evaluation_status":"EVALUATED","final_correct_if_accepted":null,"reason":"PIXEL_VIEWS_DO_NOT_PRODUCE_RIVAL","rival":"2700","stem":"X51008128062","token_index":132,"truth":"2300","truth_text":"RM 23.00"},
+    {"action":"QUARANTINE","baseline":"2830","baseline_correct":true,"decision_sha256":"dfc5aaa1eb8d1968bf1f8641ad21ccc079595471ee0eea3416f138fab0e0a720","evaluation_status":"EVALUATED","final_correct_if_accepted":null,"reason":"PIXEL_VIEWS_DO_NOT_PRODUCE_RIVAL","rival":"2831","stem":"X51008123599","token_index":114,"truth":"2830","truth_text":"28.30"},
+    {"action":"QUARANTINE","baseline":"2725","baseline_correct":true,"decision_sha256":"f6242f30023c22988e6b1825caf7f589f933a96331e9003cb9d366d23a631fec","evaluation_status":"EVALUATED","final_correct_if_accepted":null,"reason":"PIXEL_VIEWS_DO_NOT_PRODUCE_RIVAL","rival":"2727","stem":"X51008114217","token_index":125,"truth":"2725","truth_text":"RM 27.25"}
+  ],
+  "production_promotion": false,
+  "schema": "ocr-v4-2-untouched-batch3-evidence/1",
+  "sealed": {
+    "file_sha256": "99b4676cdce816d8f9a3328a8848b20e4157411f5b0c5c12def07e1a2b411aa4",
+    "metrics": {"images":30,"page_errors":0,"quarantines":7,"replacements":0,"semantic_flags":7},
+    "stable_payload_sha256": "e862f85ce3b679c0dc995b23bbb44d8778bb6d950192a81636731db706648371",
+    "timing": {"bank_warm_seconds":2.7390616349999846,"candidate_runtime_ratio_warm":1.0023211200268167,"full_page_tesseract_seconds":33.210165829000175,"selective_pixel_seconds":0.06766075299981367,"semantic_trigger_seconds":0.009424027999784812}
+  },
+  "significance_look_performed": false,
+  "stable_payload_sha256": "88f526c8aaa006713d8324922a210bca688488ed0174a9e4dda0f2cdc7fd21d3"
+}
