@@ -1,0 +1,42 @@
+{
+  "candidate_commit": "fe8865e9182f8ef62babcc1bdda0ac4c107cebfd",
+  "constraints": {"annotations_opened":false,"external_spend_usd":0.0,"ocr_run":false,"production_modified":false,"significance_look_performed":false},
+  "governance": {"alpha_spending_plan":"51 -> 87 -> 148","candidate_change_from_batch_outcomes_allowed":false,"first_significance_look_at_accumulated_flags":51,"open_annotations_only_after_flag_decisions_sealed":true},
+  "schema": "ocr-v4-2-untouched-batch7-manifest/1",
+  "selection": {
+    "basis": "next thirty unique, previously unused image identities in pre-existing Drive order after batch6",
+    "images": [
+      {"drive_file_id":"1afcHZVDSK1satNzKvZSV-KBC_wLpYBh8","order":1,"stem":"X51007339166"},
+      {"drive_file_id":"19JUqUINbpMaOQPboLFh2AeP8QUSL5-B6","order":2,"stem":"X51007339157"},
+      {"drive_file_id":"1JpAmpIHgLv91QLQH8tCdUTSshtSskjae","order":3,"stem":"X51007339151"},
+      {"drive_file_id":"12EKIgf05uJC71RuodasuT0bpmoDAt-s7","order":4,"stem":"X51007339156"},
+      {"drive_file_id":"14A9sWJeGP_y0JGAUtErMswNHDg0aDz9q","order":5,"stem":"X51007339150"},
+      {"drive_file_id":"11PsceMefFRtZjoZrWO-1lgaXmgXwJHdK","order":6,"stem":"X51007339152"},
+      {"drive_file_id":"1H_H--7phMoa8TwxA5QMnSdkhJMEoPDzO","order":7,"stem":"X51007339139"},
+      {"drive_file_id":"1K6UHv_BJEHrfJFs6uoAeexwbWZxV5_1M","order":8,"stem":"X51007339135"},
+      {"drive_file_id":"1Z7d0us8GX8dT9O-jtNlBv_vY3zZH37BR","order":9,"stem":"X51007339146"},
+      {"drive_file_id":"1dRBzMc_IgX5hDLRUKOxEjyL19Ap7-STJ","order":10,"stem":"X51007339136"},
+      {"drive_file_id":"1EYoNL33IdPe_BGQBP8cMRBNPgggb6Zf1","order":11,"stem":"X51007339133"},
+      {"drive_file_id":"1NaabBKKVUJiLPzrGV9O-RlWsaqxFCFmO","order":12,"stem":"X51007339115"},
+      {"drive_file_id":"12Oxn1LplNdHc5v1wHUIw4vVB99jXZH3m","order":13,"stem":"X51007339117"},
+      {"drive_file_id":"16yFNpvJ57pKjYzHlaciL1zToi6x9B0mu","order":14,"stem":"X51007339118"},
+      {"drive_file_id":"1t9AQU8dUqaoTVNXFtdGwvw1OCFjYbSqb","order":15,"stem":"X51007339114"},
+      {"drive_file_id":"1cSCVhWNLQaW2MIZs4si6OY4iQMzHWXG-","order":16,"stem":"X51007339113"},
+      {"drive_file_id":"15YnvxV0vULWgbwgSqkYIl5EL5BLrDJfI","order":17,"stem":"X51007339120"},
+      {"drive_file_id":"1WUHOcV_wK68vw4VApOKY3zZJd7ViDJgs","order":18,"stem":"X51007339132"},
+      {"drive_file_id":"1Ff5L5nt_R3jqare20ozPUGjFoSKbPsUh","order":19,"stem":"X51007339126"},
+      {"drive_file_id":"1H3abAJiDlxMehOpRHk47bn17qbQXCFgG","order":20,"stem":"X51007339130"},
+      {"drive_file_id":"1Zgvtx8UkLdhAW9pXPu1yeGo_mrRvFR0j","order":21,"stem":"X51007339131"},
+      {"drive_file_id":"1QeJQAtIENUMVfr8w1h6_7IYhubFB0fV6","order":22,"stem":"X51007339107"},
+      {"drive_file_id":"1wufWB_yoDmly2mwY4X2uMrX78sE7Gf6W","order":23,"stem":"X51007339112"},
+      {"drive_file_id":"17b-FT8O9NaFfyaRMVJ4ZCsWX2jlzWfDK","order":24,"stem":"X51007339106"},
+      {"drive_file_id":"1ZDrrHlDM1PX3IuAn-XTqZekdrAOE8_Iq","order":25,"stem":"X51007339110"},
+      {"drive_file_id":"1UhUh1WssG1oVL4YLvAAjf6WCj_c3l7W7","order":26,"stem":"X51007339111"},
+      {"drive_file_id":"1hsQP6mlEEqfh6OoSJBoFpivhulZXQxEV","order":27,"stem":"X51007231338"},
+      {"drive_file_id":"1jjkBXw0olp48UiX-Edyqo6rNECGPePcq","order":28,"stem":"X51007231336"},
+      {"drive_file_id":"1NDeNmv3_Gna6uRG4QhM-4UIuoH_q962V","order":29,"stem":"X51007231344"},
+      {"drive_file_id":"1MGwpZna3d_YSVltjJynaeqJ3ukgkj6WU","order":30,"stem":"X51007228448"}
+    ]
+  },
+  "status": "PRE_OUTCOME_SELECTION_SEALED"
+}
