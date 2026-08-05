@@ -45,10 +45,12 @@ class TextOcrAdapterV6Tests(unittest.TestCase):
         self.assertEqual(score, 1.0)
 
     def test_bbox_ambiguity_and_geometry_disagreement_fail_closed(self) -> None:
+        # xyxy=(10,10,20,20) and xywh=(10,10,30,30) each have IoU .5
+        # with the 20x10 polygon envelope, so the adapter must abstain.
         with self.assertRaisesRegex(RuntimeError, "ambiguous"):
             resolve_bbox(
-                [0, 0, 10, 10],
-                [0, 0, 15, 0, 15, 15, 0, 15],
+                [10, 10, 20, 20],
+                [10, 10, 30, 10, 30, 20, 10, 20],
             )
         with self.assertRaisesRegex(RuntimeError, "disagrees"):
             resolve_bbox(
