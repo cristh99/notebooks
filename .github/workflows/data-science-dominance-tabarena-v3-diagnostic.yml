@@ -24,20 +24,31 @@ jobs:
         run: |
           set -euo pipefail
           test "${GITHUB_RUN_ATTEMPT}" = '1'
-          test "$(git rev-parse HEAD^)" = 'd373bd0ea6e2edacdb2a041ca1c3dd80a8a36b8b'
+          test "$(git rev-parse HEAD^)" = '4d414e355c8fef91d27fc586ced5847e467142f7'
           test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/data-science-dominance-tabarena-v3-diagnostic.yml'
 
-      - name: Extract exact frozen source without external task access
+      - name: Reconstruct exact frozen source without external task access
         shell: bash
         run: |
           set -euo pipefail
           root='data_science_dominance/tabarena_portfolio_v3'
-          echo 'a9f76d0d1ab1473979bf998c81a035f11ccebd1a92f33fad42415153ef71c68d  data_science_dominance/tabarena_portfolio_v3/portfolio_v3_code.tar.gz' | sha256sum -c -
-          tar xzf "$root/portfolio_v3_code.tar.gz" -C .
+          echo '012f32fc0eea68789c35d9826a7b0675dce99752b7a73b8b6d36974f43e7bb19  data_science_dominance/tabarena_portfolio_v3/transport/part_00.b64' | sha256sum -c -
+          echo '5cfd443d5c61dec3b090f20dc0b6c8ea3987cb43b5eb96b0f6a36fce1c3a5709  data_science_dominance/tabarena_portfolio_v3/transport/part_01.b64' | sha256sum -c -
+          echo 'b0da5f566dc7436345f4c0f2ecb43037389a8d13c65c917d7e99e8256dcf5587  data_science_dominance/tabarena_portfolio_v3/transport/part_02.b64' | sha256sum -c -
+          echo 'ffd7ae312219e40288fabe7552c15fb0d09464941b497b004acca9d9473339d8  data_science_dominance/tabarena_portfolio_v3/transport/part_03.b64' | sha256sum -c -
+          echo 'c5d300c58df1140cf8ae77b42be8cbc0dd53b4c11eb4ad0a48ee3b45d8240e59  data_science_dominance/tabarena_portfolio_v3/transport/part_04.b64' | sha256sum -c -
+          echo 'ecafdc8b8f0fc4a38af3fc232ad1575984d305064544b7f9c2facff08bab42f2  data_science_dominance/tabarena_portfolio_v3/transport/part_05.b64' | sha256sum -c -
+          echo 'f3de8e19ebda80917052406451cb7fade1e1be30b74efce2a3fd5cd4362deb88  data_science_dominance/tabarena_portfolio_v3/transport/part_06.b64' | sha256sum -c -
+          echo '2ff6a71c34bce0ef1d2ca30c9f31a10fd28d04e2572198cac891a09784492f44  data_science_dominance/tabarena_portfolio_v3/transport/part_07.b64' | sha256sum -c -
+          cat "$root"/transport/part_*.b64 > /tmp/v3.b64
+          echo '86b7be1c4b91c4fa22674968753d0febbab169f24a1f33f15c51a18702e07482  /tmp/v3.b64' | sha256sum -c -
+          base64 -d /tmp/v3.b64 > /tmp/v3.tar.gz
+          echo 'a9f76d0d1ab1473979bf998c81a035f11ccebd1a92f33fad42415153ef71c68d  /tmp/v3.tar.gz' | sha256sum -c -
+          tar xzf /tmp/v3.tar.gz -C .
           test -f "$root/runner_v3.py"
           test -f "$root/run_ci_v3.sh"
           test -f "$root/tasks_v3.json"
-          sha256sum "$root"/* > v3-source-sha256sums.txt
+          find "$root" -maxdepth 1 -type f -print0 | sort -z | xargs -0 sha256sum > v3-source-sha256sums.txt
 
       - name: Upload diagnostic source only
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
