@@ -1,0 +1,57 @@
+{
+  "schema": "data-science-dominance/tabarena-v3-decisive-fail/1",
+  "verdict": "FAIL",
+  "score_before": 465,
+  "score_after": 465,
+  "novelty_points": 0,
+  "logic": {
+    "gate": "regression_gap_to_best_mean",
+    "required_minimum": 0.001,
+    "observed": -0.0018312507789878252,
+    "necessary_gate_passed": false,
+    "classification_tasks_can_change_gate": false,
+    "global_pass_possible": false,
+    "decision": "stop remaining classification computation as dominated work"
+  },
+  "regression_summary": {
+    "task_indices": [6, 7, 8, 9, 10, 11],
+    "task_count": 6,
+    "candidate_mean": 0.8133404426052487,
+    "best_individual_mean": 0.8151716933842366,
+    "model_means": {
+      "catboost": 0.7757444210755223,
+      "legacy_portfolio": 0.7890434312007361,
+      "lightgbm": 0.7694517581639336,
+      "tabiclv2": 0.8151716933842366,
+      "xgboost": 0.780939522898278
+    }
+  },
+  "evidence": {
+    "partial_run_id": 30979165811,
+    "partial_final_artifact_id": 8919684011,
+    "partial_final_artifact_sha256": "9c0011d3fa23a1a4a5659c9501e9a3422e9edb7508a7e5ab8d49dcf5104fc6cb",
+    "offline_retry_run_id": 30980244322,
+    "miami_retry_artifact_id": 8919968989,
+    "miami_retry_artifact_sha256": "8d847b1b1852e17d4833881b2f073926b8c13cb8f64f38e2685229e8dce78c7a",
+    "miami_shard_sha256": "7c014edcdf55bc65583aa18936b345953eae628111a7ebbc7b923cc87fb3045d",
+    "row_sha256": {
+      "6_airfoil_self_noise": "7234b4f047943ffed7d13b4df57773d42fa3be6830445740300f128b8abbcbfb",
+      "7_concrete_compressive_strength": "cf0af0eb74fd35e91ac7aefa4fa15d6ccadb0c615e9e3e866d3d84cab6eb1efd",
+      "8_houses": "9fea006e8a19b292bbeda5a93d531e405ce84025a52e8ff3b48f5816719334bf",
+      "9_miami_housing": "7c014edcdf55bc65583aa18936b345953eae628111a7ebbc7b923cc87fb3045d",
+      "10_QSAR_fish_toxicity": "30d4c721d5e2bceeabd2b687f9b8d3f7113bcae7cc879070463bb785ced03780",
+      "11_wine_quality": "9d2634d7e42104dafc5ddafc72a64fd3b54b989f4699f34dfa3c93d859d5120c"
+    }
+  },
+  "frozen_contract": {
+    "candidate_sha256": "6b5927a854c5b2d565a6065f6c8807134ef52cf03e77803c7d6fcdc4b78a96ff",
+    "tasks_sha256": "8204cc0611a1c3f7bc6d3186295f4f4876cc8f01c965d49775a1c9b8ccff3edd",
+    "runner_sha256": "8586c814949cf95a35c05c3e6505c7983ce5e8c626e8cbc86ed04aaa678d2152",
+    "post_hoc_retuning_permitted": false
+  },
+  "scope": {
+    "claim_rejected": "V3 satisfies every frozen TabArena dominance gate",
+    "claim_not_rejected": "V3 can outperform every individual competitor on aggregate in some task families",
+    "remaining_unscored_classification_task_needed_for_verdict": false
+  }
+}
