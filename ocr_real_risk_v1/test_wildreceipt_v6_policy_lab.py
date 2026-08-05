@@ -105,7 +105,7 @@ class WildReceiptV6PolicyLabTests(unittest.TestCase):
             example = row(
                 truth=truth,
                 detector=truth if accepted else "1294",
-                forest=truth if accepted else "1294",
+                forest=truth if accepted else "1284",
                 gray=truth if accepted else "",
                 autocontrast=truth if accepted else "",
                 baseline_claim=baseline,
@@ -124,12 +124,12 @@ class WildReceiptV6PolicyLabTests(unittest.TestCase):
         self.assertTrue(summary["pass"])
 
         rows[0]["candidate"]["prediction"] = "1294"
-        unsafe = exact_summary(
+        reduced = exact_summary(
             rows,
             policy_detector_forest_no_conflict,
             adjudicated=False,
         )
-        self.assertLess(unsafe["accepted"], summary["accepted"])
+        self.assertLess(reduced["accepted"], summary["accepted"])
 
 
 if __name__ == "__main__":
