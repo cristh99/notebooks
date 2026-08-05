@@ -1,0 +1,229 @@
+name: Data Science dominance — complete two unscored TabArena V3 shards offline
+
+on:
+  push:
+    branches:
+      - agent/data-science-dominance-tabarena-v3-sharded
+    paths:
+      - '.github/workflows/data-science-dominance-tabarena-v3-offline-completion.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  retry:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        index: [0, 9]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove workflow-only activation after offline authorization
+        run: |
+          test "${GITHUB_RUN_ATTEMPT}" = '1'
+          test "$(git rev-parse HEAD^)" = '7db2c4f8dc56a8873d340b42446d1a1d7d5635e0'
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/data-science-dominance-tabarena-v3-offline-completion.yml'
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install pinned CPU competitors
+        run: |
+          python -m pip install --disable-pip-version-check \
+            'numpy==1.26.4' 'scipy==1.14.1' 'pandas==2.2.3' \
+            'scikit-learn==1.5.2' 'openml==0.15.1' \
+            'catboost==1.2.8' 'lightgbm==4.6.0' 'xgboost==3.1.3'
+          python -m pip install --disable-pip-version-check \
+            --index-url https://download.pytorch.org/whl/cpu 'torch==2.8.0'
+          python -m pip install --disable-pip-version-check \
+            'einops>=0.7' 'psutil' 'tqdm>=4.64' 'huggingface-hub'
+          python -m pip install --disable-pip-version-check --no-deps \
+            'git+https://github.com/soda-inria/tabicl.git@46b91961db4f8873dd049ec09990698a435e1e29'
+
+      - name: Reconstruct unchanged V3 candidate and validate authorization
+        run: |
+          bash data_science_dominance/tabarena_portfolio_v3/reconstruct_v3_sharded.sh
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('data_science_dominance/tabarena_portfolio_v3/OFFLINE_SHARD_RETRY_AUTHORIZATION.json')
+          a = json.loads(p.read_text())
+          assert a['frozen_scientific_contract']['candidate_sha256'] == '6b5927a854c5b2d565a6065f6c8807134ef52cf03e77803c7d6fcdc4b78a96ff'
+          assert a['frozen_scientific_contract']['tasks_sha256'] == '8204cc0611a1c3f7bc6d3186295f4f4876cc8f01c965d49775a1c9b8ccff3edd'
+          assert a['partial_run']['valid_scored_indices'] == [1,2,3,4,5,6,7,8,10,11]
+          assert a['partial_run']['infrastructure_failed_indices'] == [0,9]
+          assert a['authorized_execution']['retry_indices'] == [0,9]
+          assert a['frozen_scientific_contract']['post_hoc_retuning_permitted'] is False
+          PY
+
+      - name: Restore verified TabICLv2 cache
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -fsSL --retry 4 --retry-all-errors \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            'https://api.github.com/repos/cristh99/notebooks/actions/artifacts/8919663714/zip' \
+            -o /tmp/tabicl-cache-artifact.zip
+          echo '68d108bb1ed9d1ff0069f0ac815120a1d710edd44e0621616c6298d20b23fd56  /tmp/tabicl-cache-artifact.zip' | sha256sum -c -
+          mkdir -p /tmp/cache-artifact tabicl-cache
+          unzip -q /tmp/tabicl-cache-artifact.zip -d /tmp/cache-artifact
+          echo '84c2ffd70b88723c8aad51e333aec4673582f4117e317fa838c208e3ebd792be  /tmp/cache-artifact/cache-receipt.json' | sha256sum -c -
+          echo '18b6ea28748cc9706104b007a5f283b92773564ecc39bfc540af77ac9eff67b9  /tmp/cache-artifact/tabicl-cache.tar.gz' | sha256sum -c -
+          tar xzf /tmp/cache-artifact/tabicl-cache.tar.gz -C tabicl-cache
+          echo 'bdc7dbd5e4ff21f8f0456fcf90c6b7cdf72dbea960f2d05b19bec19f9b3d4ed0  tabicl-cache/hub/models--jingang--TabICL/blobs/bdc7dbd5e4ff21f8f0456fcf90c6b7cdf72dbea960f2d05b19bec19f9b3d4ed0' | sha256sum -c -
+          echo '0db9cb538f114e79026bf08f45f41ad8dd7ad2de2aaca9a5ca8cd3bd9748ae7a  tabicl-cache/hub/models--jingang--TabICL/blobs/0db9cb538f114e79026bf08f45f41ad8dd7ad2de2aaca9a5ca8cd3bd9748ae7a' | sha256sum -c -
+
+      - name: Execute only the previously unscored task offline
+        env:
+          HF_HOME: ${{ github.workspace }}/tabicl-cache
+          HF_HUB_OFFLINE: '1'
+          HF_HUB_DISABLE_TELEMETRY: '1'
+          HF_HUB_DISABLE_XET: '1'
+          TRANSFORMERS_OFFLINE: '1'
+          OMP_NUM_THREADS: '4'
+          MKL_NUM_THREADS: '4'
+          OPENBLAS_NUM_THREADS: '4'
+        shell: bash
+        run: |
+          set +e
+          mkdir -p retry-output
+          python data_science_dominance/tabarena_portfolio_v3/evaluate_shard_v3.py \
+            --index '${{ matrix.index }}' \
+            --output 'retry-output/shard-${{ matrix.index }}.json' \
+            2>&1 | tee 'retry-output/shard-${{ matrix.index }}.log'
+          status=${PIPESTATUS[0]}
+          echo "$status" > 'retry-output/shard-${{ matrix.index }}.status'
+          exit 0
+
+      - name: Require a real scored row
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          index = int('${{ matrix.index }}')
+          path = Path(f'retry-output/shard-{index}.json')
+          if not path.exists():
+              raise SystemExit('retry shard missing')
+          envelope = json.loads(path.read_text())
+          row = envelope['row']
+          if 'error' in row:
+              raise SystemExit(f"retry shard infrastructure error: {row['error']}")
+          if not row.get('finite', False):
+              raise SystemExit('retry shard is non-finite')
+          if 'candidate' not in row or 'score' not in row['candidate'] or 'advantage' not in row:
+              raise SystemExit('retry shard lacks scored metrics')
+          print(json.dumps({'index': index, 'dataset': row['dataset'], 'score': row['candidate']['score'], 'advantage': row['advantage']}, sort_keys=True))
+          PY
+
+      - name: Upload immutable retry evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: v3-offline-retry-${{ matrix.index }}
+          retention-days: 90
+          if-no-files-found: warn
+          path: retry-output/**
+
+  aggregate:
+    needs: retry
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+      - run: python -m pip install --disable-pip-version-check 'numpy==1.26.4'
+
+      - name: Reconstruct exact V3 aggregation code
+        run: bash data_science_dominance/tabarena_portfolio_v3/reconstruct_v3_sharded.sh
+
+      - name: Download and verify preserved ten scored rows
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -fsSL --retry 4 --retry-all-errors \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            'https://api.github.com/repos/cristh99/notebooks/actions/artifacts/8919684011/zip' \
+            -o /tmp/partial-final.zip
+          echo '9c0011d3fa23a1a4a5659c9501e9a3422e9edb7508a7e5ab8d49dcf5104fc6cb  /tmp/partial-final.zip' | sha256sum -c -
+          mkdir -p previous-final combined-shards
+          unzip -q /tmp/partial-final.zip -d previous-final
+          python - <<'PY'
+          import json, shutil
+          from pathlib import Path
+          root = Path('previous-final')
+          report = json.loads((root / 'dominance-v3-final/fresh12-v3-report.json').read_text())
+          assert report['verdict'] == 'FAIL'
+          assert report['summary']['candidate_failures'] == 2
+          valid = [1,2,3,4,5,6,7,8,10,11]
+          failed = [0,9]
+          for index in valid:
+              envelope = json.loads((root / f'downloaded-shards/shard-{index}.json').read_text())
+              assert 'error' not in envelope['row']
+              shutil.copy2(root / f'downloaded-shards/shard-{index}.json', Path('combined-shards') / f'shard-{index}.json')
+          for index in failed:
+              envelope = json.loads((root / f'downloaded-shards/shard-{index}.json').read_text())
+              assert 'error' in envelope['row']
+              assert 'LocalEntryNotFoundError' in envelope['row']['error']
+          PY
+
+      - name: Download the two offline retry rows
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: v3-offline-retry-*
+          merge-multiple: true
+          path: retry-shards
+
+      - name: Combine exactly once and adjudicate unchanged gates
+        run: |
+          cp retry-shards/shard-0.json combined-shards/shard-0.json
+          cp retry-shards/shard-9.json combined-shards/shard-9.json
+          test "$(find combined-shards -maxdepth 1 -name 'shard-*.json' | wc -l)" -eq 12
+          mkdir -p dominance-v3-complete
+          python data_science_dominance/tabarena_portfolio_v3/aggregate_shards_v3.py \
+            --shards-dir combined-shards \
+            --output dominance-v3-complete/fresh12-v3-report.json \
+            --receipt dominance-v3-complete/freeze-receipt.json \
+            2>&1 | tee dominance-v3-complete/aggregation-output.txt
+
+      - name: Upload complete immutable V3 evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-dominance-tabarena-v3-complete
+          retention-days: 90
+          path: |
+            dominance-v3-complete/**
+            combined-shards/**
+            retry-shards/**
+            data_science_dominance/tabarena_portfolio_v3/OFFLINE_SHARD_RETRY_AUTHORIZATION.json
+
+      - name: Enforce final V3 verdict
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path('dominance-v3-complete/freeze-receipt.json').read_text())
+          if receipt['actual_external_evaluation_count'] != 1:
+              raise SystemExit('V3 completion invalid; evidence preserved')
+          if receipt['verdict'] != 'PASS':
+              raise SystemExit(f"V3 dominance gate: {receipt['verdict']}; evidence preserved; no retuning")
+          print('V3 dominance gate: PASS; score advances to 490/1000')
+          PY
