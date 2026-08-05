@@ -34,11 +34,11 @@ def fetch_metadata(timeout: float = 60.0) -> Mapping[str, Any]:
         return json.load(response)
 
 
-def _normalize_sha256(value: object) -> str:
+def _normalize_hash(value: object, length: int, prefix: str = "") -> str:
     raw = str(value or "").strip().lower()
-    if raw.startswith("sha256:"):
-        raw = raw.removeprefix("sha256:")
-    if len(raw) != 64 or any(character not in string.hexdigits for character in raw):
+    if prefix and raw.startswith(prefix):
+        raw = raw.removeprefix(prefix)
+    if len(raw) != length or any(character not in string.hexdigits for character in raw):
         return ""
     return raw
 
@@ -48,18 +48,23 @@ def _source_object(row: Mapping[str, Any], revision: str) -> dict[str, Any] | No
     if not path or path in {".gitattributes", "README.md"}:
         return None
     lfs = row.get("lfs") if isinstance(row.get("lfs"), Mapping) else {}
-    oid = _normalize_sha256(
-        lfs.get("sha256") or lfs.get("oid") or row.get("blobId")
+    lfs_sha256 = _normalize_hash(
+        lfs.get("sha256") or lfs.get("oid"), 64, "sha256:"
     )
+    git_blob_sha1 = _normalize_hash(row.get("blobId"), 40)
     size = int(lfs.get("size") or row.get("size") or 0)
-    if not oid:
-        raise RuntimeError(f"source object lacks a SHA-256 identity: {path}")
+    if lfs_sha256:
+        identity = {"algorithm": "sha256", "digest": lfs_sha256}
+    elif git_blob_sha1:
+        identity = {"algorithm": "git-sha1", "digest": git_blob_sha1}
+    else:
+        raise RuntimeError(f"source object lacks a cryptographic identity: {path}")
     if size <= 0:
         raise RuntimeError(f"source object lacks a positive size: {path}")
     return {
         "path": path,
         "size_bytes": size,
-        "sha256": oid,
+        "identity": identity,
         "download_url": (
             f"https://huggingface.co/datasets/{DATASET_ID}/resolve/"
             f"{revision}/{path}?download=true"
