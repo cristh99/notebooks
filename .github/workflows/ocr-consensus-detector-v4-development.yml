@@ -1,0 +1,432 @@
+name: OCR consensus detector v4 CORD development
+
+on:
+  push:
+    branches:
+      - agent/ocr-consensus-detector-v4
+    paths:
+      - 'ocr_real_risk_v1/cord_consensus_detector_v4.py'
+      - 'ocr_real_risk_v1/test_cord_consensus_detector_v4.py'
+      - '.github/workflows/ocr-consensus-detector-v4-development.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: ocr-consensus-detector-v4-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CORD_REPO: naver-clova-ix/cord-v2
+  CORD_REVISION: 7f0115a4b758a71d6473b8d085751692da2fef98
+  PROTOCOL_ARTIFACT_ID: '8918307926'
+  PROTOCOL_ARTIFACT_DIGEST: aa19119756a97060f3ec862f40b65bf2183db1ba6a06edd9a59b67e3d3272531
+  CANDIDATE_ARTIFACT_ID: '8917522937'
+  CANDIDATE_ARTIFACT_DIGEST: 080b0efd4b91a180a1a5c6acd767d72e0a8f286718e64eb90d8ec9d370d2dc17
+  MODEL_SHA256: 53229915331c2bbea2454f9e7cb5768a26e9edb30de750747f4397f1ff4cf92c
+  GITHUB_TOKEN: ${{ github.token }}
+  PYTHONHASHSEED: '0'
+  OMP_THREAD_LIMIT: '1'
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  NUMEXPR_NUM_THREADS: '1'
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Install pinned CPU dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            tesseract-ocr tesseract-ocr-eng \
+            fonts-dejavu-core fonts-lato
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13
+      - name: Unit tests, compilation, and frozen grid gates
+        run: |
+          python -m unittest -v \
+            ocr_real_risk_v1.test_cord_consensus_detector_v4 \
+            ocr_real_risk_v1.test_numeric_digit_forest \
+            ocr_real_risk_v1.test_cord_natural_holdout
+          python -m compileall -q ocr_real_risk_v1
+          python - <<'PY'
+          from ocr_real_risk_v1.cord_consensus_detector_v4 import (
+              PSM_MODES,
+              configuration_grid,
+          )
+          grid = configuration_grid()
+          assert PSM_MODES == (3, 4, 6, 11, 12)
+          assert len(grid) == 48
+          assert len({row['id'] for row in grid}) == 48
+          assert all(
+              row['uses_truth_for_candidate_construction'] is False
+              and row['uses_annotation_bbox_for_candidate_construction'] is False
+              for row in grid
+          )
+          print({'psms': PSM_MODES, 'configurations': len(grid)})
+          PY
+
+  evaluate-shards:
+    needs: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        include:
+          - shard_id: train-00000-of-00004
+            filename: data/train-00000-of-00004-b4aaeceff1d90ecb.parquet
+          - shard_id: train-00001-of-00004
+            filename: data/train-00001-of-00004-7dbbe248962764c5.parquet
+          - shard_id: train-00002-of-00004
+            filename: data/train-00002-of-00004-688fe1305a55e5cc.parquet
+          - shard_id: train-00003-of-00004
+            filename: data/train-00003-of-00004-2d0cd200555ed7fd.parquet
+          - shard_id: validation-00000-of-00001
+            filename: data/validation-00000-of-00001-cc3c5779fe22e8ca.parquet
+          - shard_id: test-00000-of-00001
+            filename: data/test-00000-of-00001-9c204eb3f4e11791.parquet
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Install complete pinned CPU runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            tesseract-ocr tesseract-ocr-eng \
+            fonts-dejavu-core fonts-lato
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13
+          python -m compileall -q ocr_real_risk_v1
+      - name: Recover and verify sealed CORD protocol
+        run: |
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${PROTOCOL_ARTIFACT_ID}/zip" \
+            --output protocol.zip
+          echo "${PROTOCOL_ARTIFACT_DIGEST}  protocol.zip" | \
+            sha256sum --check --strict
+          mkdir protocol-artifact
+          unzip -q protocol.zip -d protocol-artifact
+          test -d protocol-artifact/cord-protocol-v1
+          (
+            cd protocol-artifact/cord-protocol-v1
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.sroie_natural_holdout import (
+              verify_stable_payload,
+          )
+          protocol = json.loads(
+              Path('protocol-artifact/cord-protocol-v1/protocol.json').read_text()
+          )
+          assert verify_stable_payload(protocol, 'stable_payload_sha256')
+          assert protocol['status'] == 'SEALED_BEFORE_CORD_OCR'
+          assert protocol['stable_payload_sha256'] == \
+              'faf1d558b8ec84bb6fbc49b4661e1e2ba7ce86c84078a874893ca4341ad5ed11'
+          assert protocol['candidate_binding']['model_sha256'] == \
+              '53229915331c2bbea2454f9e7cb5768a26e9edb30de750747f4397f1ff4cf92c'
+          PY
+      - name: Recover and verify byte-frozen digit forest v3
+        run: |
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${CANDIDATE_ARTIFACT_ID}/zip" \
+            --output candidate.zip
+          echo "${CANDIDATE_ARTIFACT_DIGEST}  candidate.zip" | \
+            sha256sum --check --strict
+          mkdir candidate-artifact
+          unzip -q candidate.zip -d candidate-artifact
+          (
+            cd candidate-artifact/frozen-digit-forest-v3
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+      - name: Download and verify one opened CORD development shard
+        run: |
+          curl --fail --location --retry 8 --retry-all-errors \
+            "https://huggingface.co/datasets/${CORD_REPO}/resolve/${CORD_REVISION}/${{ matrix.filename }}?download=true" \
+            --output source.parquet
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          shard = '${{ matrix.shard_id }}'
+          manifest_path = (
+              Path('protocol-artifact/cord-protocol-v1/manifests')
+              / f'{shard}.json'
+          )
+          manifest = json.loads(manifest_path.read_text())
+          digest = hashlib.sha256(Path('source.parquet').read_bytes()).hexdigest()
+          assert digest == manifest['dataset']['parquet_sha256']
+          assert manifest['candidate_binding']['model_sha256'] == \
+              '${{ env.MODEL_SHA256 }}'
+          print({
+              'shard': shard,
+              'rows': manifest['dataset']['rows'],
+              'selected': len(manifest['records']),
+              'sha256': digest,
+          })
+          PY
+      - name: Run outcome-blind multi-PSM detector grid
+        run: |
+          rm -rf "cord-v4-${{ matrix.shard_id }}"
+          python -m ocr_real_risk_v1.cord_consensus_detector_v4 evaluate \
+            --parquet source.parquet \
+            --manifest "protocol-artifact/cord-protocol-v1/manifests/${{ matrix.shard_id }}.json" \
+            --candidate-root candidate-artifact/frozen-digit-forest-v3 \
+            --output-dir "cord-v4-${{ matrix.shard_id }}" \
+            | tee "cord-v4-${{ matrix.shard_id }}-stdout.json"
+      - name: Independent shard laboratory gates
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.cord_consensus_detector_v4 import (
+              REPORT_SCHEMA,
+              STATUS,
+          )
+          from ocr_real_risk_v1.cord_natural_holdout import (
+              verify_hash_manifest,
+          )
+          from ocr_real_risk_v1.sroie_natural_holdout import (
+              verify_stable_payload,
+          )
+          shard = '${{ matrix.shard_id }}'
+          root = Path(f'cord-v4-{shard}')
+          verify_hash_manifest(root)
+          report = json.loads(
+              (root / 'cord_consensus_detector_v4_shard.json').read_text()
+          )
+          assert report['schema'] == REPORT_SCHEMA
+          assert report['status'] == STATUS
+          assert verify_stable_payload(report, 'stable_payload_sha256')
+          assert report['dataset']['shard_id'] == shard
+          assert report['candidate_binding']['model_sha256'] == \
+              '${{ env.MODEL_SHA256 }}'
+          assert len(report['configurations']) == 48
+          assert len(report['metrics']) == 48
+          selected = len(report['row_summaries'])
+          assert selected == report['dataset']['rows'] - \
+              report['dataset'].get('rows_without_selected_numeric_location', 0) \
+              or selected > 0
+          assert all(
+              metrics['selected'] == selected
+              for metrics in report['metrics'].values()
+          )
+          assert report['decision']['external_certificate'] is False
+          assert report['decision']['production_ready'] is False
+          assert report['decision']['cord_development_only'] is True
+          assert report['decision']['fresh_external_corpus_required'] is True
+          assert report['constraints']['external_spend_usd'] == 0
+          assert report['constraints']['production_modified'] is False
+          print({
+              'shard': shard,
+              'selected': selected,
+              'stable_payload_sha256': report['stable_payload_sha256'],
+          })
+          PY
+          (
+            cd "cord-v4-${{ matrix.shard_id }}"
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-cord-v4-${{ matrix.shard_id }}
+          path: cord-v4-${{ matrix.shard_id }}
+          if-no-files-found: error
+          retention-days: 90
+
+  aggregate:
+    needs: evaluate-shards
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Install pinned aggregate dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            tesseract-ocr tesseract-ocr-eng \
+            fonts-dejavu-core fonts-lato
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13
+          python -m unittest -v \
+            ocr_real_risk_v1.test_cord_consensus_detector_v4
+          python -m compileall -q ocr_real_risk_v1
+      - name: Recover and verify six shard artifacts
+        run: |
+          mkdir shard-roots
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+          from pathlib import Path
+          expected = {
+              'ocr-cord-v4-train-00000-of-00004': 'train-00000-of-00004',
+              'ocr-cord-v4-train-00001-of-00004': 'train-00001-of-00004',
+              'ocr-cord-v4-train-00002-of-00004': 'train-00002-of-00004',
+              'ocr-cord-v4-train-00003-of-00004': 'train-00003-of-00004',
+              'ocr-cord-v4-validation-00000-of-00001': 'validation-00000-of-00001',
+              'ocr-cord-v4-test-00000-of-00001': 'test-00000-of-00001',
+          }
+          request = urllib.request.Request(
+              (
+                  f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}"
+                  f"/actions/runs/{os.environ['GITHUB_RUN_ID']}/artifacts?per_page=100"
+              ),
+              headers={
+                  'Authorization': f"Bearer {os.environ['GITHUB_TOKEN']}",
+                  'Accept': 'application/vnd.github+json',
+                  'X-GitHub-Api-Version': '2022-11-28',
+              },
+          )
+          with urllib.request.urlopen(request, timeout=60) as response:
+              payload = json.load(response)
+          selected = [
+              row for row in payload['artifacts']
+              if row['name'] in expected
+          ]
+          if {row['name'] for row in selected} != set(expected):
+              raise SystemExit(
+                  f"missing shard artifacts: {[row['name'] for row in selected]}"
+              )
+          with Path('shard-artifacts.tsv').open('w', encoding='utf-8') as out:
+              for row in selected:
+                  out.write(
+                      f"{row['id']}\t{expected[row['name']]}\t{row['digest']}\n"
+                  )
+          Path('shard-artifacts.json').write_text(
+              json.dumps(selected, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          PY
+          while IFS=$'\t' read -r artifact_id shard digest; do
+            curl --fail --location --retry 5 --retry-all-errors \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" \
+              --output "${shard}.zip"
+            echo "${digest#sha256:}  ${shard}.zip" | \
+              sha256sum --check --strict
+            mkdir -p "shard-roots/${shard}"
+            unzip -q "${shard}.zip" -d "shard-roots/${shard}"
+            (
+              cd "shard-roots/${shard}"
+              sha256sum --check --strict SHA256SUMS.txt
+            )
+          done < shard-artifacts.tsv
+      - name: Select zero-failure train rule and score internal holdouts
+        run: |
+          rm -rf cord-v4-development
+          python -m ocr_real_risk_v1.cord_consensus_detector_v4 aggregate \
+            shard-roots/test-00000-of-00001 \
+            shard-roots/train-00000-of-00004 \
+            shard-roots/train-00001-of-00004 \
+            shard-roots/train-00002-of-00004 \
+            shard-roots/train-00003-of-00004 \
+            shard-roots/validation-00000-of-00001 \
+            --output-dir cord-v4-development \
+            | tee cord-v4-development-stdout.json
+      - name: Independent development-only aggregate gates
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.cord_consensus_detector_v4 import (
+              AGGREGATE_SCHEMA,
+              STATUS,
+          )
+          from ocr_real_risk_v1.cord_natural_holdout import (
+              verify_hash_manifest,
+          )
+          from ocr_real_risk_v1.sroie_natural_holdout import (
+              verify_stable_payload,
+          )
+          root = Path('cord-v4-development')
+          verify_hash_manifest(root)
+          report = json.loads(
+              (root / 'cord_consensus_detector_v4_development.json').read_text()
+          )
+          assert report['schema'] == AGGREGATE_SCHEMA
+          assert report['status'] == STATUS
+          assert verify_stable_payload(report, 'stable_payload_sha256')
+          assert report['dataset']['role'].startswith('opened development corpus')
+          assert report['selection_rule']['selected_on'] == \
+              'four CORD train shards only'
+          assert report['metrics']['train']['natural_false_accepts'] == 0
+          assert report['metrics']['train'][
+              'counterfactual_false_accepts'
+          ] == 0
+          assert report['decision']['candidate_ready_to_freeze'] is False
+          assert report['decision']['external_certificate'] is False
+          assert report['decision']['production_ready'] is False
+          assert report['decision']['fresh_external_corpus_required'] is True
+          assert report['constraints']['external_spend_usd'] == 0
+          assert report['constraints']['production_modified'] is False
+          print(json.dumps({
+              'selection_rule': report['selection_rule'],
+              'metrics': report['metrics'],
+              'exact_diagnostics': report['exact_diagnostics'],
+              'decision': report['decision'],
+              'stable_payload_sha256': report['stable_payload_sha256'],
+          }, indent=2, sort_keys=True))
+          PY
+          (
+            cd cord-v4-development
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-consensus-detector-v4-cord-development
+          path: |
+            cord-v4-development
+            cord-v4-development-stdout.json
+            shard-artifacts.json
+          if-no-files-found: error
+          retention-days: 90
