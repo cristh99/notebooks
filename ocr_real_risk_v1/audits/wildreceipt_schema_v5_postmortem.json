@@ -1,0 +1,292 @@
+{
+  "exact_success_frontier": {
+    "additional_correct_accepts_needed_if_false_eliminated": 125,
+    "additional_correct_accepts_needed_if_one_false_retained": 246,
+    "joint_minimum_if_one_false": 593,
+    "joint_minimum_if_zero_false": 472,
+    "minimum_accepted_for_10x_if_one_false": 593,
+    "minimum_accepted_for_10x_if_zero_false": 407,
+    "minimum_accepted_for_coverage_with_1720_selected": 472,
+    "target_candidate_upper": 0.010722563504141557
+  },
+  "funnel": {
+    "baseline_reasons": {
+      "ELIGIBLE_EQUAL_LENGTH_SPATIAL_CLAIM": 680,
+      "LENGTH_MISMATCH_OUTSIDE_SUBSTITUTION_SCOPE": 239,
+      "LOW_SPATIAL_COVERAGE": 8,
+      "NO_SPATIAL_MATCH": 793
+    },
+    "candidate_eligible": 858,
+    "candidate_eligible_correct": 751,
+    "candidate_eligible_wrong": 107,
+    "candidate_reasons": {
+      "ELIGIBLE_EQUAL_LENGTH_SPATIAL_CLAIM": 858,
+      "LENGTH_MISMATCH_OUTSIDE_SUBSTITUTION_SCOPE": 291,
+      "LOW_SPATIAL_COVERAGE": 10,
+      "NO_SPATIAL_MATCH": 561
+    },
+    "final_correct": 346,
+    "final_false": 1,
+    "forest_accepted_correct": 374,
+    "forest_accepted_wrong": 1,
+    "forest_rejected_correct": 377,
+    "forest_rejected_wrong": 106,
+    "guard_rejected_correct_after_forest": 28,
+    "guard_rejected_wrong_after_forest": 0,
+    "selected": 1720
+  },
+  "counterfactual_false_accept": {
+    "bbox": [
+      444,
+      563,
+      484,
+      575
+    ],
+    "candidate_claim": "22995",
+    "crop_box": [
+      447,
+      563,
+      485,
+      576
+    ],
+    "crop_sha256": "29fa15710d5827be6d6961b115d652d811867015f41242d706e45c24e017fc0b",
+    "counterfactual_claim": "22905",
+    "diagnosis": "forest plus one guard view supported the mutated 22905 claim while the natural 22995 claim was rejected",
+    "guard_readings": {
+      "autocontrast": {
+        "digits": "22905",
+        "raw": "229.05",
+        "timeout": false,
+        "wall_seconds": 0.07514606400002322
+      },
+      "gray": {
+        "digits": "22995",
+        "raw": "229.95",
+        "timeout": false,
+        "wall_seconds": 0.07407452100005685
+      }
+    },
+    "image_sha256": "d178b3569282c580c62c469e05d13997f3cf608c9003a3164af4e9806ccc8385",
+    "key": "train-00000-of-00002:173",
+    "minimum_mean_probability": 0.26982710431362794,
+    "prediction": "22905",
+    "row_index": 173,
+    "shard_id": "train-00000-of-00002",
+    "truth": "22995"
+  },
+  "methodological_limits": {
+    "frozen_schema_v5_must_not_be_relabelled_as_10x": true,
+    "honduras_production_ready": false,
+    "production_change_authorized": false,
+    "wildreceipt_is_now_opened_development_data": true,
+    "wildreceipt_must_not_be_reused_as_an_untouched_external_certificate": true
+  },
+  "natural_false_accept": {
+    "annotation_text": "11.98",
+    "baseline_claim": "1199",
+    "bbox": [
+      255,
+      258,
+      284,
+      270
+    ],
+    "candidate_claim": "1199",
+    "crop_box": [
+      253,
+      258,
+      285,
+      271
+    ],
+    "crop_sha256": "0688b25bc04abd935acc18165de22e456f0d1091d031c7a449af3da3d03b3112",
+    "diagnosis": "correlated 8-to-9 confusion survived five PSM votes, the digit forest, and both PSM-7 guard views",
+    "distinct_psm_votes": 5,
+    "equal_length_conflicts": [],
+    "guard_readings": {
+      "autocontrast": {
+        "digits": "1199",
+        "raw": "11.99",
+        "timeout": false,
+        "wall_seconds": 0.09573884999997517
+      },
+      "gray": {
+        "digits": "1199",
+        "raw": "11.99",
+        "timeout": false,
+        "wall_seconds": 0.09491287200000897
+      }
+    },
+    "image_sha256": "be51c2c9376c3111b48b63196a00b3c48c4eab80a6b7f54e685d0e48eb418dc1",
+    "key": "test-00000-of-00001:70",
+    "minimum_mean_probability": 0.3367699307983935,
+    "ocr_confidence": 72.8,
+    "prediction": "1199",
+    "row_index": 70,
+    "shard_id": "test-00000-of-00001",
+    "truth": "1198",
+    "voting_psms": [
+      3,
+      4,
+      6,
+      11,
+      12
+    ]
+  },
+  "per_shard": [
+    {
+      "accepted": 102,
+      "baseline_eligible": 199,
+      "baseline_errors": 23,
+      "candidate_eligible": 246,
+      "counterfactual_false": 0,
+      "eligible_correct": 216,
+      "eligible_wrong": 30,
+      "false_accepted": 1,
+      "forest_accepted": 108,
+      "guard_rejected_after_forest": 6,
+      "selected": 468,
+      "shard": "test-00000-of-00001"
+    },
+    {
+      "accepted": 104,
+      "baseline_eligible": 236,
+      "baseline_errors": 37,
+      "candidate_eligible": 303,
+      "counterfactual_false": 1,
+      "eligible_correct": 267,
+      "eligible_wrong": 36,
+      "false_accepted": 0,
+      "forest_accepted": 120,
+      "guard_rejected_after_forest": 16,
+      "selected": 624,
+      "shard": "train-00000-of-00002"
+    },
+    {
+      "accepted": 141,
+      "baseline_eligible": 245,
+      "baseline_errors": 32,
+      "candidate_eligible": 309,
+      "counterfactual_false": 0,
+      "eligible_correct": 268,
+      "eligible_wrong": 41,
+      "false_accepted": 0,
+      "forest_accepted": 147,
+      "guard_rejected_after_forest": 6,
+      "selected": 628,
+      "shard": "train-00001-of-00002"
+    }
+  ],
+  "schema": "ocr-wildreceipt-schema-v5-postmortem/1",
+  "source_run": {
+    "aggregate_artifact_id": 8928251131,
+    "aggregate_artifact_sha256": "6d178d61f2e65e9ea80509315a9f1ec219f7338026b6629802094635e02a0f42",
+    "aggregate_stable_payload_sha256": "762d3350739f94bd0054d1db2e9b460f6b5043c7e1969242d8df6cd9b4b06ccf",
+    "candidate_artifact_id": 8926919972,
+    "candidate_id": "numeric-consensus-v4-wildreceipt-schema-v5",
+    "candidate_stable_payload_sha256": "95d4525b8c14de6168d080c8d3aec51852c7f954097426e2f69c00682dd3d387",
+    "protocol_artifact_id": 8927148015,
+    "protocol_stable_payload_sha256": "dc582b1ac36eca9199d1032913af2cc1ab391eaf40a22641fcea78e115f5cb42",
+    "run_id": 30998215981,
+    "workflow_head_sha": "1eb5c70b0963b244091dee9e66cef08dd786112e"
+  },
+  "stable_payload_sha256": "ec8b2846b7fc5bb91dbdc21d2de237bc1635bffdde4182d37d9c20c9e2d3632c",
+  "successor_direction": {
+    "architecture": [
+      "treat WildReceipt as development data and mine hard digit-confusion crops",
+      "replace correlated Tesseract-only guard evidence with an independently trained visual verifier",
+      "retain a conservative high-consensus path and add a separately calibrated rescue path",
+      "freeze every threshold and route before opening a new external corpus",
+      "validate once on an untouched, source-sealed receipt corpus"
+    ],
+    "correct_claims_available_at_detector_gate": 751,
+    "correct_claims_rejected_downstream": 405,
+    "minimum_correct_rescue_needed_with_zero_false": 126,
+    "primary_bottleneck": "verifier recall, not detector candidate supply or sample size"
+  },
+  "terminal_result": {
+    "accepted": 347,
+    "baseline_eligible": 680,
+    "baseline_errors": 92,
+    "baseline_lower": 0.10722563504141558,
+    "baseline_observed_error_rate": 0.13529411764705881,
+    "candidate_observed_false_acceptance_rate": 0.002881844380403458,
+    "candidate_upper": 0.01824690199567275,
+    "certified_reduction_lower": 5.876374798683313,
+    "correct_accepted": 346,
+    "counterfactual_false_accepts": 1,
+    "counterfactual_upper": 0.0037040428152581018,
+    "coverage_lower": 0.1804287145185155,
+    "coverage_observed": 0.20174418604651162,
+    "false_accepted": 1,
+    "ocr_timeouts": 0,
+    "pass_statistical_10x": false,
+    "selected": 1720,
+    "stability_folds": 3,
+    "stability_passes": 0,
+    "verdict": "WILDRECEIPT_EXTERNAL_TENFOLD_BOUND_NOT_REACHED"
+  },
+  "threshold_replay_development_only": [
+    {
+      "accepted": 374,
+      "correct": 372,
+      "counter_false": 1,
+      "false": 2,
+      "threshold": 0.0
+    },
+    {
+      "accepted": 374,
+      "correct": 372,
+      "counter_false": 1,
+      "false": 2,
+      "threshold": 0.1
+    },
+    {
+      "accepted": 374,
+      "correct": 372,
+      "counter_false": 1,
+      "false": 2,
+      "threshold": 0.15
+    },
+    {
+      "accepted": 368,
+      "correct": 366,
+      "counter_false": 1,
+      "false": 2,
+      "threshold": 0.2
+    },
+    {
+      "accepted": 347,
+      "correct": 346,
+      "counter_false": 1,
+      "false": 1,
+      "threshold": 0.25
+    },
+    {
+      "accepted": 322,
+      "correct": 321,
+      "counter_false": 0,
+      "false": 1,
+      "threshold": 0.3
+    },
+    {
+      "accepted": 300,
+      "correct": 300,
+      "counter_false": 0,
+      "false": 0,
+      "threshold": 0.337
+    },
+    {
+      "accepted": 295,
+      "correct": 295,
+      "counter_false": 0,
+      "false": 0,
+      "threshold": 0.35
+    },
+    {
+      "accepted": 259,
+      "correct": 259,
+      "counter_false": 0,
+      "false": 0,
+      "threshold": 0.4
+    }
+  ]
+}
