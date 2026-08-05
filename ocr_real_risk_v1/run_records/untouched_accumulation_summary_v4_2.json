@@ -1,0 +1,121 @@
+{
+  "batches": [
+    {
+      "evaluated_sha256": "6157270868fb7c6866d8121b11640a0f9bbe74bd176675d8a994a72bbeec5856",
+      "evaluated_stable_payload_sha256": "d442808347efb7dbf567ffec7f6e2753e72035e9c4b6ac8e5ca3ab1bfa06d930",
+      "images": 4,
+      "label": "batch1",
+      "metrics": {
+        "accepted_flagged_claims": 0,
+        "baseline_error_fraction_among_evaluated_flags": 0.6666666666666666,
+        "baseline_errors_among_evaluated_flags": 2,
+        "false_replacements": 0,
+        "false_semantic_flags": 1,
+        "final_errors_among_accepted": 0,
+        "flags_evaluated": 3,
+        "flags_total": 3,
+        "flags_without_truth_match_or_annotation": 0,
+        "quarantined_flagged_claims": 3,
+        "selective_coverage": 0.0
+      },
+      "sealed_sha256": "283c5a1c8c6e9796c23b29e16b2ad5aaea8cdd68a9431ccfe79de5b95a7a1eb9",
+      "sealed_stable_payload_sha256": "89e7f5dd6e9a555ac785e91a1719dc8f3d714a4b48d40d1c017a4a982a55f717",
+      "stems": [
+        "X51008164999",
+        "X51009453804",
+        "X51008164997",
+        "X51008164998"
+      ],
+      "timing": {
+        "bank_warm_seconds": 1.258204611999986,
+        "candidate_runtime_ratio_warm": 1.0079087609305795,
+        "full_page_tesseract_seconds": 3.475506118000027,
+        "selective_pixel_seconds": 0.027486947000028294
+      }
+    },
+    {
+      "evaluated_sha256": "42e8027d38a724d0fc4999e15c916514df90507a61f4174b5edb039532f58fad",
+      "evaluated_stable_payload_sha256": "32d0575180792919844fa4d30c493138ac38b4422d585bf23621e7a63249d0b1",
+      "images": 16,
+      "label": "batch2",
+      "metrics": {
+        "accepted_flagged_claims": 1,
+        "baseline_error_fraction_among_evaluated_flags": 0.3333333333333333,
+        "baseline_errors_among_evaluated_flags": 1,
+        "false_replacements": 0,
+        "false_semantic_flags": 2,
+        "final_errors_among_accepted": 0,
+        "flags_evaluated": 3,
+        "flags_total": 3,
+        "flags_without_truth_match_or_annotation": 0,
+        "quarantined_flagged_claims": 2,
+        "selective_coverage": 0.3333333333333333
+      },
+      "sealed_sha256": "4217aa64c25d69855da433cdb9e9c15617871483ee72a86057048d90d147baad",
+      "sealed_stable_payload_sha256": "01211df98720bbbcd68965932319c57faaa46660ee806ca28eecb9c6903bc943",
+      "stems": [
+        "X51008164969",
+        "X51008164992",
+        "X51008164525",
+        "X51008164996",
+        "X51008164991",
+        "X51008164524",
+        "X51008145504",
+        "X51008164420",
+        "X51008164510",
+        "X51008145505",
+        "X51008142065",
+        "X51008142062",
+        "X51008145450",
+        "X51008142068",
+        "X51008142063",
+        "X51008142059"
+      ],
+      "timing": {
+        "bank_warm_seconds": 1.2872385510000868,
+        "candidate_runtime_ratio_warm": 1.0010545571392475,
+        "full_page_tesseract_seconds": 10.744893357000365,
+        "selective_pixel_seconds": 0.011331104000078085
+      }
+    }
+  ],
+  "candidate_commit": "fe8865e9182f8ef62babcc1bdda0ac4c107cebfd",
+  "candidate_frozen": true,
+  "candidate_modified_from_outcomes": false,
+  "constraints": {
+    "external_spend_usd": 0.0,
+    "gcloud_used": false,
+    "github_actions_used": false,
+    "gpu_used": false,
+    "merged": false,
+    "paid_api_used": false,
+    "production_modified": false,
+    "pull_request_created": false
+  },
+  "decision": {
+    "external_10x_certification": false,
+    "next_gate": "continue frozen candidate accumulation; annotations opened only after flag decisions are sealed; do not inspect significance before 51 flags",
+    "production_promotion": false
+  },
+  "metrics": {
+    "accepted_flagged_claims": 1,
+    "baseline_error_fraction_among_flags": 0.5,
+    "baseline_errors": 3,
+    "false_replacements": 0,
+    "false_semantic_flags": 3,
+    "final_errors_among_accepted": 0,
+    "flags": 6,
+    "images": 20,
+    "quarantined_flagged_claims": 5,
+    "selective_coverage": 0.16666666666666666
+  },
+  "schema": "ocr-v4-2-untouched-selective-accumulation/1",
+  "stable_payload_sha256": "538b3a1516f0f295a158c2cd423d1612deb37eed497fd9906fbfddae8b91f88c",
+  "statistics": {
+    "accumulated_flags": 6,
+    "alpha_spending_plan": "51 -> 87 -> 148",
+    "first_predeclared_look_at_flags": 51,
+    "significance_look_performed": false
+  },
+  "status": "ACCUMULATION_BEFORE_PREDECLARED_LOOK_1"
+}
