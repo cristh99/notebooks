@@ -144,6 +144,26 @@ def build_certificate(
     )
 
 
+def bonferroni_per_look_family_alpha(
+    *, overall_family_alpha: float = 0.05, planned_looks: int
+) -> float:
+    """Allocate family alpha across a fixed number of planned interim looks.
+
+    Each look still splits its returned family alpha across the two certificate
+    legs inside :func:`build_certificate`. This simple Bonferroni spending makes
+    optional early stopping across the declared looks familywise valid.
+    """
+
+    if not math.isfinite(overall_family_alpha) or not (
+        0.0 < overall_family_alpha < 1.0
+    ):
+        raise ValueError("overall_family_alpha must be finite and within (0, 1)")
+    planned_looks = _validate_count(planned_looks, "planned_looks")
+    if planned_looks < 1:
+        raise ValueError("planned_looks must be positive")
+    return overall_family_alpha / planned_looks
+
+
 def minimum_zero_residual_flags(
     *,
     baseline_error_fraction: float,
