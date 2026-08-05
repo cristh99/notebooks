@@ -1,0 +1,220 @@
+from __future__ import annotations
+
+import argparse
+import ast
+import json
+import math
+import os
+import re
+import sqlite3
+import statistics
+import unicodedata
+from dataclasses import dataclass
+from datetime import date, datetime
+from pathlib import Path
+from typing import Any, Iterable, Mapping, Sequence
+
+
+@dataclass(frozen=True)
+class Book:
+    entity_id: str
+    book_id: str
+    title: str
+    subtitle: str
+    author: str
+    rating_number: int | None
+    features: Any
+    description: Any
+    price: float | None
+    store: str
+    categories: tuple[str, ...]
+    details: Any
+    publication_year: int | None
+    publisher: str
+
+
+@dataclass(frozen=True)
+class Review:
+    entity_id: str
+    purchase_id: str
+    rating: float | None
+    title: str
+    text: str
+    review_time: date | None
+    helpful_vote: int
+    verified_purchase: bool
+    book_entity_id: str | None
+
+
+@dataclass(frozen=True)
+class JoinedReview:
+    review: Review
+    book: Book | None
+
+
+@dataclass(frozen=True)
+class QueryPlan:
+    raw_query: str
+    operation: str
+    target: str
+    metric: str
+    top_n: int = 1
+    min_group_count: int = 0
+    min_distinct_books: int = 0
+    rating_op: str | None = None
+    rating_value: float | None = None
+    price_op: str | None = None
+    price_value: float | None = None
+    helpful_op: str | None = None
+    helpful_value: float | None = None
+    verified: bool | None = None
+    publication_year_start: int | None = None
+    publication_year_end: int | None = None
+    review_year_start: int | None = None
+    review_year_end: int | None = None
+    category: str | None = None
+    author: str | None = None
+    title: str | None = None
+    publisher: str | None = None
+    text_terms: tuple[str, ...] = ()
+    include_value: bool = False
+
+
+def fold_text(value: Any) -> str:
+    text = "" if value is None else str(value)
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def phrase_key(value: Any) -> str:
+    return re.sub(r"[^a-z0-9]+", "", fold_text(value).lower())
+
+
+def id_key(value: Any) -> str:
+    text = fold_text(value)
+    text = re.sub(r"(?i)^(?:book|purchase|asin|id|ref|record|item)(?:\s*[-_ ]?\s*(?:id|no))?\s*[:=#./-]*\s*", "", text)
+    return re.sub(r"[^a-z0-9]+", "", text.lower())
+
+
+def edit_distance(left: str, right: str) -> int:
+    if left == right:
+        return 0
+    previous = list(range(len(right) + 1))
+    for i, lchar in enumerate(left, 1):
+        current = [i]
+        for j, rchar in enumerate(right, 1):
+            current.append(min(current[-1] + 1, previous[j] + 1, previous[j - 1] + (lchar != rchar)))
+        previous = current
+    return previous[-1]
+
+
+class IdResolver:
+    def __init__(self, values: Iterable[tuple[Any, Any]]) -> None:
+        self.by_key: dict[str, list[tuple[str, Any]]] = {}
+        self.by_length: dict[int, list[tuple[str, Any]]] = {}
+        for raw, payload in values:
+            key = id_key(raw)
+            if not key:
+                continue
+            self.by_key.setdefault(key, []).append((fold_text(raw), payload))
+            self.by_length.setdefault(len(key), []).append((key, payload))
+
+    def resolve(self, raw: Any) -> Any | None:
+        key = id_key(raw)
+        exact = self.by_key.get(key, [])
+        if exact:
+            unique = {repr(payload): payload for _, payload in exact}
+            if len(unique) == 1:
+                return next(iter(unique.values()))
+            ranked = sorted((edit_distance(fold_text(raw).lower(), source.lower()), repr(payload), payload) for source, payload in exact)
+            return ranked[0][2] if len(ranked) == 1 or ranked[0][:2] < ranked[1][:2] else None
+        candidates: list[tuple[float, str, Any]] = []
+        for length in range(max(1, len(key) - 3), len(key) + 4):
+            for candidate, payload in self.by_length.get(length, []):
+                distance = edit_distance(key, candidate)
+                similarity = 1.0 - distance / max(len(key), len(candidate), 1)
+                if similarity >= 0.82:
+                    candidates.append((-similarity, repr(payload), payload))
+        candidates.sort()
+        if not candidates:
+            return None
+        return candidates[0][2] if len(candidates) == 1 or candidates[0][:2] < candidates[1][:2] else None
+
+
+def parse_literal(value: Any) -> Any:
+    if value is None:
+        return None
+    if isinstance(value, (dict, list, tuple, int, float, bool)):
+        return value
+    text = fold_text(value)
+    if not text:
+        return None
+    for parser in (json.loads, ast.literal_eval):
+        try:
+            return parser(text)
+        except Exception:
+            pass
+    return text
+
+
+def flatten_values(value: Any) -> list[str]:
+    parsed = parse_literal(value)
+    output: list[str] = []
+
+    def visit(item: Any) -> None:
+        if item is None:
+            return
+        if isinstance(item, Mapping):
+            for key, val in item.items():
+                output.append(f"{fold_text(key)}: {fold_text(val)}")
+                visit(val)
+        elif isinstance(item, (list, tuple, set)):
+            for val in item:
+                visit(val)
+        else:
+            text = fold_text(item)
+            if text:
+                output.append(text)
+
+    visit(parsed)
+    return output
+
+
+def mapping_values(value: Any) -> dict[str, str]:
+    parsed = parse_literal(value)
+    output: dict[str, str] = {}
+    if isinstance(parsed, Mapping):
+        for key, val in parsed.items():
+            output[phrase_key(key)] = fold_text(val)
+    else:
+        text = fold_text(value)
+        for part in re.split(r"[|;\n]", text):
+            match = re.match(r"\s*([^:=]{2,50})\s*[:=]\s*(.+?)\s*$", part)
+            if match:
+                output[phrase_key(match.group(1))] = fold_text(match.group(2))
+    return output
+
+
+def extract_year(*values: Any) -> int | None:
+    prioritized: list[str] = []
+    fallback: list[str] = []
+    for value in values:
+        mapping = mapping_values(value)
+        for key, val in mapping.items():
+            if any(token in key for token in ("publicationdate", "publisheddate", "publicationyear", "published", "releasedate")):
+                prioritized.append(val)
+        fallback.extend(flatten_values(value))
+    for text in prioritized + fallback:
+        years = [int(year) for year in re.findall(r"\b(?:18|19|20)\d{2}\b", text)]
+        years = [year for year in years if 1800 <= year <= 2023]
+        if years:
+            return years[0]
+    return None
+
+
+def extract_publisher(*values: Any) -> str:
+    for value in values:
+        mapping = mapping_values(value)
+        for key in ("publisher", "manufacturer", "imprint"):
+            if mapping.get(key):
