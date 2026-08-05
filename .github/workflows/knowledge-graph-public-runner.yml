@@ -1,0 +1,37 @@
+name: Knowledge Graph Public Runner
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/knowledge-graph-public-runner
+    paths:
+      - .github/workflows/knowledge-graph-public-runner.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: knowledge-graph-public-runner
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    name: Zero-cost runner and secret probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Verify runner and secret availability without disclosure
+        shell: bash
+        env:
+          NOTION_GRAPH_TOKEN: ${{ secrets.NOTION_GRAPH_TOKEN }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "public_runner_started=true"
+          if [[ -n "${NOTION_GRAPH_TOKEN:-${NOTION_TOKEN:-}}" ]]; then
+            echo "notion_secret_present=true"
+          else
+            echo "notion_secret_present=false"
+            exit 1
+          fi
