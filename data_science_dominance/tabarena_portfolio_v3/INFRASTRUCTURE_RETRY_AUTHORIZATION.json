@@ -1,0 +1,35 @@
+{
+  "schema": "data-science-dominance/tabarena-v3-infrastructure-retry/1",
+  "prior_run": {
+    "run_id": 30975732979,
+    "job_id": 92209219630,
+    "head_sha": "d373bd0ea6e2edacdb2a041ca1c3dd80a8a36b8b",
+    "conclusion": "failure",
+    "failure_stage": "first external evaluation",
+    "failure_signal": 143,
+    "failure_reason": "GitHub-hosted runner received a shutdown signal",
+    "report_emitted": false,
+    "task_row_emitted": false,
+    "artifact_count": 0,
+    "adjudicable_external_evaluation_count": 0
+  },
+  "retry": {
+    "authorized": true,
+    "reason": "infrastructure termination before any completed task row or report",
+    "execution_change": "split the unchanged twelve-task contract into twelve independent jobs and aggregate once",
+    "candidate_changed": false,
+    "task_contract_changed": false,
+    "competitors_changed": false,
+    "resource_caps_changed": false,
+    "thresholds_changed": false,
+    "score_rule_changed": false,
+    "post_hoc_retuning_permitted": false
+  },
+  "frozen_hashes": {
+    "candidate_sha256": "6b5927a854c5b2d565a6065f6c8807134ef52cf03e77803c7d6fcdc4b78a96ff",
+    "tasks_sha256": "8204cc0611a1c3f7bc6d3186295f4f4876cc8f01c965d49775a1c9b8ccff3edd",
+    "runner_sha256": "8586c814949cf95a35c05c3e6505c7983ce5e8c626e8cbc86ed04aaa678d2152",
+    "source_manifest_sha256": "794fedc960eb855a0ed03d745fb6443e78947b627f2d082c9447732e825398f3",
+    "legacy_estimator_sha256": "6b0e275b6e60ec766ba5d8d19c27234c252bbcae22a3f7df6d0e3908f81e1c90"
+  }
+}
