@@ -1,0 +1,760 @@
+name: OCR WildReceipt schema-repaired external validation v2
+
+on:
+  push:
+    branches:
+      - agent/ocr-consensus-detector-v4
+    paths:
+      - '.github/workflows/ocr-wildreceipt-external-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: ocr-wildreceipt-external-v2-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CANDIDATE_ARTIFACT_ID: '8926297484'
+  CANDIDATE_ARTIFACT_DIGEST: 42470c67d2667c0de572fed3fe6ac9070b90951dca7f8869ff90b869362de816
+  CANDIDATE_STABLE_SHA256: d6d6e4a065c7ba40966ce7bfa06ed84367fa4aa4ce248a14a820084070811cda
+  CANDIDATE_SOURCE_COMMIT: 9a1e8bd184a33b1cbae58625fd938cc5d924b156
+  ADAPTER_SHA256: 4e7afb8be5ff0299936a3d1a06a4e92baa694006464df7413f9ce679f2d9bc7b
+  EVALUATOR_SHA256: bc6a96a1ac09dd1bb762ac93751903a2c2471c362942e9c9d5111516f327c961
+  WILDRECEIPT_REVISION: cedafaf3c8b0246c9fad68af29324d655715ad12
+  GITHUB_TOKEN: ${{ github.token }}
+  PYTHONHASHSEED: '0'
+  OMP_THREAD_LIMIT: '1'
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  NUMEXPR_NUM_THREADS: '1'
+
+jobs:
+  seal-protocol:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+      artifact_digest: ${{ steps.upload.outputs.artifact-digest }}
+      run_ocr: ${{ steps.power.outputs.run_ocr }}
+      selected: ${{ steps.power.outputs.selected }}
+      projected_accepted: ${{ steps.power.outputs.projected_accepted }}
+      protocol_stable: ${{ steps.power.outputs.protocol_stable }}
+    steps:
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Install pinned manifest-only dependencies
+        run: |
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            scipy==1.17.1 \
+            threadpoolctl==3.6.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13 \
+            packaging==26.3
+      - name: Recover and verify byte-frozen candidate
+        run: |
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${CANDIDATE_ARTIFACT_ID}/zip" \
+            --output candidate.zip
+          echo "${CANDIDATE_ARTIFACT_DIGEST}  candidate.zip" | \
+            sha256sum --check --strict
+          mkdir candidate-artifact
+          unzip -q candidate.zip -d candidate-artifact
+          test -d candidate-artifact/frozen-wildreceipt-schema-v3-a
+          (
+            cd candidate-artifact/frozen-wildreceipt-schema-v3-a
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+      - name: Prove execution imports only frozen source bytes
+        run: |
+          work="${RUNNER_TEMP}/wildreceipt-seal-v2"
+          candidate="${GITHUB_WORKSPACE}/candidate-artifact/frozen-wildreceipt-schema-v3-a"
+          rm -rf "${work}"
+          mkdir -p "${work}"
+          cd "${work}"
+          PYTHONPATH="${candidate}/source" \
+          CANDIDATE_ROOT="${candidate}" \
+          CANDIDATE_STABLE_SHA256="${CANDIDATE_STABLE_SHA256}" \
+          CANDIDATE_SOURCE_COMMIT="${CANDIDATE_SOURCE_COMMIT}" \
+          ADAPTER_SHA256="${ADAPTER_SHA256}" \
+          EVALUATOR_SHA256="${EVALUATOR_SHA256}" \
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import ocr_real_risk_v1.numeric_consensus_candidate_v4_wildreceipt as candidate_module
+          import ocr_real_risk_v1.wildreceipt_adapter as adapter_module
+          import ocr_real_risk_v1.wildreceipt_external as evaluator_module
+          from ocr_real_risk_v1.core import sha256_file
+          from ocr_real_risk_v1.numeric_consensus_candidate_v4_wildreceipt import verify_manifest
+
+          root = Path(os.environ['CANDIDATE_ROOT']).resolve()
+          expected_source = (root / 'source').resolve()
+          expected_paths = {
+              'candidate': expected_source / 'ocr_real_risk_v1/numeric_consensus_candidate_v4_wildreceipt.py',
+              'adapter': expected_source / 'ocr_real_risk_v1/wildreceipt_adapter.py',
+              'evaluator': expected_source / 'ocr_real_risk_v1/wildreceipt_external.py',
+          }
+          observed_paths = {
+              'candidate': Path(candidate_module.__file__).resolve(),
+              'adapter': Path(adapter_module.__file__).resolve(),
+              'evaluator': Path(evaluator_module.__file__).resolve(),
+          }
+          assert observed_paths == expected_paths
+          manifest = json.loads((root / 'frozen_candidate.json').read_text())
+          assert verify_manifest(manifest)
+          assert manifest['candidate_id'] == \
+              'numeric-consensus-v4-wildreceipt-schema-v3'
+          assert manifest['stable_payload_sha256'] == \
+              os.environ['CANDIDATE_STABLE_SHA256']
+          assert manifest['source_commit'] == os.environ['CANDIDATE_SOURCE_COMMIT']
+          assert manifest['status'] == (
+              'FROZEN_AFTER_WILDRECEIPT_GEOMETRY_SCHEMA_DISCOVERY_'
+              'BEFORE_ANY_OCR_OUTCOMES'
+          )
+          assert manifest['external_source_binding'][
+              'source_rows_opened_before_this_freeze'
+          ] is True
+          assert manifest['external_source_binding'][
+              'ocr_executed_before_this_freeze'
+          ] is False
+          assert manifest['external_source_binding'][
+              'candidate_inference_executed_before_this_freeze'
+          ] is False
+          assert manifest['decision'][
+              'candidate_frozen_before_wildreceipt_ocr_outcomes'
+          ] is True
+          assert manifest['decision'][
+              'candidate_frozen_before_wildreceipt_source_opening'
+          ] is False
+          assert manifest['decision'][
+              'untouched_external_certificate_claimed'
+          ] is False
+          source_hashes = {
+              row['path']: row['sha256'] for row in manifest['source_files']
+          }
+          assert sha256_file(observed_paths['adapter']) == \
+              os.environ['ADAPTER_SHA256'] == source_hashes[
+                  'ocr_real_risk_v1/wildreceipt_adapter.py'
+              ]
+          assert sha256_file(observed_paths['evaluator']) == \
+              os.environ['EVALUATOR_SHA256'] == source_hashes[
+                  'ocr_real_risk_v1/wildreceipt_external.py'
+              ]
+          for row in manifest['source_files']:
+              assert sha256_file(root / 'source' / row['path']) == row['sha256']
+          protocol = manifest['external_protocol']
+          assert protocol['annotation_geometry']['source_canvas'] == [1000, 1000]
+          assert protocol['selection']['physical_association_invariant'] is True
+          assert protocol['counterfactual']['physical_association_invariant'] is True
+          assert protocol['power_plan'][
+              'minimum_selected_for_projected_400_accepts'
+          ] == 1246
+          assert protocol['claim_limits'][
+              'untouched_external_certificate_claimed'
+          ] is False
+          print(json.dumps({
+              'candidate_id': manifest['candidate_id'],
+              'stable_payload_sha256': manifest['stable_payload_sha256'],
+              'source_commit': manifest['source_commit'],
+              'observed_module_paths': {
+                  key: str(value) for key, value in observed_paths.items()
+              },
+          }, indent=2, sort_keys=True))
+          PY
+      - name: Download and verify three immutable source objects
+        run: |
+          work="${RUNNER_TEMP}/wildreceipt-seal-v2"
+          mkdir -p "${work}/source-files"
+          cat > "${work}/wildreceipt-shards.tsv" <<'EOF'
+          test-00000-of-00001	data/test-00000-of-00001.parquet	43254778a33b83ae65f9a152b2b559a043f4d4239c4d903b4aca315d129efca0	427468952
+          train-00000-of-00002	data/train-00000-of-00002.parquet	f11bd09c7373df1726aa3fba02b6513c436809b3417c5b85a24cd0dd4226fc07	449790572
+          train-00001-of-00002	data/train-00001-of-00002.parquet	e988eeff3ad994f77c1c0fed0a85675f5f132f7911cb5574e8439c2661b0cce7	490390793
+          EOF
+          while IFS=$'\t' read -r shard path digest bytes; do
+            curl --fail --location --retry 12 --retry-all-errors \
+              --retry-delay 20 \
+              "https://huggingface.co/datasets/kaydee/wildreceipt/resolve/${WILDRECEIPT_REVISION}/${path}?download=true" \
+              --output "${work}/source-files/${shard}.parquet"
+            echo "${digest}  ${work}/source-files/${shard}.parquet" | \
+              sha256sum --check --strict
+            test "$(stat -c %s "${work}/source-files/${shard}.parquet")" = "${bytes}"
+            sleep 20
+          done < "${work}/wildreceipt-shards.tsv"
+      - name: Build all corrected outcome-blind manifests before OCR
+        run: |
+          work="${RUNNER_TEMP}/wildreceipt-seal-v2"
+          candidate="${GITHUB_WORKSPACE}/candidate-artifact/frozen-wildreceipt-schema-v3-a"
+          cd "${work}"
+          rm -rf sealed-manifests wildreceipt-protocol-v2
+          mkdir sealed-manifests
+          while IFS=$'\t' read -r shard path digest bytes; do
+            PYTHONPATH="${candidate}/source" \
+            python -m ocr_real_risk_v1.wildreceipt_external seal \
+              --parquet "source-files/${shard}.parquet" \
+              --shard-id "${shard}" \
+              --candidate-root "${candidate}" \
+              --output "sealed-manifests/${shard}.json"
+          done < wildreceipt-shards.tsv
+          PYTHONPATH="${candidate}/source" \
+          python -m ocr_real_risk_v1.wildreceipt_external bundle \
+            sealed-manifests/*.json \
+            --candidate-root "${candidate}" \
+            --output-dir wildreceipt-protocol-v2 \
+            | tee wildreceipt-protocol-stdout.json
+      - name: Independent census, deduplication, and power gates
+        id: power
+        run: |
+          work="${RUNNER_TEMP}/wildreceipt-seal-v2"
+          candidate="${GITHUB_WORKSPACE}/candidate-artifact/frozen-wildreceipt-schema-v3-a"
+          cd "${work}"
+          PYTHONPATH="${candidate}/source" \
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from ocr_real_risk_v1.sroie_natural_holdout import verify_stable_payload
+          from ocr_real_risk_v1.wildreceipt_external import verify_hash_manifest
+
+          root = Path('wildreceipt-protocol-v2')
+          verify_hash_manifest(root)
+          protocol = json.loads((root / 'protocol.json').read_text())
+          assert verify_stable_payload(protocol, 'stable_payload_sha256')
+          assert protocol['status'] == (
+              'SEALED_AFTER_GEOMETRY_SCHEMA_REPAIR_BEFORE_WILDRECEIPT_OCR'
+          )
+          assert protocol['candidate_binding'][
+              'candidate_stable_payload_sha256'
+          ] == os.environ['CANDIDATE_STABLE_SHA256']
+          assert protocol['candidate_binding']['source_commit'] == \
+              os.environ['CANDIDATE_SOURCE_COMMIT']
+          assert protocol['candidate_protocol']['selection'][
+              'physical_association_invariant'
+          ] is True
+          assert protocol['candidate_protocol']['counterfactual'][
+              'physical_association_invariant'
+          ] is True
+          assert protocol['execution_plan'][
+              'candidate_bytes_fixed_before_ocr'
+          ] is True
+          assert protocol['execution_plan'][
+              'selection_completed_before_ocr'
+          ] is True
+          assert protocol['execution_plan'][
+              'geometry_schema_repair_disclosed'
+          ] is True
+          assert protocol['execution_plan'][
+              'untouched_external_certificate'
+          ] is False
+          census = protocol['census']
+          power = protocol['power_gate']
+          assert census['published_rows'] == 1739
+          assert census['receipt_associated_selected_locations'] >= \
+              census['unique_physical_selected_receipts']
+          assert 0 <= census['unique_physical_selected_receipts'] <= 1739
+          assert power['selected_available'] == \
+              census['unique_physical_selected_receipts']
+          assert power['minimum_selected_unique_receipts'] == 1200
+          assert power['minimum_accepted'] == 400
+          manifests = sorted((root / 'manifests').glob('*.json'))
+          assert len(manifests) == 3
+          active = 0
+          images = set()
+          for path in manifests:
+              manifest = json.loads(path.read_text())
+              assert verify_stable_payload(manifest, 'manifest_sha256')
+              assert manifest['protocol'] == protocol['candidate_protocol']
+              for record in manifest['records']:
+                  assert record['bbox_coordinate_space'] == 'image_pixels'
+                  assert record['source_bbox_coordinate_space'] == \
+                      'layoutlm_normalized_xyxy_0_1000'
+                  if record['active_physical_unit']:
+                      active += 1
+                      assert record['image_sha256'] not in images
+                      images.add(record['image_sha256'])
+          assert active == census['unique_physical_selected_receipts']
+          run_ocr = bool(power['run_ocr'])
+          with Path(os.environ['GITHUB_OUTPUT']).open('a', encoding='utf-8') as out:
+              out.write(f"run_ocr={'true' if run_ocr else 'false'}\n")
+              out.write(f"selected={power['selected_available']}\n")
+              out.write(f"projected_accepted={power['projected_accepted']}\n")
+              out.write(
+                  f"protocol_stable={protocol['stable_payload_sha256']}\n"
+              )
+          print(json.dumps({
+              'census': census,
+              'power_gate': power,
+              'stable_payload_sha256': protocol['stable_payload_sha256'],
+          }, indent=2, sort_keys=True))
+          PY
+          (
+            cd wildreceipt-protocol-v2
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+      - id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-wildreceipt-schema-repaired-protocol-v2
+          path: |
+            ${{ runner.temp }}/wildreceipt-seal-v2/wildreceipt-protocol-v2
+            ${{ runner.temp }}/wildreceipt-seal-v2/wildreceipt-protocol-stdout.json
+          if-no-files-found: error
+          retention-days: 90
+
+  underpowered:
+    needs: seal-protocol
+    if: ${{ needs.seal-protocol.outputs.run_ocr == 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Emit terminal no-OCR decision
+        env:
+          SELECTED: ${{ needs.seal-protocol.outputs.selected }}
+          PROJECTED_ACCEPTED: ${{ needs.seal-protocol.outputs.projected_accepted }}
+          PROTOCOL_STABLE: ${{ needs.seal-protocol.outputs.protocol_stable }}
+        run: |
+          mkdir terminal
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          report = {
+              'schema': 'ocr-wildreceipt-schema-repaired-underpowered/2',
+              'candidate_artifact_id': 8926297484,
+              'candidate_stable_payload_sha256':
+                  'd6d6e4a065c7ba40966ce7bfa06ed84367fa4aa4ce248a14a820084070811cda',
+              'protocol_stable_payload_sha256': os.environ['PROTOCOL_STABLE'],
+              'selected_unique_receipts': int(os.environ['SELECTED']),
+              'projected_accepted': float(os.environ['PROJECTED_ACCEPTED']),
+              'minimum_selected_required': 1200,
+              'minimum_selected_for_projected_400_accepts': 1246,
+              'minimum_accepted_required': 400,
+              'ocr_executed': False,
+              'candidate_inference_executed': False,
+              'untouched_external_certificate_claimed': False,
+              'tenfold_reduction_claimed': False,
+              'production_ready': False,
+              'automatic_production_change': False,
+              'verdict': 'WILDRECEIPT_SCHEMA_REPAIRED_UNDERPOWERED_NO_OCR',
+              'external_spend_usd': 0,
+          }
+          stable = dict(report)
+          report['stable_payload_sha256'] = hashlib.sha256(
+              json.dumps(stable, sort_keys=True, separators=(',', ':')).encode()
+          ).hexdigest()
+          path = Path('terminal/wildreceipt_underpowered.json')
+          path.write_text(json.dumps(report, indent=2, sort_keys=True) + '\n')
+          Path('terminal/SHA256SUMS.txt').write_text(
+              f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n"
+          )
+          print(json.dumps(report, indent=2, sort_keys=True))
+          PY
+          (
+            cd terminal
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-wildreceipt-schema-repaired-underpowered-v2
+          path: terminal
+          if-no-files-found: error
+          retention-days: 90
+
+  evaluate-shards:
+    needs: seal-protocol
+    if: ${{ needs.seal-protocol.outputs.run_ocr == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          - shard_id: test-00000-of-00001
+            path: data/test-00000-of-00001.parquet
+            sha256: 43254778a33b83ae65f9a152b2b559a043f4d4239c4d903b4aca315d129efca0
+            size_bytes: 427468952
+          - shard_id: train-00000-of-00002
+            path: data/train-00000-of-00002.parquet
+            sha256: f11bd09c7373df1726aa3fba02b6513c436809b3417c5b85a24cd0dd4226fc07
+            size_bytes: 449790572
+          - shard_id: train-00001-of-00002
+            path: data/train-00001-of-00002.parquet
+            sha256: e988eeff3ad994f77c1c0fed0a85675f5f132f7911cb5574e8439c2661b0cce7
+            size_bytes: 490390793
+    steps:
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Install complete pinned OCR runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            tesseract-ocr tesseract-ocr-eng \
+            fonts-dejavu-core fonts-lato
+          test "$(tesseract --version | head -n 1)" = 'tesseract 5.3.4'
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            scipy==1.17.1 \
+            threadpoolctl==3.6.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13 \
+            packaging==26.3
+      - name: Recover and verify frozen candidate
+        run: |
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${CANDIDATE_ARTIFACT_ID}/zip" \
+            --output candidate.zip
+          echo "${CANDIDATE_ARTIFACT_DIGEST}  candidate.zip" | \
+            sha256sum --check --strict
+          mkdir candidate-artifact
+          unzip -q candidate.zip -d candidate-artifact
+          (
+            cd candidate-artifact/frozen-wildreceipt-schema-v3-a
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+      - name: Recover and verify sealed protocol
+        env:
+          PROTOCOL_ARTIFACT_ID: ${{ needs.seal-protocol.outputs.artifact_id }}
+          PROTOCOL_ARTIFACT_DIGEST: ${{ needs.seal-protocol.outputs.artifact_digest }}
+        run: |
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${PROTOCOL_ARTIFACT_ID}/zip" \
+            --output protocol.zip
+          echo "${PROTOCOL_ARTIFACT_DIGEST#sha256:}  protocol.zip" | \
+            sha256sum --check --strict
+          mkdir protocol-artifact
+          unzip -q protocol.zip -d protocol-artifact
+          (
+            cd protocol-artifact/wildreceipt-protocol-v2
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+      - name: Download and verify one immutable source shard
+        run: |
+          curl --fail --location --retry 12 --retry-all-errors \
+            --retry-delay 20 \
+            "https://huggingface.co/datasets/kaydee/wildreceipt/resolve/${WILDRECEIPT_REVISION}/${{ matrix.path }}?download=true" \
+            --output source.parquet
+          echo "${{ matrix.sha256 }}  source.parquet" | \
+            sha256sum --check --strict
+          test "$(stat -c %s source.parquet)" = "${{ matrix.size_bytes }}"
+      - name: Execute only frozen evaluator bytes on natural receipts
+        run: |
+          candidate="${GITHUB_WORKSPACE}/candidate-artifact/frozen-wildreceipt-schema-v3-a"
+          protocol="${GITHUB_WORKSPACE}/protocol-artifact/wildreceipt-protocol-v2"
+          work="${RUNNER_TEMP}/wildreceipt-${{ matrix.shard_id }}"
+          rm -rf "${work}"
+          mkdir -p "${work}"
+          cd "${RUNNER_TEMP}"
+          PYTHONPATH="${candidate}/source" \
+          python - <<PY
+          from pathlib import Path
+          import ocr_real_risk_v1.wildreceipt_external as module
+          expected = Path('${candidate}/source/ocr_real_risk_v1/wildreceipt_external.py').resolve()
+          assert Path(module.__file__).resolve() == expected
+          print({'frozen_evaluator': str(expected)})
+          PY
+          PYTHONPATH="${candidate}/source" \
+          python -m ocr_real_risk_v1.wildreceipt_external evaluate \
+            --parquet "${GITHUB_WORKSPACE}/source.parquet" \
+            --manifest "${protocol}/manifests/${{ matrix.shard_id }}.json" \
+            --candidate-root "${candidate}" \
+            --output-dir "${work}" \
+            | tee "${work}-stdout.json"
+      - name: Independent shard integrity gates
+        run: |
+          candidate="${GITHUB_WORKSPACE}/candidate-artifact/frozen-wildreceipt-schema-v3-a"
+          root="${RUNNER_TEMP}/wildreceipt-${{ matrix.shard_id }}"
+          cd "${RUNNER_TEMP}"
+          PYTHONPATH="${candidate}/source" \
+          SHARD_ROOT="${root}" \
+          SHARD_ID="${{ matrix.shard_id }}" \
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from ocr_real_risk_v1.sroie_natural_holdout import verify_stable_payload
+          from ocr_real_risk_v1.wildreceipt_external import REPORT_SCHEMA, verify_hash_manifest
+          root = Path(os.environ['SHARD_ROOT'])
+          shard = os.environ['SHARD_ID']
+          verify_hash_manifest(root)
+          report = json.loads((root / 'shard_report.json').read_text())
+          manifest = json.loads((root / 'manifest.json').read_text())
+          assert report['schema'] == REPORT_SCHEMA
+          assert verify_stable_payload(report, 'stable_payload_sha256')
+          assert verify_stable_payload(manifest, 'manifest_sha256')
+          assert report['dataset']['shard_id'] == shard
+          assert report['manifest_sha256'] == manifest['manifest_sha256']
+          assert report['candidate_binding'][
+              'candidate_stable_payload_sha256'
+          ] == os.environ['CANDIDATE_STABLE_SHA256']
+          assert report['execution']['selected_unique_receipts'] == \
+              len(report['observations'])
+          assert report['decision']['shard_execution_complete'] is True
+          assert report['decision']['formal_10x_claimed_at_shard_level'] is False
+          assert report['decision']['automatic_production_change'] is False
+          for row in report['observations']:
+              assert row['image_sha256']
+              assert row['truth'].isdigit()
+              if row['candidate']['accepted']:
+                  assert row['candidate']['eligible'] is True
+                  assert row['candidate']['prediction'] == row['candidate']['claim']
+                  assert row['candidate']['crop_sha256']
+                  assert row['candidate']['guard']
+          print(json.dumps({
+              'shard': shard,
+              'execution': report['execution'],
+              'descriptive': report['descriptive'],
+              'stable_payload_sha256': report['stable_payload_sha256'],
+          }, indent=2, sort_keys=True))
+          PY
+          (
+            cd "${root}"
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-wildreceipt-schema-repaired-${{ matrix.shard_id }}-v2
+          path: ${{ runner.temp }}/wildreceipt-${{ matrix.shard_id }}
+          if-no-files-found: error
+          retention-days: 90
+
+  aggregate:
+    needs:
+      - seal-protocol
+      - evaluate-shards
+    if: ${{ needs.seal-protocol.outputs.run_ocr == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Install pinned aggregate dependencies
+        run: |
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            scipy==1.17.1 \
+            threadpoolctl==3.6.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13 \
+            packaging==26.3
+      - name: Recover and verify frozen candidate
+        run: |
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${CANDIDATE_ARTIFACT_ID}/zip" \
+            --output candidate.zip
+          echo "${CANDIDATE_ARTIFACT_DIGEST}  candidate.zip" | \
+            sha256sum --check --strict
+          mkdir candidate-artifact
+          unzip -q candidate.zip -d candidate-artifact
+          (
+            cd candidate-artifact/frozen-wildreceipt-schema-v3-a
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+      - name: Recover and verify sealed protocol
+        env:
+          PROTOCOL_ARTIFACT_ID: ${{ needs.seal-protocol.outputs.artifact_id }}
+          PROTOCOL_ARTIFACT_DIGEST: ${{ needs.seal-protocol.outputs.artifact_digest }}
+        run: |
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${PROTOCOL_ARTIFACT_ID}/zip" \
+            --output protocol.zip
+          echo "${PROTOCOL_ARTIFACT_DIGEST#sha256:}  protocol.zip" | \
+            sha256sum --check --strict
+          mkdir protocol-artifact
+          unzip -q protocol.zip -d protocol-artifact
+          (
+            cd protocol-artifact/wildreceipt-protocol-v2
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+      - name: Recover and verify all shard artifacts
+        run: |
+          mkdir shard-roots
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+          from pathlib import Path
+          expected = {
+              'ocr-wildreceipt-schema-repaired-test-00000-of-00001-v2':
+                  'test-00000-of-00001',
+              'ocr-wildreceipt-schema-repaired-train-00000-of-00002-v2':
+                  'train-00000-of-00002',
+              'ocr-wildreceipt-schema-repaired-train-00001-of-00002-v2':
+                  'train-00001-of-00002',
+          }
+          request = urllib.request.Request(
+              (
+                  f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}"
+                  f"/actions/runs/{os.environ['GITHUB_RUN_ID']}/artifacts?per_page=100"
+              ),
+              headers={
+                  'Authorization': f"Bearer {os.environ['GITHUB_TOKEN']}",
+                  'Accept': 'application/vnd.github+json',
+                  'X-GitHub-Api-Version': '2022-11-28',
+              },
+          )
+          with urllib.request.urlopen(request, timeout=60) as response:
+              payload = json.load(response)
+          selected = [
+              row for row in payload['artifacts'] if row['name'] in expected
+          ]
+          if {row['name'] for row in selected} != set(expected):
+              raise SystemExit(
+                  f"missing WildReceipt shard artifacts: {[row['name'] for row in selected]}"
+              )
+          with Path('shard-artifacts.tsv').open('w', encoding='utf-8') as out:
+              for row in selected:
+                  out.write(
+                      f"{row['id']}\t{expected[row['name']]}\t{row['digest']}\n"
+                  )
+          Path('shard-artifacts.json').write_text(
+              json.dumps(selected, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          PY
+          while IFS=$'\t' read -r artifact_id shard digest; do
+            curl --fail --location --retry 5 --retry-all-errors \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" \
+              --output "${shard}.zip"
+            echo "${digest#sha256:}  ${shard}.zip" | \
+              sha256sum --check --strict
+            mkdir -p "shard-roots/${shard}"
+            unzip -q "${shard}.zip" -d "shard-roots/${shard}"
+            (
+              cd "shard-roots/${shard}"
+              sha256sum --check --strict SHA256SUMS.txt
+            )
+          done < shard-artifacts.tsv
+      - name: Aggregate exact risk, coverage, counterfactuals, and stability
+        run: |
+          candidate="${GITHUB_WORKSPACE}/candidate-artifact/frozen-wildreceipt-schema-v3-a"
+          work="${RUNNER_TEMP}/wildreceipt-aggregate-v2"
+          rm -rf "${work}"
+          cd "${RUNNER_TEMP}"
+          PYTHONPATH="${candidate}/source" \
+          python -m ocr_real_risk_v1.wildreceipt_external aggregate \
+            --protocol-root \
+              "${GITHUB_WORKSPACE}/protocol-artifact/wildreceipt-protocol-v2" \
+            "${GITHUB_WORKSPACE}/shard-roots/test-00000-of-00001" \
+            "${GITHUB_WORKSPACE}/shard-roots/train-00000-of-00002" \
+            "${GITHUB_WORKSPACE}/shard-roots/train-00001-of-00002" \
+            --output-dir "${work}" \
+            | tee "${work}-stdout.json"
+      - name: Independent terminal certificate gates
+        run: |
+          candidate="${GITHUB_WORKSPACE}/candidate-artifact/frozen-wildreceipt-schema-v3-a"
+          root="${RUNNER_TEMP}/wildreceipt-aggregate-v2"
+          cd "${RUNNER_TEMP}"
+          PYTHONPATH="${candidate}/source" \
+          AGGREGATE_ROOT="${root}" \
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from ocr_real_risk_v1.sroie_natural_holdout import verify_stable_payload
+          from ocr_real_risk_v1.wildreceipt_external import AGGREGATE_SCHEMA, verify_hash_manifest
+          root = Path(os.environ['AGGREGATE_ROOT'])
+          verify_hash_manifest(root)
+          report = json.loads(
+              (root / 'wildreceipt_numeric_aggregate.json').read_text()
+          )
+          assert report['schema'] == AGGREGATE_SCHEMA
+          assert verify_stable_payload(report, 'stable_payload_sha256')
+          assert report['candidate_binding'][
+              'candidate_stable_payload_sha256'
+          ] == os.environ['CANDIDATE_STABLE_SHA256']
+          assert report['decision'][
+              'schema_repaired_external_validation_complete'
+          ] is True
+          assert report['decision'][
+              'candidate_bound_before_ocr_outcomes'
+          ] is True
+          assert report['decision'][
+              'untouched_external_certificate_claimed'
+          ] is False
+          assert report['decision']['automatic_production_change'] is False
+          assert report['decision'][
+              'honduras_production_readiness_claimed'
+          ] is False
+          assert report['execution']['selected_unique_receipts'] >= 1200
+          if report['decision']['pass_statistical_10x']:
+              assert report['candidate']['accepted'] >= 400
+              assert report['candidate'][
+                  'simultaneous_95pct_coverage_lower'
+              ] >= 0.25
+              assert report['candidate'][
+                  'certified_error_reduction_lower'
+              ] >= 10.0
+              assert report['counterfactual'][
+                  'simultaneous_95pct_upper'
+              ] <= 0.01
+              assert report['stability']['pass'] is True
+              assert report['decision']['verdict'] == (
+                  'PASS_EXTERNAL_WILDRECEIPT_SCHEMA_REPAIRED_'
+                  'NUMERIC_10X_CERTIFICATE'
+              )
+          print(json.dumps({
+              'execution': report['execution'],
+              'baseline': report['baseline'],
+              'candidate': report['candidate'],
+              'counterfactual': report['counterfactual'],
+              'stability': {
+                  key: value
+                  for key, value in report['stability'].items()
+                  if key != 'details'
+              },
+              'decision': report['decision'],
+              'stable_payload_sha256': report['stable_payload_sha256'],
+          }, indent=2, sort_keys=True))
+          PY
+          (
+            cd "${root}"
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-wildreceipt-schema-repaired-aggregate-v2
+          path: |
+            ${{ runner.temp }}/wildreceipt-aggregate-v2
+            ${{ runner.temp }}/wildreceipt-aggregate-v2-stdout.json
+            shard-artifacts.json
+          if-no-files-found: error
+          retention-days: 90
