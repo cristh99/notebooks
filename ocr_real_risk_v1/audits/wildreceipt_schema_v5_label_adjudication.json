@@ -1,0 +1,64 @@
+{
+  "schema": "ocr-wildreceipt-schema-v5-label-adjudication/1",
+  "source_run_id": 30998215981,
+  "hard_case_extraction_run_id": 31002993706,
+  "hard_case_artifact_id": 8929086498,
+  "hard_case_artifact_sha256": "96c7cfbece38ecbf1aad80a0e355bb52108f025edc78bae0c77da4a2ea17b143",
+  "case": {
+    "key": "test-00000-of-00001:70",
+    "row_index": 70,
+    "image_sha256": "be51c2c9376c3111b48b63196a00b3c48c4eab80a6b7f54e685d0e48eb418dc1",
+    "crop_sha256": "0688b25bc04abd935acc18165de22e456f0d1091d031c7a449af3da3d03b3112",
+    "dataset_annotation": "11.98",
+    "dataset_canonical_truth": "1198",
+    "baseline_claim": "1199",
+    "candidate_claim": "1199",
+    "pixel_adjudication": "11.99",
+    "pixel_canonical_truth": "1199",
+    "receipt_context": {
+      "open_price": "11.99",
+      "subtotal": "11.99",
+      "tax": "0.98",
+      "amount_due": "12.97",
+      "arithmetic_identity": "11.99 + 0.98 = 12.97"
+    },
+    "conclusion": "BENCHMARK_ANNOTATION_DEFECT_HIGH_CONFIDENCE",
+    "reason": "the selected pixels and internally consistent receipt arithmetic support 11.99, while only the annotation says 11.98"
+  },
+  "original_benchmark_result": {
+    "baseline_eligible": 680,
+    "baseline_false": 92,
+    "accepted": 347,
+    "accepted_false": 1,
+    "baseline_lower": 0.10722563504141558,
+    "candidate_upper": 0.01824690199567275,
+    "coverage_lower": 0.1804287145185155,
+    "counterfactual_false": 1,
+    "counterfactual_upper": 0.0037040428152581018,
+    "reduction_lower": 5.876374798683313,
+    "pass_10x": false
+  },
+  "label_adjudicated_sensitivity": {
+    "baseline_eligible": 680,
+    "baseline_false": 91,
+    "accepted": 347,
+    "accepted_false": 0,
+    "baseline_lower": 0.10589812701809337,
+    "candidate_upper": 0.012548916205658059,
+    "coverage_lower": 0.1804287145185136,
+    "counterfactual_false": 1,
+    "counterfactual_upper": 0.00370404281525829,
+    "reduction_lower": 8.438826531517199,
+    "stability_passes": 0,
+    "stability_folds": 3,
+    "pass_10x": false
+  },
+  "governance": {
+    "original_aggregate_preserved": true,
+    "silent_relabelling_forbidden": true,
+    "retroactive_10x_claim_forbidden": true,
+    "wildreceipt_status": "OPENED_DEVELOPMENT_DATA",
+    "production_change_authorized": false
+  },
+  "stable_payload_sha256": "d42c32057dde4cf7da9bc461491edc0495fd8b00826e2ee9bb909a726b8c10a9"
+}
