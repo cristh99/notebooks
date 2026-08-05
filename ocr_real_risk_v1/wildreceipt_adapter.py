@@ -1,9 +1,12 @@
-"""Frozen outcome-blind adapter for WildReceipt external validation.
+"""Outcome-blind adapter for WildReceipt external validation.
 
 Exactly one eligible numeric word is selected per physical receipt by SHA-256
-before OCR. Candidate construction later receives only the complete original
-receipt image. Expert word text and geometry are used solely to preselect and
-score the risk unit; they are unavailable to detector, forest, and crop guard.
+before OCR. WildReceipt stores LayoutLM-normalized ``xyxy`` geometry on a
+0-1000 canvas; this module projects that geometry deterministically into the
+original image's pixel space. Candidate construction later receives only the
+complete original receipt image. Expert text and geometry are used solely to
+preselect and score the risk unit; they are unavailable to detector, forest,
+and crop guard.
 """
 from __future__ import annotations
 
@@ -25,6 +28,9 @@ MINIMUM_DIGITS = 4
 MAXIMUM_DIGITS = 12
 YEAR_MIN = 1900
 YEAR_MAX = 2099
+BBOX_COORDINATE_SPACE = "layoutlm_normalized_xyxy_0_1000"
+BBOX_COORDINATE_MIN = 0.0
+BBOX_COORDINATE_MAX = 1000.0
 
 
 def canonical_ascii_numeric_word(value: object) -> str | None:
@@ -67,6 +73,13 @@ def annotation_bbox(
     value: object,
     image_size: tuple[int, int],
 ) -> tuple[tuple[int, int, int, int], bool]:
+    """Project one LayoutLM-normalized box onto the original image pixels.
+
+    Lower bounds use ``floor`` and upper bounds use ``ceil`` so projection never
+    shrinks the annotated region. Coordinates outside the normalized canvas are
+    clipped and reported; malformed, inverted, fully outside, and pixel-collapsed
+    regions fail closed.
+    """
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes, bytearray)):
         raise RuntimeError("WildReceipt bbox must be a numeric sequence")
     raw_values = list(value)
@@ -86,24 +99,61 @@ def annotation_bbox(
         raise RuntimeError(
             f"WildReceipt bbox must have 4 or 8 coordinates, got {len(coordinates)}"
         )
+    if x1 <= x0 or y1 <= y0:
+        raise RuntimeError("WildReceipt normalized bbox has non-positive area")
+
     width, height = image_size
     if width <= 0 or height <= 0:
         raise RuntimeError("WildReceipt image dimensions must be positive")
-    raw = (
-        int(math.floor(x0)),
-        int(math.floor(y0)),
-        int(math.ceil(x1)),
-        int(math.ceil(y1)),
+
+    raw_normalized = (x0, y0, x1, y1)
+    clipped_normalized = (
+        max(BBOX_COORDINATE_MIN, min(BBOX_COORDINATE_MAX, x0)),
+        max(BBOX_COORDINATE_MIN, min(BBOX_COORDINATE_MAX, y0)),
+        max(BBOX_COORDINATE_MIN, min(BBOX_COORDINATE_MAX, x1)),
+        max(BBOX_COORDINATE_MIN, min(BBOX_COORDINATE_MAX, y1)),
     )
-    clipped = (
-        max(0, min(width, raw[0])),
-        max(0, min(height, raw[1])),
-        max(0, min(width, raw[2])),
-        max(0, min(height, raw[3])),
+    if (
+        clipped_normalized[2] <= clipped_normalized[0]
+        or clipped_normalized[3] <= clipped_normalized[1]
+    ):
+        raise RuntimeError(
+            "WildReceipt normalized bbox has no overlap with the 0-1000 canvas"
+        )
+
+    projected = (
+        int(
+            math.floor(
+                clipped_normalized[0] * width / BBOX_COORDINATE_MAX
+            )
+        ),
+        int(
+            math.floor(
+                clipped_normalized[1] * height / BBOX_COORDINATE_MAX
+            )
+        ),
+        int(
+            math.ceil(
+                clipped_normalized[2] * width / BBOX_COORDINATE_MAX
+            )
+        ),
+        int(
+            math.ceil(
+                clipped_normalized[3] * height / BBOX_COORDINATE_MAX
+            )
+        ),
     )
-    if clipped[2] <= clipped[0] or clipped[3] <= clipped[1]:
-        raise RuntimeError("WildReceipt numeric bbox has no overlap with image")
-    return clipped, clipped != raw
+    pixel_bbox = (
+        max(0, min(width, projected[0])),
+        max(0, min(height, projected[1])),
+        max(0, min(width, projected[2])),
+        max(0, min(height, projected[3])),
+    )
+    if pixel_bbox[2] <= pixel_bbox[0] or pixel_bbox[3] <= pixel_bbox[1]:
+        raise RuntimeError(
+            "WildReceipt normalized bbox collapsed during pixel projection"
+        )
+    return pixel_bbox, clipped_normalized != raw_normalized
 
 
 def selection_rank(
@@ -154,6 +204,7 @@ def select_numeric_annotation(
         "annotations_total": len(words),
         "annotations_outside_numeric_scope": 0,
         "numeric_annotations_in_scope": 0,
+        "numeric_annotations_projected_to_pixels": 0,
         "numeric_annotations_clipped_to_image": 0,
     }
     for index, (raw_word, raw_bbox) in enumerate(zip(words, bboxes, strict=True)):
@@ -163,6 +214,7 @@ def select_numeric_annotation(
             continue
         bbox, clipped = annotation_bbox(raw_bbox, image_size)
         counts["numeric_annotations_in_scope"] += 1
+        counts["numeric_annotations_projected_to_pixels"] += 1
         counts["numeric_annotations_clipped_to_image"] += int(clipped)
         rank = selection_rank(
             shard_id=shard_id,
@@ -175,6 +227,8 @@ def select_numeric_annotation(
             "truth": truth,
             "annotation_text": str(raw_word),
             "bbox": list(bbox),
+            "bbox_coordinate_space": "image_pixels",
+            "source_bbox_coordinate_space": BBOX_COORDINATE_SPACE,
             "bbox_clipped_to_image": clipped,
             "word_index": index,
             "selection_rank_sha256": rank,
