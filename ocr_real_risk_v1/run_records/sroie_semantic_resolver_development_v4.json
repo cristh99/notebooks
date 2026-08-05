@@ -1,0 +1,83 @@
+{
+  "candidate_commit": "75a5273564fc3a4ca8e1bc87ed86db2c4af2bcf5",
+  "candidate_files": {
+    "run_semantic_numeric_resolver_canary_v4.py": "b0c5ae13d93b4d9a44724e82f43813e1d22459c419f73b77a72084e7d02b4bd4",
+    "semantic_numeric_resolver_v4.py": "1053b76ca341fe65c5f668f973c5ddc9dc9c477bc21e43a1dffdc8712476a704",
+    "test_semantic_numeric_resolver_v4.py": "311bd696e472a233c188fdc13e8558f3a32907d722f2c688a423fbfc735ddc7c"
+  },
+  "constraints": {
+    "external_spend_usd": 0.0,
+    "gcloud_used": false,
+    "github_actions_used": false,
+    "gpu_used": false,
+    "omp_thread_limit": 1,
+    "paid_api_used": false,
+    "production_modified": false,
+    "python": "3.13.5",
+    "tesseract": "tesseract 5.5.0"
+  },
+  "corrected_errors": [
+    {
+      "baseline_confidence": 74.0,
+      "baseline_text": "144.88",
+      "decision_sha256": "257769dc054ee4150426c69459dc37e44cc388ec41f89d2e608491e67bba0820",
+      "final_text": "144.68",
+      "page": "X51005361907",
+      "trigger_reasons": ["NEAR_DUPLICATE_DOCUMENT_MAJORITY"],
+      "truth": "14468"
+    },
+    {
+      "baseline_confidence": 76.0,
+      "baseline_text": "28,90",
+      "decision_sha256": "48e435c9dcc04f2e847f7b276e2cfaa9f953419c13ebebe6c8e90285eae3fbd2",
+      "final_text": "29,90",
+      "page": "X51005568911",
+      "trigger_reasons": ["QTY1_UNIT_AMOUNT_DISAGREEMENT"],
+      "truth": "2990"
+    }
+  ],
+  "decision": {
+    "next_gate": "freeze candidate and execute on a receipt-disjoint manifest selected before annotations are fetched",
+    "production_promotion": false,
+    "quality_10x_status": "BLOCKED_STATISTICALLY",
+    "speed_10x_status": "NOT_ACHIEVED_BY_THIS_RESOLVER"
+  },
+  "full_report_sha256": "dad30225c433ab1b5a7fa5e26e085745c8d222639bd87100bb080cc1d4211bf6",
+  "full_report_stable_payload_sha256": "77b2ba8fdc5b741f4268ae45ea650ae0f2b0e349c3835689ee5edc020e8149ae",
+  "local_validation": {"compileall": "PASS", "errors": 0, "failures": 0, "tests_run": 8},
+  "metrics": {
+    "accepted": 79,
+    "accepted_coverage": 1.0,
+    "baseline_errors": 2,
+    "baseline_observed_error_rate": 0.02531645569620253,
+    "conservative_error_reduction_lower": 0.12138369918837043,
+    "corrected_errors": 2,
+    "eligible_claims": 79,
+    "false_replacements": 0,
+    "final_errors": 0,
+    "final_observed_error_rate": 0.0,
+    "observed_baseline_errors_eliminated_fraction": 1.0,
+    "one_sided_95pct_baseline_error_lower": 0.004516769509654754,
+    "one_sided_95pct_final_error_upper": 0.03721067606158025,
+    "quarantined": 0,
+    "replacements": 2,
+    "semantic_flags": 2,
+    "statistical_10x_certified": false
+  },
+  "record_sha256": "06c4cda33c3c9feef5ac851148fc09e920be7e32b1683d51bce4656260bb4e20",
+  "schema": "ocr-semantic-numeric-resolver-v4-development-record/1",
+  "source": {
+    "corpus": "ICDAR2019 SROIE Task 1 natural receipt images",
+    "pages": 10,
+    "stems": ["X51005361907", "X51005365179", "X51005568911", "X51005568913", "X51005568914", "X51005577192", "X51005663324", "X51005675095", "X51005676536", "X51005676538"]
+  },
+  "status": "DEVELOPMENT_ONLY",
+  "timing": {
+    "baseline_full_page_seconds": 7.471963854000023,
+    "candidate_to_baseline_runtime_ratio": 1.0520595933814194,
+    "candidate_total_seconds": 7.860951253999929,
+    "crop_resolver_wall_seconds": 0.38559091599995554,
+    "semantic_trigger_seconds": 0.003396483999949851,
+    "speed_10x_certified": false
+  }
+}
