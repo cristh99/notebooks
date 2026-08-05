@@ -1,0 +1,74 @@
+{
+  "base_branch": "agent/data-science-dominance-dab-fresh-usaspending-v1",
+  "base_sha": "25b596c3ff0800d6346c66ab66b2939365230745",
+  "candidate": {
+    "frozen_before_held_out_ground_truth": true,
+    "frozen_before_held_out_query_content": true,
+    "frozen_before_held_out_validators": true,
+    "frozen_before_official_dataset_values_for_this_candidate": true,
+    "path": "data_science_dominance/dab_fresh_usaspending_v2/usaspending_fresh_engine.py",
+    "sha256": "76d240d4f4bb1ed5a87f32c18ae92e7629b971f761577eb16d2b5deccf57ef8f"
+  },
+  "dab_commit": "9a55e34271a2500a41cbc009e239edd94599e374",
+  "dab_repository": "ucbepic/DataAgentBench",
+  "execution_policy": {
+    "candidate_may_access_ground_truth": false,
+    "candidate_may_access_query_text_only_at_runtime": true,
+    "candidate_may_access_validators": false,
+    "candidate_network_access": false,
+    "outputs_sealed_before_validation": true,
+    "post_hoc_retuning_permitted": false,
+    "validators_execute_once_after_seal": true
+  },
+  "held_out_scope": [
+    "query_usaspending/query5",
+    "query_usaspending/query6",
+    "query_usaspending/query7"
+  ],
+  "prohibited_inputs_not_accessed": [
+    "query_usaspending/query5/query.json",
+    "query_usaspending/query5/validate.py",
+    "query_usaspending/query5/ground_truth.csv",
+    "query_usaspending/query6/query.json",
+    "query_usaspending/query6/validate.py",
+    "query_usaspending/query6/ground_truth.csv",
+    "query_usaspending/query7/query.json",
+    "query_usaspending/query7/validate.py",
+    "query_usaspending/query7/ground_truth.csv",
+    "query_usaspending/manual_querycode/compute_ground_truth.py"
+  ],
+  "promotion_rule": {
+    "merge_permitted": false,
+    "novelty_points": 0,
+    "pass_0_or_1_points": 0,
+    "pass_2_of_3_points": 15,
+    "pass_3_of_3_points": 35,
+    "score_before": 465
+  },
+  "public_inputs_accessed": [
+    "query_usaspending/db_description.txt",
+    "query_usaspending/db_description_withhint.txt",
+    "query_usaspending/manual_querycode/corrupt.py",
+    "exposed official results for query1-4"
+  ],
+  "schema": "data-science-dominance/fresh-usaspending-freeze/2",
+  "tests": {
+    "path": "data_science_dominance/dab_fresh_usaspending_v2/test_usaspending_fresh_engine.py",
+    "result": "PASS",
+    "sha256": "24513a312047f3537d41b00d5bc599e81a49a178c1501c70eff762dd6dd2174c",
+    "synthetic_test_count": 18
+  },
+  "v1_failure_repair": [
+    "joint recipient-UEI resolution with soft registry capacities",
+    "distinct recipient entity preservation under OCR-normalized key collisions",
+    "NAICS counting without collapsing distinct recipient entities",
+    "within-agency proportion optimization with minimum group size"
+  ],
+  "transport": {
+    "candidate_base64_sha256": "1f61afee55616d36242f7debe568c9f235fcc4cb7d0a2b6f8d2501c08cfe16f6",
+    "candidate_gzip_sha256": "8d66f74f24994b6b0be8afcf6122c947b4e0896705a899d8858b13d14818a61e",
+    "encoding": "gzip+base64",
+    "tests_base64_sha256": "0e7b36c53997f8001598ea5f8b98f33f8bce0407602aa7c58a87e4045702b808",
+    "tests_gzip_sha256": "fdb72af20edc2c79630374af81864a6c4069298323b2b236272196512a1e29df"
+  }
+}
