@@ -42,6 +42,12 @@ class NumericConsensusCandidateV4WildReceiptTests(unittest.TestCase):
             protocol["selection"]["deduplicate_receipts_across_shards"],
             "decoded image SHA-256",
         )
+        self.assertTrue(
+            protocol["selection"]["physical_association_invariant"]
+        )
+        self.assertTrue(
+            protocol["counterfactual"]["physical_association_invariant"]
+        )
         self.assertEqual(
             protocol["candidate"]["detector_configuration"],
             SELECTED_CONFIGURATION,

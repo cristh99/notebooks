@@ -37,8 +37,8 @@ from .wildreceipt_adapter import (
 )
 from .wildreceipt_source_seal import verify as verify_source_seal
 
-CANDIDATE_SCHEMA = "ocr-numeric-consensus-wildreceipt-candidate/5"
-CANDIDATE_ID = "numeric-consensus-v4-wildreceipt-schema-v2"
+CANDIDATE_SCHEMA = "ocr-numeric-consensus-wildreceipt-candidate/6"
+CANDIDATE_ID = "numeric-consensus-v4-wildreceipt-schema-v3"
 SCHEMA_DISCOVERY = {
     "workflow_run_id": 30991994931,
     "failure_stage": "outcome_blind_manifest_build_before_ocr",
@@ -100,7 +100,7 @@ SOURCE_FILES = (
 def external_protocol() -> dict[str, Any]:
     return {
         "protocol_id": (
-            "wildreceipt-one-numeric-word-per-receipt-v2-layoutlm-geometry"
+            "wildreceipt-one-numeric-word-per-receipt-v3-physical-invariance"
         ),
         "dataset": DATASET_ID,
         "revision": DATASET_REVISION,
@@ -139,9 +139,10 @@ def external_protocol() -> dict[str, Any]:
                 "years, repeated-digit junk, letters, and non-ASCII digits excluded"
             ),
             "rank": (
-                "SHA-256(dataset revision, shard, receipt id, image SHA-256, "
-                "projected pixel bbox, canonical truth)"
+                "SHA-256(dataset revision, image SHA-256, projected pixel bbox, "
+                "canonical truth); invariant to shard and row association"
             ),
+            "physical_association_invariant": True,
             "deduplicate_candidates_within_receipt": "canonical truth plus bbox",
             "deduplicate_receipts_across_shards": "decoded image SHA-256",
             "duplicate_image_conflict": "fail_closed",
@@ -167,6 +168,11 @@ def external_protocol() -> dict[str, Any]:
         },
         "counterfactual": {
             "one_equal_length_digit_substitution_per_selected_receipt": True,
+            "seed": (
+                "SHA-256-bound physical evidence key; invariant to shard and "
+                "row association"
+            ),
+            "physical_association_invariant": True,
             "generated_before_candidate_inference": True,
         },
         "exact_gates": {

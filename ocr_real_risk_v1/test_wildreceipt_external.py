@@ -12,6 +12,7 @@ from .wildreceipt_external import (
     MINIMUM_STABILITY_PASS_FRACTION,
     TARGET_REDUCTION,
     exact_summary,
+    physical_counterfactual,
 )
 
 
@@ -86,6 +87,15 @@ class WildReceiptExternalTests(unittest.TestCase):
         self.assertGreaterEqual(result["coverage_lower"], MINIMUM_COVERAGE)
         self.assertGreaterEqual(result["reduction_lower"], TARGET_REDUCTION)
         self.assertTrue(result["pass"])
+
+    def test_physical_counterfactual_is_association_invariant(self) -> None:
+        first = physical_counterfactual("12345", "e" * 64)
+        second = physical_counterfactual("12345", "e" * 64)
+        other = physical_counterfactual("12345", "f" * 64)
+        self.assertEqual(first, second)
+        self.assertEqual(len(first), 5)
+        self.assertNotEqual(first, "12345")
+        self.assertNotEqual(first, other)
 
     def test_underpowered_denominator_fails_even_with_zero_errors(self) -> None:
         rows = [

@@ -82,6 +82,17 @@ class WildReceiptAdapterTests(unittest.TestCase):
         self.assertEqual(
             first["selection_rank_sha256"], second["selection_rank_sha256"]
         )
+        third, _ = select_numeric_annotation(
+            row=base,
+            shard_id="a-different-shard",
+            image_sha256="a" * 64,
+            image_size=(100, 100),
+        )
+        self.assertEqual(first["truth"], third["truth"])
+        self.assertEqual(first["bbox"], third["bbox"])
+        self.assertEqual(
+            first["selection_rank_sha256"], third["selection_rank_sha256"]
+        )
         self.assertEqual(first["bbox_coordinate_space"], "image_pixels")
         self.assertEqual(
             first["source_bbox_coordinate_space"], BBOX_COORDINATE_SPACE

@@ -158,18 +158,15 @@ def annotation_bbox(
 
 def selection_rank(
     *,
-    shard_id: str,
-    key: str,
     image_sha256: str,
     bbox: Sequence[int],
     truth: str,
 ) -> str:
+    """Rank a physical annotation independently of shard or row association."""
     return sha256_bytes(
         canonical_json(
             {
                 "dataset_revision": DATASET_REVISION,
-                "shard_id": shard_id,
-                "receipt_key": key,
                 "image_sha256": image_sha256,
                 "bbox": [int(value) for value in bbox],
                 "truth": truth,
@@ -198,7 +195,7 @@ def select_numeric_annotation(
         raise RuntimeError(
             f"WildReceipt words/bboxes length mismatch: {len(words)} != {len(bboxes)}"
         )
-    key = receipt_key(row, shard_id)
+    receipt_key(row, shard_id)
     candidates: dict[tuple[str, tuple[int, int, int, int]], dict[str, Any]] = {}
     counts = {
         "annotations_total": len(words),
@@ -217,8 +214,6 @@ def select_numeric_annotation(
         counts["numeric_annotations_projected_to_pixels"] += 1
         counts["numeric_annotations_clipped_to_image"] += int(clipped)
         rank = selection_rank(
-            shard_id=shard_id,
-            key=key,
             image_sha256=image_sha256,
             bbox=bbox,
             truth=truth,

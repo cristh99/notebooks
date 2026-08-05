@@ -157,6 +157,14 @@ def _source_spec(shard_id: str) -> dict[str, Any]:
         raise ValueError(f"unknown WildReceipt shard: {shard_id}") from exc
 
 
+def physical_counterfactual(truth: str, evidence_key: str) -> str:
+    """Create one deterministic substitution for the physical risk unit."""
+    return mutate_one_digit(
+        truth,
+        f"{DATASET_REVISION}:{evidence_key}:counterfactual-v1",
+    )
+
+
 def build_shard_manifest(
     parquet_path: Path,
     shard_id: str,
@@ -197,12 +205,8 @@ def build_shard_manifest(
             census["rows_without_numeric_candidate"] += 1
             continue
         evidence_key = physical_evidence_key(image_sha, selected["bbox"])
-        counterfactual = mutate_one_digit(
-            str(selected["truth"]),
-            (
-                f"{DATASET_REVISION}:{shard_id}:{key}:"
-                f"{selected['selection_rank_sha256']}"
-            ),
+        counterfactual = physical_counterfactual(
+            str(selected["truth"]), evidence_key
         )
         records.append(
             {
