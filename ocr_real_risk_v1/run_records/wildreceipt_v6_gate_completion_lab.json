@@ -1,0 +1,191 @@
+{
+  "branch_accounting": {
+    "base_union_accepted": 408,
+    "final_accepted": 472,
+    "high_detector_forest_gray_added_beyond_previous_branches": 2,
+    "high_detector_forest_gray_total": 71,
+    "high_detector_guard_added_beyond_base": 62,
+    "high_detector_guard_total": 153,
+    "total_added_beyond_base": 64
+  },
+  "constraints": {
+    "external_spend_usd": 0,
+    "gcloud_used": false,
+    "gpu_used": false,
+    "paid_api_used": false,
+    "production_modified": false
+  },
+  "decision": {
+    "aggregate_development_10x_gate_pass": true,
+    "automatic_production_change": false,
+    "candidate_ready_to_freeze": false,
+    "coverage_gate_pass": true,
+    "external_certificate_claimed": false,
+    "fresh_external_corpus_required": true,
+    "leave_one_shard_out_stability_pass": false,
+    "minimum_accepted_pass": true,
+    "production_ready": false,
+    "tenfold_bound_pass": true,
+    "zero_adjudicated_natural_failures": true,
+    "zero_counterfactual_output_collisions": true
+  },
+  "exact_results": {
+    "all": {
+      "accepted": 472,
+      "accepted_false": 0,
+      "baseline_eligible": 680,
+      "baseline_false": 91,
+      "baseline_lower": 0.10589812701809387,
+      "candidate_upper": 0.009240991884572614,
+      "counterfactual_false": 0,
+      "counterfactual_upper": 0.002544447296261132,
+      "coverage_lower": 0.25052115409949227,
+      "minimum_accepted_required": 400,
+      "minimum_selected_required": 1200,
+      "observed_coverage": 0.2744186046511628,
+      "pass": true,
+      "reduction_lower": 11.459606105150426,
+      "selected": 1720
+    },
+    "test": {
+      "accepted": 139,
+      "accepted_false": 0,
+      "baseline_eligible": 199,
+      "baseline_false": 22,
+      "baseline_lower": 0.06594649323132606,
+      "candidate_upper": 0.031033627961766786,
+      "counterfactual_false": 0,
+      "counterfactual_upper": 0.009319605532918884,
+      "coverage_lower": 0.25038113972074527,
+      "minimum_accepted_required": 109,
+      "minimum_selected_required": 327,
+      "observed_coverage": 0.297008547008547,
+      "pass": false,
+      "reduction_lower": 2.125001089546151,
+      "selected": 468
+    },
+    "train": {
+      "accepted": 333,
+      "accepted_false": 0,
+      "baseline_eligible": 481,
+      "baseline_false": 69,
+      "baseline_lower": 0.10947178379320066,
+      "candidate_upper": 0.013073034897471025,
+      "counterfactual_false": 0,
+      "counterfactual_upper": 0.0034939033389582708,
+      "coverage_lower": 0.23831621232607803,
+      "minimum_accepted_required": 292,
+      "minimum_selected_required": 874,
+      "observed_coverage": 0.2659744408945687,
+      "pass": false,
+      "reduction_lower": 8.373861513547857,
+      "selected": 1252
+    }
+  },
+  "interpretation": {
+    "next_power_bottleneck": "replace post-outcome thresholds with a pre-frozen calibrated risk model and validate it on a different untouched corpus",
+    "what_was_not_proved": "The confidence thresholds were selected after outcomes were opened and leave-one-shard-out stability still fails; this is not external evidence and cannot authorize production.",
+    "what_was_proved": "The opened WildReceipt observations contain an inference-only selective policy with 472 accepted, zero adjudicated natural failures, zero output collisions with the stored counterfactual, coverage lower above 25%, and reduction lower above 10x."
+  },
+  "lab_stable_payload_sha256": "2d31bf83f18d22f22b0f010a8ddec1773ce44d686893f3b2fd7b485598295a69",
+  "leave_one_shard_out": {
+    "folds": [
+      {
+        "held_out_shard": "test-00000-of-00001",
+        "summary": {
+          "accepted": 333,
+          "accepted_false": 0,
+          "baseline_eligible": 481,
+          "baseline_false": 69,
+          "baseline_lower": 0.10947178379320066,
+          "candidate_upper": 0.013073034897471025,
+          "counterfactual_false": 0,
+          "counterfactual_upper": 0.0034939033389582708,
+          "coverage_lower": 0.23831621232607803,
+          "minimum_accepted_required": 292,
+          "minimum_selected_required": 874,
+          "observed_coverage": 0.2659744408945687,
+          "pass": false,
+          "reduction_lower": 8.373861513547857,
+          "selected": 1252
+        }
+      },
+      {
+        "held_out_shard": "train-00000-of-00002",
+        "summary": {
+          "accepted": 329,
+          "accepted_false": 0,
+          "baseline_eligible": 444,
+          "baseline_false": 54,
+          "baseline_lower": 0.08903274025337349,
+          "candidate_upper": 0.013231091919686922,
+          "counterfactual_false": 0,
+          "counterfactual_upper": 0.003990217326263812,
+          "coverage_lower": 0.2694185039733643,
+          "minimum_accepted_required": 255,
+          "minimum_selected_required": 765,
+          "observed_coverage": 0.3001824817518248,
+          "pass": false,
+          "reduction_lower": 6.729141320810668,
+          "selected": 1096
+        }
+      },
+      {
+        "held_out_shard": "train-00001-of-00002",
+        "summary": {
+          "accepted": 282,
+          "accepted_false": 0,
+          "baseline_eligible": 435,
+          "baseline_false": 59,
+          "baseline_lower": 0.10094756866248011,
+          "candidate_upper": 0.015420479035823609,
+          "counterfactual_false": 0,
+          "counterfactual_upper": 0.00400480420039806,
+          "coverage_lower": 0.22896462527034675,
+          "minimum_accepted_required": 254,
+          "minimum_selected_required": 762,
+          "observed_coverage": 0.25824175824175827,
+          "pass": false,
+          "reduction_lower": 6.546962635351967,
+          "selected": 1092
+        }
+      }
+    ],
+    "pass_fraction": 0.0,
+    "passes": 0
+  },
+  "policy": {
+    "base_union": "detector==forest with no equal-length conflict OR forest==gray==autocontrast",
+    "conflicting_branch_outputs": "abstain",
+    "name": "v6_post_outcome_gate_completion",
+    "post_outcome_branch_1": {
+      "rule": "detector==gray==autocontrast and confidence>91.0",
+      "threshold": 91.0
+    },
+    "post_outcome_branch_2": {
+      "rule": "detector==forest==gray and confidence>=93.0",
+      "threshold": 93.0
+    },
+    "thresholds_selected_after_wildreceipt_outcomes": true,
+    "uses_annotation_geometry_at_inference": false,
+    "uses_truth_at_inference": false
+  },
+  "record_stable_payload_sha256": "144182c4147834d4e09f159ba70686ecb2563854b9415b83255342d06ca412dc",
+  "schema": "ocr-wildreceipt-v6-gate-completion-run-record/1",
+  "source": {
+    "label_adjudication_stable_payload_sha256": "d42c32057dde4cf7da9bc461491edc0495fd8b00826e2ee9bb909a726b8c10a9",
+    "selective_lab_artifact_id": 8931342861,
+    "selective_lab_stable_payload_sha256": "aa371cc230cd5a00fe8982e6e4e72d92bffd52594352664020489f18bf75e143",
+    "wildreceipt_aggregate_artifact_id": 8928251131,
+    "wildreceipt_candidate_stable_payload_sha256": "95d4525b8c14de6168d080c8d3aec51852c7f954097426e2f69c00682dd3d387",
+    "wildreceipt_opened_for_development": true,
+    "wildreceipt_run_id": 30998215981
+  },
+  "status": "POST_OUTCOME_DEVELOPMENT_AGGREGATE_GATES_PASS_STABILITY_FAIL",
+  "workflow": {
+    "artifact_id": 8931899829,
+    "artifact_zip_sha256": "76da23d700cba9e3bbacbaa9670aad8659383177220ed1053aba6a7d03fa7f03",
+    "head_sha": "91ad33f452fa666b5f38eebbe6fd4ee7a0ad4343",
+    "run_id": 31009752047
+  }
+}
