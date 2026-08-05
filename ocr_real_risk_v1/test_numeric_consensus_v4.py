@@ -114,6 +114,84 @@ class NumericConsensusV4Tests(unittest.TestCase):
         self.assertEqual(decision.action, "ABSTAIN")
         self.assertEqual(decision.reason, "NO_ELIGIBLE_ALTERNATIVE")
 
+    def test_non_ascii_digits_are_outside_protocol(self) -> None:
+        decision = decide_replacement(
+            "1234",
+            [
+                obs("١٢٨٤", source="ocr-a", crop="tight", modality="ocr", psm=7),
+                obs("١٢٨٤", source="ocr-b", crop="padded", modality="ocr", psm=13),
+                obs("١٢٨٤", source="pixel", crop="wide", modality="pixel"),
+            ],
+        )
+        self.assertEqual(decision.action, "ABSTAIN")
+        self.assertEqual(decision.reason, "NO_ELIGIBLE_ALTERNATIVE")
+
+    def test_median_confidence_is_not_misused_as_per_observation_filter(self) -> None:
+        decision = decide_replacement(
+            "1234",
+            [
+                obs(
+                    "1284",
+                    source="pixel",
+                    crop="tight",
+                    modality="pixel",
+                    confidence=0.79,
+                ),
+                obs(
+                    "1284",
+                    source="ocr-a",
+                    crop="padded",
+                    modality="ocr",
+                    psm=7,
+                    confidence=0.81,
+                ),
+                obs(
+                    "1284",
+                    source="ocr-b",
+                    crop="wide",
+                    modality="ocr",
+                    psm=13,
+                    confidence=0.81,
+                ),
+            ],
+        )
+        self.assertEqual(decision.action, "REPLACE")
+        self.assertEqual(decision.support.median_confidence, 0.81)
+
+    def test_explicit_observation_confidence_floor_can_reject_weak_vote(self) -> None:
+        policy = ReplacementPolicy(min_observation_confidence=0.80)
+        decision = decide_replacement(
+            "1234",
+            [
+                obs(
+                    "1284",
+                    source="pixel",
+                    crop="tight",
+                    modality="pixel",
+                    confidence=0.79,
+                ),
+                obs(
+                    "1284",
+                    source="ocr-a",
+                    crop="padded",
+                    modality="ocr",
+                    psm=7,
+                    confidence=0.81,
+                ),
+                obs(
+                    "1284",
+                    source="ocr-b",
+                    crop="wide",
+                    modality="ocr",
+                    psm=13,
+                    confidence=0.81,
+                ),
+            ],
+            policy=policy,
+        )
+        self.assertEqual(decision.action, "ABSTAIN")
+        self.assertEqual(decision.reason, "INSUFFICIENT_VOTES")
+
     def test_policy_can_raise_the_evidence_bar(self) -> None:
         policy = ReplacementPolicy(min_votes=5)
         decision = decide_replacement(
