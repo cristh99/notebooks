@@ -45,7 +45,7 @@ jobs:
         run: |
           set -euo pipefail
           test "${GITHUB_RUN_ATTEMPT}" = '1'
-          test "$(git rev-parse HEAD^)" = 'fd2bc9d4a463f9a6670736ab51e6a3de39808094'
+          test "$(git rev-parse HEAD^)" = '9132e7b982dcda914b377e11434fe96186fe1e11'
           test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/data-science-dominance-dab-slice-v2.yml'
 
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
@@ -72,7 +72,7 @@ jobs:
           set -euo pipefail
           root='data_science_dominance/dab_slice_v2'
           echo 'e50bcbdf4316f26606766cee3a5afc60e34dcdcd8a11093ad77936b217144bb2  data_science_dominance/dab_slice_v2/agent.py.gz.b64' | sha256sum -c -
-          echo '1153d5f8099fb5f5f0c49becfeb47ff13f831c3a58090609b7208c833a0b8624  data_science_dominance/dab_slice_v2/MANIFEST.json' | sha256sum -c -
+          echo '25e3c75f206315b454f4cc4b8482853ff4f8a5aea9bbc60b6b27504a85b3b305  data_science_dominance/dab_slice_v2/SOURCE_MANIFEST.json' | sha256sum -c -
           bash "$root/reconstruct.sh"
           python - <<'PY'
           import ast, hashlib, importlib.util, json, sys
@@ -283,7 +283,7 @@ jobs:
               'github_sha': os.environ['GITHUB_SHA'],
               'hashes': {
                   'candidate_sha256': digest('data_science_dominance/dab_slice_v2/dab_slice_agent.py'),
-                  'transport_manifest_sha256': digest('data_science_dominance/dab_slice_v2/MANIFEST.json'),
+                  'transport_manifest_sha256': digest('data_science_dominance/dab_slice_v2/SOURCE_MANIFEST.json'),
                   'static_audit_sha256': digest('dab-logs/static-audit.json'),
                   'data_manifest_sha256': digest('dab-logs/data-manifest.json'),
                   'official_report_sha256': digest('dab-logs/official-report.json'),
