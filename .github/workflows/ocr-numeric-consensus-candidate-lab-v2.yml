@@ -1,0 +1,230 @@
+name: OCR numeric consensus candidate laboratory v2
+
+on:
+  push:
+    branches:
+      - agent/ocr-numeric-consensus-candidate-v2
+    paths:
+      - 'ocr_real_risk_v1/sroie_candidate_lab.py'
+      - 'ocr_real_risk_v1/test_sroie_candidate_lab.py'
+      - '.github/workflows/ocr-numeric-consensus-candidate-lab-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: ocr-numeric-consensus-candidate-lab-v2-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TRAIN_ARTIFACT_ID: '8915849860'
+  TRAIN_ARTIFACT_DIGEST: 'ada46e3e9a5ac2d0a29c7f2af20ee493959e4114e299f94cfc00218e8076badd'
+  TEST_ARTIFACT_ID: '8915766909'
+  TEST_ARTIFACT_DIGEST: '0dc86b73e14029fd45867ed7bbd2b83e3f6d1f22a0791a0a75371ecd3a841f90'
+  OCR_VERIFIER_VENDOR_BLOB: '34180d164f3f5b05542217fd750ca26cbdd08e62'
+  GITHUB_TOKEN: ${{ github.token }}
+  OMP_THREAD_LIMIT: '1'
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+
+jobs:
+  develop-candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Install frozen free CPU dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            tesseract-ocr tesseract-ocr-eng \
+            fonts-dejavu-core fonts-lato
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 pytesseract==0.3.13 \
+            numpy==2.2.6 opencv-python-headless==4.10.0.84 \
+            pyarrow==18.1.0
+          test "$(git hash-object ocr_real_risk_v1/pixel_digit_alignment.py)" = \
+            "${OCR_VERIFIER_VENDOR_BLOB}"
+      - name: Unit tests and compilation
+        run: |
+          python -m unittest -v \
+            ocr_real_risk_v1.test_sroie_candidate_lab \
+            ocr_real_risk_v1.test_sroie_natural_holdout
+          python -m compileall -q ocr_real_risk_v1
+      - name: Recover and verify the two terminal SROIE split artifacts
+        run: |
+          mkdir -p split-roots/train split-roots/test
+          for split in train test; do
+            upper=$(echo "${split}" | tr '[:lower:]' '[:upper:]')
+            eval artifact_id="\${${upper}_ARTIFACT_ID}"
+            eval digest="\${${upper}_ARTIFACT_DIGEST}"
+            curl --fail --location --retry 5 --retry-all-errors \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" \
+              --output "${split}.zip"
+            echo "${digest}  ${split}.zip" | sha256sum --check --strict
+            unzip -q "${split}.zip" -d "split-roots/${split}"
+            (cd "split-roots/${split}" && sha256sum --check --strict SHA256SUMS.txt)
+          done
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.sroie_natural_holdout import verify_stable_payload
+
+          expected = {'train': 537, 'test': 308}
+          eligible = {'train': 355, 'test': 216}
+          for split in ('train', 'test'):
+              root = Path('split-roots') / split
+              manifest = json.loads((root / 'manifest.json').read_text())
+              report = json.loads((root / 'split_report.json').read_text())
+              assert verify_stable_payload(manifest, 'manifest_sha256')
+              assert verify_stable_payload(report, 'stable_payload_sha256')
+              assert len(manifest['records']) == expected[split]
+              assert report['execution']['eligible_equal_length_spatial_claims'] == eligible[split]
+              assert report['decision']['pass_statistical_10x'] is False
+          PY
+      - name: Run the post-outcome development laboratory
+        run: |
+          rm -rf candidate-lab
+          mkdir candidate-lab
+          python -m ocr_real_risk_v1.sroie_candidate_lab \
+            split-roots/train split-roots/test \
+            --output-dir candidate-lab \
+            | tee candidate-lab-stdout.json
+      - name: Independent laboratory gates
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.core import canonical_json, sha256_bytes
+
+          path = Path('candidate-lab/sroie_candidate_lab.json')
+          report = json.loads(path.read_text())
+          expected = report['stable_payload_sha256']
+          payload = dict(report)
+          payload.pop('stable_payload_sha256')
+          assert expected == sha256_bytes(canonical_json(payload).encode())
+          assert report['schema'] == 'ocr-numeric-consensus-candidate-lab/1'
+          assert report['status'] == 'POST_OUTCOME_DEVELOPMENT_ONLY'
+          assert report['source']['eligible_records'] == 571
+          assert report['source']['train_eligible'] == 355
+          assert report['source']['test_eligible'] == 216
+          assert report['source']['natural_baseline_errors'] == 63
+          assert report['diagnostics']['current_strict'] == {
+              'accepted': 47,
+              'natural_false_accepts': 0,
+              'counterfactual_false_accepts': 1,
+          }
+          train = report['metrics']['train_selection']
+          assert train['natural_false_accepts'] == 0
+          assert train['counterfactual_false_accepts'] == 0
+          assert report['decision']['candidate_ready_to_freeze'] is False
+          assert report['decision']['untouched_external_dataset_required'] is True
+          assert report['decision']['automatic_production_change'] is False
+          assert report['constraints'] == {
+              'external_spend_usd': 0,
+              'gcloud_used': False,
+              'gpu_used': False,
+              'paid_api_used': False,
+              'production_modified': False,
+          }
+          print(json.dumps({
+              'selected_rule': report['selected_rule'],
+              'metrics': report['metrics'],
+              'diagnostics': report['diagnostics'],
+              'decision': report['decision'],
+              'stable_payload_sha256': expected,
+          }, indent=2, sort_keys=True))
+          PY
+          (cd candidate-lab && sha256sum --check --strict SHA256SUMS.txt)
+      - id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-numeric-consensus-candidate-lab-v2
+          path: |
+            candidate-lab
+            candidate-lab-stdout.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Record the development result on the isolated branch
+        env:
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+        run: |
+          python - <<'PY'
+          import base64
+          import hashlib
+          import json
+          import os
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+          from pathlib import Path
+
+          report_path = Path('candidate-lab/sroie_candidate_lab.json')
+          report = json.loads(report_path.read_text())
+          record = {
+              'schema': 'ocr-candidate-development-run-record/1',
+              'workflow': 'OCR numeric consensus candidate laboratory v2',
+              'run_id': int(os.environ['GITHUB_RUN_ID']),
+              'job': os.environ['GITHUB_JOB'],
+              'commit_sha': os.environ['GITHUB_SHA'],
+              'artifact_id': int(os.environ['ARTIFACT_ID']),
+              'artifact_digest': os.environ['ARTIFACT_DIGEST'],
+              'report_file_sha256': hashlib.sha256(report_path.read_bytes()).hexdigest(),
+              'stable_payload_sha256': report['stable_payload_sha256'],
+              'status': report['status'],
+              'selected_rule': report['selected_rule'],
+              'metrics': report['metrics'],
+              'diagnostics': report['diagnostics'],
+              'candidate_ready_to_freeze': report['decision']['candidate_ready_to_freeze'],
+              'untouched_external_dataset_required': True,
+              'automatic_production_change': False,
+          }
+          repository = os.environ['GITHUB_REPOSITORY']
+          branch = os.environ['GITHUB_REF_NAME']
+          token = os.environ['GITHUB_TOKEN']
+          path = 'ocr_real_risk_v1/run_records/numeric_consensus_candidate_lab_v2.json'
+          body = {
+              'message': '[skip ci] Record numeric consensus candidate development evidence',
+              'content': base64.b64encode(
+                  (json.dumps(record, indent=2, sort_keys=True) + '\n').encode()
+              ).decode(),
+              'branch': branch,
+          }
+          url = f'https://api.github.com/repos/{repository}/contents/{path}'
+          headers = {
+              'Authorization': f'Bearer {token}',
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+          }
+          try:
+              query = f'{url}?ref={urllib.parse.quote(branch, safe="")}'
+              with urllib.request.urlopen(
+                  urllib.request.Request(query, headers=headers), timeout=60
+              ) as response:
+                  existing = json.load(response)
+              body['sha'] = existing['sha']
+          except urllib.error.HTTPError as exc:
+              if exc.code != 404:
+                  raise
+          request = urllib.request.Request(
+              url,
+              data=json.dumps(body).encode(),
+              headers={**headers, 'Content-Type': 'application/json'},
+              method='PUT',
+          )
+          with urllib.request.urlopen(request, timeout=60) as response:
+              result = json.load(response)
+          print(json.dumps({'record': record, 'commit': result['commit']['sha']}, indent=2))
+          PY
