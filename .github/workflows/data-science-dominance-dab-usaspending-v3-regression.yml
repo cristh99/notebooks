@@ -1,0 +1,275 @@
+name: Data Science dominance — USAspending V3 exposed query5-7 regression
+
+on:
+  push:
+    branches:
+      - agent/data-science-dominance-dab-usaspending-v3-dev
+    paths:
+      - .github/workflows/data-science-dominance-dab-usaspending-v3-regression.yml
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  ROOT: data_science_dominance/dab_usaspending_v3_dev
+  DAB_SHA: 9a55e34271a2500a41cbc009e239edd94599e374
+  PGPASSWORD: postgres
+
+jobs:
+  solve-and-seal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove workflow-only activation after V3 freeze
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_EVENT_NAME}" = push
+          test "${GITHUB_RUN_ATTEMPT}" = 1
+          test "$(git rev-parse HEAD^)" = 11ae3a9a607cc5d0ce12f73eb342b1e0ba78e759
+          test "$(git diff --name-only HEAD^ HEAD)" = .github/workflows/data-science-dominance-dab-usaspending-v3-regression.yml
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Install exact runtime and acquisition dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client git-lfs
+          python -m pip install --disable-pip-version-check \
+            'duckdb==1.3.1' 'psycopg2-binary==2.9.9' 'pymongo==4.13.2' \
+            'huggingface-hub==1.2.1'
+          python -m pip freeze | sort > regression-runtime-pip-freeze.txt
+
+      - name: Reconstruct exact V3 candidate and exposed-regression harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash "$ROOT/reconstruct.sh"
+          bash "$ROOT/reconstruct_regression_harness.sh"
+          echo 'fbd9fcb87f03471f843b659a00a21dbd424adb4e53faba1ce0501b094a99e07e  '"$ROOT"'/usaspending_fresh_engine.py' | sha256sum -c -
+          echo 'a1091f40903fda29cbe330f29ac9d4e4365935a6e75eca429a2c4a3086699e14  '"$ROOT"'/regression_harness.py' | sha256sum -c -
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          freeze = json.loads(Path('data_science_dominance/dab_usaspending_v3_dev/V3_FREEZE.json').read_text())
+          assert freeze['fresh_scope_status'] == 'unopened'
+          assert freeze['engineering_regression']['queries'] == [5, 6, 7]
+          assert freeze['engineering_regression']['promotion_points'] == 0
+          assert freeze['development_ci']['tests'] == '23/23 PASS'
+          PY
+
+      - name: Acquire only USAspending data and exposed query5-7 text
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GIT_LFS_SKIP_SMUDGE=1
+          git clone --filter=blob:none --no-checkout https://github.com/ucbepic/DataAgentBench.git dab
+          cd dab
+          git sparse-checkout init --no-cone
+          cat > .git/info/sparse-checkout <<'EOF'
+          /dataset_manifest.tsv
+          /query_usaspending/query_dataset/**
+          /query_usaspending/query5/query.json
+          /query_usaspending/query6/query.json
+          /query_usaspending/query7/query.json
+          EOF
+          git -c advice.detachedHead=false checkout "$DAB_SHA"
+          test "$(git rev-parse HEAD)" = "$DAB_SHA"
+          test -z "$(find . -type f \( -name ground_truth.csv -o -name validate.py \) -print -quit)"
+          test ! -e query_usaspending/query8
+          test ! -e query_usaspending/query9
+          test ! -e query_usaspending/query10
+          cd ..
+          python "$ROOT/regression_harness.py" acquire \
+            --dab-root "$PWD/dab" \
+            --output "$PWD/regression-data-manifest.json"
+
+      - name: Build exact PostgreSQL contracts database
+        shell: bash
+        run: |
+          set -euo pipefail
+          dropdb --if-exists -h 127.0.0.1 -U postgres usaspending_contracts
+          createdb -h 127.0.0.1 -U postgres usaspending_contracts
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U postgres -d usaspending_contracts \
+            -f dab/query_usaspending/query_dataset/contracts.sql > usaspending-import.log
+          python - <<'PY'
+          import json, psycopg2
+          conn = psycopg2.connect(host='127.0.0.1', port=5432, user='postgres', password='postgres', dbname='usaspending_contracts')
+          checks = {}
+          try:
+              with conn.cursor() as cur:
+                  for table in ('contracts', 'contract_amounts'):
+                      cur.execute(f'SELECT COUNT(*) FROM {table}')
+                      count = int(cur.fetchone()[0])
+                      if count <= 0:
+                          raise SystemExit(f'empty table: {table}')
+                      checks[table] = count
+          finally:
+              conn.close()
+          open('postgres-integrity.json', 'w', encoding='utf-8').write(json.dumps(checks, indent=2, sort_keys=True) + '\n')
+          print(json.dumps(checks, indent=2, sort_keys=True))
+          PY
+
+      - name: Solve query5-7 in one process without validators or ground truth
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(find dab -type f \( -name ground_truth.csv -o -name validate.py \) -print -quit)"
+          mkdir -p sealed-answers
+          python "$ROOT/regression_harness.py" solve \
+            --dab-root "$PWD/dab" \
+            --engine "$PWD/$ROOT/usaspending_fresh_engine.py" \
+            --freeze "$PWD/$ROOT/V3_FREEZE.json" \
+            --output-dir "$PWD/sealed-answers" \
+            --data-manifest "$PWD/regression-data-manifest.json" \
+            --postgres-integrity "$PWD/postgres-integrity.json" \
+            --answer-manifest "$PWD/answer-manifest.json" \
+            2>&1 | tee candidate-solve.log
+          for n in 5 6 7; do test -s "sealed-answers/usaspending_${n}.txt"; done
+
+      - name: Upload immutable answers before validator checkout
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: usaspending-v3-regression-sealed-answers
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            sealed-answers/**
+            answer-manifest.json
+            answer-manifest.sha256
+            regression-data-manifest.json
+            postgres-integrity.json
+            candidate-solve.log
+            usaspending-import.log
+            regression-runtime-pip-freeze.txt
+            data_science_dominance/dab_usaspending_v3_dev/V3_FREEZE.json
+
+  validate-sealed-answers:
+    needs: solve-and-seal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: usaspending-v3-regression-sealed-answers
+          path: sealed-bundle
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Reconstruct exact regression harness
+        run: bash "$ROOT/reconstruct_regression_harness.sh"
+
+      - name: Acquire exposed validators only after answers are sealed
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --no-checkout https://github.com/ucbepic/DataAgentBench.git dab-validation
+          cd dab-validation
+          git sparse-checkout init --no-cone
+          cat > .git/info/sparse-checkout <<'EOF'
+          /query_usaspending/query5/**
+          /query_usaspending/query6/**
+          /query_usaspending/query7/**
+          EOF
+          git -c advice.detachedHead=false checkout "$DAB_SHA"
+          test "$(git rev-parse HEAD)" = "$DAB_SHA"
+          test "$(find . -name ground_truth.csv -type f | wc -l)" -eq 3
+          test "$(find . -name validate.py -type f | wc -l)" -eq 3
+          test ! -e query_usaspending/query8
+          test ! -e query_usaspending/query9
+          test ! -e query_usaspending/query10
+
+      - name: Execute each exposed validator exactly once
+        shell: bash
+        run: |
+          set +e
+          python "$ROOT/regression_harness.py" validate \
+            --sealed-bundle "$PWD/sealed-bundle" \
+            --validation-root "$PWD/dab-validation" \
+            --evidence-dir "$PWD/validation-evidence" \
+            2>&1 | tee validator-output.log
+          status=${PIPESTATUS[0]}
+          echo "$status" > validator-process.status
+          exit 0
+
+      - name: Seal score-ineligible engineering verdict
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          report_path = Path('validation-evidence/official-validation.json')
+          report = json.loads(report_path.read_text())
+          result = {
+              'schema': 'data-science-dominance/usaspending-v3-exposed-regression-canonical/1',
+              'verdict': 'PASS' if report['pass_count'] == 3 else 'FAIL',
+              'pass_count': report['pass_count'],
+              'query_count': 3,
+              'queries': [5, 6, 7],
+              'expected_answers': {'query5': 12, 'query6': 56, 'query7': 23},
+              'candidate_sha256': 'fbd9fcb87f03471f843b659a00a21dbd424adb4e53faba1ce0501b094a99e07e',
+              'score_eligible': False,
+              'promotion_points': 0,
+              'score_before': 465,
+              'score_after': 465,
+              'fresh_query8_10_accessed': False,
+              'post_hoc_retuning_permitted': False,
+              'upstream_report_sha256': hashlib.sha256(report_path.read_bytes()).hexdigest(),
+          }
+          payload = json.dumps(result, indent=2, sort_keys=True) + '\n'
+          Path('validation-evidence/engineering-result.json').write_text(payload)
+          print(payload)
+          PY
+
+      - name: Upload complete regression evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: usaspending-v3-exposed-regression
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            sealed-bundle/**
+            validation-evidence/**
+            validator-output.log
+            validator-process.status
+            data_science_dominance/dab_usaspending_v3_dev/V3_FREEZE.json
+
+      - name: Enforce authorization condition for fresh query8-10 gate
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result = json.loads(Path('validation-evidence/engineering-result.json').read_text())
+          if result['pass_count'] != 3:
+              raise SystemExit(f"V3 exposed regression: {result['pass_count']}/3; query8-10 remains closed")
+          print('V3 exposed regression: 3/3 PASS; fresh query8-10 gate may now be frozen')
+          PY
