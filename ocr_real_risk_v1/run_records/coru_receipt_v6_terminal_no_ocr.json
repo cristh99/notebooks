@@ -1,0 +1,62 @@
+{
+  "candidate": {
+    "candidate_id": "numeric-consensus-v6-coru-receipt",
+    "frozen_before_schema_opening": true,
+    "source_commit": "00c5d56512dd08baa91a2649c5529a82dc880059",
+    "source_file_count": 19,
+    "source_file_set_sha256": "3f65f77d8b44dfb79f4d292cbc86a866f89fc7abfa51419b019989a5a30cb2bc",
+    "stable_payload_sha256": "97a317c87a28556376588d708da5b8117e6da6095e8b093e4206061695b8e49b"
+  },
+  "constraints": {
+    "external_spend_usd": 0,
+    "gcloud_used": false,
+    "gpu_used": false,
+    "paid_api_used": false,
+    "production_modified": false
+  },
+  "dataset": {
+    "component": "Receipt",
+    "id": "abdoelsayed/CORU",
+    "labels_bytes": 31,
+    "labels_sha256": "4d7ee3c5720620f15791980c30514e110a89c64f40c6b1f9a296b2523ba46555",
+    "revision": "c3c4b97b232bbe03046c78a974f516d439c1124e",
+    "test_archive_bytes": 1057581808,
+    "test_archive_sha256": "351d1c5a2ab1ef12399787679563fbc9922a8d18e0f6296e16d7db0e0a4f7f41",
+    "test_json_bytes": 5022111,
+    "test_json_sha256": "f9bd21061515ca79ce1ceecf0837faa8c1f418eaa406fc6d38c6eff012ee6ab7"
+  },
+  "decision": {
+    "automatic_production_change": false,
+    "candidate_inference_executed": false,
+    "external_certificate_claimed": false,
+    "ocr_executed": false,
+    "production_ready": false,
+    "test_archive_bytes_avoided": 1057581808,
+    "test_archive_downloaded": false,
+    "verdict": "CORU_RECEIPT_TERMINAL_NO_OCR"
+  },
+  "record_stable_payload_sha256": "c046a8391d9a315e343faabb7c385f452d04fea8e8da020eee52ad99b14102bb",
+  "schema": "ocr-coru-receipt-v6-schema-census-run-record/1",
+  "schema_census": {
+    "annotations_total": 26564,
+    "annotations_without_explicit_transcription": 26564,
+    "file_sha256": "63a7757ae49c1de52856794e8a52000b5ee42470bd456e208c46caa1e0b2a73f",
+    "images_total": 3700,
+    "images_with_numeric_candidate": 0,
+    "projected_accepted": 0.0,
+    "schema_status": "COCO_WITHOUT_EXPLICIT_TRANSCRIPTION_FIELDS",
+    "selected_available": 0,
+    "stable_payload_sha256": "ea93576ba8b1f2ac4de554f755fe5db50fb21b47baf1b52aec967cc132010f97"
+  },
+  "status": "TERMINAL_NO_OCR_NO_EXPLICIT_TRANSCRIPTIONS",
+  "workflow": {
+    "candidate_artifact_id": 8933146744,
+    "candidate_artifact_zip_sha256": "e9b6c2ea3f7622dc49afb5291556b2f62e2933f6ea0ebec6e75ec81daaf6aa5e",
+    "head_sha": "4711a8eb52b91828ac6affadd7ea64e2d457b193",
+    "run_id": 31013106717,
+    "schema_census_artifact_id": 8933308812,
+    "schema_census_artifact_zip_sha256": "b375544850c96fca509e8c78305527a76c95e758d38e029a3f61878518530d77",
+    "terminal_artifact_id": 8933312696,
+    "terminal_artifact_zip_sha256": "5cf17c077cde46755ead0bb17b909ea01859cfc67b0f8bcbcd4a8cdffc53cd2e"
+  }
+}
