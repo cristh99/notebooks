@@ -170,7 +170,7 @@
     "uses_annotation_geometry_at_inference": false,
     "uses_truth_at_inference": false
   },
-  "record_stable_payload_sha256": "144182c4147834d4e09f159ba70686ecb2563854b9415b83255342d06ca412dc",
+  "record_stable_payload_sha256": "6dc760c9441a1e44da9dd6cd5a16ddf8dcfa5114d9750056269ef1ebbb2a3fe1",
   "schema": "ocr-wildreceipt-v6-gate-completion-run-record/1",
   "source": {
     "label_adjudication_stable_payload_sha256": "d42c32057dde4cf7da9bc461491edc0495fd8b00826e2ee9bb909a726b8c10a9",
