@@ -1,0 +1,231 @@
+name: Extract WildReceipt schema-v5 hard cases
+
+on:
+  push:
+    branches:
+      - agent/wildreceipt-schema-v5-postmortem
+    paths:
+      - '.github/workflows/wildreceipt-schema-v5-hard-case-extract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wildreceipt-schema-v5-hard-case-extract-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  extract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      WILDRECEIPT_REVISION: cedafaf3c8b0246c9fad68af29324d655715ad12
+    steps:
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+
+      - name: Install pinned extraction runtime
+        run: |
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 \
+            pyarrow==18.1.0
+
+      - name: Download and verify only the two required immutable shards
+        run: |
+          mkdir source-files
+          curl --fail --location --retry 12 --retry-all-errors \
+            --retry-delay 20 \
+            "https://huggingface.co/datasets/kaydee/wildreceipt/resolve/${WILDRECEIPT_REVISION}/data/test-00000-of-00001.parquet?download=true" \
+            --output source-files/test.parquet
+          echo "43254778a33b83ae65f9a152b2b559a043f4d4239c4d903b4aca315d129efca0  source-files/test.parquet" | \
+            sha256sum --check --strict
+          curl --fail --location --retry 12 --retry-all-errors \
+            --retry-delay 20 \
+            "https://huggingface.co/datasets/kaydee/wildreceipt/resolve/${WILDRECEIPT_REVISION}/data/train-00000-of-00002.parquet?download=true" \
+            --output source-files/train-00000.parquet
+          echo "f11bd09c7373df1726aa3fba02b6513c436809b3417c5b85a24cd0dd4226fc07  source-files/train-00000.parquet" | \
+            sha256sum --check --strict
+
+      - name: Extract full images, exact crops, and diagnostic views
+        run: |
+          python - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import io
+          import json
+          from pathlib import Path
+
+          import pyarrow.parquet as pq
+          from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageOps
+
+          cases = [
+              {
+                  "case_id": "natural_false_accept_1198_to_1199",
+                  "parquet": "source-files/test.parquet",
+                  "row_index": 70,
+                  "word_index": 3,
+                  "image_sha256": "be51c2c9376c3111b48b63196a00b3c48c4eab80a6b7f54e685d0e48eb418dc1",
+                  "truth": "1198",
+                  "annotation_text": "11.98",
+                  "observed_claim": "1199",
+                  "bbox": [255, 258, 284, 270],
+                  "crop_box": [253, 258, 285, 271],
+                  "expected_crop_sha256": "0688b25bc04abd935acc18165de22e456f0d1091d031c7a449af3da3d03b3112",
+              },
+              {
+                  "case_id": "counterfactual_false_accept_22995_to_22905",
+                  "parquet": "source-files/train-00000.parquet",
+                  "row_index": 173,
+                  "word_index": 42,
+                  "image_sha256": "d178b3569282c580c62c469e05d13997f3cf608c9003a3164af4e9806ccc8385",
+                  "truth": "22995",
+                  "annotation_text": "229.95",
+                  "observed_claim": "22905",
+                  "bbox": [444, 563, 484, 575],
+                  "crop_box": [447, 563, 485, 576],
+                  "expected_crop_sha256": "29fa15710d5827be6d6961b115d652d811867015f41242d706e45c24e017fc0b",
+              },
+          ]
+
+          def row_at(path: Path, target: int) -> dict:
+              parquet = pq.ParquetFile(path)
+              seen = 0
+              for batch in parquet.iter_batches(batch_size=32):
+                  rows = batch.to_pylist()
+                  if target < seen + len(rows):
+                      return rows[target - seen]
+                  seen += len(rows)
+              raise RuntimeError(f"row {target} missing from {path}")
+
+          def image_bytes(row: dict) -> bytes:
+              value = row.get("image")
+              if isinstance(value, dict):
+                  value = value.get("bytes")
+              if not isinstance(value, (bytes, bytearray, memoryview)):
+                  raise RuntimeError("embedded image bytes missing")
+              return bytes(value)
+
+          output = Path("hard-cases")
+          output.mkdir()
+          index = []
+          panels = []
+
+          for spec in cases:
+              row = row_at(Path(spec["parquet"]), spec["row_index"])
+              payload = image_bytes(row)
+              observed_image_sha = hashlib.sha256(payload).hexdigest()
+              if observed_image_sha != spec["image_sha256"]:
+                  raise RuntimeError(f"image hash mismatch: {spec['case_id']}")
+              with Image.open(io.BytesIO(payload)) as opened:
+                  image = opened.convert("RGB")
+
+              case_dir = output / spec["case_id"]
+              case_dir.mkdir()
+              image.save(case_dir / "full.png", optimize=False)
+
+              annotated = image.copy()
+              draw = ImageDraw.Draw(annotated)
+              draw.rectangle(spec["bbox"], outline="red", width=2)
+              annotated.save(case_dir / "full_annotated.png", optimize=False)
+
+              crop = image.crop(tuple(spec["crop_box"]))
+              crop_buffer = io.BytesIO()
+              crop.save(crop_buffer, format="PNG", optimize=False)
+              observed_crop_sha = hashlib.sha256(crop_buffer.getvalue()).hexdigest()
+              if observed_crop_sha != spec["expected_crop_sha256"]:
+                  raise RuntimeError(f"crop hash mismatch: {spec['case_id']}")
+              (case_dir / "crop.png").write_bytes(crop_buffer.getvalue())
+
+              gray = ImageOps.grayscale(crop)
+              auto = ImageOps.autocontrast(gray)
+              sharpened = auto.filter(ImageFilter.SHARPEN)
+              contrast = ImageEnhance.Contrast(auto).enhance(2.0)
+              views = {
+                  "nearest_12x": crop.resize(
+                      (crop.width * 12, crop.height * 12), Image.Resampling.NEAREST
+                  ),
+                  "gray_12x": gray.resize(
+                      (gray.width * 12, gray.height * 12), Image.Resampling.NEAREST
+                  ),
+                  "autocontrast_12x": auto.resize(
+                      (auto.width * 12, auto.height * 12), Image.Resampling.NEAREST
+                  ),
+                  "sharpened_12x": sharpened.resize(
+                      (sharpened.width * 12, sharpened.height * 12),
+                      Image.Resampling.NEAREST,
+                  ),
+                  "contrast2_12x": contrast.resize(
+                      (contrast.width * 12, contrast.height * 12),
+                      Image.Resampling.NEAREST,
+                  ),
+              }
+              for threshold in (64, 96, 128, 160, 192):
+                  binary = auto.point(lambda value, t=threshold: 255 if value >= t else 0)
+                  views[f"threshold_{threshold}_12x"] = binary.resize(
+                      (binary.width * 12, binary.height * 12),
+                      Image.Resampling.NEAREST,
+                  )
+              for name, view in views.items():
+                  view.save(case_dir / f"{name}.png", optimize=False)
+
+              words = list(row.get("words") or [])
+              bboxes = list(row.get("bboxes") or [])
+              lo = max(0, spec["word_index"] - 4)
+              hi = min(len(words), spec["word_index"] + 5)
+              context = [
+                  {
+                      "word_index": index_value,
+                      "text": str(words[index_value]),
+                      "source_bbox": list(bboxes[index_value]),
+                  }
+                  for index_value in range(lo, hi)
+              ]
+              metadata = {
+                  **spec,
+                  "image_width": image.width,
+                  "image_height": image.height,
+                  "observed_image_sha256": observed_image_sha,
+                  "observed_crop_sha256": observed_crop_sha,
+                  "crop_width": crop.width,
+                  "crop_height": crop.height,
+                  "word_context": context,
+              }
+              (case_dir / "metadata.json").write_text(
+                  json.dumps(metadata, indent=2, sort_keys=True) + "\n",
+                  encoding="utf-8",
+              )
+              index.append(metadata)
+              panels.append((spec["case_id"], views["nearest_12x"]))
+
+          max_width = max(view.width for _, view in panels)
+          total_height = sum(view.height + 40 for _, view in panels)
+          sheet = Image.new("RGB", (max_width, total_height), "white")
+          draw = ImageDraw.Draw(sheet)
+          y = 0
+          for label, view in panels:
+              draw.text((4, y + 4), label, fill="black")
+              y += 32
+              sheet.paste(view.convert("RGB"), (0, y))
+              y += view.height + 8
+          sheet.save(output / "contact_sheet.png", optimize=False)
+          (output / "index.json").write_text(
+              json.dumps(index, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          print(json.dumps(index, indent=2, sort_keys=True))
+          PY
+
+      - name: Hash extracted evidence
+        run: |
+          find hard-cases -type f -print0 | sort -z | xargs -0 sha256sum > hard-cases/SHA256SUMS.txt
+          cat hard-cases/SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: wildreceipt-schema-v5-hard-cases
+          path: hard-cases
+          if-no-files-found: error
+          retention-days: 90
