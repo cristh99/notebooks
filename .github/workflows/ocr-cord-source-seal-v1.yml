@@ -1,0 +1,148 @@
+name: OCR CORD source seal v1
+
+on:
+  push:
+    branches:
+      - agent/ocr-digit-forest-candidate-v3
+    paths:
+      - '.github/workflows/ocr-cord-source-seal-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ocr-cord-source-seal-v1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-seal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Unit tests and compilation
+        run: |
+          python -m unittest -v ocr_real_risk_v1.test_cord_source_seal
+          python -m compileall -q ocr_real_risk_v1/cord_source_seal.py
+      - name: Resolve revision and LFS metadata only
+        run: |
+          set -o pipefail
+          mkdir -p cord-source-seal
+          python -m ocr_real_risk_v1.cord_source_seal \
+            --output cord-source-seal/cord_source_manifest.json \
+            | tee cord-source-seal/stdout.json
+      - name: Independent fail-closed replay
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.cord_source_seal import EXPECTED_FILES, verify
+
+          path = Path('cord-source-seal/cord_source_manifest.json')
+          payload = json.loads(path.read_text())
+          assert verify(payload)
+          assert payload['dataset_id'] == 'naver-clova-ix/cord-v2'
+          assert len(payload['resolved_revision']) == 40
+          assert [row['path'] for row in payload['files']] == list(EXPECTED_FILES)
+          assert payload['expected_total_rows'] == 1000
+          assert payload['outcomes_opened'] is False
+          assert payload['parquet_rows_read'] == 0
+          assert payload['total_source_bytes'] > 2_000_000_000
+          for row in payload['files']:
+              assert row['lfs_oid'].startswith('sha256:')
+              assert len(row['lfs_oid']) == 71
+              assert row['size_bytes'] > 100_000_000
+              assert payload['resolved_revision'] in row['download_url']
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path('cord-source-seal/manifest_file.sha256').write_text(
+              f'{digest}  cord_source_manifest.json\n'
+          )
+          print(json.dumps({
+              'resolved_revision': payload['resolved_revision'],
+              'stable_payload_sha256': payload['stable_payload_sha256'],
+              'manifest_file_sha256': digest,
+              'files': payload['files'],
+              'outcomes_opened': payload['outcomes_opened'],
+              'parquet_rows_read': payload['parquet_rows_read'],
+          }, indent=2, sort_keys=True))
+          PY
+      - id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-cord-source-seal-v1
+          path: cord-source-seal
+          if-no-files-found: error
+          retention-days: 90
+      - name: Record sealed source on the isolated branch
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+        run: |
+          python - <<'PY'
+          import base64
+          import json
+          import os
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+          from pathlib import Path
+
+          manifest = json.loads(
+              Path('cord-source-seal/cord_source_manifest.json').read_text()
+          )
+          manifest['workflow_evidence'] = {
+              'run_id': int(os.environ['GITHUB_RUN_ID']),
+              'commit_sha': os.environ['GITHUB_SHA'],
+              'artifact_id': int(os.environ['ARTIFACT_ID']),
+              'artifact_digest': os.environ['ARTIFACT_DIGEST'],
+          }
+          repository = os.environ['GITHUB_REPOSITORY']
+          branch = os.environ['GITHUB_REF_NAME']
+          token = os.environ['GITHUB_TOKEN']
+          path = 'ocr_real_risk_v1/source_seals/cord_v2_source_seal_v1.json'
+          body = {
+              'message': '[skip ci] Record outcome-blind CORD v2 source seal',
+              'content': base64.b64encode(
+                  (json.dumps(manifest, indent=2, sort_keys=True) + '\n').encode()
+              ).decode(),
+              'branch': branch,
+          }
+          url = f'https://api.github.com/repos/{repository}/contents/{path}'
+          headers = {
+              'Authorization': f'Bearer {token}',
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+          }
+          try:
+              query = f'{url}?ref={urllib.parse.quote(branch, safe="")}'
+              with urllib.request.urlopen(
+                  urllib.request.Request(query, headers=headers), timeout=60
+              ) as response:
+                  existing = json.load(response)
+              body['sha'] = existing['sha']
+          except urllib.error.HTTPError as exc:
+              if exc.code != 404:
+                  raise
+          request = urllib.request.Request(
+              url,
+              data=json.dumps(body).encode(),
+              headers={**headers, 'Content-Type': 'application/json'},
+              method='PUT',
+          )
+          with urllib.request.urlopen(request, timeout=60) as response:
+              result = json.load(response)
+          print(json.dumps({
+              'path': path,
+              'record_commit': result['commit']['sha'],
+              'resolved_revision': manifest['resolved_revision'],
+              'outcomes_opened': False,
+          }, indent=2))
+          PY

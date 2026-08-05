@@ -1,0 +1,206 @@
+name: OCR digit-forest deterministic freeze v3
+
+on:
+  push:
+    branches:
+      - agent/ocr-digit-forest-candidate-v3
+    paths:
+      - '.github/workflows/ocr-digit-forest-freeze-v3-deterministic.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: ocr-digit-forest-deterministic-v3-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TRAIN_ARTIFACT_ID: '8915849860'
+  TRAIN_ARTIFACT_DIGEST: 'ada46e3e9a5ac2d0a29c7f2af20ee493959e4114e299f94cfc00218e8076badd'
+  TEST_ARTIFACT_ID: '8915766909'
+  TEST_ARTIFACT_DIGEST: '0dc86b73e14029fd45867ed7bbd2b83e3f6d1f22a0791a0a75371ecd3a841f90'
+  PIXEL_VERIFIER_BLOB: '34180d164f3f5b05542217fd750ca26cbdd08e62'
+  GITHUB_TOKEN: ${{ github.token }}
+  PYTHONHASHSEED: '0'
+  OMP_THREAD_LIMIT: '1'
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  NUMEXPR_NUM_THREADS: '1'
+
+jobs:
+  double-freeze:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Install complete frozen CPU dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            fonts-dejavu-core fonts-lato
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13
+          test "$(git hash-object ocr_real_risk_v1/pixel_digit_alignment.py)" = \
+            "${PIXEL_VERIFIER_BLOB}"
+      - name: Unit tests, compilation, and deterministic configuration
+        run: |
+          python -m unittest -v \
+            ocr_real_risk_v1.test_numeric_digit_forest \
+            ocr_real_risk_v1.test_sroie_candidate_lab \
+            ocr_real_risk_v1.test_sroie_natural_holdout
+          python -m compileall -q ocr_real_risk_v1
+          python - <<'PY'
+          import cv2
+          from ocr_real_risk_v1 import numeric_digit_forest_deterministic as d
+          assert d.MODEL_PARAMETERS['n_jobs'] == 1
+          assert cv2.getNumThreads() == 1
+          assert d.THRESHOLD == 0.25
+          PY
+      - name: Recover and verify terminal SROIE development artifacts
+        run: |
+          mkdir -p split-roots/train split-roots/test
+          for split in train test; do
+            upper=$(echo "${split}" | tr '[:lower:]' '[:upper:]')
+            eval artifact_id="\${${upper}_ARTIFACT_ID}"
+            eval digest="\${${upper}_ARTIFACT_DIGEST}"
+            curl --fail --location --retry 5 --retry-all-errors \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" \
+              --output "${split}.zip"
+            echo "${digest}  ${split}.zip" | sha256sum --check --strict
+            unzip -q "${split}.zip" -d "split-roots/${split}"
+            (cd "split-roots/${split}" && sha256sum --check --strict SHA256SUMS.txt)
+          done
+      - name: Build the frozen candidate twice independently
+        run: |
+          rm -rf freeze-a freeze-b
+          python -m ocr_real_risk_v1.numeric_digit_forest_deterministic \
+            split-roots/train split-roots/test \
+            --output-dir freeze-a > freeze-a-stdout.json
+          python -m ocr_real_risk_v1.numeric_digit_forest_deterministic \
+            split-roots/train split-roots/test \
+            --output-dir freeze-b > freeze-b-stdout.json
+      - name: Require byte identity and invariant scientific gates
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import shutil
+          from pathlib import Path
+
+          from ocr_real_risk_v1.numeric_digit_forest_deterministic import (
+              CANDIDATE_SCHEMA,
+              FEATURE_SCHEMA,
+              THRESHOLD,
+              load_frozen_candidate,
+          )
+          from ocr_real_risk_v1.sroie_natural_holdout import verify_stable_payload
+
+          def digest(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          roots = [Path('freeze-a'), Path('freeze-b')]
+          relative_sets = [
+              sorted(path.relative_to(root).as_posix() for path in root.rglob('*') if path.is_file())
+              for root in roots
+          ]
+          assert relative_sets[0] == relative_sets[1]
+          file_hashes = {}
+          for relative in relative_sets[0]:
+              first = digest(roots[0] / relative)
+              second = digest(roots[1] / relative)
+              assert first == second, (relative, first, second)
+              file_hashes[relative] = first
+
+          report = json.loads((roots[0] / 'development_report.json').read_text())
+          candidate = json.loads((roots[0] / 'frozen_candidate.json').read_text())
+          assert verify_stable_payload(report, 'stable_payload_sha256')
+          assert verify_stable_payload(candidate, 'stable_payload_sha256')
+          assert report['source']['selected_locations'] == 845
+          assert report['source']['eligible_claims'] == 571
+          assert report['baseline']['false_predictions'] == 63
+
+          train = report['development']['train_company_disjoint_oof']
+          test = report['development']['test_trained_on_train_only']
+          combined = report['development']['combined_out_of_sample_predictions']
+          assert train['eligible_claims'] == 355
+          assert test['eligible_claims'] == 216
+          assert combined['selected_locations'] == 845
+          assert combined['eligible_claims'] == 571
+          for result in (train, test, combined):
+              assert result['natural_false_accepts'] == 0
+              assert result['counterfactual_false_accepts'] == 0
+          assert combined['accepted'] >= 300
+          assert combined['simultaneous_95pct_selected_coverage_lower'] >= 0.35
+          assert combined['simultaneous_95pct_counterfactual_upper'] <= 0.01
+          reduction = report['development'][
+              'certified_error_reduction_lower_if_treated_as_validation'
+          ]
+          assert reduction >= 6.5
+
+          assert report['decision']['candidate_frozen_for_external_validation'] is True
+          assert report['decision']['pass_statistical_10x_claimed'] is False
+          assert report['decision']['automatic_production_change'] is False
+          assert candidate['schema'] == CANDIDATE_SCHEMA
+          assert candidate['inference']['feature_schema'] == FEATURE_SCHEMA
+          assert candidate['inference']['threshold'] == THRESHOLD
+          assert candidate['model']['parameters']['n_jobs'] == 1
+          assert candidate['model']['tree_count'] == 500
+          assert candidate['model']['classes'] == list(range(10))
+          assert candidate['decision']['untouched_external_validation_required'] is True
+          assert candidate['decision']['production_ready'] is False
+          loaded, model = load_frozen_candidate(roots[0])
+          assert loaded['stable_payload_sha256'] == candidate['stable_payload_sha256']
+          assert len(model.estimators_) == 500
+
+          determinism = {
+              'schema': 'ocr-digit-forest-double-freeze/1',
+              'byte_identical': True,
+              'repository_commit': '${{ github.sha }}',
+              'file_sha256': file_hashes,
+              'candidate_id': candidate['candidate_id'],
+              'model_sha256': candidate['model']['sha256'],
+              'candidate_stable_payload_sha256': candidate['stable_payload_sha256'],
+              'development_report_stable_payload_sha256': report['stable_payload_sha256'],
+              'metrics': {
+                  'train': train,
+                  'test': test,
+                  'combined': combined,
+                  'development_reduction_lower': reduction,
+              },
+              'formal_10x_claimed': False,
+              'external_validation_required': True,
+              'production_modified': False,
+          }
+          Path('determinism_report.json').write_text(
+              json.dumps(determinism, indent=2, sort_keys=True) + '\n'
+          )
+          shutil.copytree(roots[0], Path('frozen-digit-forest-v3'))
+          print(json.dumps(determinism, indent=2, sort_keys=True))
+          PY
+          (cd frozen-digit-forest-v3 && sha256sum --check --strict SHA256SUMS.txt)
+      - id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-digit-forest-candidate-v3-deterministic
+          path: |
+            frozen-digit-forest-v3
+            determinism_report.json
+          if-no-files-found: error
+          retention-days: 90
