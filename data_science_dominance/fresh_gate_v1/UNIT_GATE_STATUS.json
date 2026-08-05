@@ -1,0 +1,27 @@
+{
+  "activation_sha": "ec4c80a2465ff4277145fd884434f50326e2e66d",
+  "candidate_isolated": true,
+  "external_evaluation_count": 0,
+  "fresh_external_gate_required": true,
+  "github_run_id": 31006004938,
+  "hashes": {
+    "data_science_dominance/fresh_gate_v1/entity_resolution.py": "1ae2ca548715bfd7bb714c89e21530e1df50711c8c8076ba2bae26a955a86aa9",
+    "data_science_dominance/fresh_gate_v1/record_extraction.py": "d8c40768a83ced22524ee905ac6bcaf7afbffb202c675975d1147d4cd6b36da6",
+    "metamorphic_log": "6e4d967d8ee4ff24123c45417ddb38110a5a525c69bdfe5602b78d040ee0f687",
+    "metamorphic_receipt": "6e4d967d8ee4ff24123c45417ddb38110a5a525c69bdfe5602b78d040ee0f687",
+    "unit_log": "354feb113010fef9fa570b3afd6f8dde3a81bd31d387e02026bb6afd898dc75c"
+  },
+  "metamorphic_exit_status": 0,
+  "schema": "data-science-dominance/fresh-gate-v1-unit-gate/1",
+  "score_after": 465,
+  "score_before": 465,
+  "score_changed": false,
+  "unit_tests": {
+    "errors": 0,
+    "exit_status": 0,
+    "failures": 0,
+    "passed": 12,
+    "total": 12
+  },
+  "verdict": "PASS"
+}
