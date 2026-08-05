@@ -1,0 +1,43 @@
+{
+  "candidate_commit": "fe8865e9182f8ef62babcc1bdda0ac4c107cebfd",
+  "constraints": {
+    "annotations_used_at_inference": false,
+    "external_spend_usd": 0.0,
+    "production_modified": false,
+    "significance_look_performed": false
+  },
+  "evaluated": {
+    "metrics": {
+      "accepted": 0,
+      "baseline_errors": 1,
+      "evaluated": 1,
+      "false_replacements": 0,
+      "false_semantic_flags": 0,
+      "final_errors_among_accepted": 0,
+      "flags": 1,
+      "quarantined": 1,
+      "selective_coverage": 0.0,
+      "unresolved": 0
+    },
+    "stable_payload_sha256": "faffec0c69d7adea070ed47d20bb7dc82c930d44c05dc0ef4bb87ff49cb2db44"
+  },
+  "flag": {
+    "action": "QUARANTINE",
+    "baseline": "1400",
+    "baseline_correct": false,
+    "decision_sha256": "3fff498f18b4827f5b03e8358d36fddbcfaf46a54f3bebe65bfb52df4c9e1aa8",
+    "reason": "PIXEL_VIEWS_DO_NOT_PRODUCE_RIVAL",
+    "rival": "1600",
+    "stem": "X51007339656",
+    "truth": "1600",
+    "truth_text": "16.00"
+  },
+  "schema": "ocr-v4-2-untouched-batch6-evidence/1",
+  "sealed": {
+    "file_sha256": "2818a1102081e1abab0574c658158fd258557259453a59cf5d336163401ad7ef",
+    "metrics": {"images":15,"quarantines":1,"replacements":0,"semantic_flags":1},
+    "stable_payload_sha256": "9c8a31b972abcd1c4ae92c3cc1c00e3ad1de35ddd34953e9efa77daea79f51fe",
+    "timing": {"candidate_runtime_ratio_warm":1.0010650439871394,"full_page_tesseract_seconds":20.86521333300061,"selective_pixel_seconds":0.017497833000106766}
+  },
+  "status": "POST_SEAL_EVALUATION_ACCUMULATION_ONLY"
+}
