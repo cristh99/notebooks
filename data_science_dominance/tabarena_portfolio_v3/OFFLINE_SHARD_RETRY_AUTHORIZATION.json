@@ -1,0 +1,42 @@
+{
+  "schema": "data-science-dominance/tabarena-v3-offline-shard-retry/1",
+  "frozen_scientific_contract": {
+    "candidate_sha256": "6b5927a854c5b2d565a6065f6c8807134ef52cf03e77803c7d6fcdc4b78a96ff",
+    "tasks_sha256": "8204cc0611a1c3f7bc6d3186295f4f4876cc8f01c965d49775a1c9b8ccff3edd",
+    "runner_sha256": "8586c814949cf95a35c05c3e6505c7983ce5e8c626e8cbc86ed04aaa678d2152",
+    "source_manifest_sha256": "794fedc960eb855a0ed03d745fb6443e78947b627f2d082c9447732e825398f3",
+    "thresholds_changed": false,
+    "competitors_changed": false,
+    "resource_caps_changed": false,
+    "score_rule_changed": false,
+    "post_hoc_retuning_permitted": false
+  },
+  "partial_run": {
+    "run_id": 30979165811,
+    "head_sha": "e57a95102f2f2a782ee297b2e30b5932ac05876d",
+    "final_artifact_id": 8919684011,
+    "final_artifact_sha256": "9c0011d3fa23a1a4a5659c9501e9a3422e9edb7508a7e5ab8d49dcf5104fc6cb",
+    "valid_scored_indices": [1, 2, 3, 4, 5, 6, 7, 8, 10, 11],
+    "infrastructure_failed_indices": [0, 9],
+    "failure_type": "LocalEntryNotFoundError after Hugging Face HTTP 429 while locating TabICLv2 checkpoint",
+    "failed_indices_emitted_metric": false,
+    "valid_indices_must_not_be_recomputed": true
+  },
+  "offline_cache": {
+    "run_id": 30979688953,
+    "artifact_id": 8919663714,
+    "artifact_sha256": "68d108bb1ed9d1ff0069f0ac815120a1d710edd44e0621616c6298d20b23fd56",
+    "cache_receipt_sha256": "84c2ffd70b88723c8aad51e333aec4673582f4117e317fa838c208e3ebd792be",
+    "cache_tar_sha256": "18b6ea28748cc9706104b007a5f283b92773564ecc39bfc540af77ac9eff67b9",
+    "classification_blob_sha256": "bdc7dbd5e4ff21f8f0456fcf90c6b7cdf72dbea960f2d05b19bec19f9b3d4ed0",
+    "regression_blob_sha256": "0db9cb538f114e79026bf08f45f41ad8dd7ad2de2aaca9a5ca8cd3bd9748ae7a",
+    "external_task_values_accessed_when_cached": false,
+    "synthetic_smoke_passed": true
+  },
+  "authorized_execution": {
+    "retry_indices": [0, 9],
+    "execution_mode": "offline checkpoint cache, one independent task per job",
+    "aggregate_with_preserved_valid_rows": true,
+    "scientific_evaluation_count_after_successful_aggregation": 1
+  }
+}
