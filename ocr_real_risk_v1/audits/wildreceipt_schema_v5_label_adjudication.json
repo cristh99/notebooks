@@ -60,5 +60,5 @@
     "wildreceipt_status": "OPENED_DEVELOPMENT_DATA",
     "production_change_authorized": false
   },
-  "stable_payload_sha256": "d42c32057dde4cf7da9bc461491edc0495fd8b00826e2ee9bb909a726b8c10a9"
+  "stable_payload_sha256": "1984e75e886f0a61ee510ad0af7ab6d5133f12b15af055e2ab3f9f0e69a2049e"
 }
