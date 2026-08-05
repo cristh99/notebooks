@@ -1,0 +1,116 @@
+{
+  "schema": "motherduck-ops-governor-fixtures/v1",
+  "boundary": "Finite declared grammar only",
+  "cases": [
+    {
+      "case_id": "active-run",
+      "input": {"authorized": true, "reversible": true, "receipt_preserved": true, "run_active": true, "identical_noop_count": 20},
+      "expected": {"recommendation": "KEEP_ACTIVE", "terminal": "PASS", "digest": "64e576ef8459437c7f04c8d34e26ae3beb619c6f31942bf1be93c13c9dabfbe8"}
+    },
+    {
+      "case_id": "external-active",
+      "input": {"authorized": true, "reversible": true, "receipt_preserved": true, "external_job_active": true},
+      "expected": {"recommendation": "KEEP_ACTIVE", "terminal": "PASS", "digest": "d2620b0650c0bb178c367607db88c14081c226d68b16eeb784d6a3dfd20761a0"}
+    },
+    {
+      "case_id": "same-failure",
+      "input": {"authorized": true, "reversible": true, "receipt_preserved": true, "scheduled": true, "same_failure_count": 3},
+      "expected": {"recommendation": "RETIRE_SCHEDULE", "terminal": "PASS", "digest": "8c7a46f2c5900fa0f24245e90e97be45ddae6166d94b973c64a20b11b95e3d87"}
+    },
+    {
+      "case_id": "terminal-monitor",
+      "input": {"authorized": true, "reversible": true, "receipt_preserved": true, "scheduled": true, "external_terminal": true, "stable_observations": 2},
+      "expected": {"recommendation": "RETIRE_SCHEDULE", "terminal": "PASS", "digest": "8cc3931db36c53d43077d3c7c24207360d410c27c084e24660a78b3e477fde57"}
+    },
+    {
+      "case_id": "superseded",
+      "input": {"authorized": true, "reversible": true, "receipt_preserved": true, "scheduled": true, "superseded_by": "flight-v6"},
+      "expected": {"recommendation": "RETIRE_SCHEDULE", "terminal": "PASS", "digest": "134f80a856d88bcd7377a8014929e684ff63f7c413a46b8553f57bd979d6fa93"}
+    },
+    {
+      "case_id": "one-shot",
+      "input": {"authorized": true, "reversible": true, "receipt_preserved": true, "scheduled": true, "purpose": "independent verify once"},
+      "expected": {"recommendation": "ON_DEMAND_ONLY", "terminal": "PASS", "digest": "3911ec859d8b37a255ae60cc2e19a8889cfce27a0d0fd9b27e364cb3791b4c15"}
+    },
+    {
+      "case_id": "noop-12",
+      "input": {"authorized": true, "reversible": true, "receipt_preserved": true, "scheduled": true, "identical_noop_count": 12},
+      "expected": {"recommendation": "RETIRE_SCHEDULE", "terminal": "PASS", "digest": "d0e63afc923c7d004d4d37726d165899eece93b611253d516bb4f724843f2739"}
+    },
+    {
+      "case_id": "noop-3",
+      "input": {"authorized": true, "reversible": true, "receipt_preserved": true, "scheduled": true, "identical_noop_count": 3},
+      "expected": {"recommendation": "BACKOFF", "terminal": "PASS", "digest": "9729a1b8ad05ac6323a7c8aca6fb09f86a7e469649bba95a43f69c20a65d0ca7"}
+    },
+    {
+      "case_id": "overlap",
+      "input": {"authorized": true, "reversible": true, "receipt_preserved": true, "scheduled": true, "interval_seconds": 300, "p95_runtime_seconds": 400},
+      "expected": {"recommendation": "BACKOFF", "terminal": "PASS", "digest": "3ae0b58d55243d60a4bd5ae0921ea9ec7745a4d8963b823314833eeea79333de"}
+    },
+    {
+      "case_id": "status-questions",
+      "input": {"authorized": true, "reversible": true, "receipt_preserved": true, "repeated_status_questions": true},
+      "expected": {"recommendation": "BUILD_ANALYTIC_ASSET", "terminal": "PASS", "digest": "dd8ef573532dc723b1242f84c9233de12c7e5b7d13726e2e6491785c7e6c40e1"}
+    },
+    {
+      "case_id": "material",
+      "input": {"authorized": true, "reversible": true, "receipt_preserved": true, "material_delta": true},
+      "expected": {"recommendation": "NO_CHANGE", "terminal": "PASS", "digest": "e5d404abb6c3f6f47e003142ad129d789352bf327ce8d1db1dafb099082dd09b"}
+    },
+    {
+      "case_id": "ambiguous",
+      "input": {"authorized": true, "reversible": true, "receipt_preserved": true},
+      "expected": {"recommendation": "BLOCKED", "terminal": "UNKNOWN", "digest": "64cb0ab8c006ea67074ff7117ebed5d51da208144c96241723db4b8a7bb887bb"}
+    },
+    {
+      "case_id": "unauthorized",
+      "input": {"authorized": false, "reversible": true, "receipt_preserved": true},
+      "expected": {"recommendation": "BLOCKED", "terminal": "REJECTED", "digest": "c09bffdd6a3868f6cdd4b932496181ffaffef9946b8e160288b472a61f5fabbf"}
+    },
+    {
+      "case_id": "receipt-loss",
+      "input": {"authorized": true, "reversible": true, "receipt_preserved": false},
+      "expected": {"recommendation": "BLOCKED", "terminal": "REJECTED", "digest": "5de5704535295c0607b75f4f7f02a4297a310d83e36713f07444e0e5f4a275d6"}
+    },
+    {
+      "case_id": "authority-precedes-lease",
+      "input": {"authorized": false, "reversible": true, "receipt_preserved": true, "run_active": true},
+      "expected": {"recommendation": "BLOCKED", "terminal": "REJECTED"}
+    },
+    {
+      "case_id": "lease-precedes-failure",
+      "input": {"authorized": true, "reversible": true, "receipt_preserved": true, "run_active": true, "same_failure_count": 8},
+      "expected": {"recommendation": "KEEP_ACTIVE", "terminal": "PASS"}
+    },
+    {
+      "case_id": "receipt-precedes-delta",
+      "input": {"authorized": true, "reversible": true, "receipt_preserved": false, "material_delta": true},
+      "expected": {"recommendation": "BLOCKED", "terminal": "REJECTED"}
+    },
+    {
+      "case_id": "one-shot-precedes-noop",
+      "input": {"authorized": true, "reversible": true, "receipt_preserved": true, "scheduled": true, "purpose": "audit once", "identical_noop_count": 20},
+      "expected": {"recommendation": "ON_DEMAND_ONLY", "terminal": "PASS"}
+    },
+    {
+      "case_id": "backoff-precedes-delta",
+      "input": {"authorized": true, "reversible": true, "receipt_preserved": true, "scheduled": true, "identical_noop_count": 3, "material_delta": true},
+      "expected": {"recommendation": "BACKOFF", "terminal": "PASS"}
+    },
+    {
+      "case_id": "analytics-precedes-generic-delta",
+      "input": {"authorized": true, "reversible": true, "receipt_preserved": true, "repeated_status_questions": true, "material_delta": true},
+      "expected": {"recommendation": "BUILD_ANALYTIC_ASSET", "terminal": "PASS"}
+    },
+    {
+      "case_id": "minimum-five-minute-interval",
+      "input": {"authorized": true, "reversible": true, "receipt_preserved": true, "scheduled": true, "interval_seconds": 120, "p95_runtime_seconds": 20},
+      "expected": {"recommendation": "BACKOFF", "terminal": "PASS"}
+    },
+    {
+      "case_id": "safe-interval-remains-unknown",
+      "input": {"authorized": true, "reversible": true, "receipt_preserved": true, "scheduled": true, "interval_seconds": 900, "p95_runtime_seconds": 400},
+      "expected": {"recommendation": "BLOCKED", "terminal": "UNKNOWN"}
+    }
+  ]
+}
