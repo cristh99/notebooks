@@ -1,8 +1,8 @@
-"""Outcome-blind source seal for the untouched WildReceipt corpus.
+"""Outcome-blind source seal for an untouched WildReceipt parquet mirror.
 
-Only Hugging Face repository metadata is read. No archive, annotation, image,
-dataset row, OCR output, or label is downloaded or opened. The resulting seal
-pins one immutable repository revision and every non-empty source object.
+Only Hugging Face repository metadata is read. No parquet shard, annotation,
+image, dataset row, OCR output, or label is downloaded or opened. The seal pins
+one immutable repository revision and every non-empty source object.
 """
 from __future__ import annotations
 
@@ -15,11 +15,12 @@ from typing import Any, Mapping
 
 from .core import canonical_json, sha256_bytes
 
-DATASET_ID = "Theivaprakasham/wildreceipt"
+DATASET_ID = "kaydee/wildreceipt"
 API_URL = f"https://huggingface.co/api/datasets/{DATASET_ID}?blobs=true"
-LICENSE = "apache-2.0"
-MINIMUM_SOURCE_OBJECTS = 2
-MINIMUM_TOTAL_BYTES = 50_000_000
+UPSTREAM_DATASET = "WildReceipt"
+UPSTREAM_LICENSE = "apache-2.0"
+MINIMUM_SOURCE_OBJECTS = 1
+MINIMUM_TOTAL_BYTES = 1_000_000_000
 
 
 def fetch_metadata(timeout: float = 60.0) -> Mapping[str, Any]:
@@ -84,22 +85,32 @@ def seal(metadata: Mapping[str, Any]) -> dict[str, Any]:
     ]
     objects.sort(key=lambda row: row["path"])
     if len(objects) < MINIMUM_SOURCE_OBJECTS:
-        raise RuntimeError("WildReceipt repository exposes too few sealed objects")
+        raise RuntimeError("WildReceipt mirror exposes too few sealed objects")
     if len({row["path"] for row in objects}) != len(objects):
-        raise RuntimeError("WildReceipt repository contains duplicate paths")
+        raise RuntimeError("WildReceipt mirror contains duplicate paths")
     total = sum(int(row["size_bytes"]) for row in objects)
     if total < MINIMUM_TOTAL_BYTES:
-        raise RuntimeError("WildReceipt source bytes are unexpectedly small")
+        raise RuntimeError("WildReceipt mirror source bytes are unexpectedly small")
+    card_data = metadata.get("cardData")
+    mirror_license = (
+        str(card_data.get("license") or "")
+        if isinstance(card_data, Mapping)
+        else ""
+    )
     payload: dict[str, Any] = {
         "schema": "ocr-wildreceipt-source-seal/1",
         "dataset_id": DATASET_ID,
         "resolved_revision": revision,
-        "license": LICENSE,
+        "lineage": {
+            "upstream_dataset": UPSTREAM_DATASET,
+            "upstream_declared_license": UPSTREAM_LICENSE,
+            "mirror_declared_license": mirror_license or None,
+        },
         "objects": objects,
         "object_count": len(objects),
         "total_source_bytes": total,
         "repository_metadata_only": True,
-        "archives_downloaded": 0,
+        "parquet_shards_downloaded": 0,
         "dataset_rows_read": 0,
         "images_opened": 0,
         "annotations_opened": 0,
