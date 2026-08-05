@@ -1,0 +1,12 @@
+{
+  "candidate_ground_truth_access": false,
+  "candidate_network_access": false,
+  "candidate_sha256": "a0afa1d615b138e46d588401d6c228ad8dd5992033abfc3486b30e2aff633976",
+  "candidate_validator_access": false,
+  "forbidden_imports": [],
+  "forbidden_strings": [],
+  "held_out_query_content_access": false,
+  "schema": "data-science-dominance/fresh-usaspending-static-audit/1",
+  "synthetic_tests": 14,
+  "tests_sha256": "3dd9caadd54e208c92053e98c46e2068c11abc0d553d2d5f7f0d24fbe2c4f37a"
+}
