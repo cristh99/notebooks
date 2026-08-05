@@ -1,0 +1,234 @@
+name: Data Science fresh gate v1 — component freeze
+
+on:
+  push:
+    branches:
+      - agent/data-science-dominance-dab-slice
+    paths:
+      - .github/workflows/data-science-fresh-gate-v1-component-freeze.yml
+
+permissions:
+  contents: write
+
+jobs:
+  component-freeze:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout candidate branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+
+      - name: Prove workflow-only activation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_EVENT_NAME}" = "push"
+          test "${GITHUB_RUN_ATTEMPT}" = "1"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/data-science-fresh-gate-v1-component-freeze.yml"
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+
+      - name: Compile and run complete internal battery
+        shell: bash
+        run: |
+          set -euo pipefail
+          root='data_science_dominance/fresh_gate_v1'
+          python -m py_compile \
+            "$root/entity_resolution.py" \
+            "$root/record_extraction.py" \
+            "$root/benchmark.py"
+          python -m unittest discover -s "$root/tests" -v 2>&1 | tee fresh-gate-v1-complete-tests.log
+          python -m data_science_dominance.fresh_gate_v1.benchmark 2>&1 | tee fresh-gate-v1-benchmark.log
+
+      - name: Static isolation and source audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import ast, hashlib, json
+          from pathlib import Path
+
+          root = Path('data_science_dominance/fresh_gate_v1')
+          sources = [
+              root / 'entity_resolution.py',
+              root / 'record_extraction.py',
+              root / 'benchmark.py',
+          ]
+          tests = sorted((root / 'tests').glob('test_*.py'))
+          forbidden_imports = {
+              'requests', 'urllib', 'httpx', 'socket', 'subprocess',
+              'selenium', 'playwright',
+          }
+          forbidden_strings = (
+              'ground_truth', 'validate.py', 'query1/validate',
+              'query1\\validate', 'expected 898', '1059.46', '399001.sz',
+          )
+          violations = []
+          hashes = {}
+          for path in [*sources, *tests]:
+              source = path.read_text(encoding='utf-8')
+              hashes[str(path)] = hashlib.sha256(path.read_bytes()).hexdigest()
+              tree = ast.parse(source)
+              imports = set()
+              for node in ast.walk(tree):
+                  if isinstance(node, ast.Import):
+                      imports.update(alias.name.split('.')[0] for alias in node.names)
+                  elif isinstance(node, ast.ImportFrom) and node.module:
+                      imports.add(node.module.split('.')[0])
+              if imports & forbidden_imports:
+                  violations.append({
+                      'path': str(path),
+                      'forbidden_imports': sorted(imports & forbidden_imports),
+                  })
+              lowered = source.lower()
+              for token in forbidden_strings:
+                  if token in lowered:
+                      violations.append({'path': str(path), 'forbidden_string': token})
+          receipt = {
+              'schema': 'data-science-dominance/fresh-gate-v1-component-static-audit/1',
+              'isolated': not violations,
+              'violations': violations,
+              'sha256': hashes,
+          }
+          Path('fresh-gate-v1-component-static-audit.json').write_text(
+              json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          )
+          print(json.dumps(receipt, indent=2, sort_keys=True))
+          if violations:
+              raise SystemExit('component isolation audit failed')
+          PY
+
+      - name: Seal component freeze
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, os, re
+          from pathlib import Path
+
+          root = Path('data_science_dominance/fresh_gate_v1')
+          static = json.loads(Path('fresh-gate-v1-component-static-audit.json').read_text())
+          benchmark = json.loads(Path('fresh-gate-v1-benchmark.json').read_text())
+          test_log = Path('fresh-gate-v1-complete-tests.log').read_text(errors='replace')
+          ran = re.search(r'Ran\s+(\d+)\s+tests?', test_log)
+          failures = len(re.findall(r'\.\.\.\s+FAIL\s*$', test_log, flags=re.MULTILINE))
+          errors = len(re.findall(r'\.\.\.\s+ERROR\s*$', test_log, flags=re.MULTILINE))
+          total = int(ran.group(1)) if ran else None
+          passed = total - failures - errors if total is not None else None
+          verdict = 'PASS' if (
+              static['isolated']
+              and benchmark.get('verdict') == 'PASS'
+              and failures == 0
+              and errors == 0
+              and total is not None
+          ) else 'FAIL'
+          freeze = {
+              'schema': 'data-science-dominance/fresh-gate-v1-component-freeze/1',
+              'verdict': verdict,
+              'kind': 'component-freeze-not-external-evaluation',
+              'activation_sha': os.environ['GITHUB_SHA'],
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'frozen_before_fresh_queries': True,
+              'frozen_before_fresh_validators': True,
+              'frozen_before_fresh_ground_truth': True,
+              'candidate_network_access': False,
+              'external_evaluation_count': 0,
+              'unit_tests': {
+                  'total': total,
+                  'passed': passed,
+                  'failures': failures,
+                  'errors': errors,
+              },
+              'benchmark': benchmark,
+              'sha256': static['sha256'],
+              'score_before': 465,
+              'score_after': 465,
+              'score_changed': False,
+              'merge_authorized': False,
+              'integrated_candidate_required': True,
+              'fresh_external_gate_required': True,
+              'evidence_hashes': {
+                  'test_log': hashlib.sha256(test_log.encode()).hexdigest(),
+                  'benchmark_receipt': hashlib.sha256(
+                      Path('fresh-gate-v1-benchmark.json').read_bytes()
+                  ).hexdigest(),
+                  'static_audit': hashlib.sha256(
+                      Path('fresh-gate-v1-component-static-audit.json').read_bytes()
+                  ).hexdigest(),
+              },
+          }
+          payload = json.dumps(freeze, indent=2, sort_keys=True) + '\n'
+          (root / 'COMPONENT_FREEZE.json').write_text(payload)
+          (root / 'COMPONENT_FREEZE.sha256').write_text(
+              hashlib.sha256(payload.encode()).hexdigest()
+              + '  COMPONENT_FREEZE.json\n'
+          )
+          metrics = benchmark['clean_resolution']
+          (root / 'COMPONENT_FREEZE.md').write_text(
+              '# Fresh gate v1 — component freeze\n\n'
+              f'**Verdict interno: {verdict}.** No es una evaluación externa.\n\n'
+              f'- Tests: `{passed}/{total}`; failures `{failures}`; errors `{errors}`.\n'
+              f'- Resolución sintética: precisión `{metrics["precision"]:.4f}`, recall `{metrics["recall"]:.4f}`, F1 `{metrics["f1"]:.4f}`.\n'
+              f'- Falsos positivos: `{metrics["false_positive"]}`.\n'
+              f'- Colisiones ambiguas en cuarentena: `{benchmark["adversarial_quarantined"]}/{benchmark["adversarial_ambiguities"]}`.\n'
+              f'- Semántica temporal exacta: `{benchmark["temporal_exact"]}`.\n'
+              '- Consultas externas vistas: `0`.\n'
+              '- Score: `465/1000`; sin cambio.\n'
+              '- Merge: no autorizado.\n'
+              '- Próximo paso: integrar estos componentes en un candidato completo y congelarlo antes de seleccionar consultas frescas.\n'
+              f'- Run: `{os.environ["GITHUB_RUN_ID"]}`.\n'
+          )
+          Path('fresh-gate-v1-component-receipt.json').write_text(payload)
+          print(payload)
+          if verdict != 'PASS':
+              raise SystemExit('component freeze failed')
+          PY
+
+      - name: Preserve freeze in branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            data_science_dominance/fresh_gate_v1/COMPONENT_FREEZE.json \
+            data_science_dominance/fresh_gate_v1/COMPONENT_FREEZE.sha256 \
+            data_science_dominance/fresh_gate_v1/COMPONENT_FREEZE.md
+          git commit -m 'Freeze fresh gate v1 components [skip ci]'
+          git fetch origin agent/data-science-dominance-dab-slice
+          git rebase origin/agent/data-science-dominance-dab-slice
+          git push origin HEAD:agent/data-science-dominance-dab-slice
+
+      - name: Upload immutable freeze evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-fresh-gate-v1-component-freeze
+          retention-days: 90
+          path: |
+            data_science_dominance/fresh_gate_v1/COMPONENT_FREEZE.json
+            data_science_dominance/fresh_gate_v1/COMPONENT_FREEZE.sha256
+            data_science_dominance/fresh_gate_v1/COMPONENT_FREEZE.md
+            fresh-gate-v1-complete-tests.log
+            fresh-gate-v1-benchmark.log
+            fresh-gate-v1-benchmark.json
+            fresh-gate-v1-component-static-audit.json
+            fresh-gate-v1-component-receipt.json
+
+      - name: Enforce component freeze
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          freeze = json.loads(
+              Path('data_science_dominance/fresh_gate_v1/COMPONENT_FREEZE.json').read_text()
+          )
+          if freeze['verdict'] != 'PASS':
+              raise SystemExit('Fresh gate v1 component freeze: FAIL')
+          print('Fresh gate v1 component freeze: PASS; no score change')
+          PY
