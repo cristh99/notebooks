@@ -1,0 +1,296 @@
+name: Data Science dominance — StockIndex V1 query2-3 blind gate
+
+on:
+  push:
+    branches:
+      - agent/data-science-dominance-dab-stockindex-v1
+    paths:
+      - .github/workflows/data-science-dominance-dab-stockindex-v1-official.yml
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  ROOT: data_science_dominance/dab_stockindex_v1
+  DAB_SHA: 9a55e34271a2500a41cbc009e239edd94599e374
+
+jobs:
+  solve-and-seal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove one-shot workflow-only activation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_EVENT_NAME}" = push
+          test "${GITHUB_RUN_ATTEMPT}" = 1
+          test "$(git rev-parse HEAD^)" = 3f237f8317c6de9780aa09d55386c4dab011a1fc
+          test "$(git diff --name-only HEAD^ HEAD)" = .github/workflows/data-science-dominance-dab-stockindex-v1-official.yml
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Install exact zero-cost runtime
+        run: |
+          python -m pip install --disable-pip-version-check \
+            'duckdb==1.3.1' 'huggingface-hub==1.2.1'
+          python -m pip freeze | sort > stockindex-runtime-pip-freeze.txt
+
+      - name: Verify frozen source and run all pre-data tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '937b07e5913653b2a8cfc63174f33e0bffd5be8300739a77409690ce18554eae  data_science_dominance/dab_stockindex_v1/stockindex_engine.py' | sha256sum -c -
+          echo '768743f79adfc16a16e689277f2f48b4952418058f6dad048436388df146d257  data_science_dominance/dab_stockindex_v1/test_stockindex_engine.py' | sha256sum -c -
+          echo '2c661891c25714e626b2e124bab3dae6de7f1677a78add13159ac3f6f87882c1  data_science_dominance/dab_stockindex_v1/FREEZE.json' | sha256sum -c -
+          cd "$ROOT"
+          python -m unittest -v test_stockindex_engine.py 2>&1 | tee "${GITHUB_WORKSPACE}/stockindex-synthetic-tests.log"
+
+      - name: Acquire only official data and held-out query texts
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GIT_LFS_SKIP_SMUDGE=1
+          git clone --filter=blob:none --no-checkout https://github.com/ucbepic/DataAgentBench.git dab
+          cd dab
+          git sparse-checkout init --no-cone
+          cat > .git/info/sparse-checkout <<'EOF'
+          /dataset_manifest.tsv
+          /query_stockindex/query2/query.json
+          /query_stockindex/query3/query.json
+          EOF
+          git -c advice.detachedHead=false checkout "$DAB_SHA"
+          test "$(git rev-parse HEAD)" = "$DAB_SHA"
+          test -z "$(find . -type f \( -name ground_truth.csv -o -name validate.py \) -print -quit)"
+          cd ..
+          python - <<'PY'
+          import hashlib, json, shutil
+          from pathlib import Path
+          from huggingface_hub import hf_hub_download
+
+          root = Path('dab')
+          expected = {
+              'query_stockindex/query_dataset/indexInfo_query.db': ('976511f3eb213269c81b286dd4517e4948b3d3bb776e221559943f0439916b55', 8192),
+              'query_stockindex/query_dataset/indextrade_query.db': ('12e9cf350be2a6396f6be9f0c2bb057013859956bc8269952dc7a85008973bb1', 4468736),
+          }
+          files = []
+          for rel, (digest, size) in expected.items():
+              target = root / rel
+              downloaded = Path(hf_hub_download(
+                  repo_id='ruiyingm/DataAgentBench-data',
+                  repo_type='dataset',
+                  filename=rel,
+                  local_dir=str(root),
+                  force_download=True,
+              ))
+              if downloaded.resolve() != target.resolve():
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  shutil.copyfile(downloaded, target)
+              data = target.read_bytes()
+              assert len(data) == size and hashlib.sha256(data).hexdigest() == digest, rel
+              files.append({'path': rel, 'bytes': size, 'sha256': digest})
+          queries = []
+          for n in (2, 3):
+              path = root / f'query_stockindex/query{n}/query.json'
+              assert path.is_file()
+              queries.append({'path': str(path.relative_to(root)), 'bytes': path.stat().st_size, 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()})
+          manifest = {
+              'schema': 'data-science-dominance/stockindex-v1-official-data/1',
+              'dab_commit': '9a55e34271a2500a41cbc009e239edd94599e374',
+              'dataset_files': files,
+              'held_out_query_files': queries,
+              'validators_present': False,
+              'ground_truth_present': False,
+          }
+          Path('stockindex-data-manifest.json').write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
+          PY
+
+      - name: Solve both fresh queries once and seal answers
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(find dab -type f \( -name ground_truth.csv -o -name validate.py \) -print -quit)"
+          python - <<'PY' 2>&1 | tee stockindex-solve.log
+          import hashlib, importlib.util, json, os, sys
+          from pathlib import Path
+
+          root = Path('data_science_dominance/dab_stockindex_v1')
+          engine_path = root / 'stockindex_engine.py'
+          assert hashlib.sha256(engine_path.read_bytes()).hexdigest() == '937b07e5913653b2a8cfc63174f33e0bffd5be8300739a77409690ce18554eae'
+          spec = importlib.util.spec_from_file_location('frozen_stockindex_v1', engine_path)
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = module
+          spec.loader.exec_module(module)
+
+          dab_root = Path('dab').resolve()
+          info_rows, trade_rows = module.load_domain(dab_root)
+          enriched = module.enrich_rows(info_rows, trade_rows)
+          output = Path('sealed-answers')
+          output.mkdir()
+          answers = {}
+          for n in (2, 3):
+              query = module.read_query(dab_root / f'query_stockindex/query{n}/query.json')
+              plan = module.plan_query(query)
+              answer = module.evaluate(plan, enriched)
+              module.write_outputs(output, f'stockindex_{n}', query, plan, answer)
+              rendered = module.render_answer(answer, plan)
+              answers[f'stockindex_{n}'] = rendered
+              print(json.dumps({'query_id': f'stockindex_{n}', 'answer': rendered, 'plan': module.asdict(plan)}, sort_keys=True), flush=True)
+          (output / 'answers.json').write_text(json.dumps(answers, indent=2, sort_keys=True) + '\n')
+          files = []
+          for path in sorted(item for item in output.rglob('*') if item.is_file()):
+              files.append({'path': str(path.relative_to(output)), 'bytes': path.stat().st_size, 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()})
+          manifest = {
+              'schema': 'data-science-dominance/stockindex-v1-sealed-answers/1',
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_run_attempt': int(os.environ['GITHUB_RUN_ATTEMPT']),
+              'github_sha': os.environ['GITHUB_SHA'],
+              'candidate_sha256': '937b07e5913653b2a8cfc63174f33e0bffd5be8300739a77409690ce18554eae',
+              'validator_files_present_when_solved': False,
+              'ground_truth_files_present_when_solved': False,
+              'domain_loaded_once': True,
+              'candidate_process_count': 1,
+              'post_hoc_retuning_permitted': False,
+              'files': files,
+              'data_manifest_sha256': hashlib.sha256(Path('stockindex-data-manifest.json').read_bytes()).hexdigest(),
+          }
+          payload = json.dumps(manifest, indent=2, sort_keys=True) + '\n'
+          Path('stockindex-answer-manifest.json').write_text(payload)
+          Path('stockindex-answer-manifest.sha256').write_text(hashlib.sha256(payload.encode()).hexdigest() + '  stockindex-answer-manifest.json\n')
+          PY
+          for n in 2 3; do test -s "sealed-answers/stockindex_${n}.txt"; done
+
+      - name: Upload immutable answers before validation
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: stockindex-v1-sealed-answers
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            sealed-answers/**
+            stockindex-answer-manifest.json
+            stockindex-answer-manifest.sha256
+            stockindex-data-manifest.json
+            stockindex-solve.log
+            stockindex-synthetic-tests.log
+            stockindex-runtime-pip-freeze.txt
+            data_science_dominance/dab_stockindex_v1/FREEZE.json
+            data_science_dominance/dab_stockindex_v1/stockindex_engine.py
+
+  validate-sealed-answers:
+    needs: solve-and-seal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: stockindex-v1-sealed-answers
+          path: sealed-bundle
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Acquire validators only after answer seal
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --no-checkout https://github.com/ucbepic/DataAgentBench.git dab-validation
+          cd dab-validation
+          git sparse-checkout init --no-cone
+          cat > .git/info/sparse-checkout <<'EOF'
+          /query_stockindex/query2/**
+          /query_stockindex/query3/**
+          EOF
+          git -c advice.detachedHead=false checkout "$DAB_SHA"
+          test "$(git rev-parse HEAD)" = "$DAB_SHA"
+          test "$(find . -name validate.py -type f | wc -l)" -eq 2
+
+      - name: Execute each official validator exactly once
+        shell: bash
+        run: |
+          set +e
+          python - <<'PY' 2>&1 | tee stockindex-validator-output.log
+          import hashlib, importlib.util, json, os, sys
+          from pathlib import Path
+
+          bundle = Path('sealed-bundle')
+          manifest = json.loads(next(bundle.rglob('stockindex-answer-manifest.json')).read_text())
+          assert manifest['candidate_sha256'] == '937b07e5913653b2a8cfc63174f33e0bffd5be8300739a77409690ce18554eae'
+          assert manifest['validator_files_present_when_solved'] is False
+          results = []
+          for n in (2, 3):
+              answer_path = next(bundle.rglob(f'stockindex_{n}.txt'))
+              answer = answer_path.read_text(encoding='utf-8')
+              validator_path = Path(f'dab-validation/query_stockindex/query{n}/validate.py')
+              spec = importlib.util.spec_from_file_location(f'stockindex_validator_{n}', validator_path)
+              module = importlib.util.module_from_spec(spec)
+              sys.modules[spec.name] = module
+              spec.loader.exec_module(module)
+              outcome = module.validate(answer)
+              passed, message = outcome if isinstance(outcome, tuple) else (bool(outcome), str(outcome))
+              results.append({
+                  'query_id': f'stockindex_{n}',
+                  'passed': bool(passed),
+                  'message': str(message),
+                  'answer_sha256': hashlib.sha256(answer_path.read_bytes()).hexdigest(),
+                  'validator_sha256': hashlib.sha256(validator_path.read_bytes()).hexdigest(),
+              })
+              print(json.dumps(results[-1], sort_keys=True), flush=True)
+          pass_count = sum(item['passed'] for item in results)
+          points = 25 if pass_count == 2 else 0
+          receipt = {
+              'schema': 'data-science-dominance/stockindex-v1-external-receipt/1',
+              'verdict': 'PASS' if pass_count == 2 else 'FAIL',
+              'query_count': 2,
+              'pass_count': pass_count,
+              'results': results,
+              'answers_sealed_before_validator_access': True,
+              'validators_executed_once_each': True,
+              'post_hoc_retuning_permitted': False,
+              'promotion_points': points,
+              'score_before': 465,
+              'score_after': 465 + points,
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_run_attempt': int(os.environ['GITHUB_RUN_ATTEMPT']),
+          }
+          evidence = Path('stockindex-validation-evidence')
+          evidence.mkdir()
+          payload = json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          (evidence / 'external-receipt.json').write_text(payload)
+          (evidence / 'external-receipt.sha256').write_text(hashlib.sha256(payload.encode()).hexdigest() + '  external-receipt.json\n')
+          PY
+          exit 0
+
+      - name: Upload complete official evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: stockindex-v1-official
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            sealed-bundle/**
+            stockindex-validation-evidence/**
+            stockindex-validator-output.log
+            data_science_dominance/dab_stockindex_v1/FREEZE.json
+
+      - name: Enforce preregistered promotion gate
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path('stockindex-validation-evidence/external-receipt.json').read_text())
+          if receipt['pass_count'] != 2:
+              raise SystemExit(f"StockIndex V1: {receipt['pass_count']}/2; evidence preserved; no retuning")
+          print('StockIndex V1: 2/2; +25 dominance points')
+          PY
