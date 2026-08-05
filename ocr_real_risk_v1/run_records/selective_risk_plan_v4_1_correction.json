@@ -1,0 +1,38 @@
+{
+  "constraints": {
+    "external_spend_usd": 0.0,
+    "gcloud_used": false,
+    "github_actions_used": false,
+    "gpu_used": false,
+    "paid_api_used": false,
+    "production_modified": false
+  },
+  "corrected": {
+    "alpha_per_leg_per_look": 0.008333333333333333,
+    "certificate_module_commit": "7a41f4d38edd9e37ee533bcb1950599c5ca6f3a2",
+    "certificate_test_commit": "3ce4f532459b5c8e903df6e3c0b529844ca5067b",
+    "family_alpha_per_look": 0.016666666666666666,
+    "overall_family_alpha": 0.05,
+    "payload_sha256": "2b8627148c97b6fc7db8dce1381d29336751f7486055cf878bdc00bebab8a968",
+    "plan_commit": "1d70ed027f8ae81e937c3f7b4b366d76ba58111c",
+    "planned_looks": 3,
+    "sequential_thresholds": [51, 87, 148],
+    "single_look_thresholds_still_valid_only_as_mutually_exclusive_designs": [39, 67, 114]
+  },
+  "production_promotion": false,
+  "schema": "ocr-selective-risk-plan-correction-v4-1/1",
+  "stable_payload_sha256": "839ae4b9aaa6419d60aed2ddb239259af183cb66c0ebdd064b231662322cd6b7",
+  "status": "CORRECTION_SUPERSEDES_PRIOR_SEQUENTIAL_INTERPRETATION",
+  "superseded": {
+    "defect": "thresholds were individually exact at family alpha 0.05 but were incorrectly described as sequential interim looks without alpha spending",
+    "payload_sha256": "4646f650fe5b51fecc80206eb034abad3c84b0f24881ae33d2442963ed2e497e",
+    "plan_commit": "a7a3826237d22484a57f61a0215f4938c5336deb",
+    "single_look_thresholds": [39, 67, 114]
+  },
+  "validation": {
+    "compileall": "PASS",
+    "errors": 0,
+    "failures": 0,
+    "tests_run": 10
+  }
+}
