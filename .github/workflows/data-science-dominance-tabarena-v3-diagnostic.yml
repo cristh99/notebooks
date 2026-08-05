@@ -1,0 +1,52 @@
+name: Data Science dominance — inspect frozen TabArena V3 source
+
+on:
+  push:
+    branches:
+      - agent/data-science-dominance-tabarena-v3-diagnostic
+    paths:
+      - '.github/workflows/data-science-dominance-tabarena-v3-diagnostic.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  extract-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove workflow-only diagnostic activation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_RUN_ATTEMPT}" = '1'
+          test "$(git rev-parse HEAD^)" = 'd373bd0ea6e2edacdb2a041ca1c3dd80a8a36b8b'
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/data-science-dominance-tabarena-v3-diagnostic.yml'
+
+      - name: Extract exact frozen source without external task access
+        shell: bash
+        run: |
+          set -euo pipefail
+          root='data_science_dominance/tabarena_portfolio_v3'
+          echo 'a9f76d0d1ab1473979bf998c81a035f11ccebd1a92f33fad42415153ef71c68d  data_science_dominance/tabarena_portfolio_v3/portfolio_v3_code.tar.gz' | sha256sum -c -
+          tar xzf "$root/portfolio_v3_code.tar.gz" -C .
+          test -f "$root/runner_v3.py"
+          test -f "$root/run_ci_v3.sh"
+          test -f "$root/tasks_v3.json"
+          sha256sum "$root"/* > v3-source-sha256sums.txt
+
+      - name: Upload diagnostic source only
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-dominance-tabarena-v3-source
+          retention-days: 7
+          path: |
+            data_science_dominance/tabarena_portfolio_v3/*.py
+            data_science_dominance/tabarena_portfolio_v3/*.sh
+            data_science_dominance/tabarena_portfolio_v3/*.json
+            data_science_dominance/tabarena_portfolio_v3/*.md
+            v3-source-sha256sums.txt
