@@ -1,0 +1,32 @@
+name: Trigger CORD external validation v1
+
+on:
+  push:
+    branches:
+      - agent/ocr-cord-external-validation-v1
+    paths:
+      - '.github/workflows/trigger-cord-external-validation-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Dispatch the sealed validation on the current branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_REF: agent/ocr-cord-external-validation-v1
+        run: |
+          curl --fail --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header 'Accept: application/vnd.github+json' \
+            --header 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/ocr-cord-external-validation-v1.yml/dispatches" \
+            --data "{\"ref\":\"${TARGET_REF}\"}"
+          echo 'CORD external validation dispatched.'
