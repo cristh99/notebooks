@@ -1,19 +1,27 @@
 {
-  "schema": "data-science-dominance/fresh-usaspending-v3-freeze/1",
+  "schema": "data-science-dominance/fresh-usaspending-v3-freeze/2",
   "score_before": 465,
   "branch": "agent/data-science-dominance-dab-fresh-usaspending-v3",
   "source_parent_sha": "c30ffb6021bdd990629161096caa06508c765f65",
-  "freeze_commit_before_activation": "466da31584dbccf4667a94fe1a86269c0992db41",
   "dab_repository": "ucbepic/DataAgentBench",
   "dab_commit": "9a55e34271a2500a41cbc009e239edd94599e374",
   "candidate": {
     "path": "data_science_dominance/dab_fresh_usaspending_v3/usaspending_v3_engine.py",
-    "git_blob_sha": "e47d36a43790dd5294c99796e4b85155de87e90b",
+    "git_blob_sha": "8e0b67845cff8136c1d420d0668d05d8559d5289",
     "base_v2_candidate_sha256": "76d240d4f4bb1ed5a87f32c18ae92e7629b971f761577eb16d2b5deccf57ef8f",
     "frozen_before_query8_10_content": true,
     "frozen_before_query8_10_validators": true,
     "frozen_before_query8_10_ground_truth": true,
     "post_hoc_retuning_permitted": false
+  },
+  "pre_data_repair": {
+    "failed_synthetic_run_id": 31022969193,
+    "official_evaluation_count_before_repair": 0,
+    "held_out_query_content_accessed_before_repair": false,
+    "scope": "return the lexicographically smaller NAICS code for a tied singular argmax/argmin",
+    "candidate_or_dataset_specific_branching_added": false,
+    "source_blob_sha": "e47d36a43790dd5294c99796e4b85155de87e90b",
+    "target_blob_sha": "8e0b67845cff8136c1d420d0668d05d8559d5289"
   },
   "tests": {
     "path": "data_science_dominance/dab_fresh_usaspending_v3/test_usaspending_v3_engine.py",
