@@ -1,0 +1,91 @@
+name: Data Science dominance — USAspending V3 development gate
+
+on:
+  push:
+    branches:
+      - agent/data-science-dominance-dab-usaspending-v3-dev
+    paths:
+      - .github/workflows/data-science-dominance-dab-usaspending-v3-dev.yml
+
+permissions:
+  contents: read
+
+env:
+  ROOT: data_science_dominance/dab_usaspending_v3_dev
+
+jobs:
+  reconstruct-and-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove workflow-only activation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_RUN_ATTEMPT}" = 1
+          test "$(git rev-parse HEAD^)" = 27d3c222c81156939b2b2a3bdc76be498678bfa4
+          test "$(git diff --name-only HEAD^ HEAD)" = .github/workflows/data-science-dominance-dab-usaspending-v3-dev.yml
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Reconstruct exact V3 source and tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash "$ROOT/reconstruct.sh"
+
+      - name: Run 23-test V3 battery
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$ROOT"
+          python -m unittest -v test_usaspending_fresh_engine.py 2>&1 | tee ../../usaspending-v3-tests.log
+
+      - name: Seal development receipt
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root = Path('data_science_dominance/dab_usaspending_v3_dev')
+          log = Path('usaspending-v3-tests.log')
+          text = log.read_text() if log.exists() else ''
+          passed = 'Ran 23 tests' in text and '\nOK\n' in ('\n' + text + '\n')
+          receipt = {
+              'schema': 'data-science-dominance/usaspending-v3-development/1',
+              'verdict': 'PASS' if passed else 'FAIL',
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_sha': os.environ['GITHUB_SHA'],
+              'external_dataset_values_accessed': False,
+              'query8_10_content_accessed': False,
+              'validators_executed': False,
+              'ground_truth_accessed': False,
+              'hashes': {
+                  'candidate_sha256': hashlib.sha256((root/'usaspending_fresh_engine.py').read_bytes()).hexdigest(),
+                  'tests_sha256': hashlib.sha256((root/'test_usaspending_fresh_engine.py').read_bytes()).hexdigest(),
+                  'test_log_sha256': hashlib.sha256(log.read_bytes()).hexdigest() if log.exists() else None,
+              },
+          }
+          payload = json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          Path('usaspending-v3-development-receipt.json').write_text(payload)
+          print(payload)
+          if not passed:
+              raise SystemExit(1)
+          PY
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: usaspending-v3-development
+          retention-days: 90
+          path: |
+            data_science_dominance/dab_usaspending_v3_dev/**
+            usaspending-v3-tests.log
+            usaspending-v3-development-receipt.json
