@@ -1,0 +1,276 @@
+name: Data Science fresh gate v1 — unit and metamorphic audit
+
+on:
+  push:
+    branches:
+      - agent/data-science-dominance-dab-slice
+    paths:
+      - .github/workflows/data-science-fresh-gate-v1-unit.yml
+
+permissions:
+  contents: write
+
+jobs:
+  unit-metamorphic-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout candidate branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove workflow-only activation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_EVENT_NAME}" = "push"
+          test "${GITHUB_RUN_ATTEMPT}" = "1"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/data-science-fresh-gate-v1-unit.yml"
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+
+      - name: Compile and audit isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            data_science_dominance/fresh_gate_v1/entity_resolution.py \
+            data_science_dominance/fresh_gate_v1/record_extraction.py
+          python - <<'PY'
+          import ast, hashlib, json
+          from pathlib import Path
+
+          paths = [
+              Path('data_science_dominance/fresh_gate_v1/entity_resolution.py'),
+              Path('data_science_dominance/fresh_gate_v1/record_extraction.py'),
+          ]
+          forbidden = {'requests', 'urllib', 'httpx', 'socket', 'subprocess', 'selenium', 'playwright'}
+          violations = []
+          hashes = {}
+          for path in paths:
+              source = path.read_text(encoding='utf-8')
+              hashes[str(path)] = hashlib.sha256(path.read_bytes()).hexdigest()
+              tree = ast.parse(source)
+              imports = set()
+              for node in ast.walk(tree):
+                  if isinstance(node, ast.Import):
+                      imports.update(alias.name.split('.')[0] for alias in node.names)
+                  elif isinstance(node, ast.ImportFrom) and node.module:
+                      imports.add(node.module.split('.')[0])
+              if imports & forbidden:
+                  violations.append({'path': str(path), 'imports': sorted(imports & forbidden)})
+              for token in ('ground_truth', 'validate.py', 'query1/validate', 'query1\\validate'):
+                  if token in source.lower():
+                      violations.append({'path': str(path), 'string': token})
+          receipt = {
+              'schema': 'data-science-dominance/fresh-gate-v1-static-audit/1',
+              'isolated': not violations,
+              'violations': violations,
+              'sha256': hashes,
+          }
+          Path('fresh-gate-v1-static-audit.json').write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          print(json.dumps(receipt, indent=2, sort_keys=True))
+          if violations:
+              raise SystemExit('fresh gate isolation audit failed')
+          PY
+
+      - name: Run unit tests
+        shell: bash
+        run: |
+          set +e
+          python -m unittest discover -s data_science_dominance/fresh_gate_v1/tests -v \
+            2>&1 | tee fresh-gate-v1-unit.log
+          echo "${PIPESTATUS[0]}" > fresh-gate-v1-unit-exit.txt
+          exit 0
+
+      - name: Run deterministic metamorphic stress tests
+        shell: bash
+        run: |
+          set +e
+          python - <<'PY' 2>&1 | tee fresh-gate-v1-metamorphic.log
+          from datetime import date
+          import json
+          from pathlib import Path
+
+          from data_science_dominance.fresh_gate_v1.entity_resolution import (
+              Entity, ResolutionStatus, resolve_entities,
+          )
+          from data_science_dominance.fresh_gate_v1.record_extraction import (
+              extract_funding_entries, extract_project_records, select_projects,
+          )
+
+          ocr = str.maketrans({'0':'O', '1':'I', '2':'Z', '5':'S', '6':'G', '8':'B'})
+          left = []
+          right = []
+          expected = {}
+          for index in range(400):
+              canonical = f'ZX{index:06d}Q'
+              left_key = f'L{index:04d}'
+              right_key = f'R{index:04d}'
+              left.append(Entity(left_key, f'Award No. {canonical}'))
+              transformed = canonical.translate(ocr)
+              transformed = '-'.join((transformed[:2], transformed[2:5], transformed[5:]))
+              right.append(Entity(right_key, f'contract:{transformed.lower()}'))
+              expected[left_key] = right_key
+          batch = resolve_entities(left, right)
+          assert batch.accepted_map() == expected, (
+              len(batch.accepted_map()), batch.audit
+          )
+          assert batch.audit.coverage == 1.0
+
+          ambiguous = resolve_entities(
+              [Entity('ambiguous', 'AB-1200')],
+              [Entity('a', 'AB-120O'), Entity('b', 'AB-I200')],
+          )
+          assert ambiguous.resolutions[0].status == ResolutionStatus.AMBIGUOUS
+
+          record_lines = []
+          funding_lines = ['| Project | Date | Amount |', '|---|---|---|']
+          expected_projects = set()
+          for index in range(120):
+              name = f'Capital Project {index:03d}'
+              record_lines.extend([
+                  f'# {name}',
+                  'Date: 2022-12-01',
+                  'Type: capital',
+                  'Status: design',
+                  '',
+              ])
+              funding_lines.append(f'| {name} | 2022-06-01 | $300,000 |')
+              funding_lines.append(f'| {name} | 2022-12-15 | 250K |')
+              expected_projects.add(name.upper())
+          records = extract_project_records('\n'.join(record_lines), source='metamorphic-records')
+          funding = extract_funding_entries('\n'.join(funding_lines), source='metamorphic-funding')
+          selected = select_projects(
+              records,
+              funding,
+              cutoff=date(2023, 1, 1),
+              project_type='capital',
+              status='design',
+              minimum_funding=500_000,
+          )
+          assert {item.canonical_name for item in selected} == expected_projects
+          assert all(item.accumulated_funding == 550_000.0 for item in selected)
+
+          receipt = {
+              'schema': 'data-science-dominance/fresh-gate-v1-metamorphic/1',
+              'entity_pairs': 400,
+              'entity_pairs_accepted': batch.audit.accepted,
+              'entity_coverage': batch.audit.coverage,
+              'ambiguous_cases_quarantined': 1,
+              'project_records': len(records),
+              'funding_entries': len(funding),
+              'projects_selected': len(selected),
+              'verdict': 'PASS',
+          }
+          Path('fresh-gate-v1-metamorphic.json').write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          print(json.dumps(receipt, indent=2, sort_keys=True))
+          PY
+          echo "${PIPESTATUS[0]}" > fresh-gate-v1-metamorphic-exit.txt
+          exit 0
+
+      - name: Seal unit gate receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, os, re
+          from pathlib import Path
+
+          unit_exit = int(Path('fresh-gate-v1-unit-exit.txt').read_text().strip())
+          metamorphic_exit = int(Path('fresh-gate-v1-metamorphic-exit.txt').read_text().strip())
+          unit_log = Path('fresh-gate-v1-unit.log').read_text(errors='replace')
+          meta_log = Path('fresh-gate-v1-metamorphic.log').read_text(errors='replace')
+          ran = re.search(r'Ran\s+(\d+)\s+tests?', unit_log)
+          failures = len(re.findall(r'\.\.\.\s+FAIL\s*$', unit_log, flags=re.MULTILINE))
+          errors = len(re.findall(r'\.\.\.\s+ERROR\s*$', unit_log, flags=re.MULTILINE))
+          total = int(ran.group(1)) if ran else None
+          passed = total - failures - errors if total is not None else None
+          verdict = 'PASS' if unit_exit == 0 and metamorphic_exit == 0 else 'FAIL'
+          static = json.loads(Path('fresh-gate-v1-static-audit.json').read_text())
+          receipt = {
+              'schema': 'data-science-dominance/fresh-gate-v1-unit-gate/1',
+              'verdict': verdict,
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'activation_sha': os.environ['GITHUB_SHA'],
+              'candidate_isolated': static['isolated'],
+              'unit_tests': {
+                  'total': total,
+                  'passed': passed,
+                  'failures': failures,
+                  'errors': errors,
+                  'exit_status': unit_exit,
+              },
+              'metamorphic_exit_status': metamorphic_exit,
+              'external_evaluation_count': 0,
+              'score_before': 465,
+              'score_after': 465,
+              'score_changed': False,
+              'fresh_external_gate_required': True,
+              'hashes': {
+                  **static['sha256'],
+                  'unit_log': hashlib.sha256(unit_log.encode()).hexdigest(),
+                  'metamorphic_log': hashlib.sha256(meta_log.encode()).hexdigest(),
+                  'metamorphic_receipt': hashlib.sha256(Path('fresh-gate-v1-metamorphic.json').read_bytes()).hexdigest() if Path('fresh-gate-v1-metamorphic.json').exists() else None,
+              },
+          }
+          payload = json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          Path('fresh-gate-v1-receipt.json').write_text(payload)
+          Path('fresh-gate-v1-receipt.sha256').write_text(hashlib.sha256(payload.encode()).hexdigest() + '  fresh-gate-v1-receipt.json\n')
+          status_root = Path('data_science_dominance/fresh_gate_v1')
+          (status_root / 'UNIT_GATE_STATUS.json').write_text(payload)
+          (status_root / 'UNIT_GATE_STATUS.md').write_text(
+              '# Fresh gate v1 — unit status\n\n'
+              f'**Verdict: {verdict}.**\n\n'
+              f'- Unit tests: `{passed}/{total}`; failures `{failures}`; errors `{errors}`.\n'
+              f'- Metamorphic stress: `{"PASS" if metamorphic_exit == 0 else "FAIL"}`.\n'
+              f'- Isolation: `{static["isolated"]}`.\n'
+              '- External evaluations: `0`.\n'
+              '- Score: `465/1000`; unchanged.\n'
+              '- Next step: freeze the integrated candidate, then execute one fresh external gate.\n'
+              f'- GitHub run: `{os.environ["GITHUB_RUN_ID"]}`.\n'
+          )
+          print(payload)
+          PY
+
+      - name: Preserve status in branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data_science_dominance/fresh_gate_v1/UNIT_GATE_STATUS.json \
+                  data_science_dominance/fresh_gate_v1/UNIT_GATE_STATUS.md
+          git commit -m 'Preserve fresh gate v1 unit status [skip ci]'
+          git push origin HEAD:agent/data-science-dominance-dab-slice
+
+      - name: Upload immutable unit evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-fresh-gate-v1-unit
+          retention-days: 90
+          path: |
+            data_science_dominance/fresh_gate_v1/UNIT_GATE_STATUS.json
+            data_science_dominance/fresh_gate_v1/UNIT_GATE_STATUS.md
+            fresh-gate-v1-static-audit.json
+            fresh-gate-v1-unit.log
+            fresh-gate-v1-metamorphic.log
+            fresh-gate-v1-metamorphic.json
+            fresh-gate-v1-receipt.json
+            fresh-gate-v1-receipt.sha256
+
+      - name: Enforce unit gate
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path('fresh-gate-v1-receipt.json').read_text())
+          if receipt['verdict'] != 'PASS':
+              raise SystemExit('Fresh gate v1 unit audit: FAIL; evidence preserved; score unchanged')
+          print('Fresh gate v1 unit audit: PASS; external evidence still required')
+          PY
