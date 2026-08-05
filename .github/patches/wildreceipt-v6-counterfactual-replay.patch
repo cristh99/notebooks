@@ -1,0 +1,110 @@
+--- a/ocr_real_risk_v1/wildreceipt_v6_policy_lab.py
++++ b/ocr_real_risk_v1/wildreceipt_v6_policy_lab.py
+@@ -124,6 +124,17 @@
+     return str(row["truth"])
+ 
+ 
++def _counterfactual_false(
++    row: Mapping[str, Any],
++    prediction: str | None,
++    policy_name: str,
++) -> bool:
++    if policy_name == "v5_current":
++        return bool(row["counterfactual"]["false_accept"])
++    return bool(
++        prediction is not None
++        and prediction == str(row["counterfactual_claim"])
++    )
++
++
+ def exact_summary(
+     rows: Sequence[Mapping[str, Any]],
+     policy: Policy,
+@@ -131,12 +142,14 @@
+     adjudicated: bool,
+     minimum_selected: int = MINIMUM_SELECTED,
+     minimum_accepted: int = MINIMUM_ACCEPTED,
++    policy_name: str = "development_policy",
+ ) -> dict[str, Any]:
+     selected = list(rows)
+     accepted: list[tuple[Mapping[str, Any], str]] = []
++    predictions: dict[str, str | None] = {}
+     for row in selected:
+         prediction = policy(row)
++        predictions[str(row["key"])] = prediction
+         if prediction is not None:
+             accepted.append((row, prediction))
+     false_accepted = sum(
+@@ -144,8 +157,11 @@
+         for row, prediction in accepted
+     )
+     counterfactual_false = sum(
+-        prediction == str(row["counterfactual_claim"])
+-        for row, prediction in accepted
++        _counterfactual_false(
++            row,
++            predictions[str(row["key"])],
++            policy_name,
++        )
++        for row in selected
+     )
+@@ -271,7 +287,13 @@
+     policy_results: dict[str, Any] = {}
+     for name, policy in POLICIES.items():
+         policy_results[name] = {
+             "original_labels": {
+-                "all": exact_summary(rows, policy, adjudicated=False),
++                "all": exact_summary(
++                    rows,
++                    policy,
++                    adjudicated=False,
++                    policy_name=name,
++                ),
+                 "train": exact_summary(
+                     train,
+                     policy,
+@@ -282,6 +304,7 @@
+                         MINIMUM_ACCEPTED, len(train), len(rows)
+                     ),
++                    policy_name=name,
+                 ),
+                 "test": exact_summary(
+                     test,
+@@ -293,10 +316,17 @@
+                         MINIMUM_ACCEPTED, len(test), len(rows)
+                     ),
++                    policy_name=name,
+                 ),
+             },
+             "label_adjudicated_sensitivity": {
+-                "all": exact_summary(rows, policy, adjudicated=True),
++                "all": exact_summary(
++                    rows,
++                    policy,
++                    adjudicated=True,
++                    policy_name=name,
++                ),
+                 "train": exact_summary(
+                     train,
+                     policy,
+@@ -307,6 +337,7 @@
+                         MINIMUM_ACCEPTED, len(train), len(rows)
+                     ),
++                    policy_name=name,
+                 ),
+                 "test": exact_summary(
+                     test,
+@@ -318,6 +349,7 @@
+                         MINIMUM_ACCEPTED, len(test), len(rows)
+                     ),
++                    policy_name=name,
+                 ),
+             },
+         }
+@@ -360,6 +392,7 @@
+                         MINIMUM_ACCEPTED, len(subset), len(rows)
+                     ),
++                    policy_name=selected_name,
+                 ),
+             }
+         )
