@@ -1,0 +1,92 @@
+name: Apply WildReceipt evaluator freeze patch v2
+
+on:
+  push:
+    branches:
+      - agent/ocr-consensus-detector-v4
+    paths:
+      - '.github/workflows/apply-wildreceipt-evaluator-freeze-patch-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-wildreceipt-evaluator-freeze-patch-v2-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+
+      - name: Bind evaluator into sources, tests, and freeze workflow
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              target = Path(path)
+              text = target.read_text(encoding='utf-8')
+              if new in text:
+                  return
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(
+                      f'{path}: expected one replacement target, found {count}'
+                  )
+              target.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          replace_once(
+              'ocr_real_risk_v1/numeric_consensus_candidate_v4_wildreceipt.py',
+              '    "ocr_real_risk_v1/wildreceipt_adapter.py",\n'
+              '    "ocr_real_risk_v1/numeric_consensus_candidate_v4_wildreceipt.py",',
+              '    "ocr_real_risk_v1/wildreceipt_adapter.py",\n'
+              '    "ocr_real_risk_v1/wildreceipt_external.py",\n'
+              '    "ocr_real_risk_v1/numeric_consensus_candidate_v4_wildreceipt.py",',
+          )
+          replace_once(
+              'ocr_real_risk_v1/test_numeric_consensus_candidate_v4_wildreceipt.py',
+              '        self.assertIn("ocr_real_risk_v1/wildreceipt_adapter.py", SOURCE_FILES)\n',
+              '        self.assertIn("ocr_real_risk_v1/wildreceipt_adapter.py", SOURCE_FILES)\n'
+              '        self.assertIn("ocr_real_risk_v1/wildreceipt_external.py", SOURCE_FILES)\n',
+          )
+          replace_once(
+              '.github/workflows/ocr-numeric-consensus-v4-wildreceipt-freeze.yml',
+              "      - 'ocr_real_risk_v1/wildreceipt_adapter.py'\n",
+              "      - 'ocr_real_risk_v1/wildreceipt_adapter.py'\n"
+              "      - 'ocr_real_risk_v1/wildreceipt_external.py'\n"
+              "      - 'ocr_real_risk_v1/test_wildreceipt_external.py'\n",
+          )
+          replace_once(
+              '.github/workflows/ocr-numeric-consensus-v4-wildreceipt-freeze.yml',
+              '            ocr_real_risk_v1.test_wildreceipt_adapter \\\n',
+              '            ocr_real_risk_v1.test_wildreceipt_adapter \\\n'
+              '            ocr_real_risk_v1.test_wildreceipt_external \\\n',
+          )
+          PY
+          python -m py_compile \
+            ocr_real_risk_v1/numeric_consensus_candidate_v4_wildreceipt.py \
+            ocr_real_risk_v1/test_numeric_consensus_candidate_v4_wildreceipt.py \
+            ocr_real_risk_v1/wildreceipt_external.py
+          grep -q '"ocr_real_risk_v1/wildreceipt_external.py"' \
+            ocr_real_risk_v1/numeric_consensus_candidate_v4_wildreceipt.py
+          grep -q 'test_wildreceipt_external' \
+            .github/workflows/ocr-numeric-consensus-v4-wildreceipt-freeze.yml
+
+      - name: Commit the pre-outcome evaluator binding
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            ocr_real_risk_v1/numeric_consensus_candidate_v4_wildreceipt.py \
+            ocr_real_risk_v1/test_numeric_consensus_candidate_v4_wildreceipt.py \
+            .github/workflows/ocr-numeric-consensus-v4-wildreceipt-freeze.yml
+          if ! git diff --cached --quiet; then
+            git commit -m 'Bind WildReceipt evaluator into frozen candidate'
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
