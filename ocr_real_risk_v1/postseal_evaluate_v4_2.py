@@ -40,8 +40,17 @@ def numeric_truth(text: str) -> str | None:
     match = _AMOUNT.fullmatch(str(text or ""))
     if match is None:
         return None
-    digits = canonical_digits(match.group(1))
-    if not 4 <= len(digits) <= 12 or _YEAR.fullmatch(digits):
+    numeric_lexeme = match.group(1)
+    digits = canonical_digits(numeric_lexeme)
+    has_decimal_separator = bool({".", ","} & set(numeric_lexeme))
+    # The frozen semantic trigger accepts short decimal amounts (for example
+    # 2.60), so post-seal truth parsing must preserve that same risk-unit scope.
+    minimum_digits = 2 if has_decimal_separator else 4
+    if not minimum_digits <= len(digits) <= 12:
+        return None
+    # Reject bare calendar years, but never reinterpret a decimal amount such
+    # as 20.00 as the year 2000 after punctuation removal.
+    if _YEAR.fullmatch(digits) and not has_decimal_separator:
         return None
     if len(digits) >= 6 and len(set(digits)) == 1:
         return None
@@ -116,6 +125,11 @@ def evaluate(sealed: dict[str, Any], annotation_dir: Path) -> dict[str, Any]:
         if not flags:
             continue
         path = annotation_dir / f"{page['stem']}.txt"
+        if not path.is_file():
+            for flag in flags:
+                rows.append({"stem": page["stem"], "token_index": flag["token_index"],
+                             "status": "ANNOTATION_NOT_AVAILABLE"})
+            continue
         truths = parse_annotations(path)
         receipts[page["stem"]] = {"sha256": sha256_path(path), "numeric_truths": len(truths)}
         for flag in flags:
@@ -146,12 +160,15 @@ def evaluate(sealed: dict[str, Any], annotation_dir: Path) -> dict[str, Any]:
         "accepted": len(accepted), "quarantined": len(evaluated) - len(accepted),
         "final_errors_among_accepted": sum(not row["final_correct_if_accepted"] for row in accepted),
         "false_replacements": sum(row["accepted"] and row["rival"] != row["truth"] for row in evaluated),
+        "unresolved": len(rows) - len(evaluated),
     }
     metrics["selective_coverage"] = metrics["accepted"] / metrics["evaluated"] if metrics["evaluated"] else None
-    return {"schema": "ocr-v4-2-postseal-evaluation/1", "metrics": metrics,
+    report = {"schema": "ocr-v4-2-postseal-evaluation/1", "metrics": metrics,
             "annotation_receipts": receipts, "rows": rows,
             "significance_look_performed": False,
             "annotations_used_at_inference": False}
+    report["stable_payload_sha256"] = hashlib.sha256(canonical_json(report).encode()).hexdigest()
+    return report
 
 
 def canonical_json(payload: dict[str, Any]) -> str:
