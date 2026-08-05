@@ -1,0 +1,49 @@
+{
+  "candidate": {
+    "path": "data_science_dominance/dab_usaspending_v3_dev/usaspending_fresh_engine.py",
+    "sha256": "fbd9fcb87f03471f843b659a00a21dbd424adb4e53faba1ce0501b094a99e07e"
+  },
+  "dab_commit": "9a55e34271a2500a41cbc009e239edd94599e374",
+  "development_ci": {
+    "external_dataset_values_accessed": false,
+    "ground_truth_accessed": false,
+    "query8_10_content_accessed": false,
+    "run_id": 31015760216,
+    "tests": "23/23 PASS",
+    "validators_executed": false
+  },
+  "engineering_regression": {
+    "expected_exposed_answers": {
+      "query5": 12,
+      "query6": 56,
+      "query7": 23
+    },
+    "promotion_points": 0,
+    "queries": [5, 6, 7],
+    "score_eligible": false,
+    "required_to_authorize_fresh_gate": "3/3 PASS"
+  },
+  "execution_policy": {
+    "answers_sealed_before_validator_checkout": true,
+    "candidate_network_access": false,
+    "merge_permitted": false,
+    "post_hoc_retuning_permitted": false,
+    "validators_execute_once_after_seal": true
+  },
+  "fresh_scope_reserved": [
+    "query_usaspending/query8",
+    "query_usaspending/query9",
+    "query_usaspending/query10"
+  ],
+  "fresh_scope_status": "unopened",
+  "regression_harness": {
+    "path": "data_science_dominance/dab_usaspending_v3_dev/regression_harness.py",
+    "sha256": "a1091f40903fda29cbe330f29ac9d4e4365935a6e75eca429a2c4a3086699e14"
+  },
+  "schema": "data-science-dominance/usaspending-v3-development-freeze/1",
+  "score_before": 465,
+  "tests": {
+    "path": "data_science_dominance/dab_usaspending_v3_dev/test_usaspending_fresh_engine.py",
+    "sha256": "1fe7d0c6399ef4105200aecf576a53b58422de0d8d77e0ba700333a1a8481cdb"
+  }
+}
