@@ -1,0 +1,65 @@
+{
+  "schema": "data-science-pipeline/browser-capture-source-manifest/1",
+  "base": {
+    "pipeline_v1_commit": "c7fdbec5be95f298f0bfbb23c8cd5ea7059b45b0",
+    "acquisition_v2_overlay_sha256": "11da5eea97bf3e2e8febdebba8109cbbd4d01d21de26d44356c20024602f3b23"
+  },
+  "browser_overlay": {
+    "tar_gzip_sha256": "21be4eb3d4d73cb763806bb2f1bb7bb68c18926b9a4099054a409fcb03353197",
+    "base64_sha256": "e0723066c37d62181536ae8be0c20eb06d6145cef601cc6e65bb7a4f168e64ae",
+    "parts": {
+      "part_00.b64": "bd23e380db9610095f7fc3fd38d4c65d0168c421fc989fb14534c5d09115276b",
+      "part_01.b64": "9f9cb3d8901445039919c1de0de250f9cd07f2b1238b32a20eb5141fc1a10bb3"
+    }
+  },
+  "files": {
+    "src/god_pipeline/browser_capture.py": "60fd85515aaa5aa4d82e373cc7d9a6df3d70b680aba5797a4ebd067937e84469",
+    "src/god_pipeline/browser_canary.py": "a4f32c01191bef22d429f02b388843bbc8522e08d8cb5880f2c0a0fbb6ad47d7",
+    "src/god_pipeline/__init__.py": "0d1beda49651d1b72e654e21693443aae5147b19e370725e11777a0597db7972",
+    "src/god_pipeline/cli.py": "025e3b31f2618722d1236b7e138063555ebfe466dbbef3c571e3e1861daf3d0b",
+    "tests/test_browser_capture.py": "557e92c17a28d51efc054764bf24cd76b6691eb269c5b01c39411e9de1b3b79a",
+    "canary/iaip-ip-348-browser-capture.json": "1f99b08e3b2bed9b47aaf84a5eb2d24d5c2aa4764b5e006b42da808ecf749711"
+  },
+  "live_capture": {
+    "source_url": "https://portalunico.iaip.gob.hn/348/",
+    "page_title": "Instituto de la Propiedad (IP) en PORTAL ÚNICO DE TRANSPARENCIA",
+    "provider": "openai-web-open",
+    "independent_renderer": "tinyfish-fetch-content",
+    "capture_mode": "rendered_extracted_text",
+    "origin_bytes_equivalent": false,
+    "capture_package_sha256": "1f99b08e3b2bed9b47aaf84a5eb2d24d5c2aa4764b5e006b42da808ecf749711",
+    "content_sha256": "d58e99970a34b0c4f197e270a41b7dc9f436dafcfcb974a9f1611200f3024573",
+    "content_bytes": 405,
+    "pipeline_manifest_sha256": "ad067bc3250d36abf22311c5a3c4ffdf80d20dc97c575e4a15b9e3738acc43ca",
+    "ledger_head_sha256": "6d4b70bd9a27a7c6bd8519e154c54d25bc3f87272d24893cbe50694ca8b77560",
+    "evidence_zip_sha256": "24a276d6b005a1f91af49c4c3ea8372284345bacdbade5457c95361bc7ee5376",
+    "verdict": "PASS"
+  },
+  "verification": {
+    "tests": "39/39 PASS",
+    "compileall": "PASS",
+    "accepted": 1,
+    "quarantined": 0,
+    "external_cost_usd": 0.0,
+    "gcloud": false,
+    "paid_compute": false
+  },
+  "pipeline_owned_policy": {
+    "trusted_capture_hosts": ["portalunico.iaip.gob.hn"],
+    "trusted_capture_providers": ["openai-web-open"],
+    "max_capture_bytes": 1000000,
+    "max_external_cost_usd": 0.0,
+    "fixed_challenge_tokens_cannot_be_disabled": true,
+    "parent_package_mutation_detected": true,
+    "credential_like_metadata_rejected": true,
+    "origin_bytes_equivalence_forbidden": true
+  },
+  "boundaries": {
+    "provider_provenance_signed": false,
+    "origin_response_bytes_captured": false,
+    "linked_document_bytes_captured": false,
+    "production_mass_acquisition_authorized": false,
+    "legal_authenticity_claim_authorized": false,
+    "required_next_gate": "bind provider session with AgentProof, EvalDossier, signed provider export, or equivalent portable receipt; acquire linked original document bytes separately"
+  }
+}
