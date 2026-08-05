@@ -1,0 +1,199 @@
+name: Data Science pipeline v2 — live IAIP and ONCAE acquisition canary
+
+on:
+  push:
+    branches:
+      - agent/data-science-canonical-pipeline-v2-acquisition
+    paths:
+      - '.github/workflows/data-science-pipeline-v2-acquisition-canary.yml'
+
+permissions:
+  contents: read
+
+env:
+  BASE_OUT: /tmp/canonical-pipeline-v1
+  EVIDENCE_ROOT: acquisition-v2-evidence
+
+jobs:
+  live-acquisition-canary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove one-shot workflow-only activation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_EVENT_NAME}" = push
+          test "${GITHUB_RUN_ATTEMPT}" = 1
+          test "$(git rev-parse HEAD^)" = 0d2b6269539cea072ecf550d0fca983a9926b7c2
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/data-science-pipeline-v2-acquisition-canary.yml'
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Reconstruct exact v1 and apply hash-locked v2 overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash data_science_pipeline_v1/reconstruct.sh "$BASE_OUT"
+          PIPELINE_ROOT="$BASE_OUT/canonical_data_science_pipeline_v1"
+          bash data_science_pipeline_v2_acquisition/apply_overlay.sh "$PIPELINE_ROOT"
+          mkdir -p "$EVIDENCE_ROOT"
+          cp data_science_pipeline_v2_acquisition/SOURCE_MANIFEST.json "$EVIDENCE_ROOT/source-manifest.json"
+          echo "PIPELINE_ROOT=$PIPELINE_ROOT" >> "$GITHUB_ENV"
+
+      - name: Run all unit and adversarial tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PIPELINE_ROOT"
+          PYTHONPATH=src python -m unittest discover -s tests -v \
+            2>&1 | tee "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/tests.log"
+          grep -q 'Ran 30 tests' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/tests.log"
+          grep -q '^OK$' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/tests.log"
+          PYTHONPATH=src python -m compileall -q src tests
+          python -m pip freeze | sort > "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/pip-freeze.txt"
+
+      - name: Execute bounded live canary once
+        shell: bash
+        run: |
+          set +e
+          cd "$PIPELINE_ROOT"
+          rm -rf "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/run"
+          PYTHONPATH=src python -m god_pipeline.cli acquisition-canary \
+            --root "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/run" \
+            canary/oncae-2025-md5.json \
+            canary/iaip-portal-home.json \
+            > "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/canary-output.json" \
+            2> "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/canary-stderr.log"
+          status=$?
+          echo "$status" > "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/canary-exit-status.txt"
+          exit 0
+
+      - name: Adjudicate preservation, quality, cost, and lineage
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          evidence = Path(os.environ['EVIDENCE_ROOT'])
+          run_root = evidence / 'run'
+          manifest_path = run_root / 'evidence' / 'manifest.json'
+          exit_path = evidence / 'canary-exit-status.txt'
+          exit_status = int(exit_path.read_text().strip()) if exit_path.exists() else None
+          manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else None
+
+          def digest(path: Path):
+              return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+
+          checks = {
+              'cli_exit_zero': exit_status == 0,
+              'manifest_exists': manifest is not None,
+              'pipeline_status_passed': bool(manifest and manifest.get('status') == 'passed'),
+              'two_stage_records': bool(manifest and len(manifest.get('stage_records', [])) == 2),
+              'external_cost_zero': bool(manifest and manifest.get('total_cost_usd', 0.0) == 0.0),
+          }
+          acquire = None
+          preserve = None
+          if manifest:
+              acquire = next((item for item in manifest['stage_records'] if item['stage'] == 'acquire'), None)
+              preserve = next((item for item in manifest['stage_records'] if item['stage'] == 'preserve_raw'), None)
+          checks.update({
+              'acquire_stage_passed': bool(acquire and acquire['status'] == 'passed'),
+              'requested_two': bool(acquire and acquire['metrics'].get('requested') == 2),
+              'downloaded_two': bool(acquire and acquire['metrics'].get('downloaded') == 2),
+              'zero_http_errors': bool(acquire and acquire['metrics'].get('http_errors') == 0),
+              'zero_media_errors': bool(acquire and acquire['metrics'].get('media_errors') == 0),
+              'zero_hash_mismatches': bool(acquire and acquire['metrics'].get('hash_mismatches') == 0),
+              'zero_size_errors': bool(acquire and acquire['metrics'].get('size_errors') == 0),
+              'preserve_stage_passed': bool(preserve and preserve['status'] == 'passed'),
+              'preserved_two': bool(preserve and preserve['counts'].get('accepted') == 2),
+          })
+
+          accepted = []
+          quarantined = []
+          if manifest:
+              for artifact in manifest.get('artifacts', []):
+                  if artifact.get('stage') == 'acquire' and artifact.get('state') == 'accepted':
+                      accepted.append(artifact)
+                  if artifact.get('state') == 'quarantined':
+                      quarantined.append(artifact)
+          checks['two_accepted_acquisition_artifacts'] = len(accepted) == 2
+          checks['zero_quarantined_artifacts'] = len(quarantined) == 0
+          checks['accepted_have_receipts'] = len(accepted) == 2 and all(
+              artifact.get('metadata', {}).get('receipt_uri') for artifact in accepted
+          )
+
+          files = []
+          if run_root.exists():
+              for path in sorted(item for item in run_root.rglob('*') if item.is_file()):
+                  files.append({
+                      'path': str(path.relative_to(run_root)),
+                      'bytes': path.stat().st_size,
+                      'sha256': digest(path),
+                  })
+          receipt = {
+              'schema': 'data-science-pipeline/live-acquisition-canary/2',
+              'verdict': 'PASS' if all(checks.values()) else 'FAIL',
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_run_attempt': int(os.environ['GITHUB_RUN_ATTEMPT']),
+              'github_sha': os.environ['GITHUB_SHA'],
+              'checks': checks,
+              'canary_requests': ['oncae-hc1-2025-md5', 'iaip-portal-home'],
+              'mass_download_authorized': False,
+              'gcloud_used': False,
+              'paid_compute_used': False,
+              'external_cost_usd': 0.0 if manifest is None else manifest.get('total_cost_usd', 0.0),
+              'pipeline_manifest_hash': None if manifest is None else manifest.get('manifest_hash'),
+              'ledger_head_hash': None if manifest is None else manifest.get('ledger_head_hash'),
+              'accepted_count': len(accepted),
+              'quarantined_count': len(quarantined),
+              'files': files,
+              'hashes': {
+                  'overlay_tar_gzip_sha256': '11da5eea97bf3e2e8febdebba8109cbbd4d01d21de26d44356c20024602f3b23',
+                  'acquisition_source_sha256': '66bf6cebba06ac9c11e189759201d45dba64a7a98b2d265639c4c65e77da3a57',
+                  'tests_sha256': '62f7ba0f848c2e51412408e497797ee71d865e04daeea9f870027bd61989dae1',
+                  'source_manifest_sha256': digest(evidence / 'source-manifest.json'),
+                  'tests_log_sha256': digest(evidence / 'tests.log'),
+                  'canary_output_sha256': digest(evidence / 'canary-output.json'),
+              },
+              'known_boundary': 'DNS preflight is not an IP-pinned connection; production mass acquisition remains blocked.',
+          }
+          payload = json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          (evidence / 'canary-receipt.json').write_text(payload)
+          (evidence / 'canary-receipt.sha256').write_text(
+              hashlib.sha256(payload.encode()).hexdigest() + '  canary-receipt.json\n'
+          )
+          print(payload)
+          PY
+
+      - name: Upload complete immutable canary evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-pipeline-v2-live-acquisition-canary
+          retention-days: 90
+          if-no-files-found: error
+          path: acquisition-v2-evidence/**
+
+      - name: Enforce live canary verdict
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path('acquisition-v2-evidence/canary-receipt.json').read_text())
+          if receipt['verdict'] != 'PASS':
+              failed = [name for name, passed in receipt['checks'].items() if not passed]
+              raise SystemExit(f'live acquisition canary failed: {failed}; evidence preserved')
+          print('live acquisition canary: PASS — both sources preserved with receipts and USD 0 cost')
+          PY
