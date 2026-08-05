@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 
 from .selective_risk_certificate_v4 import (
+    bonferroni_per_look_family_alpha,
     build_certificate,
     minimum_zero_residual_flags,
 )
@@ -89,6 +90,57 @@ class SelectiveRiskCertificateV4Tests(unittest.TestCase):
         with self.assertRaises(ValueError):
             minimum_zero_residual_flags(
                 baseline_error_fraction=1.0, accepted_fraction=0.0
+            )
+        with self.assertRaises(ValueError):
+            bonferroni_per_look_family_alpha(planned_looks=0)
+
+    def test_three_look_plan_spends_alpha_and_raises_thresholds(self) -> None:
+        per_look = bonferroni_per_look_family_alpha(
+            overall_family_alpha=0.05, planned_looks=3
+        )
+        self.assertAlmostEqual(per_look, 0.05 / 3.0)
+        self.assertEqual(
+            minimum_zero_residual_flags(
+                baseline_error_fraction=1.0,
+                accepted_fraction=1.0,
+                family_alpha=per_look,
+            ),
+            51,
+        )
+        self.assertEqual(
+            minimum_zero_residual_flags(
+                baseline_error_fraction=0.8,
+                accepted_fraction=0.8,
+                family_alpha=per_look,
+            ),
+            87,
+        )
+        self.assertEqual(
+            minimum_zero_residual_flags(
+                baseline_error_fraction=0.5,
+                accepted_fraction=0.8,
+                family_alpha=per_look,
+            ),
+            148,
+        )
+
+    def test_unadjusted_single_look_thresholds_do_not_pass_at_three_look_alpha(self) -> None:
+        per_look = bonferroni_per_look_family_alpha(
+            overall_family_alpha=0.05, planned_looks=3
+        )
+        for flagged, baseline_errors, accepted in (
+            (39, 39, 39),
+            (67, 53, 53),
+            (114, 57, 91),
+        ):
+            self.assertFalse(
+                build_certificate(
+                    flagged_claims=flagged,
+                    baseline_errors=baseline_errors,
+                    accepted_claims=accepted,
+                    final_errors=0,
+                    family_alpha=per_look,
+                ).pass_10x
             )
 
     def test_invalid_counts_are_rejected(self) -> None:
