@@ -7,7 +7,8 @@
     "Every selected operation separates at least one live operational decision conflict",
     "Terminal, superseded, repeated-failure, and repeated-NOOP fixtures receive the exact expected recommendation",
     "Unknown or observationally indistinguishable cases remain UNKNOWN or IMPOSSIBLE instead of being mutated",
-    "Deterministic replay produces the same decision packet and semantic digest"
+    "Deterministic replay produces the same decision packet and semantic digest",
+    "Persistent schema or Dive changes require an explicit diff, rollback, and separate confirmation"
   ],
   "inputs": [
     "Operational decision and terminal property",
@@ -15,7 +16,7 @@
     "External job states, leases, watermarks, costs, permissions, and provenance locations"
   ],
   "kill_switch": true,
-  "lifecycle": "candidate",
+  "lifecycle": "canary",
   "name": "motherduck-ops-governor",
   "outputs": [
     "Lease-safe KEEP, BACKOFF, RETIRE, REPAIR, ON-DEMAND, ANALYTIC-ASSET, or BLOCKED recommendation",
@@ -34,7 +35,14 @@
     "skills/motherduck-ops-governor/reference.py",
     "tests/test_skill_governor_motherduck_ops.py",
     "evidence/motherduck-ops-governor-v1/candidate-evaluation.json",
-    "dives/motherduck-operations-control.tsx"
+    "evidence/motherduck-ops-governor-v1/candidate-to-draft.json",
+    "evidence/motherduck-ops-governor-v1/draft-to-canary.json",
+    "evidence/motherduck-ops-governor-v1/shadow-application-v2.json",
+    "evidence/motherduck-ops-governor-v1/shadow-application-v3.json",
+    "evidence/motherduck-ops-governor-v1/shadow-application-v4.json",
+    "dives/motherduck-operations-control.tsx",
+    "sql/motherduck-ops-control-plane.sql",
+    "sql/motherduck-ops-control-plane.rollback.sql"
   ],
   "schema_version": "1.0",
   "sources": [
@@ -58,6 +66,13 @@
       "notes": "Machine-checkable skill lifecycle, trust tiers, permissions, provenance, and deterministic validation.",
       "role": "implementation",
       "url": "https://github.com/cristh99/my_first_repository/pull/110"
+    },
+    {
+      "commit": "30ba1e7d798e53d64040cbde6960e66abf6975a4",
+      "id": "motherduck-ops-governor-public-capsule",
+      "notes": "Independent public finite Canary: static findings 0, secret findings 0, 22/22 fixtures, 62,208 exhaustive configurations, 0 candidate-oracle mismatches, five tests PASS, run 30972065130 SUCCESS, artifact 8916879166.",
+      "role": "evidence",
+      "url": "https://github.com/cristh99/notebooks/pull/93"
     },
     {
       "id": "motherduck-flight-governor-guide",
@@ -86,5 +101,5 @@
     "REJECTED"
   ],
   "trust_tier": "T1",
-  "version": "0.1.0"
+  "version": "0.3.4"
 }
