@@ -1,5 +1,5 @@
 {
-  "schema": "data-science-pipeline/browser-capture-source-manifest/2",
+  "schema": "data-science-pipeline/browser-capture-source-manifest/3",
   "base": {
     "pipeline_v1_commit": "c7fdbec5be95f298f0bfbb23c8cd5ea7059b45b0",
     "acquisition_v2_overlay_sha256": "11da5eea97bf3e2e8febdebba8109cbbd4d01d21de26d44356c20024602f3b23"
@@ -13,7 +13,9 @@
       "part_00_01.b64": "7f3116d9a9d0b84039bf269e5e8574eb070896769de6aa6dfb60301e37ca06a2",
       "part_00_02.b64": "456da3483c8460a3ca2c401d02b9b9a6dd1f8ea15ef68eb54c5ff9027a4abc97",
       "part_00_03.b64": "23770bd5ad55728513530fd12ab58b77aaab6511811c7ab849e34df5654d206e",
-      "part_01.b64": "9f9cb3d8901445039919c1de0de250f9cd07f2b1238b32a20eb5141fc1a10bb3"
+      "part_01_00.b64": "871a0c58cad4a5a19b94c8f01cccbe9ea05c480c4aa8087ca1a057a757927d67",
+      "part_01_01.b64": "e9c0818dd7bdf5bd152fabb874a08ccdf0dc88a12e6d43b14c0a7826ea6a3b5a",
+      "part_01_02.b64": "e929043a26acdc6ed965f607e50f167b4300bff694020815682f3e4d6ef0ae88"
     }
   },
   "files": {
