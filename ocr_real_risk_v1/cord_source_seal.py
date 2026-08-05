@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import string
 import urllib.request
 from pathlib import Path
 from typing import Any, Mapping
@@ -40,6 +41,15 @@ def fetch_metadata(timeout: float = 60.0) -> Mapping[str, Any]:
         return json.load(response)
 
 
+def normalize_lfs_oid(lfs: Mapping[str, Any]) -> str:
+    raw = str(lfs.get("sha256") or lfs.get("oid") or "").lower()
+    if raw.startswith("sha256:"):
+        raw = raw.removeprefix("sha256:")
+    if len(raw) != 64 or any(character not in string.hexdigits for character in raw):
+        return ""
+    return f"sha256:{raw}"
+
+
 def seal(metadata: Mapping[str, Any]) -> dict[str, Any]:
     revision = str(metadata.get("sha") or "")
     if len(revision) != 40:
@@ -54,9 +64,9 @@ def seal(metadata: Mapping[str, Any]) -> dict[str, Any]:
         if row is None:
             raise RuntimeError(f"missing expected dataset file: {path}")
         lfs = row.get("lfs") or {}
-        oid = str(lfs.get("oid") or "")
+        oid = normalize_lfs_oid(lfs)
         size = int(lfs.get("size") or row.get("size") or 0)
-        if not oid.startswith("sha256:") or len(oid) != 71:
+        if not oid:
             raise RuntimeError(f"missing SHA-256 LFS oid for {path}")
         if size <= 0:
             raise RuntimeError(f"missing positive source size for {path}")
