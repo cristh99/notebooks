@@ -1,0 +1,207 @@
+{
+  "candidate_id": "numeric-consensus-v4",
+  "constraints": {
+    "external_spend_usd": 0,
+    "gcloud_used": false,
+    "gpu_used": false,
+    "paid_api_used": false,
+    "production_modified": false
+  },
+  "decision": {
+    "automatic_production_change": false,
+    "candidate_frozen_before_coru_outcomes": true,
+    "external_certificate_claimed": false,
+    "honduras_production_ready": false,
+    "production_ready": false,
+    "ready_for_one_coru_external_evaluation": true,
+    "tenfold_reduction_claimed": false
+  },
+  "detector": {
+    "configuration": {
+      "guard_mode": "psm7_any",
+      "id": "broad-v2-conflict-ok-psm7_any",
+      "minimum_distinct_psm_votes": 2,
+      "psm_set": "broad",
+      "psms": [
+        3,
+        4,
+        6,
+        11,
+        12
+      ],
+      "reject_equal_length_conflict": false,
+      "uses_annotation_bbox_for_candidate_construction": false,
+      "uses_truth_for_candidate_construction": false
+    },
+    "development_artifact_id": 8919281422,
+    "development_artifact_zip_sha256": "766be199eafc3f87437359a39d1685fb4dd67772643cb459f845a24a838bf6a1",
+    "development_evidence_file": "cord_v4_development_evidence.json",
+    "development_evidence_sha256": "171d74f6b5d2c7e137b91c487be1910992ef0eb066ca42df9428fe25acf49d43",
+    "development_stable_payload_sha256": "cdad9018a3049848ad86fc53ce9a4a201391b8d36c2106d8239160226692b58b"
+  },
+  "development_evidence": {
+    "accepted": 319,
+    "baseline_errors": 46,
+    "counterfactual_false_accepts": 0,
+    "coverage_lower": 0.2882547927213468,
+    "coverage_observed": 0.32124874118831825,
+    "eligible": 504,
+    "internal_only": true,
+    "natural_false_accepts": 0,
+    "reduction_lower": 4.73797137470466,
+    "selected": 993
+  },
+  "digit_model": {
+    "artifact_id": 8917522937,
+    "artifact_zip_sha256": "080b0efd4b91a180a1a5c6acd767d72e0a8f286718e64eb90d8ec9d370d2dc17",
+    "candidate_id": "digit-forest-v3",
+    "candidate_stable_payload_sha256": "0f88d94af81e0f7921e654e452059d2075b07ee35bcffd83dd8b02ebdd9e93a1",
+    "model_file": "model/digit_forest.joblib",
+    "model_sha256": "53229915331c2bbea2454f9e7cb5768a26e9edb30de750747f4397f1ff4cf92c",
+    "threshold": 0.25,
+    "tree_count": 500
+  },
+  "external_protocol": {
+    "component": "Receipt",
+    "dataset": "abdoelsayed/CORU",
+    "evaluation_files": [
+      "Receipt/labels.txt",
+      "Receipt/test.json",
+      "Receipt/test.zip"
+    ],
+    "exact_gates": {
+      "alpha_per_leg_bonferroni": 0.0125,
+      "baseline_errors_must_be_positive": true,
+      "candidate_upper_must_not_exceed_baseline_lower_divided_by_10": true,
+      "counterfactual_maximum_upper": 0.01,
+      "family_alpha": 0.05,
+      "minimum_accepted": 900,
+      "minimum_coverage_lower": 0.25,
+      "minimum_selected_physical_locations": 3000,
+      "target_error_reduction": 10.0
+    },
+    "expected_published_test_receipts": 3700,
+    "inference": {
+      "annotation_bbox_available": false,
+      "candidate_psms": [
+        3,
+        4,
+        6,
+        11,
+        12
+      ],
+      "crop_guard": "independent PSM-7 gray or autocontrast reading equals claim",
+      "digit_forest_threshold": 0.25,
+      "input": "complete original receipt image",
+      "minimum_distinct_psm_votes": 2,
+      "reject_equal_length_conflict": false,
+      "threshold_change_after_outcomes": false,
+      "truth_available": false
+    },
+    "post_pass_limit": {
+      "honduras_production_readiness_claimed": false,
+      "production_change_automatic": false,
+      "separate_honduras_domain_validation_required": true
+    },
+    "power_plan": {
+      "conservative_selected_target": 3065,
+      "coru_test_expected_receipts": 3700,
+      "development_accepted": 319,
+      "development_baseline_errors": 46,
+      "development_selected": 993,
+      "planning_only_not_a_certificate": true,
+      "plugin_projection_selected_for_10x_if_rates_hold": 1889
+    },
+    "protocol_id": "coru-receipt-test-numeric-v1",
+    "revision": "c3c4b97b232bbe03046c78a974f516d439c1124e",
+    "risk_unit": "one SHA-256-selected 4-12 digit annotation per physical receipt",
+    "selection": {
+      "deduplicate_by": "decoded image SHA-256 plus annotation bbox",
+      "normalization": "Unicode digits normalized to ASCII; currency and separators removed; standalone years and repeated-digit junk excluded",
+      "performed_before_ocr": true,
+      "uses_candidate_outcome": false,
+      "uses_ocr_output": false
+    }
+  },
+  "external_source_binding": {
+    "component": "Receipt",
+    "dataset_id": "abdoelsayed/CORU",
+    "outcomes_opened_before_freeze": false,
+    "resolved_revision": "c3c4b97b232bbe03046c78a974f516d439c1124e",
+    "source_seal_file": "coru_receipt_source_seal_v1.json",
+    "source_seal_file_sha256": "23b7a24cb4953d1ee6e446a75e90487374e3070cc39cd73801cab7e9902cf1a5",
+    "source_seal_stable_payload_sha256": "d97900ffadd1871f2062bb33f44dd69a10a2bcb298b187e079673037e87edeb3"
+  },
+  "runtime": {
+    "deterministic_threads": 1,
+    "requirements": [
+      "python==3.11",
+      "tesseract==5.3.4",
+      "Pillow==12.2.0",
+      "numpy==2.2.6",
+      "opencv-python-headless==4.10.0.84",
+      "scikit-learn==1.8.0",
+      "joblib==1.5.3",
+      "pyarrow==18.1.0",
+      "pytesseract==0.3.13"
+    ],
+    "requirements_file": "requirements.lock",
+    "requirements_sha256": "5606a8f15d52a6c851dd4c5fa294ca7192463eeaedabe9f224a02ee7da517fe4"
+  },
+  "schema": "ocr-numeric-consensus-candidate/4",
+  "source_commit": "6e253f9af6ccea495bd86e109989dc7ea2d2c90f",
+  "source_files": [
+    {
+      "path": "ocr_real_risk_v1/__init__.py",
+      "sha256": "1cd68e0a02747c798f9d384c57b75684d44ee3d59dfcaa1696b2ad6db9de4384",
+      "size_bytes": 57
+    },
+    {
+      "path": "ocr_real_risk_v1/core.py",
+      "sha256": "23593784005eccf9136077d29c29f5f934b7650ab60924a83a2458db932718d0",
+      "size_bytes": 11262
+    },
+    {
+      "path": "ocr_real_risk_v1/exact_bounds.py",
+      "sha256": "8eaf9ef1c9bcbca3ededbc9a248c3be6872f9131dd3173da82453eca26d29763",
+      "size_bytes": 3690
+    },
+    {
+      "path": "ocr_real_risk_v1/pixel_digit_alignment.py",
+      "sha256": "09499a8891949fc487f55cf8b9e533d464ce71fb1a4bcc9fdbd353d61a80ec91",
+      "size_bytes": 15834
+    },
+    {
+      "path": "ocr_real_risk_v1/numeric_digit_forest.py",
+      "sha256": "9df796379701098cab3e8dd99793f1635b53aa44114352a27d405fc59d85ef50",
+      "size_bytes": 32281
+    },
+    {
+      "path": "ocr_real_risk_v1/numeric_digit_forest_deterministic.py",
+      "sha256": "7f29776775d5ec5b790153b0a2d5318e3088288da4c53438220fa40a5c83c76e",
+      "size_bytes": 1223
+    },
+    {
+      "path": "ocr_real_risk_v1/sroie_natural_holdout.py",
+      "sha256": "daf0c8ba59c184b0843f098a1981ab388bc63467b1e829931a9365b9516d212f",
+      "size_bytes": 30317
+    },
+    {
+      "path": "ocr_real_risk_v1/cord_natural_holdout.py",
+      "sha256": "e0383bf79fc1b9960c177f8ca61db5e4793a524ba0f9ddff7d7406100b6d97d2",
+      "size_bytes": 42737
+    },
+    {
+      "path": "ocr_real_risk_v1/cord_consensus_detector_v4.py",
+      "sha256": "e2a5dc4fad9af4e4751f6afd650297ee3f7d7adf4a559eef193e734ceff9e422",
+      "size_bytes": 44167
+    },
+    {
+      "path": "ocr_real_risk_v1/numeric_consensus_candidate_v4.py",
+      "sha256": "a63b942026740651287c142a06d7940ff82aa06e971cf90eb69e15adf7614729",
+      "size_bytes": 16940
+    }
+  ],
+  "stable_payload_sha256": "8fc819660df1a17f9d8e4027e5193281be6f44b5087b07adcd1240e651a2ad6c",
+  "status": "FROZEN_FOR_UNTOUCHED_CORU_EXTERNAL_VALIDATION_ONLY"
+}
