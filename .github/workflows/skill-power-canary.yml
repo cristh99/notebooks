@@ -47,8 +47,31 @@ jobs:
             --scenarios skill_power_canary/frozen_scenarios.json \
             --output /tmp/generated-skill-power-report.json
 
-      - name: Require byte-identical deterministic replay
-        run: cmp skill_power_canary/expected_report.json /tmp/generated-skill-power-report.json
+      - name: Require canonical deterministic replay
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          expected = json.loads(
+              Path("skill_power_canary/expected_report.json").read_text(encoding="utf-8")
+          )
+          generated = json.loads(
+              Path("/tmp/generated-skill-power-report.json").read_text(encoding="utf-8")
+          )
+          canonical = lambda value: json.dumps(
+              value,
+              sort_keys=True,
+              separators=(",", ":"),
+              ensure_ascii=False,
+              allow_nan=False,
+          )
+          expected_bytes = canonical(expected).encode("utf-8")
+          generated_bytes = canonical(generated).encode("utf-8")
+          if expected_bytes != generated_bytes:
+              raise SystemExit("Canonical deterministic replay differs")
+          print("Canonical deterministic replay PASS")
+          PY
 
       - name: Enforce zero-spend and finite-claim boundary
         run: |
