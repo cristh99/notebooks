@@ -1,0 +1,85 @@
+{
+  "annotation_bytes_read": 0,
+  "archives_downloaded": 0,
+  "component": "Receipt",
+  "dataset_id": "abdoelsayed/CORU",
+  "dataset_rows_read": 0,
+  "images_opened": 0,
+  "labels_read": 0,
+  "license": "mit",
+  "object_count": 7,
+  "objects": [
+    {
+      "download_url": "https://huggingface.co/datasets/abdoelsayed/CORU/resolve/c3c4b97b232bbe03046c78a974f516d439c1124e/Receipt/labels.txt?download=true",
+      "identity": {
+        "algorithm": "sha256",
+        "digest": "4d7ee3c5720620f15791980c30514e110a89c64f40c6b1f9a296b2523ba46555"
+      },
+      "path": "Receipt/labels.txt",
+      "size_bytes": 31
+    },
+    {
+      "download_url": "https://huggingface.co/datasets/abdoelsayed/CORU/resolve/c3c4b97b232bbe03046c78a974f516d439c1124e/Receipt/test.json?download=true",
+      "identity": {
+        "algorithm": "sha256",
+        "digest": "f9bd21061515ca79ce1ceecf0837faa8c1f418eaa406fc6d38c6eff012ee6ab7"
+      },
+      "path": "Receipt/test.json",
+      "size_bytes": 5022111
+    },
+    {
+      "download_url": "https://huggingface.co/datasets/abdoelsayed/CORU/resolve/c3c4b97b232bbe03046c78a974f516d439c1124e/Receipt/test.zip?download=true",
+      "identity": {
+        "algorithm": "sha256",
+        "digest": "351d1c5a2ab1ef12399787679563fbc9922a8d18e0f6296e16d7db0e0a4f7f41"
+      },
+      "path": "Receipt/test.zip",
+      "size_bytes": 1057581808
+    },
+    {
+      "download_url": "https://huggingface.co/datasets/abdoelsayed/CORU/resolve/c3c4b97b232bbe03046c78a974f516d439c1124e/Receipt/train.json?download=true",
+      "identity": {
+        "algorithm": "sha256",
+        "digest": "40b3af75daa88bc9f6cefe4681d4894a1a544dccdeddba98e2a1bccb6d2537b7"
+      },
+      "path": "Receipt/train.json",
+      "size_bytes": 10816731
+    },
+    {
+      "download_url": "https://huggingface.co/datasets/abdoelsayed/CORU/resolve/c3c4b97b232bbe03046c78a974f516d439c1124e/Receipt/train.zip?download=true",
+      "identity": {
+        "algorithm": "sha256",
+        "digest": "5b90cce9f5f0075b0546b95256a2de4bebf539a9a30a56f64263db9ef7521f25"
+      },
+      "path": "Receipt/train.zip",
+      "size_bytes": 9391051323
+    },
+    {
+      "download_url": "https://huggingface.co/datasets/abdoelsayed/CORU/resolve/c3c4b97b232bbe03046c78a974f516d439c1124e/Receipt/val.json?download=true",
+      "identity": {
+        "algorithm": "sha256",
+        "digest": "17989a121c88eecb97d1f260c978aab747b1dba3487897b00a5d2baa829ab1b6"
+      },
+      "path": "Receipt/val.json",
+      "size_bytes": 1090261
+    },
+    {
+      "download_url": "https://huggingface.co/datasets/abdoelsayed/CORU/resolve/c3c4b97b232bbe03046c78a974f516d439c1124e/Receipt/val.zip?download=true",
+      "identity": {
+        "algorithm": "sha256",
+        "digest": "2d9c0736a80a4ca7ce874672b2198d8780eff28595c6a832005229c10792cbff"
+      },
+      "path": "Receipt/val.zip",
+      "size_bytes": 1245238944
+    }
+  ],
+  "ocr_executed": false,
+  "outcomes_opened": false,
+  "purpose": "reserve an immutable fresh external receipt corpus before freezing or evaluating numeric-consensus-v4",
+  "repository_metadata_only": true,
+  "resolved_revision": "c3c4b97b232bbe03046c78a974f516d439c1124e",
+  "schema": "ocr-coru-receipt-source-seal/1",
+  "stable_payload_sha256": "d97900ffadd1871f2062bb33f44dd69a10a2bcb298b187e079673037e87edeb3",
+  "total_archive_bytes": 11693872075,
+  "total_source_bytes": 11710801209
+}
