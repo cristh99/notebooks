@@ -1,11 +1,18 @@
 {
-  "schema": "data-science-dominance/dab-slice-freeze/1",
+  "schema": "data-science-dominance/dab-slice-freeze/2",
   "candidate": {
     "path": "data_science_dominance/dab_slice/dab_slice_agent.py",
-    "sha256": "8ad0fbfa88c5ca62afd0110c249f72c097bc8bb938978092f9f3c5e178c6fd1e",
+    "sha256": "77ad131788a384cf030c2dad0ad7628fac4ad5a30c221f5e7206004a9403d1b2",
     "frozen_before_dataset_values": true,
     "frozen_before_ground_truth": true,
-    "frozen_before_validator_execution": true
+    "frozen_before_validator_execution": true,
+    "public_query_schema_hint_accessed": true,
+    "public_corruption_generator_accessed": true
+  },
+  "tests": {
+    "sha256": "511b053ed8f72a9f43ba9451a5a8e6b2228bae3374b80f339004e7b0234d93be",
+    "gzip_sha256": "94b21c296801c0c84ce156d5baae44d6a87ccd2d9510615c61d3fbfd3b582964",
+    "base64_sha256": "4098a2397025955b9c23b09fb6f9c5e404bc71a5db2602b230c4a70c6fd9229b"
   },
   "scope": [
     "civic_unstructured/query1",
@@ -20,26 +27,29 @@
     "SQLite querying",
     "DuckDB querying",
     "PostgreSQL querying",
-    "ill-formatted key normalization",
+    "32-family CVE corruption decoding with cross-source disambiguation",
+    "OCR-equivalence and prefix-aware identifier resolution",
     "unstructured temporal record extraction",
-    "textual money parsing",
+    "105-format textual money parsing with superseded-row rejection",
+    "vendor-alias resolution",
     "cross-database aggregation"
   ],
-  "prohibitions": {
-    "candidate_ground_truth_access": true,
-    "candidate_validator_access": true,
-    "candidate_network_access": true,
-    "post_hoc_retuning_before_first_official_verdict": true
+  "execution_policy": {
+    "candidate_may_access_ground_truth": false,
+    "candidate_may_import_or_read_validators": false,
+    "candidate_network_access": false,
+    "post_hoc_retuning_before_first_official_verdict": false,
+    "official_validation_runs_after_candidate_outputs_are_sealed": true
   },
   "transport": {
     "encoding": "gzip+base64",
     "part_count": 3,
     "part_sha256": [
-      "8b063a0afa3d7526f0e6f4207916aec49b95f092f03107247540218f9e508493",
-      "1674cf45d58af056d313fcfb2d81efcea85938c6af08e7a17d154086772b9878",
-      "b8424b6221b7729bce893dc98f2a1d680e0479076f772c69749cfefc8dcb60b4"
+      "97f3781fac1f91ccb5987657a2121fe6fdfb1e4c00b980fc99bddb2051be7d0a",
+      "792c0a56583f31a86b6449236052cfa89e4f0a60fd762249e71f5100ee1e865e",
+      "2c62d0ee046d134cc4094a0a0ba83853a343309e0a11612952e93e7dc5647515"
     ],
-    "concatenated_base64_sha256": "7918803dffc7f698f2dab39c584f2253d3e6f1aeaf992b3a6b1eb577f05258a8",
-    "gzip_sha256": "1b825b9879b34541763a5ea89a8f1e6c6d0405ac07e31416a806a8bc1b87c49d"
+    "concatenated_base64_sha256": "3ac7eb11748b0e8899c4aac1d885adbdb8b1854431e9632c42e7f33f5bc1160c",
+    "gzip_sha256": "a0ad0478d43942078b74f00680d8b0203f1b56c5c0d52fb7ccb7174f67a63ab1"
   }
 }
