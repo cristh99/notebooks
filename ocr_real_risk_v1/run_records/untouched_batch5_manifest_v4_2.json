@@ -1,0 +1,42 @@
+{
+  "candidate_commit": "fe8865e9182f8ef62babcc1bdda0ac4c107cebfd",
+  "constraints": {
+    "annotations_opened": false,
+    "external_spend_usd": 0.0,
+    "gcloud_used": false,
+    "github_actions_used": false,
+    "gpu_used": false,
+    "ocr_run": false,
+    "paid_api_used": false,
+    "production_modified": false,
+    "significance_look_performed": false
+  },
+  "governance": {
+    "alpha_spending_plan": "51 -> 87 -> 148",
+    "candidate_change_from_batch_outcomes_allowed": false,
+    "first_significance_look_at_accumulated_flags": 51,
+    "open_annotations_only_after_flag_decisions_sealed": true
+  },
+  "schema": "ocr-v4-2-untouched-batch5-manifest/1",
+  "selection": {
+    "basis": "next fifteen previously unused image identities in the pre-existing Drive folder order after batch4, skipping all development and prior sealed identities",
+    "images": [
+      {"drive_file_id":"1gsPl2nsfiuMP4Rq3D59eJjdd6J4Uqw1d","order":1,"stem":"X51008042792"},
+      {"drive_file_id":"1KYniNs_rb3p6GedAWkmF_a6M6aLgSegK","order":2,"stem":"X51008064061"},
+      {"drive_file_id":"1KR_nsexF0VMPB1DBpu9uYSekPQ4GfaW0","order":3,"stem":"X51008042791"},
+      {"drive_file_id":"14ULPY9m0IF3DBSySoU8MQw2exqM1tTOg","order":4,"stem":"X51008042793"},
+      {"drive_file_id":"1DjWkrbekakv4YCaYi6FuLfOYYXjJOn_g","order":5,"stem":"X51008042783"},
+      {"drive_file_id":"1oqQmq_TotYaIbN3KGWCLZDnTAcpjP9ZC","order":6,"stem":"X51008042782"},
+      {"drive_file_id":"1AhpEISIBrkv-sLZ6lbeBOuuHHO06n1MN","order":7,"stem":"X51008030566"},
+      {"drive_file_id":"1FBxmlbubbT8w585PEZHpOdEaoFs8cP_K","order":8,"stem":"X51008042777"},
+      {"drive_file_id":"151_TC89NKYfbEedV8z7lR6JYLjsKkdcG","order":9,"stem":"X51008042778"},
+      {"drive_file_id":"1fkiThwL4X57SQUAYesVFE4I0qyk_ScFW","order":10,"stem":"X51008030560"},
+      {"drive_file_id":"1geDcma1GBaVP5PFU6POSt1JRGkUjKWY5","order":11,"stem":"X51008030565"},
+      {"drive_file_id":"1d34I2WVDCH8vcjYGLuJp_NI3IsU4yRa8","order":12,"stem":"X51007391372"},
+      {"drive_file_id":"1UZ9Ov1idY4jy7asPCNhzF12VwnYZmFxL","order":13,"stem":"X51007339657"},
+      {"drive_file_id":"1XTI1iP4ufKNdYYVZV6jTpeDFJE3zvlQ4","order":14,"stem":"X51007419197"},
+      {"drive_file_id":"1jMzpcxWLa2tep7mxywyroxS-BpWYLewa","order":15,"stem":"X51007339658"}
+    ]
+  },
+  "status": "PRE_OUTCOME_SELECTION_SEALED"
+}
