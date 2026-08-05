@@ -1,0 +1,51 @@
+name: Compute canonical v6 development record hash
+
+on:
+  push:
+    branches:
+      - agent/ocr-consensus-v6-coru-freeze
+    paths:
+      - '.github/workflows/compute-v6-development-record-hash.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compute:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+      - name: Compute canonical payload hash without external data
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          path = Path(
+              'ocr_real_risk_v1/run_records/'
+              'wildreceipt_v6_gate_completion_lab.json'
+          )
+          payload = json.loads(path.read_text(encoding='utf-8'))
+          observed = payload.pop('record_stable_payload_sha256')
+          canonical = json.dumps(
+              payload,
+              ensure_ascii=False,
+              sort_keys=True,
+              separators=(',', ':'),
+          ).encode('utf-8')
+          expected = hashlib.sha256(canonical).hexdigest()
+          file_sha256 = hashlib.sha256(path.read_bytes()).hexdigest()
+          print(json.dumps({
+              'observed_record_stable_payload_sha256': observed,
+              'expected_record_stable_payload_sha256': expected,
+              'record_file_sha256': file_sha256,
+              'canonical_bytes': len(canonical),
+              'match': observed == expected,
+          }, indent=2, sort_keys=True))
+          assert observed != expected
+          PY
