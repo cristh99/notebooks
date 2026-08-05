@@ -1,8 +1,11 @@
 {
-  "schema": "data-science-dominance/dab-slice-freeze/2",
+  "schema": "data-science-dominance/dab-slice-freeze/3",
   "candidate": {
     "path": "data_science_dominance/dab_slice/dab_slice_agent.py",
-    "sha256": "77ad131788a384cf030c2dad0ad7628fac4ad5a30c221f5e7206004a9403d1b2",
+    "parent_sha256": "77ad131788a384cf030c2dad0ad7628fac4ad5a30c221f5e7206004a9403d1b2",
+    "patch_path": "data_science_dominance/dab_slice/apply_dab_slice_patch_v3.py",
+    "patch_git_blob_sha": "25a235b016939c0f0d6343533fe90ce14e308f95",
+    "sha256": "0796f1d66d944e832181034f6e8e8800461b60d71e66716d5b19fe3fd1957dec",
     "frozen_before_dataset_values": true,
     "frozen_before_ground_truth": true,
     "frozen_before_validator_execution": true,
@@ -31,6 +34,7 @@
     "OCR-equivalence and prefix-aware identifier resolution",
     "unstructured temporal record extraction",
     "105-format textual money parsing with superseded-row rejection",
+    "award-entity deduplication across multiple contract surface forms",
     "vendor-alias resolution",
     "cross-database aggregation"
   ],
@@ -42,7 +46,7 @@
     "official_validation_runs_after_candidate_outputs_are_sealed": true
   },
   "transport": {
-    "encoding": "gzip+base64",
+    "encoding": "gzip+base64 parent plus deterministic source patch",
     "part_count": 3,
     "part_sha256": [
       "97f3781fac1f91ccb5987657a2121fe6fdfb1e4c00b980fc99bddb2051be7d0a",
@@ -51,5 +55,13 @@
     ],
     "concatenated_base64_sha256": "3ac7eb11748b0e8899c4aac1d885adbdb8b1854431e9632c42e7f33f5bc1160c",
     "gzip_sha256": "a0ad0478d43942078b74f00680d8b0203f1b56c5c0d52fb7ccb7174f67a63ab1"
+  },
+  "synthetic_failure_history": {
+    "run_id": 30989775767,
+    "official_dataset_values_accessed": false,
+    "ground_truth_accessed": false,
+    "validators_executed": false,
+    "failure": "USAspending synthetic duplicate contract surfaces were counted twice",
+    "correction": "deduplicate by resolved primary amount-row entity id"
   }
 }
