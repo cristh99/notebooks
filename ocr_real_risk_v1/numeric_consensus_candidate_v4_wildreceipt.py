@@ -1,8 +1,10 @@
-"""Freeze numeric-consensus-v4 for untouched WildReceipt validation.
+"""Freeze numeric-consensus-v4 after geometry discovery but before OCR.
 
-The source corpus was sealed before v4 development. This candidate binds the
-selected detector, byte-frozen digit forest, crop guard, one-unit-per-receipt
-adapter, exact gates, runtime, and source bytes before any Parquet row is read.
+The immutable WildReceipt objects were reserved before v4 development. A later
+manifest-only attempt revealed that the mirror uses LayoutLM-normalized boxes;
+no OCR binary or candidate inference ran. This candidate binds the corrected
+projection, detector, byte-frozen forest, guard, risk unit, exact gates, and
+runtime before any OCR outcome is generated.
 """
 from __future__ import annotations
 
@@ -181,10 +183,17 @@ def external_protocol() -> dict[str, Any]:
         },
         "power_plan": {
             "published_receipt_rows_from_hub_metadata": 1739,
+            "maximum_possible_selected_unique_receipts": 1739,
+            "minimum_selected_unique_receipts": 1200,
+            "minimum_selection_yield_required": 0.6900517538815412,
             "development_selected": 993,
             "development_accepted": 319,
-            "development_baseline_errors": 46,
-            "projected_selected_for_10x_if_rates_hold": 1889,
+            "development_acceptance_rate": 0.32124874118831825,
+            "minimum_selected_for_projected_400_accepts": 1246,
+            "minimum_selection_yield_for_projected_400_accepts": (
+                0.7165037377803335
+            ),
+            "finite_population_feasibility": True,
             "underpower_is_an_allowed_terminal_result": True,
             "planning_only_not_a_certificate": True,
         },

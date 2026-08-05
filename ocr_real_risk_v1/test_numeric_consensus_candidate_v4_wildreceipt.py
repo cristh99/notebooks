@@ -57,9 +57,16 @@ class NumericConsensusCandidateV4WildReceiptTests(unittest.TestCase):
             1200,
         )
         self.assertEqual(protocol["exact_gates"]["minimum_accepted"], 400)
-        self.assertTrue(
-            protocol["power_plan"]["underpower_is_an_allowed_terminal_result"]
+        power = protocol["power_plan"]
+        self.assertEqual(power["maximum_possible_selected_unique_receipts"], 1739)
+        self.assertEqual(power["minimum_selected_unique_receipts"], 1200)
+        self.assertEqual(power["minimum_selected_for_projected_400_accepts"], 1246)
+        self.assertLessEqual(
+            power["minimum_selected_for_projected_400_accepts"],
+            power["maximum_possible_selected_unique_receipts"],
         )
+        self.assertTrue(power["finite_population_feasibility"])
+        self.assertTrue(power["underpower_is_an_allowed_terminal_result"])
         self.assertFalse(
             protocol["claim_limits"]["untouched_external_certificate_claimed"]
         )
