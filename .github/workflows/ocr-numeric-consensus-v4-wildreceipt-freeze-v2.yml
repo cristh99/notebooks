@@ -1,0 +1,323 @@
+name: OCR numeric-consensus-v4 WildReceipt freeze v2
+
+on:
+  push:
+    branches:
+      - agent/ocr-consensus-detector-v4
+    paths:
+      - 'ocr_real_risk_v1/wildreceipt_adapter.py'
+      - 'ocr_real_risk_v1/test_wildreceipt_adapter.py'
+      - 'ocr_real_risk_v1/wildreceipt_external.py'
+      - 'ocr_real_risk_v1/test_wildreceipt_external.py'
+      - 'ocr_real_risk_v1/numeric_consensus_candidate_v4_wildreceipt.py'
+      - 'ocr_real_risk_v1/test_numeric_consensus_candidate_v4_wildreceipt.py'
+      - '.github/workflows/ocr-numeric-consensus-v4-wildreceipt-freeze-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: ocr-numeric-consensus-v4-wildreceipt-freeze-v2-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  MODEL_ARTIFACT_ID: '8917522937'
+  MODEL_ARTIFACT_DIGEST: 080b0efd4b91a180a1a5c6acd767d72e0a8f286718e64eb90d8ec9d370d2dc17
+  DEVELOPMENT_ARTIFACT_ID: '8919281422'
+  DEVELOPMENT_ARTIFACT_DIGEST: 766be199eafc3f87437359a39d1685fb4dd67772643cb459f845a24a838bf6a1
+  MODEL_SHA256: 53229915331c2bbea2454f9e7cb5768a26e9edb30de750747f4397f1ff4cf92c
+  DEVELOPMENT_STABLE_SHA256: cdad9018a3049848ad86fc53ce9a4a201391b8d36c2106d8239160226692b58b
+  SOURCE_SEAL_STABLE_SHA256: 7775f57d92aa293b05e45298179154f54a3ffec1adb73087434fe54a1aa731f5
+  GITHUB_TOKEN: ${{ github.token }}
+  PYTHONHASHSEED: '0'
+  OMP_THREAD_LIMIT: '1'
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  NUMEXPR_NUM_THREADS: '1'
+
+jobs:
+  freeze:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 20
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Install pinned deterministic CPU runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            tesseract-ocr tesseract-ocr-eng \
+            fonts-dejavu-core fonts-lato
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13
+      - name: Tests and compilation before Parquet access
+        run: |
+          python -m unittest -v \
+            ocr_real_risk_v1.test_wildreceipt_source_seal \
+            ocr_real_risk_v1.test_wildreceipt_adapter \
+            ocr_real_risk_v1.test_wildreceipt_external \
+            ocr_real_risk_v1.test_numeric_consensus_candidate_v4_wildreceipt \
+            ocr_real_risk_v1.test_cord_consensus_detector_v4 \
+            ocr_real_risk_v1.test_numeric_digit_forest
+          python -m compileall -q ocr_real_risk_v1
+      - name: Verify WildReceipt remains unopened since the pre-v4 source seal
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.wildreceipt_source_seal import verify
+          path = Path(
+              'ocr_real_risk_v1/source_seals/wildreceipt_source_seal_v1.json'
+          )
+          payload = json.loads(path.read_text())
+          assert verify(payload)
+          assert payload['stable_payload_sha256'] == \
+              '7775f57d92aa293b05e45298179154f54a3ffec1adb73087434fe54a1aa731f5'
+          assert payload['resolved_revision'] == \
+              'cedafaf3c8b0246c9fad68af29324d655715ad12'
+          assert payload['repository_metadata_only'] is True
+          assert payload['parquet_shards_downloaded'] == 0
+          assert payload['dataset_rows_read'] == 0
+          assert payload['images_opened'] == 0
+          assert payload['annotations_opened'] == 0
+          assert payload['ocr_executed'] is False
+          assert payload['object_count'] == 3
+          print({
+              'resolved_revision': payload['resolved_revision'],
+              'stable_payload_sha256': payload['stable_payload_sha256'],
+              'total_source_bytes': payload['total_source_bytes'],
+              'outcomes_opened': False,
+          })
+          PY
+      - name: Recover and verify frozen digit-forest-v3 bytes
+        run: |
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${MODEL_ARTIFACT_ID}/zip" \
+            --output model-artifact.zip
+          echo "${MODEL_ARTIFACT_DIGEST}  model-artifact.zip" | \
+            sha256sum --check --strict
+          mkdir model-artifact
+          unzip -q model-artifact.zip -d model-artifact
+          (
+            cd model-artifact/frozen-digit-forest-v3
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+          test "$(sha256sum model-artifact/frozen-digit-forest-v3/digit_forest.joblib | cut -d' ' -f1)" = \
+            "${MODEL_SHA256}"
+      - name: Recover and verify detector-v4 development evidence
+        run: |
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${DEVELOPMENT_ARTIFACT_ID}/zip" \
+            --output development-artifact.zip
+          echo "${DEVELOPMENT_ARTIFACT_DIGEST}  development-artifact.zip" | \
+            sha256sum --check --strict
+          mkdir development-artifact
+          unzip -q development-artifact.zip -d development-artifact
+          (
+            cd development-artifact/cord-v4-development
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.sroie_natural_holdout import verify_stable_payload
+          path = Path(
+              'development-artifact/cord-v4-development/'
+              'cord_consensus_detector_v4_development.json'
+          )
+          report = json.loads(path.read_text())
+          assert verify_stable_payload(report, 'stable_payload_sha256')
+          assert report['stable_payload_sha256'] == \
+              'cdad9018a3049848ad86fc53ce9a4a201391b8d36c2106d8239160226692b58b'
+          assert report['metrics']['all']['selected'] == 993
+          assert report['metrics']['all']['eligible'] == 504
+          assert report['metrics']['all']['baseline_errors'] == 46
+          assert report['metrics']['all']['final_accepted'] == 319
+          assert report['metrics']['all']['natural_false_accepts'] == 0
+          assert report['metrics']['all']['counterfactual_false_accepts'] == 0
+          assert report['decision']['external_certificate'] is False
+          assert report['decision']['production_ready'] is False
+          PY
+      - name: Build complete candidate twice from identical unopened inputs
+        run: |
+          rm -rf frozen-wildreceipt-v4-complete-a frozen-wildreceipt-v4-complete-b
+          for output in \
+            frozen-wildreceipt-v4-complete-a \
+            frozen-wildreceipt-v4-complete-b; do
+            python -m ocr_real_risk_v1.numeric_consensus_candidate_v4_wildreceipt \
+              --repository-root . \
+              --model-root model-artifact/frozen-digit-forest-v3 \
+              --development-report \
+                development-artifact/cord-v4-development/cord_consensus_detector_v4_development.json \
+              --source-seal \
+                ocr_real_risk_v1/source_seals/wildreceipt_source_seal_v1.json \
+              --source-commit "${GITHUB_SHA}" \
+              --output-dir "${output}" \
+              > "${output}-stdout.json"
+          done
+          diff -rq \
+            frozen-wildreceipt-v4-complete-a \
+            frozen-wildreceipt-v4-complete-b
+          diff \
+            frozen-wildreceipt-v4-complete-a/SHA256SUMS.txt \
+            frozen-wildreceipt-v4-complete-b/SHA256SUMS.txt
+      - name: Independent complete-candidate gates
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.core import sha256_file
+          from ocr_real_risk_v1.numeric_consensus_candidate_v4_wildreceipt import (
+              CANDIDATE_ID,
+              CANDIDATE_SCHEMA,
+              SOURCE_FILES,
+              SOURCE_OBJECTS,
+              verify_manifest,
+          )
+          from ocr_real_risk_v1.wildreceipt_source_seal import verify as verify_source
+
+          roots = [
+              Path('frozen-wildreceipt-v4-complete-a'),
+              Path('frozen-wildreceipt-v4-complete-b'),
+          ]
+          manifests = []
+          for root in roots:
+              manifest = json.loads((root / 'frozen_candidate.json').read_text())
+              manifests.append(manifest)
+              assert manifest['schema'] == CANDIDATE_SCHEMA
+              assert manifest['candidate_id'] == CANDIDATE_ID
+              assert verify_manifest(manifest)
+              assert manifest['source_commit'] == '${{ github.sha }}'
+              assert manifest['external_source_binding'][
+                  'source_seal_stable_payload_sha256'
+              ] == '${{ env.SOURCE_SEAL_STABLE_SHA256 }}'
+              assert manifest['external_source_binding'][
+                  'outcomes_opened_before_freeze'
+              ] is False
+              protocol = manifest['external_protocol']
+              assert protocol['source_objects'] == SOURCE_OBJECTS
+              assert protocol['selection']['performed_before_ocr'] is True
+              assert protocol['selection']['uses_ocr_output'] is False
+              assert protocol['selection']['uses_candidate_outcome'] is False
+              assert protocol['selection'][
+                  'deduplicate_receipts_across_shards'
+              ] == 'decoded image SHA-256'
+              assert protocol['exact_gates']['target_error_reduction'] == 10.0
+              assert protocol['exact_gates'][
+                  'minimum_selected_unique_receipts'
+              ] == 1200
+              assert protocol['exact_gates']['minimum_accepted'] == 400
+              assert manifest['decision'][
+                  'candidate_frozen_before_wildreceipt_outcomes'
+              ] is True
+              assert manifest['decision'][
+                  'ready_for_one_wildreceipt_external_evaluation'
+              ] is True
+              assert manifest['decision']['external_certificate_claimed'] is False
+              assert manifest['decision']['tenfold_reduction_claimed'] is False
+              assert manifest['decision']['production_ready'] is False
+              assert manifest['decision']['honduras_production_ready'] is False
+              assert manifest['constraints']['external_spend_usd'] == 0
+              assert manifest['constraints']['production_modified'] is False
+              expected_sources = set(SOURCE_FILES)
+              assert 'ocr_real_risk_v1/wildreceipt_external.py' in expected_sources
+              assert {row['path'] for row in manifest['source_files']} == expected_sources
+              for row in manifest['source_files']:
+                  assert sha256_file(root / 'source' / row['path']) == row['sha256']
+              assert (root / 'source/ocr_real_risk_v1/wildreceipt_external.py').is_file()
+              source_seal = json.loads(
+                  (root / manifest['external_source_binding']['source_seal_file']).read_text()
+              )
+              assert verify_source(source_seal)
+              assert source_seal['dataset_rows_read'] == 0
+              assert source_seal['images_opened'] == 0
+              assert source_seal['annotations_opened'] == 0
+              assert sha256_file(root / 'model/digit_forest.joblib') == \
+                  manifest['digit_model']['model_sha256']
+          assert manifests[0] == manifests[1]
+          print(json.dumps({
+              'candidate_id': manifests[0]['candidate_id'],
+              'source_commit': manifests[0]['source_commit'],
+              'stable_payload_sha256': manifests[0]['stable_payload_sha256'],
+              'wildreceipt_revision': manifests[0]['external_source_binding'][
+                  'resolved_revision'
+              ],
+              'evaluator_sha256': next(
+                  row['sha256']
+                  for row in manifests[0]['source_files']
+                  if row['path'] == 'ocr_real_risk_v1/wildreceipt_external.py'
+              ),
+              'outcomes_opened_before_freeze': False,
+          }, indent=2, sort_keys=True))
+          PY
+          (
+            cd frozen-wildreceipt-v4-complete-a
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+          (
+            cd frozen-wildreceipt-v4-complete-b
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          roots = [
+              Path('frozen-wildreceipt-v4-complete-a'),
+              Path('frozen-wildreceipt-v4-complete-b'),
+          ]
+          payload = {
+              root.name: hashlib.sha256(
+                  (root / 'SHA256SUMS.txt').read_bytes()
+              ).hexdigest()
+              for root in roots
+          }
+          assert len(set(payload.values())) == 1
+          Path('deterministic-build-replay.json').write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + '\n'
+          )
+          print(payload)
+          PY
+      - id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-numeric-consensus-v4-wildreceipt-complete-frozen
+          path: |
+            frozen-wildreceipt-v4-complete-a
+            deterministic-build-replay.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Record complete frozen manifest without model bytes
+        run: |
+          mkdir -p ocr_real_risk_v1/frozen_candidates
+          cp frozen-wildreceipt-v4-complete-a/frozen_candidate.json \
+            ocr_real_risk_v1/frozen_candidates/numeric_consensus_v4_wildreceipt_complete_manifest.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            ocr_real_risk_v1/frozen_candidates/numeric_consensus_v4_wildreceipt_complete_manifest.json
+          if ! git diff --cached --quiet; then
+            git commit -m '[skip ci] Record complete frozen WildReceipt candidate'
+            git fetch origin "${GITHUB_REF_NAME}"
+            git rebase "origin/${GITHUB_REF_NAME}"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
