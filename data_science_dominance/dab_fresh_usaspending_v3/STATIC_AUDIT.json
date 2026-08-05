@@ -1,0 +1,18 @@
+{
+  "schema": "data-science-dominance/fresh-usaspending-v3-static-audit/1",
+  "candidate_git_blob_sha": "e47d36a43790dd5294c99796e4b85155de87e90b",
+  "test_git_blob_sha": "42100d9d69838eeb58230eaa4d09ed9bdd6a3144",
+  "base_v2_candidate_sha256": "76d240d4f4bb1ed5a87f32c18ae92e7629b971f761577eb16d2b5deccf57ef8f",
+  "query8_10_literals_present": false,
+  "validator_or_ground_truth_literals_present": false,
+  "network_or_process_imports_added": false,
+  "dataset_identifier_branching_added": false,
+  "capability_delta": [
+    "arbitrary-width NAICS dimension aggregation",
+    "registry-level canonical recipient grouping",
+    "multiple-UEI entity statistics",
+    "V2 fallback retained for all unrelated requests"
+  ],
+  "official_evaluation_count": 0,
+  "score_after_audit": 465
+}
