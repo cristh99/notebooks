@@ -1,0 +1,72 @@
+{
+  "branch": "agent/data-science-dominance-dab-stockindex-v1",
+  "candidate": {
+    "frozen_before_official_dataset_values": true,
+    "frozen_before_query2_3_content": true,
+    "frozen_before_query2_3_ground_truth": true,
+    "frozen_before_query2_3_validators": true,
+    "network_access": false,
+    "path": "data_science_dominance/dab_stockindex_v1/stockindex_engine.py",
+    "post_hoc_retuning_permitted": false,
+    "sha256": "937b07e5913653b2a8cfc63174f33e0bffd5be8300739a77409690ce18554eae"
+  },
+  "dab_commit": "9a55e34271a2500a41cbc009e239edd94599e374",
+  "dab_repository": "ucbepic/DataAgentBench",
+  "dataset_contract": {
+    "indexInfo_query.db": {
+      "bytes": 8192,
+      "sha256": "976511f3eb213269c81b286dd4517e4948b3d3bb776e221559943f0439916b55"
+    },
+    "indextrade_query.db": {
+      "bytes": 4468736,
+      "sha256": "12e9cf350be2a6396f6be9f0c2bb057013859956bc8269952dc7a85008973bb1"
+    }
+  },
+  "execution_policy": {
+    "answers_sealed_before_validator_access": true,
+    "cost_usd": 0,
+    "gcloud": false,
+    "merge_permitted": false,
+    "paid_compute": false,
+    "validators_execute_once_each": true
+  },
+  "held_out_scope": [
+    "query_stockindex/query2",
+    "query_stockindex/query3"
+  ],
+  "logic_power_decision": {
+    "reason": "smallest fresh external gate with prior query1 success and distinct relational/temporal semantics",
+    "rejected": "more USAspending and BookReview retuning because those holdouts are exposed",
+    "selected_front": "query_stockindex/query2-3"
+  },
+  "prohibited_pre_freeze_inputs": [
+    "query_stockindex/query2/query.json",
+    "query_stockindex/query2/validate.py",
+    "query_stockindex/query2/ground_truth.csv",
+    "query_stockindex/query3/query.json",
+    "query_stockindex/query3/validate.py",
+    "query_stockindex/query3/ground_truth.csv"
+  ],
+  "promotion_rule": {
+    "novelty_points": 0,
+    "pass_0_or_1_points": 0,
+    "pass_2_of_2_points": 25
+  },
+  "public_inputs_accessed": [
+    "query_stockindex/db_description.txt",
+    "query_stockindex/db_description_withhint.txt",
+    "query_stockindex/db_config.yaml",
+    "query_stockindex/query1/query.json",
+    "query_stockindex/query1/validate.py",
+    "dataset_manifest.tsv"
+  ],
+  "schema": "data-science-dominance/stockindex-v1-freeze/1",
+  "score_before": 465,
+  "source_base_sha": "4676c5500f9938ba59a77091f3d4e1870f2fb534",
+  "tests": {
+    "count": 13,
+    "path": "data_science_dominance/dab_stockindex_v1/test_stockindex_engine.py",
+    "result": "PASS",
+    "sha256": "768743f79adfc16a16e689277f2f48b4952418058f6dad048436388df146d257"
+  }
+}
