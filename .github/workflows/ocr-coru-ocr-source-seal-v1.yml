@@ -1,0 +1,118 @@
+name: OCR CORU untouched OCR source seal v1
+
+on:
+  push:
+    branches:
+      - agent/ocr-consensus-detector-v4
+    paths:
+      - 'ocr_real_risk_v1/coru_ocr_source_seal.py'
+      - 'ocr_real_risk_v1/test_coru_ocr_source_seal.py'
+      - '.github/workflows/ocr-coru-ocr-source-seal-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ocr-coru-ocr-source-seal-v1-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  source-seal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Unit tests and compilation before metadata access
+        run: |
+          python -m unittest -v ocr_real_risk_v1.test_coru_ocr_source_seal
+          python -m compileall -q \
+            ocr_real_risk_v1/coru_ocr_source_seal.py \
+            ocr_real_risk_v1/test_coru_ocr_source_seal.py
+      - name: Seal repository metadata without opening OCR archives
+        run: |
+          rm -rf coru-ocr-source-seal
+          mkdir -p coru-ocr-source-seal
+          python -m ocr_real_risk_v1.coru_ocr_source_seal \
+            --output coru-ocr-source-seal/coru_ocr_source_seal_v1.json \
+            | tee coru-ocr-source-seal/stdout.json
+      - name: Independent fail-closed replay
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.coru_ocr_source_seal import (
+              COMPONENT,
+              DATASET_ID,
+              EXPECTED_FILES,
+              MINIMUM_TOTAL_BYTES,
+              verify,
+          )
+          root = Path('coru-ocr-source-seal')
+          path = root / 'coru_ocr_source_seal_v1.json'
+          payload = json.loads(path.read_text())
+          assert verify(payload)
+          assert payload['dataset_id'] == DATASET_ID
+          assert payload['component'] == COMPONENT
+          assert len(payload['resolved_revision']) == 40
+          assert payload['license'] == 'mit'
+          assert payload['repository_metadata_only'] is True
+          assert payload['archives_downloaded'] == 0
+          assert payload['archive_members_listed'] == 0
+          assert payload['labels_read'] == 0
+          assert payload['images_opened'] == 0
+          assert payload['ocr_executed'] is False
+          assert payload['outcomes_opened'] is False
+          assert payload['object_count'] == 3
+          assert {row['path'] for row in payload['objects']} == set(EXPECTED_FILES)
+          assert payload['total_source_bytes'] >= MINIMUM_TOTAL_BYTES
+          assert all(len(row['sha256']) == 64 for row in payload['objects'])
+          assert all(row['size_bytes'] > 0 for row in payload['objects'])
+          assert all(payload['resolved_revision'] in row['download_url'] for row in payload['objects'])
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          (root / 'SHA256SUMS.txt').write_text(
+              f'{digest}  coru_ocr_source_seal_v1.json\n'
+          )
+          (root / 'ATTRIBUTION.md').write_text(
+              '# Attribution\n\n'
+              '`abdoelsayed/CORU` OCR component, MIT license. '
+              'This stage reads repository metadata only; no archive member, '
+              'label, image, row, OCR outcome, or benchmark result was opened.\n'
+          )
+          print(json.dumps({
+              'resolved_revision': payload['resolved_revision'],
+              'objects': payload['objects'],
+              'total_source_bytes': payload['total_source_bytes'],
+              'stable_payload_sha256': payload['stable_payload_sha256'],
+              'manifest_file_sha256': digest,
+              'outcomes_opened': False,
+          }, indent=2, sort_keys=True))
+          PY
+          (
+            cd coru-ocr-source-seal
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-coru-ocr-source-seal-v1
+          path: coru-ocr-source-seal
+          if-no-files-found: error
+          retention-days: 90
+      - name: Record immutable OCR source seal on isolated branch
+        run: |
+          mkdir -p ocr_real_risk_v1/source_seals
+          cp coru-ocr-source-seal/coru_ocr_source_seal_v1.json \
+            ocr_real_risk_v1/source_seals/coru_ocr_source_seal_v1.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ocr_real_risk_v1/source_seals/coru_ocr_source_seal_v1.json
+          if ! git diff --cached --quiet; then
+            git commit -m '[skip ci] Record untouched CORU OCR source seal'
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
