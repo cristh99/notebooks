@@ -1,0 +1,58 @@
+{
+  "schema": "data-science-dominance/fresh-usaspending-v3-official-result/1",
+  "verdict": "FAIL",
+  "score_before": 465,
+  "score_after": 465,
+  "promotion_points": 0,
+  "candidate": {
+    "sha256": "b963b2579756dbe6900da06c2c49de6c81d80354af83073e6572226e25811621",
+    "retuned_after_freeze": false
+  },
+  "github": {
+    "run_id": 31023664997,
+    "run_attempt": 1,
+    "sha": "906204499f82caad6e5fd6a606565697935d8338"
+  },
+  "artifact": {
+    "id": 8937788141,
+    "name": "fresh-usaspending-v3-official",
+    "zip_sha256": "73e703653144ef5b7c837998f6c0652caf54a57af18e6619a89f7366ade37093"
+  },
+  "chain_of_custody": {
+    "answers_sealed_before_ground_truth_access": true,
+    "validators_executed_once_each": true,
+    "post_hoc_retuning_permitted": false,
+    "answer_manifest_sha256": "3b18fb6b0cb85459dfd07e3a76b8884661840d66f3f9650d8d95577c45008388",
+    "official_harness_sha256": "c69b3021578c4ca478716415abd4bbb7c98e08896ac5e5d433de6ac445abdda2",
+    "official_validation_sha256": "bf73e051cd0f64a9723d34700fc28bb576c663b41f4d77e1127f87374a9872d3",
+    "external_receipt_sha256": "91978765f0a857a4c8bc4ff60ef31567af3c59986cd7becafe166899afe5a709"
+  },
+  "results": [
+    {
+      "query_number": 8,
+      "answer": "60",
+      "expected": "25",
+      "passed": false,
+      "diagnosis": "The planner did not bind Lockheed Martin as a recipient filter, so it counted all qualifying Department of Defense awards."
+    },
+    {
+      "query_number": 9,
+      "answer": "77",
+      "expected": "147",
+      "passed": false,
+      "diagnosis": "English-language absence syntax was not recognized and residual cross-table amount/description entity resolution remained incomplete."
+    },
+    {
+      "query_number": 10,
+      "answer": "ten award IDs with value 1",
+      "expected": "141",
+      "passed": false,
+      "diagnosis": "The planner ranked awards rather than recipients and the loader discarded superseded amount rows instead of retaining their existence for a second-stage count."
+    }
+  ],
+  "retirement": {
+    "all_usaspending_queries_1_through_10_exposed": true,
+    "suite_permitted_for_future_promotion": false,
+    "future_use": "diagnostic and regression testing only"
+  }
+}
