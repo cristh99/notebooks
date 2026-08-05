@@ -106,7 +106,7 @@ def _naics_answer(plan: Any, awards: Sequence[Any], width: int):
         count = int(top_match.group(1))
         ordered = sorted(scored, key=lambda item: (item[1], item[0]) if minimize else (-item[1], item[0]))[:count]
         return [_base.RankedAnswer(code, value, True) for code, value in ordered]
-    return tied[0] if len(tied) == 1 else tuple(tied)
+    return tied[0]
 
 
 def _recipient_registry_groups() -> dict[str, list[Any]]:
