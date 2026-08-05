@@ -25,7 +25,7 @@ jobs:
           set -euo pipefail
           test "${GITHUB_EVENT_NAME}" = 'push'
           test "${GITHUB_RUN_ATTEMPT}" = '1'
-          test "$(git rev-parse HEAD^)" = 'fe09aee08cf07c626081ecd2e0408de33037d506'
+          test "$(git rev-parse HEAD^)" = 'b83063440e14d5384479b2de06f7b9494496060d'
           test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/data-science-dominance-dab-slice-synthetic.yml'
 
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
@@ -81,7 +81,7 @@ jobs:
           print(json.dumps(receipt, indent=2, sort_keys=True))
           if violations or forbidden_strings:
               raise SystemExit('candidate isolation audit failed')
-          if receipt['candidate_sha256'] != '77ad131788a384cf030c2dad0ad7628fac4ad5a30c221f5e7206004a9403d1b2':
+          if receipt['candidate_sha256'] != '0796f1d66d944e832181034f6e8e8800461b60d71e66716d5b19fe3fd1957dec':
               raise SystemExit('candidate hash mismatch')
           PY
 
@@ -90,7 +90,7 @@ jobs:
         run: |
           set -euo pipefail
           cd data_science_dominance/dab_slice
-          python -m unittest -v test_dab_slice_agent.py 2>&1 | tee ../../../dab-slice-synthetic-tests.log
+          python -m unittest -v test_dab_slice_agent.py 2>&1 | tee ../../dab-slice-synthetic-tests.log
 
       - name: Seal synthetic gate receipt
         if: always()
@@ -102,15 +102,17 @@ jobs:
           log = Path('dab-slice-synthetic-tests.log')
           passed = log.exists() and '\nOK\n' in ('\n' + log.read_text() + '\n')
           receipt = {
-              'schema': 'data-science-dominance/dab-slice-synthetic-gate/1',
+              'schema': 'data-science-dominance/dab-slice-synthetic-gate/2',
               'verdict': 'PASS' if passed else 'FAIL',
               'official_dataset_values_accessed': False,
               'ground_truth_accessed': False,
               'validators_executed': False,
               'github_run_id': int(os.environ['GITHUB_RUN_ID']),
               'github_sha': os.environ['GITHUB_SHA'],
+              'prior_synthetic_failure_run_id': 30989775767,
               'hashes': {
                   'candidate_sha256': hashlib.sha256((root / 'dab_slice_agent.py').read_bytes()).hexdigest(),
+                  'patch_git_blob_sha': '25a235b016939c0f0d6343533fe90ce14e308f95',
                   'tests_sha256': hashlib.sha256((root / 'test_dab_slice_agent.py').read_bytes()).hexdigest(),
                   'freeze_sha256': hashlib.sha256((root / 'DAB_SLICE_FREEZE.json').read_bytes()).hexdigest(),
                   'test_log_sha256': hashlib.sha256(log.read_bytes()).hexdigest() if log.exists() else None,
@@ -126,10 +128,11 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: data-science-dominance-dab-slice-synthetic
+          name: data-science-dominance-dab-slice-synthetic-v2
           retention-days: 90
           path: |
             data_science_dominance/dab_slice/dab_slice_agent.py
+            data_science_dominance/dab_slice/apply_dab_slice_patch_v3.py
             data_science_dominance/dab_slice/test_dab_slice_agent.py
             data_science_dominance/dab_slice/DAB_SLICE_FREEZE.json
             dab-slice-static-audit.json
