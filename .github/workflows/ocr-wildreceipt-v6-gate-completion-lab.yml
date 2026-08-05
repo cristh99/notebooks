@@ -1,0 +1,193 @@
+name: OCR WildReceipt v6 exact-gate completion laboratory
+
+on:
+  push:
+    branches:
+      - agent/ocr-consensus-v6-development
+    paths:
+      - 'ocr_real_risk_v1/wildreceipt_v6_gate_completion_lab.py'
+      - 'ocr_real_risk_v1/test_wildreceipt_v6_gate_completion_lab.py'
+      - '.github/workflows/ocr-wildreceipt-v6-gate-completion-lab.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: ocr-wildreceipt-v6-gate-completion-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GITHUB_TOKEN: ${{ github.token }}
+  PYTHONHASHSEED: '0'
+  OMP_THREAD_LIMIT: '1'
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  NUMEXPR_NUM_THREADS: '1'
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Install pinned replay dependencies
+        run: |
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13
+      - name: Unit tests and compilation
+        run: |
+          python -m unittest -v \
+            ocr_real_risk_v1.test_wildreceipt_v6_gate_completion_lab \
+            ocr_real_risk_v1.test_wildreceipt_v6_selective_lab
+          python -m compileall -q \
+            ocr_real_risk_v1/wildreceipt_v6_gate_completion_lab.py \
+            ocr_real_risk_v1/test_wildreceipt_v6_gate_completion_lab.py
+      - name: Recover immutable schema-v5 shard reports
+        run: |
+          mkdir -p shard-roots/train0 shard-roots/train1 shard-roots/test
+          cat > artifacts.tsv <<'EOF'
+          8928046292	train0	2556c18bfc9685cce6cb5d659b688a1cde716b617b9ecc7041276c877af05991
+          8928237073	train1	864f32b137edc348c4b6c83549b67d2c6225d82887b8250eceb29b80fbe336bf
+          8928150174	test	13bf90167330fa9849ce0ec6574774a68a26af576f7e1211dce82afbc01d57dd
+          EOF
+          while IFS=$'\t' read -r artifact_id name digest; do
+            curl --fail --location --retry 5 --retry-all-errors \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" \
+              --output "${name}.zip"
+            echo "${digest}  ${name}.zip" | sha256sum --check --strict
+            unzip -q "${name}.zip" -d "shard-roots/${name}"
+            (
+              cd "shard-roots/${name}"
+              sha256sum --check --strict SHA256SUMS.txt
+            )
+          done < artifacts.tsv
+      - name: Run post-outcome exact-gate completion policy
+        run: |
+          rm -rf gate-lab
+          mkdir gate-lab
+          python -m ocr_real_risk_v1.wildreceipt_v6_gate_completion_lab \
+            shard-roots/train0/shard_report.json \
+            shard-roots/train1/shard_report.json \
+            shard-roots/test/shard_report.json \
+            --output gate-lab/wildreceipt_v6_gate_completion_lab.json \
+            | tee gate-lab/stdout.json
+      - name: Independent development-only exact gates
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.sroie_natural_holdout import verify_stable_payload
+          from ocr_real_risk_v1.wildreceipt_v6_gate_completion_lab import REPORT_SCHEMA
+
+          root = Path('gate-lab')
+          path = root / 'wildreceipt_v6_gate_completion_lab.json'
+          report = json.loads(path.read_text())
+          assert report['schema'] == REPORT_SCHEMA
+          assert report['status'] == 'POST_OUTCOME_DEVELOPMENT_ONLY'
+          assert verify_stable_payload(report, 'stable_payload_sha256')
+          assert report['source']['selected_unique_receipts'] == 1720
+          assert report['source']['split_counts'] == {
+              'train': 1252,
+              'test': 468,
+          }
+          assert report['source'][
+              'wildreceipt_opened_for_threshold_design'
+          ] is True
+
+          accounting = report['branch_accounting']
+          assert accounting['base_union_accepted'] == 408
+          assert accounting['high_detector_guard_added_beyond_base'] == 62
+          assert accounting[
+              'high_detector_forest_gray_added_beyond_previous_branches'
+          ] == 2
+          assert accounting['total_added_beyond_base'] == 64
+          assert accounting['final_accepted'] == 472
+
+          policy = report['policy']
+          assert policy['thresholds_selected_after_wildreceipt_outcomes'] is True
+          assert policy['uses_truth_at_inference'] is False
+          assert policy['uses_annotation_geometry_at_inference'] is False
+          assert policy['conflicting_branch_outputs'] == 'abstain'
+
+          overall = report['exact_results']['all']
+          assert overall['selected'] == 1720
+          assert overall['baseline_eligible'] == 680
+          assert overall['baseline_false'] == 91
+          assert overall['accepted'] == 472
+          assert overall['accepted_false'] == 0
+          assert overall['counterfactual_false'] == 0
+          assert overall['coverage_lower'] > 0.2505
+          assert overall['candidate_upper'] < 0.00925
+          assert overall['reduction_lower'] > 11.45
+          assert overall['pass'] is True
+
+          train = report['exact_results']['train']
+          test = report['exact_results']['test']
+          assert train['accepted'] == 333
+          assert train['accepted_false'] == 0
+          assert train['counterfactual_false'] == 0
+          assert test['accepted'] == 139
+          assert test['accepted_false'] == 0
+          assert test['counterfactual_false'] == 0
+
+          stability = report['leave_one_shard_out']
+          assert len(stability['folds']) == 3
+          assert stability['passes'] == 0
+
+          decision = report['decision']
+          assert decision['aggregate_development_10x_gate_pass'] is True
+          assert decision['zero_adjudicated_natural_failures'] is True
+          assert decision['zero_counterfactual_output_collisions'] is True
+          assert decision['minimum_accepted_pass'] is True
+          assert decision['coverage_gate_pass'] is True
+          assert decision['tenfold_bound_pass'] is True
+          assert decision['leave_one_shard_out_stability_pass'] is False
+          assert decision['external_certificate_claimed'] is False
+          assert decision['candidate_ready_to_freeze'] is False
+          assert decision['fresh_external_corpus_required'] is True
+          assert decision['production_ready'] is False
+          assert decision['automatic_production_change'] is False
+          assert report['constraints']['external_spend_usd'] == 0
+          assert report['constraints']['production_modified'] is False
+
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          (root / 'SHA256SUMS.txt').write_text(
+              f'{digest}  {path.name}\n', encoding='utf-8'
+          )
+          print(json.dumps({
+              'branch_accounting': accounting,
+              'overall': overall,
+              'stability': stability,
+              'decision': decision,
+              'stable_payload_sha256': report['stable_payload_sha256'],
+              'file_sha256': digest,
+          }, indent=2, sort_keys=True))
+          PY
+          (
+            cd gate-lab
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-wildreceipt-v6-gate-completion-lab
+          path: gate-lab
+          if-no-files-found: error
+          retention-days: 90
