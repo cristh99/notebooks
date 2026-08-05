@@ -1,150 +1,17 @@
-name: Data Science dominance — seal official DAB slice result
+name: Data Science dominance — deprecated DAB slice finalizer
 
 on:
-  push:
-    branches:
-      - agent/data-science-dominance-dab-slice
-    paths:
-      - '.github/workflows/data-science-dominance-dab-slice-finalize.yml'
+  workflow_dispatch:
 
 permissions:
-  contents: write
-  actions: read
+  contents: read
 
 jobs:
-  seal-result:
+  canonical-result-already-sealed:
     runs-on: ubuntu-24.04
-    timeout-minutes: 100
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        with:
-          fetch-depth: 2
-
-      - name: Prove workflow-only activation
-        shell: bash
+      - name: Explain deprecation
         run: |
-          set -euo pipefail
-          test "${GITHUB_RUN_ATTEMPT}" = '1'
-          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/data-science-dominance-dab-slice-finalize.yml'
-          echo "OFFICIAL_HEAD_SHA=$(git rev-parse HEAD^)" >> "$GITHUB_ENV"
-
-      - name: Wait for the one-shot official run and download its evidence
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          runs_api="https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/data-science-dominance-dab-slice-official.yml/runs?head_sha=${OFFICIAL_HEAD_SHA}&per_page=1"
-          run_id=''
-          status=''
-          for _ in $(seq 1 540); do
-            curl -fsSL --retry 3 \
-              -H "Authorization: Bearer ${GH_TOKEN}" \
-              -H 'Accept: application/vnd.github+json' \
-              -H 'X-GitHub-Api-Version: 2022-11-28' \
-              "$runs_api" > /tmp/official-runs.json
-            run_id="$(jq -r '.workflow_runs[0].id // empty' /tmp/official-runs.json)"
-            status="$(jq -r '.workflow_runs[0].status // empty' /tmp/official-runs.json)"
-            if [[ -n "$run_id" && "$status" == 'completed' ]]; then
-              break
-            fi
-            sleep 10
-          done
-          test -n "$run_id"
-          jq '.workflow_runs[0]' /tmp/official-runs.json > /tmp/official-run.json
-          echo "OFFICIAL_RUN_ID=$run_id" >> "$GITHUB_ENV"
-
-          artifacts_api="https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/artifacts"
-          curl -fsSL --retry 3 \
-            -H "Authorization: Bearer ${GH_TOKEN}" \
-            -H 'Accept: application/vnd.github+json' \
-            -H 'X-GitHub-Api-Version: 2022-11-28' \
-            "$artifacts_api" > /tmp/official-artifacts.json
-          artifact_id="$(jq -r '.artifacts[] | select(.name == "data-science-dominance-dab-slice-official") | .id' /tmp/official-artifacts.json | head -1)"
-          mkdir -p /tmp/official-evidence
-          if [[ -n "$artifact_id" ]]; then
-            curl -fsSL --retry 4 --retry-all-errors -L \
-              -H "Authorization: Bearer ${GH_TOKEN}" \
-              -H 'Accept: application/vnd.github+json' \
-              -H 'X-GitHub-Api-Version: 2022-11-28' \
-              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" \
-              -o /tmp/official-evidence.zip
-            unzip -q /tmp/official-evidence.zip -d /tmp/official-evidence
-            sha256sum /tmp/official-evidence.zip > /tmp/official-evidence-artifact.sha256
-          fi
-
-      - name: Build canonical result files from immutable evidence
-        shell: bash
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          from __future__ import annotations
-          import hashlib
-          import json
-          import os
-          from pathlib import Path
-
-          root = Path('data_science_dominance/dab_slice')
-          run = json.loads(Path('/tmp/official-run.json').read_text())
-          artifacts = json.loads(Path('/tmp/official-artifacts.json').read_text())
-          artifact = next((row for row in artifacts.get('artifacts', []) if row.get('name') == 'data-science-dominance-dab-slice-official'), None)
-          receipts = list(Path('/tmp/official-evidence').rglob('dab-slice-official-receipt.json'))
-          receipt = json.loads(receipts[0].read_text()) if receipts else None
-          scientific_verdict = receipt.get('verdict') if receipt else 'INFRASTRUCTURE_INCOMPLETE'
-          result = {
-              'schema': 'data-science-dominance/dab-slice-canonical-result/1',
-              'scientific_verdict': scientific_verdict,
-              'official_workflow_conclusion': run.get('conclusion'),
-              'official_workflow_status': run.get('status'),
-              'official_run_id': run.get('id'),
-              'official_head_sha': run.get('head_sha'),
-              'official_artifact': artifact,
-              'candidate_retuned_after_freeze': False,
-              'post_hoc_retuning_permitted': False,
-              'merged': False,
-              'score_before': 465,
-              'score_after': 465,
-              'promotion_points_awarded': 0,
-              'receipt': receipt,
-          }
-          if Path('/tmp/official-evidence.zip').exists():
-              result['official_artifact_zip_sha256'] = hashlib.sha256(Path('/tmp/official-evidence.zip').read_bytes()).hexdigest()
-          payload = json.dumps(result, indent=2, sort_keys=True, default=str) + '\n'
-          json_path = root / 'DAB_SLICE_OFFICIAL_RESULT.json'
-          json_path.write_text(payload)
-          (root / 'DAB_SLICE_OFFICIAL_RESULT.sha256').write_text(
-              hashlib.sha256(payload.encode()).hexdigest() + '  DAB_SLICE_OFFICIAL_RESULT.json\n'
-          )
-
-          passed = receipt.get('queries_passed') if receipt else None
-          expected = receipt.get('queries_expected') if receipt else 6
-          lines = [
-              '# DataAgentBench slice — resultado oficial canónico',
-              '',
-              f'**Veredicto científico:** `{scientific_verdict}`',
-              f'**Consultas:** `{passed}/{expected}`' if passed is not None else '**Consultas:** no adjudicables',
-              f'**Run oficial:** `{run.get("id")}`',
-              f'**Conclusión de infraestructura:** `{run.get("conclusion")}`',
-              f'**Commit evaluado:** `{run.get("head_sha")}`',
-              '**Retuning posterior al freeze:** `prohibido y no realizado`',
-              '**Puntos añadidos:** `0`',
-              '**Score canónico:** `465/1000`',
-              '',
-              'El archivo JSON conserva el recibo oficial completo, los hashes y la cadena de custodia.',
-          ]
-          (root / 'DAB_SLICE_OFFICIAL_RESULT.md').write_text('\n'.join(lines) + '\n')
-          print(payload)
-          PY
-
-      - name: Commit the canonical evidence without altering the candidate
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name 'data-science-dominance-bot'
-          git config user.email '87334928+cristh99@users.noreply.github.com'
-          git add \
-            data_science_dominance/dab_slice/DAB_SLICE_OFFICIAL_RESULT.json \
-            data_science_dominance/dab_slice/DAB_SLICE_OFFICIAL_RESULT.sha256 \
-            data_science_dominance/dab_slice/DAB_SLICE_OFFICIAL_RESULT.md
-          git commit -m 'Seal canonical official DAB slice result'
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          echo 'Deprecated: the canonical one-shot 4/6 result is stored in data_science_dominance/dab_slice/DAB_SLICE_OFFICIAL_RESULT.json.'
+          echo 'The former finalizer waited for a nonexistent run keyed to the synthetic-v2 activation commit.'
+          echo 'Do not rerun exposed query1 validators for promotion; use a preregistered fresh-query gate.'
