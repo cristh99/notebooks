@@ -1,0 +1,38 @@
+{
+  "archive_members_listed": 0,
+  "archives_downloaded": 0,
+  "component": "OCR",
+  "dataset_id": "abdoelsayed/CORU",
+  "images_opened": 0,
+  "labels_read": 0,
+  "license": "mit",
+  "object_count": 3,
+  "objects": [
+    {
+      "download_url": "https://huggingface.co/datasets/abdoelsayed/CORU/resolve/c3c4b97b232bbe03046c78a974f516d439c1124e/OCR/test.zip?download=true",
+      "path": "OCR/test.zip",
+      "sha256": "724f93707d135e861c63dbb4743ff11b187820273f3de6b7f7a9050ed4816f2c",
+      "size_bytes": 38735132
+    },
+    {
+      "download_url": "https://huggingface.co/datasets/abdoelsayed/CORU/resolve/c3c4b97b232bbe03046c78a974f516d439c1124e/OCR/train.zip?download=true",
+      "path": "OCR/train.zip",
+      "sha256": "5d19042b03f1e298a073d21f55749caffd692b6747ecff0aa41fc5974b95cb74",
+      "size_bytes": 181347200
+    },
+    {
+      "download_url": "https://huggingface.co/datasets/abdoelsayed/CORU/resolve/c3c4b97b232bbe03046c78a974f516d439c1124e/OCR/val.zip?download=true",
+      "path": "OCR/val.zip",
+      "sha256": "5a8f9780ef40053c9cf7d0bd43643b5784882d8d7bba34fefebab85593b60997",
+      "size_bytes": 39074274
+    }
+  ],
+  "ocr_executed": false,
+  "outcomes_opened": false,
+  "purpose": "reserve an immutable line-image OCR corpus before any schema inspection, threshold change, candidate freeze, or evaluation",
+  "repository_metadata_only": true,
+  "resolved_revision": "c3c4b97b232bbe03046c78a974f516d439c1124e",
+  "schema": "ocr-coru-ocr-source-seal/1",
+  "stable_payload_sha256": "4929ee6035d37f46b591c49858b5280c2941dfd9edd98b6581a27667bfb43c2b",
+  "total_source_bytes": 259156606
+}
