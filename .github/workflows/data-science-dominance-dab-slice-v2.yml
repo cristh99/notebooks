@@ -45,7 +45,7 @@ jobs:
         run: |
           set -euo pipefail
           test "${GITHUB_RUN_ATTEMPT}" = '1'
-          test "$(git rev-parse HEAD^)" = '9132e7b982dcda914b377e11434fe96186fe1e11'
+          test "$(git rev-parse HEAD^)" = '39580e2a2e5bdf1d03d7546b7d90d1722c389a83'
           test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/data-science-dominance-dab-slice-v2.yml'
 
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
@@ -152,28 +152,37 @@ jobs:
               'query_music_brainz_20k/query_dataset/sales.duckdb',
           ]
           rows = []
+          pointer_prefix = b'version https://git-lfs.github.com/spec/v1'
           for filename in files:
-              last = None
-              for attempt in range(5):
-                  try:
-                      source = Path(hf_hub_download(
-                          repo_id='ruiyingm/DataAgentBench-data',
-                          repo_type='dataset',
-                          filename=filename,
-                      ))
-                      break
-                  except Exception as exc:
-                      last = exc
-                      time.sleep(2 ** attempt)
-              else:
-                  raise RuntimeError(f'failed to download {filename}: {last}')
               target = Path('dab') / filename
               target.parent.mkdir(parents=True, exist_ok=True)
-              shutil.copyfile(source, target)
+              existing = target.read_bytes() if target.exists() else b''
+              source_kind = 'git-checkout'
+              if not existing or existing.startswith(pointer_prefix):
+                  last = None
+                  for attempt in range(5):
+                      try:
+                          source = Path(hf_hub_download(
+                              repo_id='ruiyingm/DataAgentBench-data',
+                              repo_type='dataset',
+                              filename=filename,
+                          ))
+                          shutil.copyfile(source, target)
+                          source_kind = 'huggingface-mirror'
+                          break
+                      except Exception as exc:
+                          last = exc
+                          time.sleep(2 ** attempt)
+                  else:
+                      raise RuntimeError(f'failed to restore {filename}: {last}')
+              data = target.read_bytes()
+              if not data or data.startswith(pointer_prefix):
+                  raise RuntimeError(f'{filename} is missing or still an LFS pointer')
               rows.append({
                   'path': filename,
-                  'bytes': target.stat().st_size,
-                  'sha256': hashlib.sha256(target.read_bytes()).hexdigest(),
+                  'source_kind': source_kind,
+                  'bytes': len(data),
+                  'sha256': hashlib.sha256(data).hexdigest(),
               })
           manifest = {
               'schema': 'data-science-dominance/dab-slice-data-manifest/1',
