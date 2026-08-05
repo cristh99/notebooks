@@ -1,0 +1,45 @@
+{
+  "schema": "data-science-dominance/dab-slice-freeze/1",
+  "candidate": {
+    "path": "data_science_dominance/dab_slice/dab_slice_agent.py",
+    "sha256": "8ad0fbfa88c5ca62afd0110c249f72c097bc8bb938978092f9f3c5e178c6fd1e",
+    "frozen_before_dataset_values": true,
+    "frozen_before_ground_truth": true,
+    "frozen_before_validator_execution": true
+  },
+  "scope": [
+    "civic_unstructured/query1",
+    "cve/query1",
+    "stockindex/query1",
+    "usaspending/query1",
+    "bookreview/query1",
+    "music_brainz_20k/query1"
+  ],
+  "capabilities": [
+    "BSON parsing",
+    "SQLite querying",
+    "DuckDB querying",
+    "PostgreSQL querying",
+    "ill-formatted key normalization",
+    "unstructured temporal record extraction",
+    "textual money parsing",
+    "cross-database aggregation"
+  ],
+  "prohibitions": {
+    "candidate_ground_truth_access": true,
+    "candidate_validator_access": true,
+    "candidate_network_access": true,
+    "post_hoc_retuning_before_first_official_verdict": true
+  },
+  "transport": {
+    "encoding": "gzip+base64",
+    "part_count": 3,
+    "part_sha256": [
+      "8b063a0afa3d7526f0e6f4207916aec49b95f092f03107247540218f9e508493",
+      "1674cf45d58af056d313fcfb2d81efcea85938c6af08e7a17d154086772b9878",
+      "b8424b6221b7729bce893dc98f2a1d680e0479076f772c69749cfefc8dcb60b4"
+    ],
+    "concatenated_base64_sha256": "7918803dffc7f698f2dab39c584f2253d3e6f1aeaf992b3a6b1eb577f05258a8",
+    "gzip_sha256": "1b825b9879b34541763a5ea89a8f1e6c6d0405ac07e31416a806a8bc1b87c49d"
+  }
+}
