@@ -1,0 +1,164 @@
+name: Apply WildReceipt AST import closure v1
+
+on:
+  push:
+    branches:
+      - agent/ocr-consensus-detector-v4
+    paths:
+      - '.github/workflows/apply-wildreceipt-ast-closure-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-wildreceipt-ast-closure-v1-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 20
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Move to latest isolated branch head
+        run: |
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard "origin/${GITHUB_REF_NAME}"
+      - name: Apply deterministic AST-closure repair
+        run: python .github/scripts/apply_wildreceipt_ast_closure_v1.py
+      - name: Install pinned test dependencies
+        run: |
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            scipy==1.17.1 \
+            threadpoolctl==3.6.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13 \
+            packaging==26.3
+      - name: Prove recursive source closure and focused regressions
+        run: |
+          python -m unittest -v \
+            ocr_real_risk_v1.test_wildreceipt_adapter \
+            ocr_real_risk_v1.test_wildreceipt_external \
+            ocr_real_risk_v1.test_numeric_consensus_candidate_v4_wildreceipt \
+            ocr_real_risk_v1.test_cord_consensus_detector_v4 \
+            ocr_real_risk_v1.test_numeric_digit_forest
+          python -m compileall -q ocr_real_risk_v1
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.numeric_consensus_candidate_v4_wildreceipt import (
+              CANDIDATE_ID,
+              CANDIDATE_SCHEMA,
+              SOURCE_CLOSURE_ALGORITHM,
+              SOURCE_FILES,
+              SOURCE_ROOTS,
+              discover_source_files,
+              external_protocol,
+          )
+          repository_root = Path.cwd()
+          discovered = discover_source_files(repository_root)
+          assert discovered == SOURCE_FILES
+          assert CANDIDATE_SCHEMA.endswith('/8')
+          assert CANDIDATE_ID.endswith('schema-v5')
+          assert SOURCE_CLOSURE_ALGORITHM == 'python-ast-local-import-closure-v1'
+          required = {
+              'ocr_real_risk_v1/cord_detector_crops_v4.py',
+              'ocr_real_risk_v1/cord_source_seal.py',
+              'ocr_real_risk_v1/coru_source_seal.py',
+              'ocr_real_risk_v1/numeric_consensus_candidate_v4.py',
+              'ocr_real_risk_v1/wildreceipt_source_seal.py',
+          }
+          assert required <= set(discovered)
+          assert set(SOURCE_ROOTS) <= set(discovered)
+          assert all((repository_root / path).is_file() for path in discovered)
+          protocol = external_protocol()
+          assert protocol['runtime']['source_bundle_closure_algorithm'] == \
+              SOURCE_CLOSURE_ALGORITHM
+          assert protocol['runtime']['source_bundle_roots'] == list(SOURCE_ROOTS)
+          print(json.dumps({
+              'candidate_id': CANDIDATE_ID,
+              'candidate_schema': CANDIDATE_SCHEMA,
+              'closure_algorithm': SOURCE_CLOSURE_ALGORITHM,
+              'source_roots': SOURCE_ROOTS,
+              'source_file_count': len(discovered),
+              'source_files': discovered,
+          }, indent=2, sort_keys=True))
+          PY
+      - name: Prove discovered bundle imports from a neutral directory
+        run: |
+          bundle="${RUNNER_TEMP}/wildreceipt-ast-bundle"
+          neutral="${RUNNER_TEMP}/wildreceipt-ast-neutral"
+          rm -rf "${bundle}" "${neutral}"
+          mkdir -p "${bundle}/source" "${neutral}"
+          BUNDLE="${bundle}" python - <<'PY'
+          import os
+          import shutil
+          from pathlib import Path
+          from ocr_real_risk_v1.numeric_consensus_candidate_v4_wildreceipt import (
+              discover_source_files,
+          )
+          repository_root = Path.cwd()
+          destination_root = Path(os.environ['BUNDLE']) / 'source'
+          for relative in discover_source_files(repository_root):
+              source = repository_root / relative
+              destination = destination_root / relative
+              destination.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copyfile(source, destination)
+          PY
+          cd "${neutral}"
+          PYTHONPATH="${bundle}/source" \
+          BUNDLE_SOURCE="${bundle}/source" \
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import ocr_real_risk_v1.numeric_consensus_candidate_v4_wildreceipt as candidate
+          import ocr_real_risk_v1.wildreceipt_adapter as adapter
+          import ocr_real_risk_v1.wildreceipt_external as evaluator
+
+          root = Path(os.environ['BUNDLE_SOURCE']).resolve()
+          observed = {
+              'candidate': Path(candidate.__file__).resolve(),
+              'adapter': Path(adapter.__file__).resolve(),
+              'evaluator': Path(evaluator.__file__).resolve(),
+          }
+          expected = {
+              'candidate': root / 'ocr_real_risk_v1/numeric_consensus_candidate_v4_wildreceipt.py',
+              'adapter': root / 'ocr_real_risk_v1/wildreceipt_adapter.py',
+              'evaluator': root / 'ocr_real_risk_v1/wildreceipt_external.py',
+          }
+          assert observed == expected
+          discovered = candidate.discover_source_files(root)
+          assert 'ocr_real_risk_v1/cord_source_seal.py' in discovered
+          assert candidate.CANDIDATE_ID.endswith('schema-v5')
+          print(json.dumps({
+              'neutral_workdir': str(Path.cwd()),
+              'module_paths': {key: str(value) for key, value in observed.items()},
+              'source_file_count': len(discovered),
+          }, indent=2, sort_keys=True))
+          PY
+      - name: Commit AST-closed candidate source
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            ocr_real_risk_v1/numeric_consensus_candidate_v4_wildreceipt.py \
+            ocr_real_risk_v1/test_numeric_consensus_candidate_v4_wildreceipt.py
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m 'Discover frozen WildReceipt imports recursively with AST'
+          git fetch origin "${GITHUB_REF_NAME}"
+          git rebase "origin/${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
