@@ -15,7 +15,7 @@ from typing import Any, Mapping
 
 from .core import canonical_json, sha256_bytes
 
-API_URL = "https://huggingface.co/api/datasets/naver-clova-ix/cord-v2"
+API_URL = "https://huggingface.co/api/datasets/naver-clova-ix/cord-v2?blobs=true"
 DATASET_ID = "naver-clova-ix/cord-v2"
 EXPECTED_FILES = (
     "data/test-00000-of-00001-9c204eb3f4e11791.parquet",
