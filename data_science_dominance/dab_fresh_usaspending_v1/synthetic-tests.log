@@ -1,0 +1,19 @@
+test_argmax_recipient (test_usaspending_fresh_engine.EvaluationTests.test_argmax_recipient) ... ok
+test_count_awards (test_usaspending_fresh_engine.EvaluationTests.test_count_awards) ... ok
+test_description_and_state_filter (test_usaspending_fresh_engine.EvaluationTests.test_description_and_state_filter) ... ok
+test_grouped_count_and_recipient_name_deduplication (test_usaspending_fresh_engine.EvaluationTests.test_grouped_count_and_recipient_name_deduplication) ... ok
+test_all_public_prefix_families_and_ocr_equivalence (test_usaspending_fresh_engine.IdentifierTests.test_all_public_prefix_families_and_ocr_equivalence) ... ok
+test_public_corruption_pipeline_resolves_500_ids (test_usaspending_fresh_engine.IdentifierTests.test_public_corruption_pipeline_resolves_500_ids) ... ok
+test_superseded_suffix_is_detected_but_primary_key_is_stable (test_usaspending_fresh_engine.IdentifierTests.test_superseded_suffix_is_detected_but_primary_key_is_stable) ... ok
+test_public_money_families (test_usaspending_fresh_engine.MoneyTests.test_public_money_families) ... ok
+test_active_year_is_interval_overlap (test_usaspending_fresh_engine.QueryPlanningTests.test_active_year_is_interval_overlap) ... ok
+test_argmax_recipient_plan (test_usaspending_fresh_engine.QueryPlanningTests.test_argmax_recipient_plan) ... ok
+test_contract_object_wins_over_recipient_filter_noun (test_usaspending_fresh_engine.QueryPlanningTests.test_contract_object_wins_over_recipient_filter_noun) ... ok
+test_exposed_query1_plan (test_usaspending_fresh_engine.QueryPlanningTests.test_exposed_query1_plan) ... ok
+test_naics_average_plan (test_usaspending_fresh_engine.QueryPlanningTests.test_naics_average_plan) ... ok
+test_suffix_amount_comparator (test_usaspending_fresh_engine.QueryPlanningTests.test_suffix_amount_comparator) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.123s
+
+OK
