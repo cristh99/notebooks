@@ -14,6 +14,7 @@ from .cord_natural_holdout import (
     MANIFEST_SCHEMA,
     SHARD_SPECS,
     build_protocol_bundle,
+    clip_bbox_to_image,
     quad_bbox,
     select_numeric_annotation,
 )
@@ -93,6 +94,44 @@ class CordNaturalHoldoutTests(unittest.TestCase):
         for field in ("truth", "bbox", "selection_rank_sha256"):
             self.assertEqual(first[field], second[field])
         self.assertEqual(len(first["selection_rank_sha256"]), 64)
+
+    def test_annotation_bbox_is_clipped_before_selection(self) -> None:
+        clipped, changed = clip_bbox_to_image((-2, 4, 103, 101), (100, 100))
+        self.assertEqual(clipped, (0, 4, 100, 100))
+        self.assertTrue(changed)
+        with self.assertRaises(RuntimeError):
+            clip_bbox_to_image((101, 5, 110, 20), (100, 100))
+
+        payload = {
+            "meta": {
+                "split": "train",
+                "image_id": 1,
+                "image_size": {"width": 100, "height": 100},
+            },
+            "valid_line": [
+                {
+                    "words": [
+                        {
+                            "text": "12,345",
+                            "quad": _quad(-2, 4, 103, 101),
+                        }
+                    ],
+                    "category": "total.total_price",
+                }
+            ],
+        }
+        selected, counts = select_numeric_annotation(
+            payload=payload,
+            shard_id="train-00000-of-00004",
+            split="train",
+            key="train:0001",
+            image_sha256="b" * 64,
+            image_size=(100, 100),
+        )
+        self.assertEqual(selected["bbox"], [0, 4, 100, 100])
+        self.assertEqual(selected["annotation_bbox_raw"], [-2, 4, 103, 101])
+        self.assertTrue(selected["bbox_clipped_to_image"])
+        self.assertEqual(counts["numeric_annotations_clipped_to_image"], 1)
 
     def test_numeric_annotation_with_malformed_quad_fails_closed(self) -> None:
         payload = {

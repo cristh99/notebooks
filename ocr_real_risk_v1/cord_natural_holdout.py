@@ -153,6 +153,33 @@ def quad_bbox(quad: Mapping[str, object]) -> tuple[int, int, int, int]:
     return bbox
 
 
+def clip_bbox_to_image(
+    bbox: Sequence[int], image_size: tuple[int, int]
+) -> tuple[tuple[int, int, int, int], bool]:
+    """Clip annotation coordinates to the decoded image rectangle.
+
+    CORD quads occasionally use inclusive or rounded edge coordinates that
+    extend a few pixels beyond the decoded image. Clipping is deterministic,
+    outcome-blind, and occurs before selection ranking. A box with no overlap
+    still fails closed.
+    """
+    if len(bbox) != 4:
+        raise RuntimeError("CORD bbox must contain four coordinates")
+    width, height = image_size
+    if width <= 0 or height <= 0:
+        raise RuntimeError("CORD image dimensions must be positive")
+    raw = tuple(int(value) for value in bbox)
+    clipped = (
+        max(0, min(width, raw[0])),
+        max(0, min(height, raw[1])),
+        max(0, min(width, raw[2])),
+        max(0, min(height, raw[3])),
+    )
+    if clipped[2] <= clipped[0] or clipped[3] <= clipped[1]:
+        raise RuntimeError("CORD numeric word quad has no overlap with image")
+    return clipped, clipped != raw
+
+
 def receipt_identity(
     payload: Mapping[str, Any],
     expected_split: str,
@@ -255,14 +282,12 @@ def select_numeric_annotation(
             quad = word.get("quad")
             if not isinstance(quad, Mapping):
                 raise RuntimeError("CORD numeric word is missing quad")
-            bbox = quad_bbox(quad)
-            if (
-                bbox[0] < 0
-                or bbox[1] < 0
-                or bbox[2] > width
-                or bbox[3] > height
-            ):
-                raise RuntimeError("CORD numeric word quad lies outside image")
+            raw_bbox = quad_bbox(quad)
+            bbox, was_clipped = clip_bbox_to_image(
+                raw_bbox, (width, height)
+            )
+            if was_clipped:
+                counts["numeric_annotations_clipped_to_image"] += 1
             counts["numeric_annotations_in_scope"] += 1
             rank = selection_rank(
                 shard_id=shard_id,
@@ -276,6 +301,8 @@ def select_numeric_annotation(
                 "truth": truth,
                 "annotation_text": annotation_text,
                 "bbox": list(bbox),
+                "annotation_bbox_raw": list(raw_bbox),
+                "bbox_clipped_to_image": was_clipped,
                 "selection_rank_sha256": rank,
                 "line_index": line_index,
                 "word_index": word_index,
