@@ -1,0 +1,178 @@
+name: Data Science dominance — DAB development detail extract
+
+on:
+  push:
+    branches:
+      - agent/data-science-dominance-dab-slice
+    paths:
+      - '.github/workflows/data-science-dominance-dab-detail-extract.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  extract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DAB_SHA: 9a55e34271a2500a41cbc009e239edd94599e374
+      PGPASSWORD: postgres
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      HF_HUB_DISABLE_XET: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove workflow-only activation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_RUN_ATTEMPT}" = '1'
+          test "$(git rev-parse HEAD^)" = '8a8d51fcbf1c9b902b8d47e9cce0abcfe80ae4ed'
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/data-science-dominance-dab-detail-extract.yml'
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Install acquisition and database dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client git-lfs
+          python -m pip install --disable-pip-version-check \
+            'huggingface-hub==1.2.1' 'psycopg2-binary==2.9.9'
+
+      - name: Acquire exact Civic and USAspending sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GIT_LFS_SKIP_SMUDGE=1
+          git clone --filter=blob:none --no-checkout https://github.com/ucbepic/DataAgentBench.git dab
+          cd dab
+          git sparse-checkout init --no-cone
+          cat > .git/info/sparse-checkout <<'EOF'
+          /dataset_manifest.tsv
+          /query_civic_unstructured/query_dataset/funding.db
+          /query_usaspending/query_dataset/contracts.sql
+          EOF
+          git -c advice.detachedHead=false checkout "$DAB_SHA"
+          test "$(git rev-parse HEAD)" = "$DAB_SHA"
+          cd ..
+          python - <<'PY'
+          from __future__ import annotations
+          import hashlib
+          from pathlib import Path
+          from huggingface_hub import hf_hub_download
+          root = Path('dab')
+          selected = [
+              'query_civic_unstructured/query_dataset/funding.db',
+              'query_usaspending/query_dataset/contracts.sql',
+          ]
+          manifest = {}
+          for line in (root / 'dataset_manifest.tsv').read_text().splitlines():
+              if line and not line.startswith('#'):
+                  path, sha256, size = line.split('\t')
+                  manifest[path] = (sha256, int(size))
+          def digest(path):
+              h = hashlib.sha256()
+              with Path(path).open('rb') as handle:
+                  for chunk in iter(lambda: handle.read(1 << 20), b''):
+                      h.update(chunk)
+              return h.hexdigest()
+          for relative in selected:
+              target = root / relative
+              expected = manifest[relative]
+              valid = target.is_file() and target.stat().st_size == expected[1] and digest(target) == expected[0]
+              if not valid:
+                  hf_hub_download(
+                      repo_id='ruiyingm/DataAgentBench-data', repo_type='dataset',
+                      filename=relative, local_dir=str(root), force_download=True,
+                  )
+              assert (digest(target), target.stat().st_size) == expected
+          PY
+
+      - name: Import USAspending source
+        shell: bash
+        run: |
+          set -euo pipefail
+          dropdb --if-exists -h 127.0.0.1 -U postgres usaspending_contracts
+          createdb -h 127.0.0.1 -U postgres usaspending_contracts
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U postgres -d usaspending_contracts \
+            -f dab/query_usaspending/query_dataset/contracts.sql > postgres-import.log
+
+      - name: Export development-only details
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p detail-evidence
+          python - <<'PY'
+          from __future__ import annotations
+          import json, re, sqlite3
+          from collections import Counter
+          from pathlib import Path
+          import psycopg2
+
+          funding = sqlite3.connect('dab/query_civic_unstructured/query_dataset/funding.db')
+          try:
+              rows = [
+                  {'fid': str(fid), 'project_name': str(name), 'funding_source': str(source), 'grant_time': str(grant_time), 'amount': int(amount)}
+                  for fid, name, source, grant_time, amount in funding.execute(
+                      'SELECT fid, project_name, funding_source, grant_time, amount FROM "Funding" ORDER BY project_name, grant_time, fid'
+                  )
+              ]
+          finally:
+              funding.close()
+          Path('detail-evidence/civic-funding-rows.json').write_text(json.dumps(rows, indent=2, sort_keys=True) + '\n')
+
+          conn = psycopg2.connect(host='127.0.0.1', port=5432, user='postgres', password='postgres', dbname='usaspending_contracts')
+          try:
+              with conn.cursor() as cur:
+                  cur.execute('SELECT award_id, amount_text FROM contract_amounts')
+                  amount_rows = [{'award_id': str(a), 'amount_text': str(t)} for a, t in cur.fetchall()]
+          finally:
+              conn.close()
+          Path('detail-evidence/usaspending-amount-rows.json').write_text(json.dumps(amount_rows, indent=2, sort_keys=True) + '\n')
+
+          patterns = Counter()
+          for row in amount_rows:
+              text = row['amount_text'].lower()
+              if re.search(r'\b(?:five|six|seven|eight|nine|ten)[- ]figure\b', text):
+                  patterns['n_figure'] += 1
+              elif 'multi-million' in text or 'multimillion' in text:
+                  patterns['multi_million'] += 1
+              elif 'million' in text:
+                  patterns['other_million'] += 1
+              elif re.search(r'\d', text):
+                  patterns['numeric'] += 1
+              else:
+                  patterns['other_prose'] += 1
+          Path('detail-evidence/amount-pattern-summary.json').write_text(json.dumps(dict(patterns), indent=2, sort_keys=True) + '\n')
+          print(json.dumps({'funding_rows': len(rows), 'amount_rows': len(amount_rows), 'amount_patterns': dict(patterns)}, indent=2, sort_keys=True))
+          PY
+
+      - name: Upload development detail evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-dominance-dab-detail-extract
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            detail-evidence/**
+            postgres-import.log
