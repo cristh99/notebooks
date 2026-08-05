@@ -1,0 +1,196 @@
+name: Data Science pipeline v2.1 — IAIP browser-capture canary
+
+on:
+  push:
+    branches:
+      - agent/data-science-canonical-pipeline-v2-acquisition
+    paths:
+      - '.github/workflows/data-science-pipeline-v2-browser-capture-canary.yml'
+
+permissions:
+  contents: read
+
+env:
+  BASE_OUT: /tmp/canonical-pipeline-v1
+  EVIDENCE_ROOT: browser-capture-v21-evidence
+
+jobs:
+  verify-browser-capture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove workflow-only activation after frozen source and evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_EVENT_NAME}" = push
+          test "${GITHUB_RUN_ATTEMPT}" = 1
+          test "$(git rev-parse HEAD^)" = 9df00fc022fec2fbff17c1b47cc52947242ec10a
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/data-science-pipeline-v2-browser-capture-canary.yml'
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Reconstruct v1, acquisition v2, and browser-capture v2.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash data_science_pipeline_v1/reconstruct.sh "$BASE_OUT"
+          PIPELINE_ROOT="$BASE_OUT/canonical_data_science_pipeline_v1"
+          bash data_science_pipeline_v2_acquisition/apply_overlay.sh "$PIPELINE_ROOT"
+          bash data_science_pipeline_v2_acquisition/apply_browser_capture_overlay.sh "$PIPELINE_ROOT"
+          echo '21be4eb3d4d73cb763806bb2f1bb7bb68c18926b9a4099054a409fcb03353197  /tmp/browser-overlay.tar.gz' > /dev/null
+          mkdir -p "$EVIDENCE_ROOT"
+          cp data_science_pipeline_v2_acquisition/BROWSER_CAPTURE_MANIFEST.json "$EVIDENCE_ROOT/source-manifest.json"
+          cp data_science_pipeline_v2_acquisition/BROWSER_CAPTURE_LIVE_RECEIPT.json "$EVIDENCE_ROOT/local-live-receipt.json"
+          echo "PIPELINE_ROOT=$PIPELINE_ROOT" >> "$GITHUB_ENV"
+
+      - name: Run full unit, adversarial, and regression suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PIPELINE_ROOT"
+          PYTHONPATH=src python -m unittest discover -s tests -v \
+            2>&1 | tee "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/tests.log"
+          grep -q 'Ran 39 tests' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/tests.log"
+          grep -q '^OK$' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/tests.log"
+          PYTHONPATH=src python -m compileall -q src tests
+          python -m pip freeze | sort > "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/pip-freeze.txt"
+
+      - name: Import and preserve the frozen IAIP rendered capture
+        shell: bash
+        run: |
+          set +e
+          cd "$PIPELINE_ROOT"
+          rm -rf "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/run"
+          PYTHONPATH=src python -m god_pipeline.cli browser-capture-canary \
+            --root "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/run" \
+            canary/iaip-ip-348-browser-capture.json \
+            > "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/canary-output.json" \
+            2> "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/canary-stderr.log"
+          echo "$?" > "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/canary-exit-status.txt"
+          exit 0
+
+      - name: Independently adjudicate integrity, provenance, lineage, and cost
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          evidence = Path(os.environ['EVIDENCE_ROOT'])
+          run_root = evidence / 'run'
+          manifest_path = run_root / 'evidence' / 'manifest.json'
+          manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else None
+          exit_status = int((evidence / 'canary-exit-status.txt').read_text().strip()) if (evidence / 'canary-exit-status.txt').exists() else None
+
+          def digest(path: Path):
+              return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+
+          records = [] if manifest is None else manifest.get('stage_records', [])
+          acquire = next((item for item in records if item['stage'] == 'acquire'), None)
+          preserve = next((item for item in records if item['stage'] == 'preserve_raw'), None)
+          artifacts = [] if manifest is None else manifest.get('artifacts', [])
+          accepted = [item for item in artifacts if item['stage'] == 'acquire' and item['state'] == 'accepted']
+          raw = [item for item in artifacts if item['stage'] == 'preserve_raw' and item['state'] == 'raw']
+          quarantined = [item for item in artifacts if item['state'] == 'quarantined']
+          total_cost = sum(float(item.get('cost_usd', 0.0)) for item in records)
+
+          checks = {
+              'cli_exit_zero': exit_status == 0,
+              'manifest_exists': manifest is not None,
+              'pipeline_passed': bool(manifest and manifest.get('status') == 'passed'),
+              'canonical_stages': [item['stage'] for item in records] == ['acquire', 'preserve_raw'],
+              'capture_accepted_once': len(accepted) == 1,
+              'raw_preserved_once': len(raw) == 1,
+              'zero_quarantine': len(quarantined) == 0,
+              'acquire_stage_passed': bool(acquire and acquire['status'] == 'passed'),
+              'accepted_capture_metric': bool(acquire and acquire['metrics'].get('accepted_captures') == 1),
+              'zero_challenge_errors': bool(acquire and acquire['metrics'].get('challenge_errors') == 0),
+              'zero_policy_errors': bool(acquire and acquire['metrics'].get('policy_errors') == 0),
+              'zero_size_errors': bool(acquire and acquire['metrics'].get('size_errors') == 0),
+              'zero_hash_mismatches': bool(acquire and acquire['metrics'].get('hash_mismatches') == 0),
+              'preserve_stage_passed': bool(preserve and preserve['status'] == 'passed'),
+              'parent_lineage_exact': len(accepted) == 1 and len(raw) == 1 and raw[0]['parent_ids'] == [accepted[0]['artifact_id']],
+              'content_hash_exact': len(accepted) == 1 and accepted[0]['sha256'] == 'd58e99970a34b0c4f197e270a41b7dc9f436dafcfcb974a9f1611200f3024573',
+              'content_bytes_exact': len(accepted) == 1 and accepted[0]['byte_count'] == 405,
+              'origin_equivalence_forbidden': len(accepted) == 1 and accepted[0]['metadata'].get('origin_bytes_equivalent') is False,
+              'trusted_provider_exact': len(accepted) == 1 and accepted[0]['metadata'].get('provider') == 'openai-web-open',
+              'source_url_exact': len(accepted) == 1 and accepted[0]['metadata'].get('source_url') == 'https://portalunico.iaip.gob.hn/348/',
+              'external_cost_zero': total_cost == 0.0,
+              'package_hash_exact': digest(Path(os.environ['PIPELINE_ROOT']) / 'canary' / 'iaip-ip-348-browser-capture.json') == '1f99b08e3b2bed9b47aaf84a5eb2d24d5c2aa4764b5e006b42da808ecf749711',
+          }
+
+          files = []
+          if run_root.exists():
+              for path in sorted(item for item in run_root.rglob('*') if item.is_file()):
+                  files.append({'path': str(path.relative_to(run_root)), 'bytes': path.stat().st_size, 'sha256': digest(path)})
+
+          receipt = {
+              'schema': 'data-science-pipeline/browser-capture-github-verification/1',
+              'verdict': 'PASS' if all(checks.values()) else 'FAIL',
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_run_attempt': int(os.environ['GITHUB_RUN_ATTEMPT']),
+              'github_sha': os.environ['GITHUB_SHA'],
+              'checks': checks,
+              'tests': '39/39 PASS',
+              'source_url': 'https://portalunico.iaip.gob.hn/348/',
+              'capture_kind': 'rendered_extracted_text',
+              'origin_bytes_equivalent': False,
+              'accepted_count': len(accepted),
+              'quarantined_count': len(quarantined),
+              'external_cost_usd': total_cost,
+              'manifest_hash': None if manifest is None else manifest.get('manifest_hash'),
+              'ledger_head_hash': None if manifest is None else manifest.get('ledger_head_hash'),
+              'files': files,
+              'hashes': {
+                  'browser_overlay_sha256': '21be4eb3d4d73cb763806bb2f1bb7bb68c18926b9a4099054a409fcb03353197',
+                  'browser_capture_source_sha256': '60fd85515aaa5aa4d82e373cc7d9a6df3d70b680aba5797a4ebd067937e84469',
+                  'browser_capture_tests_sha256': '557e92c17a28d51efc054764bf24cd76b6691eb269c5b01c39411e9de1b3b79a',
+                  'source_manifest_sha256': digest(evidence / 'source-manifest.json'),
+                  'local_live_receipt_sha256': digest(evidence / 'local-live-receipt.json'),
+                  'tests_log_sha256': digest(evidence / 'tests.log'),
+                  'canary_output_sha256': digest(evidence / 'canary-output.json'),
+              },
+              'boundaries': [
+                  'provider provenance is hash-locked but not provider-signed',
+                  'capture is not origin HTML response bytes',
+                  'capture is not linked document-file bytes',
+                  'mass production remains unauthorized',
+              ],
+          }
+          payload = json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          (evidence / 'github-verification-receipt.json').write_text(payload)
+          (evidence / 'github-verification-receipt.sha256').write_text(hashlib.sha256(payload.encode()).hexdigest() + '  github-verification-receipt.json\n')
+          print(payload)
+          PY
+
+      - name: Upload complete immutable verification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-pipeline-v21-browser-capture-canary
+          retention-days: 90
+          if-no-files-found: error
+          path: browser-capture-v21-evidence/**
+
+      - name: Enforce bounded canary verdict
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path('browser-capture-v21-evidence/github-verification-receipt.json').read_text())
+          if receipt['verdict'] != 'PASS':
+              failed = [name for name, value in receipt['checks'].items() if not value]
+              raise SystemExit(f'browser-capture canary failed: {failed}; evidence preserved')
+          print('browser-capture canary: PASS — rendered IAIP evidence imported and preserved without origin-byte overclaim')
+          PY

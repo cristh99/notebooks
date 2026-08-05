@@ -1,0 +1,11 @@
+{
+  "request_id": "iaip-institution-360",
+  "url": "https://api.iaip.gob.hn/360/",
+  "allowed_hosts": ["api.iaip.gob.hn"],
+  "expected_media_types": ["text/html"],
+  "min_bytes": 1000,
+  "max_bytes": 5000000,
+  "timeout_seconds": 30,
+  "max_redirects": 3,
+  "headers": {"Accept": "text/html"}
+}

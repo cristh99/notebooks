@@ -1,0 +1,73 @@
+{
+  "schema": "data-science-pipeline/acquisition-source-manifest/2",
+  "base_pipeline": {
+    "branch": "agent/data-science-canonical-pipeline-v1",
+    "commit": "c7fdbec5be95f298f0bfbb23c8cd5ea7059b45b0",
+    "bundle_sha256": "d2116de142fc94daaa833b949daadbc3ff7052c6c8e421348d49aa7d5022ea3f"
+  },
+  "overlay": {
+    "tar_gzip_sha256": "11da5eea97bf3e2e8febdebba8109cbbd4d01d21de26d44356c20024602f3b23",
+    "base64_sha256": "228671b4feb0389bf2f488ebae86d9d445225975acda1f88f8bc9cb1bdd0073e",
+    "parts": {
+      "part_00.b64": "ccea5809defa92381c16416a0129cfc325358820d7a95444e278209f94d2c587",
+      "part_01.b64": "fa62172d5790aad598fc5322f2f2c0736171438dcdc77a0b5ebdfb076a5e587b"
+    }
+  },
+  "source_files": {
+    "src/god_pipeline/acquisition.py": "66bf6cebba06ac9c11e189759201d45dba64a7a98b2d265639c4c65e77da3a57",
+    "src/god_pipeline/canary.py": "2808bb6e0fab48433d4c8d8ca811d0cd919072b9130936d317fdff062c5448b5",
+    "src/god_pipeline/__init__.py": "80d63dc1e19ad185861ea1b3ef0ac0f581b292d446270d3ced3d4c0309e552fb",
+    "src/god_pipeline/cli.py": "45c8d7d1cc28fefa17a45db713303f11ed67fed45e7f4f8690cbe53886e3995e",
+    "tests/test_acquisition.py": "62f7ba0f848c2e51412408e497797ee71d865e04daeea9f870027bd61989dae1",
+    "canary/oncae-2025-md5.json": "e581ac5cd19b6fc275e1000e11506de2924e1cd7cd8d24ac9ce52f0f927393c5",
+    "canary/iaip-portal-home.json": "4b3bec32bb662c0514df09761b734d02050c6a9173c72383715435ce35c949ec"
+  },
+  "external_canary_contracts": [
+    {
+      "request_id": "oncae-hc1-2025-md5",
+      "url": "https://datosabiertos.oncae.gob.hn/datosabiertos/HC1/HC1_2025.md5",
+      "allowed_hosts": ["datosabiertos.oncae.gob.hn"],
+      "expected_media_types": ["text/plain"],
+      "purpose": "prove live access to the official ONCAE open-data origin with a small bounded object"
+    },
+    {
+      "request_id": "iaip-portal-home",
+      "url": "https://portalunico.iaip.gob.hn/",
+      "allowed_hosts": ["portalunico.iaip.gob.hn", "api.iaip.gob.hn"],
+      "expected_media_types": ["text/html"],
+      "purpose": "prove live access and redirect handling for the IAIP public portal without downloading its document universe"
+    }
+  ],
+  "security_contract": {
+    "https_only": true,
+    "host_allowlist_required": true,
+    "private_loopback_linklocal_reserved_ip_rejected": true,
+    "redirect_target_revalidated": true,
+    "credential_headers_forbidden": true,
+    "request_url_userinfo_forbidden": true,
+    "streaming_byte_limit": true,
+    "content_length_reconciled": true,
+    "media_type_and_magic_validated": true,
+    "sha256_and_optional_md5_supported": true,
+    "failed_response_body_or_receipt_materially_quarantined": true,
+    "external_cost_usd": 0.0
+  },
+  "known_boundary": {
+    "dns_rebinding_fully_pinned": false,
+    "reason": "stdlib urllib resolves again after the preflight DNS safety check; redirects and final URLs are revalidated, but IP pinning requires a lower-level transport adapter",
+    "production_effect": "canary only; production deployment remains blocked until an IP-pinned transport or equivalent network policy is added"
+  },
+  "local_verification": {
+    "unit_and_adversarial_tests": "30/30 PASS",
+    "compileall": "PASS",
+    "paid_compute": false,
+    "gcloud": false
+  },
+  "promotion_rule": {
+    "both_canaries_must_be_accepted": true,
+    "quarantine_rate_max": 0.0,
+    "silent_loss_allowed": false,
+    "automatic_mass_download_authorized": false,
+    "merge_authorized": false
+  }
+}
