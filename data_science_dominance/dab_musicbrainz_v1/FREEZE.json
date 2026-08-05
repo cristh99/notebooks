@@ -1,7 +1,6 @@
 {
   "branch": "agent/data-science-dominance-dab-musicbrainz-v1",
   "candidate": {
-    "bytes": 45862,
     "frozen_before_official_dataset_values": true,
     "frozen_before_query2_3_content": true,
     "frozen_before_query2_3_ground_truth": true,
@@ -9,7 +8,7 @@
     "network_access": false,
     "path": "data_science_dominance/dab_musicbrainz_v1/musicbrainz_engine.py",
     "post_hoc_retuning_permitted": false,
-    "sha256": "8fa98c1f7d4c92e511fdf8cb2c233ad544b1307f079655ee59c7457e50a95ae1"
+    "sha256": "ac66413570ade3f691f238f574ce34b992fa82a1ed17788f14a46896a7316456"
   },
   "capabilities": [
     "fuzzy multi-attribute track entity resolution",
@@ -56,9 +55,8 @@
     "entity_resolution_stress_seconds_local": 13.35,
     "synthetic_tests": 34,
     "synthetic_failures": 0,
-    "tests_bytes": 15743,
     "tests_path": "data_science_dominance/dab_musicbrainz_v1/test_musicbrainz_engine.py",
-    "tests_sha256": "d57c9091fb9d714e4082d478e2d60ff1de6b469ffa846fa1371939685013fc58"
+    "tests_sha256": "ebf0ce135f4dc014417c4f366a11479833ea88206f38adf7f08ab91b68362429"
   },
   "prohibited_pre_activation_inputs": [
     "query_music_brainz_20k/query2/query.json",
@@ -81,6 +79,14 @@
     "query_music_brainz_20k/query1/validate.py",
     "dataset_manifest.tsv"
   ],
-  "schema": "data-science-dominance/musicbrainz-v1-freeze/1",
-  "source_base_sha": "4676c5500f9938ba59a77091f3d4e1870f2fb534"
+  "schema": "data-science-dominance/musicbrainz-v1-freeze/2",
+  "source_base_sha": "4676c5500f9938ba59a77091f3d4e1870f2fb534",
+  "transport_correction": {
+    "candidate_or_test_semantics_changed": false,
+    "held_out_query_content_accessed": false,
+    "invalid_run_id": 31035465519,
+    "official_dataset_values_accessed": false,
+    "reason": "the initial manifest referenced local serialization hashes rather than the exact GitHub blobs",
+    "validators_executed": false
+  }
 }
