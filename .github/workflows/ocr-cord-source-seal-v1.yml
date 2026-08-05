@@ -32,6 +32,7 @@ jobs:
           python -m compileall -q ocr_real_risk_v1/cord_source_seal.py
       - name: Resolve revision and LFS metadata only
         run: |
+          set -o pipefail
           mkdir -p cord-source-seal
           python -m ocr_real_risk_v1.cord_source_seal \
             --output cord-source-seal/cord_source_manifest.json \
