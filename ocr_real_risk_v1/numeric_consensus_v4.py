@@ -17,8 +17,11 @@ from typing import Iterable, Literal, Sequence
 
 Action = Literal["KEEP", "REPLACE", "ABSTAIN"]
 
+_ASCII_DIGITS = frozenset("0123456789")
 _ALLOWED_NON_DIGIT = frozenset(" \t\r\n.,:+-/$€£¥₹₡₦₱()[]{}'")
-_CURRENCY_CODE = re.compile(r"(?i)\b(?:HNL|LPS?|USD|EUR|GBP|JPY|CNY|RMB)\b")
+_CURRENCY_CODE = re.compile(
+    r"(?i)\b(?:HNL|LPS?|L|USD|US|EUR|GBP|JPY|CNY|RMB|MYR|RM)\b"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,16 +37,27 @@ class Observation:
     timeout: bool = False
 
     def __post_init__(self) -> None:
-        if not self.source_id.strip():
+        source_id = str(self.source_id).strip()
+        crop_family = str(self.crop_family).strip()
+        modality = str(self.modality).strip().lower()
+        if not source_id:
             raise ValueError("source_id must be non-empty")
-        if not self.crop_family.strip():
+        if not crop_family:
             raise ValueError("crop_family must be non-empty")
-        if not self.modality.strip():
+        if not modality:
             raise ValueError("modality must be non-empty")
-        if not math.isfinite(self.confidence) or not 0.0 <= self.confidence <= 1.0:
+        confidence = float(self.confidence)
+        if not math.isfinite(confidence) or not 0.0 <= confidence <= 1.0:
             raise ValueError("confidence must be finite and within [0, 1]")
-        if self.psm is not None and self.psm < 0:
-            raise ValueError("psm must be non-negative")
+        psm = None if self.psm is None else int(self.psm)
+        if psm is not None and psm <= 0:
+            raise ValueError("psm must be positive")
+        object.__setattr__(self, "text", str(self.text))
+        object.__setattr__(self, "source_id", source_id)
+        object.__setattr__(self, "crop_family", crop_family)
+        object.__setattr__(self, "modality", modality)
+        object.__setattr__(self, "confidence", confidence)
+        object.__setattr__(self, "psm", psm)
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,9 +68,11 @@ class ReplacementPolicy:
     min_crop_families: int = 2
     min_modalities: int = 2
     min_psms: int = 2
+    min_observation_confidence: float = 0.0
     min_median_confidence: float = 0.80
     conflict_min_votes: int = 2
     min_vote_margin: int = 2
+    max_observations: int = 1_000
 
     def __post_init__(self) -> None:
         integer_fields = (
@@ -69,6 +85,10 @@ class ReplacementPolicy:
         )
         if any(value < 1 for value in integer_fields):
             raise ValueError("all count thresholds must be positive")
+        if self.max_observations < 1:
+            raise ValueError("max_observations must be positive")
+        if not 0.0 <= self.min_observation_confidence <= 1.0:
+            raise ValueError("min_observation_confidence must be within [0, 1]")
         if not 0.0 <= self.min_median_confidence <= 1.0:
             raise ValueError("min_median_confidence must be within [0, 1]")
 
@@ -110,17 +130,19 @@ class SpeedGateResult:
 
 
 def _digits_if_numeric_like(value: str) -> str | None:
-    """Return digits only when the surrounding token is safely numeric-like."""
+    """Return ASCII digits only for a safely numeric-like token."""
 
-    without_codes = _CURRENCY_CODE.sub("", value.strip())
+    without_codes = _CURRENCY_CODE.sub("", str(value or "").strip())
     unexpected = {
         character
         for character in without_codes
-        if not character.isdigit() and character not in _ALLOWED_NON_DIGIT
+        if character not in _ASCII_DIGITS and character not in _ALLOWED_NON_DIGIT
     }
     if unexpected:
         return None
-    digits = "".join(character for character in without_codes if character.isdigit())
+    digits = "".join(
+        character for character in without_codes if character in _ASCII_DIGITS
+    )
     return digits or None
 
 
@@ -130,12 +152,17 @@ def format_like_baseline(baseline: str, replacement_digits: str) -> str:
     baseline_digits = _digits_if_numeric_like(baseline)
     if baseline_digits is None:
         raise ValueError("baseline is not a supported numeric-like token")
-    if not replacement_digits.isdigit():
-        raise ValueError("replacement_digits must contain digits only")
+    if not replacement_digits or any(
+        character not in _ASCII_DIGITS for character in replacement_digits
+    ):
+        raise ValueError("replacement_digits must contain ASCII digits only")
     if len(replacement_digits) != len(baseline_digits):
         raise ValueError("replacement must preserve the baseline digit count")
     iterator = iter(replacement_digits)
-    return "".join(next(iterator) if character.isdigit() else character for character in baseline)
+    return "".join(
+        next(iterator) if character in _ASCII_DIGITS else character
+        for character in baseline
+    )
 
 
 def _support(digits: str, observations: Sequence[Observation]) -> Support:
@@ -248,6 +275,17 @@ def decide_replacement(
         )
 
     rows = list(observations)
+    if len(rows) > active_policy.max_observations:
+        empty = _empty_support(baseline_digits)
+        return _finish(
+            action="ABSTAIN",
+            reason="RESOURCE_LIMIT",
+            baseline=baseline,
+            output=baseline,
+            support=empty,
+            runner_up=None,
+            policy=active_policy,
+        )
     source_ids = [row.source_id for row in rows]
     if len(source_ids) != len(set(source_ids)):
         empty = _empty_support(baseline_digits)
@@ -263,7 +301,7 @@ def decide_replacement(
 
     grouped: dict[str, list[Observation]] = {}
     for row in rows:
-        if row.timeout or row.confidence < active_policy.min_median_confidence:
+        if row.timeout or row.confidence < active_policy.min_observation_confidence:
             continue
         digits = _digits_if_numeric_like(row.text)
         if digits is None or len(digits) != len(baseline_digits):
@@ -340,7 +378,9 @@ def decide_replacement(
 
     if runner_up is not None and runner_up.votes >= active_policy.conflict_min_votes:
         independently_supported = bool(
-            runner_up.crop_families >= 2 or runner_up.modalities >= 2
+            runner_up.crop_families >= 2
+            or runner_up.modalities >= 2
+            or runner_up.psms >= 2
         )
         if independently_supported:
             return _finish(
