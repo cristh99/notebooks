@@ -1,0 +1,65 @@
+{
+  "schema": "data-science-dominance/fresh-usaspending-v3-freeze/1",
+  "score_before": 465,
+  "branch": "agent/data-science-dominance-dab-fresh-usaspending-v3",
+  "source_parent_sha": "c30ffb6021bdd990629161096caa06508c765f65",
+  "freeze_commit_before_activation": "466da31584dbccf4667a94fe1a86269c0992db41",
+  "dab_repository": "ucbepic/DataAgentBench",
+  "dab_commit": "9a55e34271a2500a41cbc009e239edd94599e374",
+  "candidate": {
+    "path": "data_science_dominance/dab_fresh_usaspending_v3/usaspending_v3_engine.py",
+    "git_blob_sha": "e47d36a43790dd5294c99796e4b85155de87e90b",
+    "base_v2_candidate_sha256": "76d240d4f4bb1ed5a87f32c18ae92e7629b971f761577eb16d2b5deccf57ef8f",
+    "frozen_before_query8_10_content": true,
+    "frozen_before_query8_10_validators": true,
+    "frozen_before_query8_10_ground_truth": true,
+    "post_hoc_retuning_permitted": false
+  },
+  "tests": {
+    "path": "data_science_dominance/dab_fresh_usaspending_v3/test_usaspending_v3_engine.py",
+    "git_blob_sha": "42100d9d69838eeb58230eaa4d09ed9bdd6a3144",
+    "covers": [
+      "dimension-aware NAICS grouping",
+      "tie-breaking by smaller code",
+      "recipient-registry multi-UEI aggregation",
+      "V2 fallback preservation",
+      "fresh-query leakage exclusion"
+    ]
+  },
+  "development_evidence": {
+    "v1_official_run_id": 31002739905,
+    "v1_verdict": "FAIL_0_OF_3",
+    "v2_official_run_id": 31011620093,
+    "v2_verdict": "FAIL_0_OF_3",
+    "exposed_queries_used_only_for_diagnosis": [2, 3, 4, 5, 6, 7]
+  },
+  "held_out_scope": [
+    "query_usaspending/query8",
+    "query_usaspending/query9",
+    "query_usaspending/query10"
+  ],
+  "prohibited_pre_activation_inputs": [
+    "query_usaspending/query8/query.json",
+    "query_usaspending/query8/validate.py",
+    "query_usaspending/query8/ground_truth.csv",
+    "query_usaspending/query9/query.json",
+    "query_usaspending/query9/validate.py",
+    "query_usaspending/query9/ground_truth.csv",
+    "query_usaspending/query10/query.json",
+    "query_usaspending/query10/validate.py",
+    "query_usaspending/query10/ground_truth.csv"
+  ],
+  "execution_policy": {
+    "official_dataset_values_accessed_pre_freeze": false,
+    "candidate_network_access": false,
+    "answers_sealed_before_validator_checkout": true,
+    "validators_execute_once_each": true,
+    "merge_permitted": false,
+    "novelty_points": 0
+  },
+  "promotion_rule": {
+    "pass_3_of_3_points": 35,
+    "pass_2_of_3_points": 15,
+    "pass_0_or_1_points": 0
+  }
+}
