@@ -1,0 +1,20 @@
+{
+  "schema": "data-science-dominance/bookreview-v1-static-audit/1",
+  "candidate_sha256": "f539ea1d8e7434ade8b8333054ba40d10a69f6e4c430e784ea321ccafde06414",
+  "tests_sha256": "70603c0e07ad8698f659fc42709f812ab0eb68daeca2b4da18f2b3b9cb32a95a",
+  "query2_3_literals_present": false,
+  "validator_or_ground_truth_literals_present": false,
+  "network_imports_present": false,
+  "process_imports_present": false,
+  "dataset_identifier_branching_present": false,
+  "official_evaluation_count": 0,
+  "capabilities": [
+    "PostgreSQL plus SQLite integration",
+    "fuzzy book_id to purchase_id resolution",
+    "literal parsing for list and dictionary strings",
+    "publication year and publisher extraction",
+    "category, author, publisher, store, book, review, year and decade grouping",
+    "deterministic aggregation and tie-breaking"
+  ],
+  "score_after_audit": 465
+}
