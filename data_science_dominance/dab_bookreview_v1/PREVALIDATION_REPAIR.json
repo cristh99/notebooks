@@ -1,0 +1,18 @@
+{
+  "schema": "data-science-dominance/bookreview-v1-prevalidation-repair/1",
+  "source_run_id": 31026531776,
+  "source_job_id": 92376335393,
+  "source_head_sha": "441a4208ad8f0c017afee9e48c941aa571eba7b2",
+  "candidate_sha256": "f539ea1d8e7434ade8b8333054ba40d10a69f6e4c430e784ea321ccafde06414",
+  "failure_stage": "post-solve non-empty-file assertion",
+  "candidate_executed": true,
+  "candidate_answers_logged": 2,
+  "validators_executed": 0,
+  "ground_truth_accessed": false,
+  "repair_scope": "recover exact logged candidate answers and seal them; do not rerun or modify the candidate",
+  "candidate_semantics_changed": false,
+  "query_plans_changed": false,
+  "post_hoc_retuning_permitted": false,
+  "promotion_rule_changed": false,
+  "score_before": 465
+}
