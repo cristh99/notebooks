@@ -1,0 +1,121 @@
+name: Data Science dominance — fresh USAspending V2 synthetic freeze
+
+on:
+  push:
+    branches:
+      - agent/data-science-dominance-dab-fresh-usaspending-v2
+    paths:
+      - .github/workflows/data-science-dominance-dab-fresh-usaspending-v2-synthetic.yml
+
+permissions:
+  contents: read
+
+env:
+  ROOT: data_science_dominance/dab_fresh_usaspending_v2
+
+jobs:
+  synthetic-freeze:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove workflow-only activation after freeze
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_EVENT_NAME}" = push
+          test "${GITHUB_RUN_ATTEMPT}" = 1
+          test "$(git rev-parse HEAD^)" = 86c286b82b9b755896a783ff55af8341403d18a7
+          test "$(git diff --name-only HEAD^ HEAD)" = .github/workflows/data-science-dominance-dab-fresh-usaspending-v2-synthetic.yml
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Reconstruct and audit frozen V2
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash "$ROOT/reconstruct.sh"
+          python - <<'PY'
+          import ast, hashlib, json
+          from pathlib import Path
+          root = Path('data_science_dominance/dab_fresh_usaspending_v2')
+          freeze = json.loads((root / 'FREEZE.json').read_text())
+          source_path = root / 'usaspending_fresh_engine.py'
+          tests_path = root / 'test_usaspending_fresh_engine.py'
+          source = source_path.read_text().lower()
+          assert hashlib.sha256(source_path.read_bytes()).hexdigest() == freeze['candidate']['sha256']
+          assert hashlib.sha256(tests_path.read_bytes()).hexdigest() == freeze['tests']['sha256']
+          assert freeze['held_out_scope'] == [
+              'query_usaspending/query5',
+              'query_usaspending/query6',
+              'query_usaspending/query7',
+          ]
+          for forbidden in (
+              'query5/query.json', 'query6/query.json', 'query7/query.json',
+              'ground_truth.csv', 'validate.py', 'compute_ground_truth.py',
+              'requests', 'httpx', 'urllib', 'socket', 'subprocess',
+          ):
+              assert forbidden not in source, forbidden
+          imports = set()
+          for node in ast.walk(ast.parse(source_path.read_text())):
+              if isinstance(node, ast.Import):
+                  imports.update(alias.name.split('.')[0] for alias in node.names)
+              elif isinstance(node, ast.ImportFrom) and node.module:
+                  imports.add(node.module.split('.')[0])
+          assert not imports.intersection({'requests','httpx','urllib','socket','subprocess'})
+          PY
+
+      - name: Run 18-test battery
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$ROOT"
+          python -m unittest -v test_usaspending_fresh_engine.py 2>&1 | tee ../../fresh-usaspending-v2-synthetic.log
+
+      - name: Seal synthetic receipt
+        if: always()
+        run: |
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root = Path('data_science_dominance/dab_fresh_usaspending_v2')
+          log = Path('fresh-usaspending-v2-synthetic.log')
+          text = log.read_text() if log.exists() else ''
+          passed = 'Ran 18 tests' in text and '\nOK\n' in ('\n' + text + '\n')
+          receipt = {
+              'schema': 'data-science-dominance/fresh-usaspending-v2-synthetic/1',
+              'verdict': 'PASS' if passed else 'FAIL',
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_sha': os.environ['GITHUB_SHA'],
+              'official_dataset_values_accessed': False,
+              'held_out_query_content_accessed': False,
+              'validators_executed': False,
+              'ground_truth_accessed': False,
+              'hashes': {
+                  'candidate_sha256': hashlib.sha256((root/'usaspending_fresh_engine.py').read_bytes()).hexdigest(),
+                  'tests_sha256': hashlib.sha256((root/'test_usaspending_fresh_engine.py').read_bytes()).hexdigest(),
+                  'freeze_sha256': hashlib.sha256((root/'FREEZE.json').read_bytes()).hexdigest(),
+                  'log_sha256': hashlib.sha256(log.read_bytes()).hexdigest() if log.exists() else None,
+              },
+          }
+          payload = json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          Path('fresh-usaspending-v2-synthetic-receipt.json').write_text(payload)
+          print(payload)
+          if not passed:
+              raise SystemExit(1)
+          PY
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: fresh-usaspending-v2-synthetic
+          retention-days: 90
+          path: |
+            data_science_dominance/dab_fresh_usaspending_v2/**
+            fresh-usaspending-v2-synthetic.log
+            fresh-usaspending-v2-synthetic-receipt.json
