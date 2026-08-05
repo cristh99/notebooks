@@ -1,0 +1,46 @@
+name: Data Science dominance — extract frozen DAB slice capsule
+
+on:
+  push:
+    branches:
+      - agent/data-science-dominance-dab-slice
+    paths:
+      - '.github/workflows/data-science-dominance-dab-slice-extract.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  extract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove workflow-only activation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_RUN_ATTEMPT}" = '1'
+          test "$(git rev-parse HEAD^)" = '3bf3f5b8503515391fc5174552c12028a0a2b751'
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/data-science-dominance-dab-slice-extract.yml'
+
+      - name: Reconstruct frozen source and tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash data_science_dominance/dab_slice/reconstruct_dab_slice.sh
+          base64 -d data_science_dominance/dab_slice/test_dab_slice_agent.py.gz.b64 | gzip -dc > data_science_dominance/dab_slice/test_dab_slice_agent.py
+          echo 'e026da211c2db3e3777fe839cdc714a9fe5369ce0e0127dbca35de17f286e39a  data_science_dominance/dab_slice/test_dab_slice_agent.py' | sha256sum -c -
+
+      - name: Upload capsule source
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-dominance-dab-slice-source
+          retention-days: 7
+          path: |
+            data_science_dominance/dab_slice/dab_slice_agent.py
+            data_science_dominance/dab_slice/test_dab_slice_agent.py
+            data_science_dominance/dab_slice/DAB_SLICE_FREEZE.json
