@@ -1,0 +1,49 @@
+{
+  "batches": [
+    {"accepted":0,"baseline_errors":2,"false_replacements":0,"false_semantic_flags":1,"final_errors_among_accepted":0,"flags":3,"images":4,"label":"batch1","quarantined":3},
+    {"accepted":1,"baseline_errors":1,"false_replacements":0,"false_semantic_flags":2,"final_errors_among_accepted":0,"flags":3,"images":16,"label":"batch2","quarantined":2},
+    {"accepted":0,"baseline_errors":0,"false_replacements":0,"false_semantic_flags":7,"final_errors_among_accepted":0,"flags":7,"images":30,"label":"batch3","quarantined":7},
+    {"accepted":0,"baseline_errors":1,"false_replacements":0,"false_semantic_flags":0,"final_errors_among_accepted":0,"flags":1,"images":10,"label":"batch4","quarantined":1}
+  ],
+  "candidate_commit": "fe8865e9182f8ef62babcc1bdda0ac4c107cebfd",
+  "candidate_frozen": true,
+  "candidate_modified_from_outcomes": false,
+  "constraints": {
+    "external_spend_usd": 0.0,
+    "gcloud_used": false,
+    "github_actions_used": false,
+    "gpu_used": false,
+    "merged": false,
+    "paid_api_used": false,
+    "production_modified": false,
+    "pull_request_created": false
+  },
+  "decision": {
+    "external_10x_certification": false,
+    "next_gate": "continue unchanged candidate accumulation; do not inspect significance before 51 flags",
+    "production_promotion": false
+  },
+  "metrics": {
+    "accepted_flagged_claims": 1,
+    "baseline_error_fraction_among_flags": 0.2857142857142857,
+    "baseline_errors": 4,
+    "evaluated_flags": 14,
+    "false_replacements": 0,
+    "false_semantic_flags": 10,
+    "final_errors_among_accepted": 0,
+    "flags": 14,
+    "images": 60,
+    "quarantined_flagged_claims": 13,
+    "selective_coverage": 0.07142857142857142
+  },
+  "schema": "ocr-v4-2-untouched-selective-accumulation/2",
+  "stable_payload_sha256": "b58d588f9bd90c2f22f6a5709575ef09feebfd35ca5ad317c261510473af03c4",
+  "statistics": {
+    "accumulated_flags": 14,
+    "alpha_spending_plan": "51 -> 87 -> 148",
+    "first_predeclared_look_at_flags": 51,
+    "remaining_to_look_1": 37,
+    "significance_look_performed": false
+  },
+  "status": "ACCUMULATION_BEFORE_PREDECLARED_LOOK_1"
+}
