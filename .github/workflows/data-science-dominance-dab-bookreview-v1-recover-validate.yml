@@ -1,0 +1,208 @@
+name: Data Science dominance — BookReview V1 recover sealed answers and validate
+
+on:
+  push:
+    branches:
+      - agent/data-science-dominance-dab-bookreview-v1
+    paths:
+      - .github/workflows/data-science-dominance-dab-bookreview-v1-recover-validate.yml
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  DAB_SHA: 9a55e34271a2500a41cbc009e239edd94599e374
+
+jobs:
+  recover-and-seal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove workflow-only activation after repair record
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_EVENT_NAME}" = push
+          test "${GITHUB_RUN_ATTEMPT}" = 1
+          test "$(git rev-parse HEAD^)" = 83c48487f772b900d32e1e3dd75a81a006638ae0
+          test "$(git diff --name-only HEAD^ HEAD)" = .github/workflows/data-science-dominance-dab-bookreview-v1-recover-validate.yml
+
+      - name: Download original pre-validation job log
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh run view 31026531776 --repo cristh99/notebooks --job 92376335393 --log > original-job.log
+          test -s original-job.log
+
+      - name: Recover exact logged answers without rerunning candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          log_path=Path('original-job.log')
+          answers={}
+          for line in log_path.read_text(errors='replace').splitlines():
+              marker='{"answer":'
+              pos=line.find(marker)
+              if pos<0: continue
+              fragment=line[pos:]
+              try: payload=json.loads(fragment)
+              except json.JSONDecodeError: continue
+              query_id=payload.get('query_id')
+              if query_id in {'bookreview_2','bookreview_3'}:
+                  answers[query_id]=str(payload.get('answer',''))
+          assert set(answers)=={'bookreview_2','bookreview_3'}, answers
+          out=Path('sealed-answers'); out.mkdir()
+          for query_id,answer in sorted(answers.items()):
+              (out/f'{query_id}.txt').write_text(answer + ('\n' if answer else ''),encoding='utf-8')
+          (out/'answers.json').write_text(json.dumps(answers,indent=2,sort_keys=True)+'\n',encoding='utf-8')
+          files=[]
+          for p in sorted(x for x in out.rglob('*') if x.is_file()):
+              files.append({'path':str(p.relative_to(out)),'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()})
+          manifest={
+              'schema':'data-science-dominance/bookreview-v1-recovered-sealed-answers/1',
+              'source_run_id':31026531776,
+              'source_job_id':92376335393,
+              'source_head_sha':'441a4208ad8f0c017afee9e48c941aa571eba7b2',
+              'candidate_sha256':'f539ea1d8e7434ade8b8333054ba40d10a69f6e4c430e784ea321ccafde06414',
+              'candidate_rerun':False,
+              'candidate_process_count':1,
+              'answers_recovered_from_original_job_log':True,
+              'validators_executed_before_recovery':0,
+              'ground_truth_accessed_before_recovery':False,
+              'post_hoc_retuning_permitted':False,
+              'source_log_sha256':hashlib.sha256(log_path.read_bytes()).hexdigest(),
+              'files':files,
+          }
+          payload=json.dumps(manifest,indent=2,sort_keys=True)+'\n'
+          Path('bookreview-answer-manifest.json').write_text(payload)
+          Path('bookreview-answer-manifest.sha256').write_text(hashlib.sha256(payload.encode()).hexdigest()+'  bookreview-answer-manifest.json\n')
+          print(json.dumps(answers,sort_keys=True))
+          PY
+
+      - name: Upload recovered immutable answers before validator checkout
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: bookreview-v1-recovered-sealed-answers
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            sealed-answers/**
+            bookreview-answer-manifest.json
+            bookreview-answer-manifest.sha256
+            original-job.log
+            data_science_dominance/dab_bookreview_v1/PREVALIDATION_REPAIR.json
+            data_science_dominance/dab_bookreview_v1/FREEZE.json
+
+  validate-recovered-answers:
+    needs: recover-and-seal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: bookreview-v1-recovered-sealed-answers
+          path: sealed-bundle
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Acquire validators and ground truth after recovery seal
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --no-checkout https://github.com/ucbepic/DataAgentBench.git dab-validation
+          cd dab-validation
+          git sparse-checkout init --no-cone
+          cat > .git/info/sparse-checkout <<'EOF'
+          /query_bookreview/query2/**
+          /query_bookreview/query3/**
+          EOF
+          git -c advice.detachedHead=false checkout "$DAB_SHA"
+          test "$(git rev-parse HEAD)" = "$DAB_SHA"
+          test "$(find . -name ground_truth.csv -type f | wc -l)" -eq 2
+          test "$(find . -name validate.py -type f | wc -l)" -eq 2
+
+      - name: Run each official validator exactly once and seal verdict
+        shell: bash
+        run: |
+          set +e
+          python - <<'PY' 2>&1 | tee bookreview-validator.log
+          import hashlib,importlib.util,json,os,sys,traceback
+          from pathlib import Path
+          bundle=Path('sealed-bundle')
+          manifest_path=next(bundle.rglob('bookreview-answer-manifest.json'))
+          manifest=json.loads(manifest_path.read_text())
+          answer_dir=next(bundle.rglob('answers.json')).parent
+          assert manifest['candidate_sha256']=='f539ea1d8e7434ade8b8333054ba40d10a69f6e4c430e784ea321ccafde06414'
+          assert manifest['candidate_rerun'] is False
+          assert manifest['ground_truth_accessed_before_recovery'] is False
+          results=[]
+          for n in (2,3):
+              answer_path=answer_dir/f'bookreview_{n}.txt'
+              validator_path=Path(f'dab-validation/query_bookreview/query{n}/validate.py')
+              ground_path=Path(f'dab-validation/query_bookreview/query{n}/ground_truth.csv')
+              spec=importlib.util.spec_from_file_location(f'bookreview_validator_{n}',validator_path)
+              module=importlib.util.module_from_spec(spec); sys.modules[spec.name]=module; spec.loader.exec_module(module)
+              answer=answer_path.read_text().strip()
+              try:
+                  raw=module.validate(answer)
+                  if isinstance(raw,tuple): passed,reason=bool(raw[0]),str(raw[1] if len(raw)>1 else '')
+                  elif isinstance(raw,dict): passed,reason=bool(raw.get('is_valid')),str(raw.get('reason',''))
+                  else: passed,reason=bool(raw),''
+                  trace=''
+              except Exception as exc:
+                  passed=False; reason=f'{type(exc).__name__}: {exc}'; trace=traceback.format_exc()
+              row={'query_number':n,'answer':answer,'passed':passed,'reason':reason,'traceback':trace,'answer_sha256':hashlib.sha256(answer_path.read_bytes()).hexdigest(),'validator_sha256':hashlib.sha256(validator_path.read_bytes()).hexdigest(),'ground_truth_sha256':hashlib.sha256(ground_path.read_bytes()).hexdigest()}
+              results.append(row); print(json.dumps(row,sort_keys=True),flush=True)
+          pass_count=sum(int(r['passed']) for r in results)
+          points=25 if pass_count==2 else 0
+          verdict='PASS_2_OF_2' if pass_count==2 else 'FAIL'
+          evidence=Path('bookreview-validation-evidence'); evidence.mkdir()
+          report={'schema':'data-science-dominance/bookreview-v1-official-validation/1','verdict':verdict,'pass_count':pass_count,'query_count':2,'promotion_points':points,'score_before':465,'score_after':465+points,'candidate_sha256':manifest['candidate_sha256'],'candidate_rerun':False,'answers_recovered_from_original_log':True,'answers_sealed_before_ground_truth_access':True,'validators_executed_once_each':True,'post_hoc_retuning_permitted':False,'results':results}
+          report_text=json.dumps(report,indent=2,sort_keys=True)+'\n'; (evidence/'official-validation.json').write_text(report_text)
+          receipt={'schema':'data-science-dominance/bookreview-v1-external-receipt/1','verdict':verdict,'pass_count':pass_count,'query_count':2,'promotion_points':points,'score_before':465,'score_after':465+points,'candidate_sha256':manifest['candidate_sha256'],'github_run_id':int(os.environ['GITHUB_RUN_ID']),'github_run_attempt':int(os.environ['GITHUB_RUN_ATTEMPT']),'github_sha':os.environ['GITHUB_SHA'],'source_candidate_run_id':31026531776,'source_candidate_job_id':92376335393,'candidate_rerun':False,'answers_sealed_before_ground_truth_access':True,'validators_executed_once_each':True,'post_hoc_retuning_permitted':False,'merge_permitted':False,'hashes':{'answer_manifest_sha256':hashlib.sha256(manifest_path.read_bytes()).hexdigest(),'validation_report_sha256':hashlib.sha256(report_text.encode()).hexdigest()}}
+          receipt_text=json.dumps(receipt,indent=2,sort_keys=True)+'\n'; (evidence/'external-receipt.json').write_text(receipt_text); (evidence/'external-receipt.sha256').write_text(hashlib.sha256(receipt_text.encode()).hexdigest()+'  external-receipt.json\n')
+          PY
+          status=${PIPESTATUS[0]}
+          echo "$status" > bookreview-validator.status
+          exit 0
+
+      - name: Upload complete recovered official evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: bookreview-v1-official
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            sealed-bundle/**
+            bookreview-validation-evidence/**
+            bookreview-validator.log
+            bookreview-validator.status
+            data_science_dominance/dab_bookreview_v1/FREEZE.json
+            data_science_dominance/dab_bookreview_v1/PREVALIDATION_REPAIR.json
+
+      - name: Enforce preregistered promotion gate
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt=json.loads(Path('bookreview-validation-evidence/external-receipt.json').read_text())
+          if receipt['pass_count']!=2:
+              raise SystemExit(f"BookReview V1: {receipt['pass_count']}/2; evidence preserved; no retuning")
+          print('BookReview V1: 2/2; +25 points')
+          PY
