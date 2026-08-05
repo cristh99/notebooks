@@ -1,0 +1,530 @@
+name: OCR SROIE natural-scan holdout v1
+
+on:
+  push:
+    branches:
+      - agent/ocr-sroie-natural-holdout-v1
+    paths:
+      - 'ocr_real_risk_v1/sroie_natural_holdout.py'
+      - 'ocr_real_risk_v1/sroie_aggregate.py'
+      - 'ocr_real_risk_v1/test_sroie_natural_holdout.py'
+      - '.github/workflows/ocr-sroie-natural-holdout-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: ocr-sroie-natural-holdout-v1-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DATASET_REPO: 'jsdnrs/ICDAR2019-SROIE'
+  DATASET_REVISION: 'bffe40c26759f3376ec2b3ae9031dbba54cd587c'
+  TRAIN_FILE: 'train-00000-of-00001.parquet'
+  TEST_FILE: 'test-00000-of-00001.parquet'
+  TRAIN_SHA256: 'b18c16b4d8481e5e4537a1700e4616907fe4acd92d6362a7e430b0e866213887'
+  TEST_SHA256: '04f8f31b45944cc6e6459a7a95c851a721fc93ffec0a5c29ece9ded734a684c2'
+  OCR_VERIFIER_VENDOR_BLOB: '34180d164f3f5b05542217fd750ca26cbdd08e62'
+  OMP_THREAD_LIMIT: '1'
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+
+jobs:
+  seal-manifests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+      artifact_digest: ${{ steps.upload.outputs.artifact-digest }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Install frozen manifest and test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            fonts-dejavu-core fonts-lato
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 pytesseract==0.3.13 \
+            numpy==2.2.6 opencv-python-headless==4.10.0.84 \
+            pyarrow==18.1.0
+      - name: Protocol and deterministic-selection tests
+        run: |
+          python -m unittest -v ocr_real_risk_v1.test_sroie_natural_holdout
+          python -m compileall -q ocr_real_risk_v1
+          test "$(git hash-object ocr_real_risk_v1/pixel_digit_alignment.py)" = \
+            "${OCR_VERIFIER_VENDOR_BLOB}"
+      - name: Download and hash-pin both published splits before OCR
+        run: |
+          mkdir -p data
+          base="https://huggingface.co/datasets/${DATASET_REPO}/resolve/${DATASET_REVISION}/data"
+          curl --fail --location --retry 5 --retry-all-errors \
+            --connect-timeout 30 --max-time 1800 \
+            "${base}/${TRAIN_FILE}?download=true" \
+            --output "data/${TRAIN_FILE}"
+          curl --fail --location --retry 5 --retry-all-errors \
+            --connect-timeout 30 --max-time 1800 \
+            "${base}/${TEST_FILE}?download=true" \
+            --output "data/${TEST_FILE}"
+          echo "${TRAIN_SHA256}  data/${TRAIN_FILE}" | sha256sum --check --strict
+          echo "${TEST_SHA256}  data/${TEST_FILE}" | sha256sum --check --strict
+      - name: Seal train and test selections before any OCR outcome
+        run: |
+          mkdir -p sealed-manifests/train sealed-manifests/test
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          from ocr_real_risk_v1.sroie_natural_holdout import (
+              DATASET_EXPECTED_ROWS,
+              build_manifest,
+              verify_stable_payload,
+          )
+
+          files = {
+              'train': Path('data') / os.environ['TRAIN_FILE'],
+              'test': Path('data') / os.environ['TEST_FILE'],
+          }
+          summary = {}
+          for split, source in files.items():
+              manifest = build_manifest(source, split)
+              assert verify_stable_payload(manifest, 'manifest_sha256')
+              assert manifest['census']['rows'] == DATASET_EXPECTED_ROWS[split]
+              destination = Path('sealed-manifests') / split / 'manifest.json'
+              destination.write_text(
+                  json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + '\n',
+                  encoding='utf-8',
+              )
+              summary[split] = {
+                  'published_rows': manifest['census']['rows'],
+                  'selected_locations': manifest['census']['rows_with_selected_numeric_location'],
+                  'manifest_sha256': manifest['manifest_sha256'],
+                  'selected_key_set_sha256': manifest['census']['selected_key_set_sha256'],
+              }
+          identity = {
+              'schema': 'ocr-sroie-natural-preregistration/1',
+              'repository_commit': os.environ['GITHUB_SHA'],
+              'dataset_repo': os.environ['DATASET_REPO'],
+              'dataset_revision': os.environ['DATASET_REVISION'],
+              'parquet_sha256': {
+                  'train': os.environ['TRAIN_SHA256'],
+                  'test': os.environ['TEST_SHA256'],
+              },
+              'splits': summary,
+              'selection_uses_ocr': False,
+              'both_manifests_sealed_before_ocr': True,
+              'automatic_production_change': False,
+          }
+          Path('sealed-manifests/preregistration.json').write_text(
+              json.dumps(identity, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          print(json.dumps(identity, indent=2, sort_keys=True))
+          PY
+          (cd sealed-manifests && \
+            find . -type f ! -name SHA256SUMS.txt -print0 \
+              | sort -z \
+              | xargs -0 sha256sum \
+              | sed 's#  \./#  #' > SHA256SUMS.txt)
+          (cd sealed-manifests && sha256sum --check --strict SHA256SUMS.txt)
+      - id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-sroie-sealed-manifests-v1
+          path: sealed-manifests
+          if-no-files-found: error
+          retention-days: 30
+
+  evaluate-splits:
+    needs: seal-manifests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - split: train
+            file: train-00000-of-00001.parquet
+            sha256: b18c16b4d8481e5e4537a1700e4616907fe4acd92d6362a7e430b0e866213887
+          - split: test
+            file: test-00000-of-00001.parquet
+            sha256: 04f8f31b45944cc6e6459a7a95c851a721fc93ffec0a5c29ece9ded734a684c2
+    env:
+      SPLIT: ${{ matrix.split }}
+      PARQUET_FILE: ${{ matrix.file }}
+      PARQUET_SHA256: ${{ matrix.sha256 }}
+      MANIFEST_ARTIFACT_ID: ${{ needs.seal-manifests.outputs.artifact_id }}
+      MANIFEST_ARTIFACT_DIGEST: ${{ needs.seal-manifests.outputs.artifact_digest }}
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Install frozen free CPU dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            tesseract-ocr tesseract-ocr-eng \
+            fonts-dejavu-core fonts-lato
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 pytesseract==0.3.13 \
+            numpy==2.2.6 opencv-python-headless==4.10.0.84 \
+            pyarrow==18.1.0
+          test "$(git hash-object ocr_real_risk_v1/pixel_digit_alignment.py)" = \
+            "${OCR_VERIFIER_VENDOR_BLOB}"
+      - name: Recover and verify the pre-OCR sealed manifest
+        run: |
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${MANIFEST_ARTIFACT_ID}/zip" \
+            --output sealed-manifests.zip
+          echo "${MANIFEST_ARTIFACT_DIGEST#sha256:}  sealed-manifests.zip" \
+            | sha256sum --check --strict
+          mkdir -p sealed-manifests
+          unzip -q sealed-manifests.zip -d sealed-manifests
+          (cd sealed-manifests && sha256sum --check --strict SHA256SUMS.txt)
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from ocr_real_risk_v1.sroie_natural_holdout import verify_stable_payload
+
+          manifest = json.loads(
+              (Path('sealed-manifests') / os.environ['SPLIT'] / 'manifest.json').read_text()
+          )
+          assert verify_stable_payload(manifest, 'manifest_sha256')
+          assert manifest['dataset']['split'] == os.environ['SPLIT']
+          assert manifest['dataset']['parquet_sha256'] == os.environ['PARQUET_SHA256']
+          assert manifest['protocol']['selection_uses_ocr'] is False
+          assert manifest['protocol']['verifier_thresholds_frozen_before_dataset_execution'] is True
+          print(json.dumps({
+              'split': os.environ['SPLIT'],
+              'selected': len(manifest['records']),
+              'manifest_sha256': manifest['manifest_sha256'],
+          }, indent=2, sort_keys=True))
+          PY
+      - name: Download the pinned split
+        run: |
+          mkdir -p data
+          url="https://huggingface.co/datasets/${DATASET_REPO}/resolve/${DATASET_REVISION}/data/${PARQUET_FILE}?download=true"
+          curl --fail --location --retry 5 --retry-all-errors \
+            --connect-timeout 30 --max-time 1800 \
+            "${url}" --output "data/${PARQUET_FILE}"
+          echo "${PARQUET_SHA256}  data/${PARQUET_FILE}" \
+            | sha256sum --check --strict
+      - name: Execute every sealed selected location
+        run: |
+          output="sroie-${SPLIT}"
+          rm -rf "${output}"
+          mkdir -p "${output}"
+          python - <<'PY' | tee "sroie-${SPLIT}/stdout.json"
+          import json
+          import os
+          from pathlib import Path
+
+          from ocr_real_risk_v1.sroie_natural_holdout import (
+              evaluate_split,
+              verify_stable_payload,
+              write_split_outputs,
+          )
+
+          split = os.environ['SPLIT']
+          manifest = json.loads(
+              (Path('sealed-manifests') / split / 'manifest.json').read_text()
+          )
+          source = Path('data') / os.environ['PARQUET_FILE']
+          output = Path(f'sroie-{split}')
+          report = evaluate_split(source, manifest, output)
+          assert verify_stable_payload(report, 'stable_payload_sha256')
+          write_split_outputs(manifest, report, output)
+          print(json.dumps({
+              'split': split,
+              'manifest_census': manifest['census'],
+              'execution': report['execution'],
+              'descriptive': report['descriptive'],
+              'decision': report['decision'],
+              'manifest_sha256': manifest['manifest_sha256'],
+              'stable_payload_sha256': report['stable_payload_sha256'],
+          }, indent=2, sort_keys=True))
+          PY
+      - name: Independent split integrity gates
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from ocr_real_risk_v1.sroie_natural_holdout import verify_stable_payload
+
+          root = Path(f"sroie-{os.environ['SPLIT']}")
+          manifest = json.loads((root / 'manifest.json').read_text())
+          report = json.loads((root / 'split_report.json').read_text())
+          assert verify_stable_payload(manifest, 'manifest_sha256')
+          assert verify_stable_payload(report, 'stable_payload_sha256')
+          assert report['manifest_sha256'] == manifest['manifest_sha256']
+          assert report['execution']['selected_locations'] == len(manifest['records'])
+          assert len(report['observations']) == len(manifest['records'])
+          assert all(
+              row['image_sha256'] == manifest['records'][index]['image_sha256']
+              for index, row in enumerate(report['observations'])
+          )
+          assert all(
+              row['verifier']['crop_source'] == 'tesseract_matched_bbox'
+              for row in report['observations']
+              if row['tesseract']['eligible']
+          )
+          assert all(
+              row['verifier']['crop_source'] == 'truth_bbox_diagnostic_only'
+              for row in report['observations']
+              if not row['tesseract']['eligible']
+          )
+          assert report['decision']['aggregate_certificate_required'] is True
+          assert report['decision']['pass_statistical_10x'] is False
+          assert report['decision']['automatic_production_change'] is False
+          assert report['constraints'] == {
+              'external_spend_usd': 0,
+              'gcloud_used': False,
+              'gpu_used': False,
+              'paid_api_used': False,
+              'production_modified': False,
+          }
+          print(json.dumps({
+              'split': os.environ['SPLIT'],
+              'execution': report['execution'],
+              'descriptive': report['descriptive'],
+          }, indent=2, sort_keys=True))
+          PY
+          (cd "sroie-${SPLIT}" && sha256sum --check --strict SHA256SUMS.txt)
+      - id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-sroie-natural-${{ matrix.split }}-v1
+          path: sroie-${{ matrix.split }}
+          if-no-files-found: error
+          retention-days: 30
+
+  aggregate-certificate:
+    needs: evaluate-splits
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Install frozen aggregate dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            fonts-dejavu-core fonts-lato
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 pytesseract==0.3.13 \
+            numpy==2.2.6 opencv-python-headless==4.10.0.84 \
+            pyarrow==18.1.0
+          python -m unittest -v ocr_real_risk_v1.test_sroie_natural_holdout
+          test "$(git hash-object ocr_real_risk_v1/pixel_digit_alignment.py)" = \
+            "${OCR_VERIFIER_VENDOR_BLOB}"
+      - name: Recover and verify both split artifacts
+        run: |
+          mkdir -p split-roots
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+          from pathlib import Path
+
+          expected = {
+              'ocr-sroie-natural-train-v1': 'train',
+              'ocr-sroie-natural-test-v1': 'test',
+          }
+          request = urllib.request.Request(
+              f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}/artifacts?per_page=100",
+              headers={
+                  'Authorization': f"Bearer {os.environ['GITHUB_TOKEN']}",
+                  'Accept': 'application/vnd.github+json',
+                  'X-GitHub-Api-Version': '2022-11-28',
+              },
+          )
+          with urllib.request.urlopen(request, timeout=60) as response:
+              payload = json.load(response)
+          selected = [row for row in payload['artifacts'] if row['name'] in expected]
+          if {row['name'] for row in selected} != set(expected):
+              raise SystemExit(f"expected both split artifacts, found {[row['name'] for row in selected]}")
+          selected.sort(key=lambda row: expected[row['name']])
+          Path('split-artifacts.json').write_text(
+              json.dumps(selected, indent=2, sort_keys=True) + '\n', encoding='utf-8'
+          )
+          with Path('split-artifacts.tsv').open('w', encoding='utf-8') as output:
+              for row in selected:
+                  output.write(
+                      f"{row['id']}\t{expected[row['name']]}\t{row['digest']}\n"
+                  )
+          PY
+          while IFS=$'\t' read -r artifact_id split digest; do
+            curl --fail --location --retry 5 --retry-all-errors \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" \
+              --output "${split}.zip"
+            echo "${digest#sha256:}  ${split}.zip" | sha256sum --check --strict
+            mkdir -p "split-roots/${split}"
+            unzip -q "${split}.zip" -d "split-roots/${split}"
+            (cd "split-roots/${split}" && sha256sum --check --strict SHA256SUMS.txt)
+          done < split-artifacts.tsv
+      - name: Aggregate exact risk, coverage and company stability
+        run: |
+          rm -rf sroie-aggregate
+          python -m ocr_real_risk_v1.sroie_aggregate \
+            split-roots/train split-roots/test \
+            --output-dir sroie-aggregate \
+            | tee sroie-aggregate/stdout.json
+      - name: Independent aggregate gates
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.sroie_natural_holdout import verify_stable_payload
+
+          report = json.loads(
+              Path('sroie-aggregate/sroie_natural_holdout_aggregate.json').read_text()
+          )
+          assert verify_stable_payload(report, 'stable_payload_sha256')
+          assert report['schema'] == 'ocr-sroie-natural-numeric-aggregate/1'
+          assert report['dataset']['published_rows'] == 987
+          execution = report['execution']
+          assert execution['receipt_associated_selected_locations'] <= 987
+          assert execution['unique_physical_locations'] <= execution['receipt_associated_selected_locations']
+          assert report['baseline']['claims'] <= execution['unique_physical_locations']
+          assert report['verifier']['accepted'] <= report['baseline']['claims']
+          assert report['decision']['external_natural_scan_validation_complete'] is True
+          assert report['decision']['automatic_production_change'] is False
+          assert report['decision']['honduras_production_readiness_claimed'] is False
+          assert report['constraints'] == {
+              'external_spend_usd': 0,
+              'gcloud_used': False,
+              'gpu_used': False,
+              'paid_api_used': False,
+              'production_modified': False,
+          }
+          if report['decision']['pass_statistical_10x']:
+              assert report['baseline']['false_predictions'] > 0
+              assert report['verifier']['accepted'] >= report['protocol']['minimum_accepted']
+              assert report['verifier']['simultaneous_95pct_coverage_lower'] >= report['protocol']['minimum_coverage_lower']
+              assert report['verifier']['certified_error_reduction_lower'] >= report['protocol']['target_error_reduction']
+              assert report['counterfactual']['simultaneous_95pct_upper'] <= report['protocol']['counterfactual_maximum_upper']
+              assert report['stability']['pass'] is True
+          print(json.dumps({
+              'execution': report['execution'],
+              'baseline': report['baseline'],
+              'verifier': report['verifier'],
+              'counterfactual': report['counterfactual'],
+              'stability': {key: value for key, value in report['stability'].items() if key != 'folds'},
+              'timing': report['timing'],
+              'decision': report['decision'],
+              'stable_payload_sha256': report['stable_payload_sha256'],
+          }, indent=2, sort_keys=True))
+          PY
+          (cd sroie-aggregate && sha256sum --check --strict SHA256SUMS.txt)
+      - id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-sroie-natural-aggregate-v1
+          path: |
+            sroie-aggregate
+            split-artifacts.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Record the terminal evidence on the isolated branch
+        env:
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+        run: |
+          python - <<'PY'
+          import base64
+          import hashlib
+          import json
+          import os
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+          from pathlib import Path
+
+          report_path = Path('sroie-aggregate/sroie_natural_holdout_aggregate.json')
+          report = json.loads(report_path.read_text())
+          record = {
+              'schema': 'ocr-real-risk-run-record/1',
+              'workflow': 'OCR SROIE natural-scan holdout v1',
+              'run_id': int(os.environ['GITHUB_RUN_ID']),
+              'job': os.environ['GITHUB_JOB'],
+              'commit_sha': os.environ['GITHUB_SHA'],
+              'dataset_repo': os.environ['DATASET_REPO'],
+              'dataset_revision': os.environ['DATASET_REVISION'],
+              'artifact_id': int(os.environ['ARTIFACT_ID']),
+              'artifact_digest': os.environ['ARTIFACT_DIGEST'],
+              'report_file_sha256': hashlib.sha256(report_path.read_bytes()).hexdigest(),
+              'stable_payload_sha256': report['stable_payload_sha256'],
+              'execution': report['execution'],
+              'baseline': report['baseline'],
+              'verifier': report['verifier'],
+              'counterfactual': report['counterfactual'],
+              'stability': {
+                  key: value for key, value in report['stability'].items() if key != 'folds'
+              },
+              'verdict': report['decision']['verdict'],
+              'pass_statistical_10x': report['decision']['pass_statistical_10x'],
+              'automatic_production_change': False,
+          }
+          repository = os.environ['GITHUB_REPOSITORY']
+          branch = os.environ['GITHUB_REF_NAME']
+          token = os.environ['GITHUB_TOKEN']
+          path = 'ocr_real_risk_v1/run_records/sroie_natural_holdout_v1.json'
+          body = {
+              'message': '[skip ci] Record SROIE natural-scan holdout evidence',
+              'content': base64.b64encode(
+                  (json.dumps(record, indent=2, sort_keys=True) + '\n').encode()
+              ).decode(),
+              'branch': branch,
+          }
+          url = f'https://api.github.com/repos/{repository}/contents/{path}'
+          headers = {
+              'Authorization': f'Bearer {token}',
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+          }
+          try:
+              query = f'{url}?ref={urllib.parse.quote(branch, safe="")}'
+              with urllib.request.urlopen(
+                  urllib.request.Request(query, headers=headers), timeout=60
+              ) as response:
+                  existing = json.load(response)
+              body['sha'] = existing['sha']
+          except urllib.error.HTTPError as exc:
+              if exc.code != 404:
+                  raise
+          request = urllib.request.Request(
+              url,
+              data=json.dumps(body).encode(),
+              headers={**headers, 'Content-Type': 'application/json'},
+              method='PUT',
+          )
+          with urllib.request.urlopen(request, timeout=60) as response:
+              result = json.load(response)
+          print(json.dumps({'record': record, 'commit': result['commit']['sha']}, indent=2))
+          PY
