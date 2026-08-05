@@ -61,7 +61,7 @@ jobs:
           assert payload['dataset_id'] == DATASET_ID
           assert len(payload['resolved_revision']) == 40
           assert payload['repository_metadata_only'] is True
-          assert payload['archives_downloaded'] == 0
+          assert payload['parquet_shards_downloaded'] == 0
           assert payload['dataset_rows_read'] == 0
           assert payload['images_opened'] == 0
           assert payload['annotations_opened'] == 0
@@ -82,9 +82,10 @@ jobs:
           )
           (root / 'ATTRIBUTION.md').write_text(
               '# Attribution\n\n'
-              '`Theivaprakasham/wildreceipt` is identified by its immutable '
-              'repository revision and declares Apache-2.0. This source-seal '
-              'stage reads repository metadata only; no corpus outcome was opened.\n'
+              '`kaydee/wildreceipt` is an image-and-text Parquet mirror of '
+              'WildReceipt, pinned here by repository revision and object '
+              'hashes. The upstream dataset declares Apache-2.0. This stage '
+              'reads repository metadata only; no corpus outcome was opened.\n'
           )
           print(json.dumps({
               'resolved_revision': payload['resolved_revision'],
