@@ -1,0 +1,387 @@
+name: OCR CORD detector-v4 reproducible crops
+
+on:
+  push:
+    branches:
+      - agent/ocr-consensus-detector-v4
+    paths:
+      - 'ocr_real_risk_v1/cord_detector_crops_v4.py'
+      - 'ocr_real_risk_v1/test_cord_detector_crops_v4.py'
+      - '.github/workflows/ocr-cord-detector-v4-crops.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: ocr-cord-detector-v4-crops-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CORD_REPO: naver-clova-ix/cord-v2
+  CORD_REVISION: 7f0115a4b758a71d6473b8d085751692da2fef98
+  PROTOCOL_ARTIFACT_ID: '8918307926'
+  PROTOCOL_ARTIFACT_DIGEST: aa19119756a97060f3ec862f40b65bf2183db1ba6a06edd9a59b67e3d3272531
+  DETECTOR_DEVELOPMENT_STABLE_SHA256: cdad9018a3049848ad86fc53ce9a4a201391b8d36c2106d8239160226692b58b
+  GITHUB_TOKEN: ${{ github.token }}
+  PYTHONHASHSEED: '0'
+  OMP_THREAD_LIMIT: '1'
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  NUMEXPR_NUM_THREADS: '1'
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Install pinned CPU dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            tesseract-ocr tesseract-ocr-eng \
+            fonts-dejavu-core fonts-lato
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13
+      - name: Unit tests and compilation
+        run: |
+          python -m unittest -v \
+            ocr_real_risk_v1.test_cord_detector_crops_v4 \
+            ocr_real_risk_v1.test_cord_consensus_detector_v4
+          python -m compileall -q ocr_real_risk_v1
+
+  extract-shards:
+    needs: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        include:
+          - shard_id: train-00000-of-00004
+            filename: data/train-00000-of-00004-b4aaeceff1d90ecb.parquet
+          - shard_id: train-00001-of-00004
+            filename: data/train-00001-of-00004-7dbbe248962764c5.parquet
+          - shard_id: train-00002-of-00004
+            filename: data/train-00002-of-00004-688fe1305a55e5cc.parquet
+          - shard_id: train-00003-of-00004
+            filename: data/train-00003-of-00004-2d0cd200555ed7fd.parquet
+          - shard_id: validation-00000-of-00001
+            filename: data/validation-00000-of-00001-cc3c5779fe22e8ca.parquet
+          - shard_id: test-00000-of-00001
+            filename: data/test-00000-of-00001-9c204eb3f4e11791.parquet
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Install complete pinned CPU runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            tesseract-ocr tesseract-ocr-eng \
+            fonts-dejavu-core fonts-lato
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13
+          python -m compileall -q ocr_real_risk_v1
+      - name: Recover and verify sealed CORD protocol
+        run: |
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${PROTOCOL_ARTIFACT_ID}/zip" \
+            --output protocol.zip
+          echo "${PROTOCOL_ARTIFACT_DIGEST}  protocol.zip" | \
+            sha256sum --check --strict
+          mkdir protocol-artifact
+          unzip -q protocol.zip -d protocol-artifact
+          (
+            cd protocol-artifact/cord-protocol-v1
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.sroie_natural_holdout import verify_stable_payload
+          protocol = json.loads(
+              Path('protocol-artifact/cord-protocol-v1/protocol.json').read_text()
+          )
+          assert verify_stable_payload(protocol, 'stable_payload_sha256')
+          assert protocol['stable_payload_sha256'] == \
+              'faf1d558b8ec84bb6fbc49b4661e1e2ba7ce86c84078a874893ca4341ad5ed11'
+          assert protocol['status'] == 'SEALED_BEFORE_CORD_OCR'
+          PY
+      - name: Download and verify one opened CORD development shard
+        run: |
+          curl --fail --location --retry 8 --retry-all-errors \
+            "https://huggingface.co/datasets/${CORD_REPO}/resolve/${CORD_REVISION}/${{ matrix.filename }}?download=true" \
+            --output source.parquet
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          shard = '${{ matrix.shard_id }}'
+          manifest = json.loads(
+              (
+                  Path('protocol-artifact/cord-protocol-v1/manifests')
+                  / f'{shard}.json'
+              ).read_text()
+          )
+          digest = hashlib.sha256(Path('source.parquet').read_bytes()).hexdigest()
+          assert digest == manifest['dataset']['parquet_sha256']
+          assert manifest['dataset']['shard_id'] == shard
+          print({
+              'shard': shard,
+              'rows': manifest['dataset']['rows'],
+              'selected': len(manifest['records']),
+              'sha256': digest,
+          })
+          PY
+      - name: Reproduce detector-v4 crops
+        run: |
+          rm -rf "cord-crops-${{ matrix.shard_id }}"
+          python -m ocr_real_risk_v1.cord_detector_crops_v4 extract \
+            --parquet source.parquet \
+            --manifest "protocol-artifact/cord-protocol-v1/manifests/${{ matrix.shard_id }}.json" \
+            --output-dir "cord-crops-${{ matrix.shard_id }}" \
+            | tee "cord-crops-${{ matrix.shard_id }}-stdout.json"
+      - name: Independent crop-shard gates
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.cord_detector_crops_v4 import (
+              DETECTOR_DEVELOPMENT_STABLE_PAYLOAD_SHA256,
+              SELECTED_CONFIGURATION,
+              SHARD_SCHEMA,
+          )
+          from ocr_real_risk_v1.cord_natural_holdout import verify_hash_manifest
+          from ocr_real_risk_v1.core import sha256_file
+          from ocr_real_risk_v1.sroie_natural_holdout import verify_stable_payload
+          shard = '${{ matrix.shard_id }}'
+          root = Path(f'cord-crops-{shard}')
+          verify_hash_manifest(root)
+          report = json.loads(
+              (root / 'cord_detector_crops_v4_shard.json').read_text()
+          )
+          assert report['schema'] == SHARD_SCHEMA
+          assert verify_stable_payload(report, 'stable_payload_sha256')
+          assert report['dataset']['shard_id'] == shard
+          assert report['selected_configuration'] == SELECTED_CONFIGURATION
+          assert report['detector_development_stable_payload_sha256'] == \
+              DETECTOR_DEVELOPMENT_STABLE_PAYLOAD_SHA256
+          assert report['execution']['detector_eligible_crops'] == \
+              len(report['records'])
+          assert report['execution']['correct_claim_crops'] + \
+              report['execution']['natural_error_crops'] == len(report['records'])
+          assert report['execution']['selected_locations'] >= len(report['records'])
+          assert report['decision']['development_crops_complete'] is True
+          assert report['decision']['external_certificate'] is False
+          assert report['decision']['production_ready'] is False
+          assert report['decision']['fresh_external_corpus_required'] is True
+          assert report['constraints']['external_spend_usd'] == 0
+          assert report['constraints']['production_modified'] is False
+          for record in report['records']:
+              crop_path = root / record['crop_file']
+              assert sha256_file(crop_path) == record['crop_sha256']
+              assert record['detector_configuration'] == SELECTED_CONFIGURATION
+              assert record['claim'].isdigit()
+              assert record['truth'].isdigit()
+              assert record['counterfactual_claim'].isdigit()
+          print({
+              'shard': shard,
+              'execution': report['execution'],
+              'stable_payload_sha256': report['stable_payload_sha256'],
+          })
+          PY
+          (
+            cd "cord-crops-${{ matrix.shard_id }}"
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-cord-detector-v4-crops-${{ matrix.shard_id }}
+          path: cord-crops-${{ matrix.shard_id }}
+          if-no-files-found: error
+          retention-days: 90
+
+  aggregate:
+    needs: extract-shards
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Install pinned aggregate dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            tesseract-ocr tesseract-ocr-eng \
+            fonts-dejavu-core fonts-lato
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13
+          python -m unittest -v ocr_real_risk_v1.test_cord_detector_crops_v4
+          python -m compileall -q ocr_real_risk_v1
+      - name: Recover and verify six crop artifacts
+        run: |
+          mkdir shard-roots
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+          from pathlib import Path
+          expected = {
+              'ocr-cord-detector-v4-crops-train-00000-of-00004': 'train-00000-of-00004',
+              'ocr-cord-detector-v4-crops-train-00001-of-00004': 'train-00001-of-00004',
+              'ocr-cord-detector-v4-crops-train-00002-of-00004': 'train-00002-of-00004',
+              'ocr-cord-detector-v4-crops-train-00003-of-00004': 'train-00003-of-00004',
+              'ocr-cord-detector-v4-crops-validation-00000-of-00001': 'validation-00000-of-00001',
+              'ocr-cord-detector-v4-crops-test-00000-of-00001': 'test-00000-of-00001',
+          }
+          request = urllib.request.Request(
+              (
+                  f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}"
+                  f"/actions/runs/{os.environ['GITHUB_RUN_ID']}/artifacts?per_page=100"
+              ),
+              headers={
+                  'Authorization': f"Bearer {os.environ['GITHUB_TOKEN']}",
+                  'Accept': 'application/vnd.github+json',
+                  'X-GitHub-Api-Version': '2022-11-28',
+              },
+          )
+          with urllib.request.urlopen(request, timeout=60) as response:
+              payload = json.load(response)
+          selected = [row for row in payload['artifacts'] if row['name'] in expected]
+          if {row['name'] for row in selected} != set(expected):
+              raise SystemExit(
+                  f"missing crop artifacts: {[row['name'] for row in selected]}"
+              )
+          with Path('crop-artifacts.tsv').open('w', encoding='utf-8') as output:
+              for row in selected:
+                  output.write(
+                      f"{row['id']}\t{expected[row['name']]}\t{row['digest']}\n"
+                  )
+          Path('crop-artifacts.json').write_text(
+              json.dumps(selected, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          PY
+          while IFS=$'\t' read -r artifact_id shard digest; do
+            curl --fail --location --retry 5 --retry-all-errors \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" \
+              --output "${shard}.zip"
+            echo "${digest#sha256:}  ${shard}.zip" | \
+              sha256sum --check --strict
+            mkdir -p "shard-roots/${shard}"
+            unzip -q "${shard}.zip" -d "shard-roots/${shard}"
+            (
+              cd "shard-roots/${shard}"
+              sha256sum --check --strict SHA256SUMS.txt
+            )
+          done < crop-artifacts.tsv
+      - name: Aggregate crop index without copying images
+        run: |
+          rm -rf cord-detector-v4-crops-index
+          python -m ocr_real_risk_v1.cord_detector_crops_v4 aggregate \
+            shard-roots/test-00000-of-00001 \
+            shard-roots/train-00000-of-00004 \
+            shard-roots/train-00001-of-00004 \
+            shard-roots/train-00002-of-00004 \
+            shard-roots/train-00003-of-00004 \
+            shard-roots/validation-00000-of-00001 \
+            --output-dir cord-detector-v4-crops-index \
+            | tee cord-detector-v4-crops-index-stdout.json
+      - name: Independent aggregate gates
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.cord_detector_crops_v4 import (
+              DETECTOR_DEVELOPMENT_STABLE_PAYLOAD_SHA256,
+              INDEX_SCHEMA,
+              SELECTED_CONFIGURATION,
+          )
+          from ocr_real_risk_v1.cord_natural_holdout import verify_hash_manifest
+          from ocr_real_risk_v1.sroie_natural_holdout import verify_stable_payload
+          root = Path('cord-detector-v4-crops-index')
+          verify_hash_manifest(root)
+          report = json.loads(
+              (root / 'cord_detector_crops_v4_index.json').read_text()
+          )
+          assert report['schema'] == INDEX_SCHEMA
+          assert verify_stable_payload(report, 'stable_payload_sha256')
+          assert report['selected_configuration'] == SELECTED_CONFIGURATION
+          assert report['detector_development_stable_payload_sha256'] == \
+              DETECTOR_DEVELOPMENT_STABLE_PAYLOAD_SHA256
+          assert report['execution']['shards'] == 6
+          assert report['execution']['detector_eligible_crops'] == 504
+          assert report['execution']['crops_by_split'] == {
+              'test': 49,
+              'train': 401,
+              'validation': 54,
+          }
+          assert report['execution']['correct_claim_crops'] == 458
+          assert report['execution']['natural_error_crops'] == 46
+          assert len(report['records']) == 504
+          assert report['decision']['ready_for_train_holdout_separation'] is True
+          assert report['decision']['external_certificate'] is False
+          assert report['decision']['production_ready'] is False
+          assert report['decision']['fresh_external_corpus_required'] is True
+          assert report['constraints']['external_spend_usd'] == 0
+          assert report['constraints']['production_modified'] is False
+          print(json.dumps({
+              'execution': report['execution'],
+              'decision': report['decision'],
+              'stable_payload_sha256': report['stable_payload_sha256'],
+          }, indent=2, sort_keys=True))
+          PY
+          (
+            cd cord-detector-v4-crops-index
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-cord-detector-v4-crops-index
+          path: |
+            cord-detector-v4-crops-index
+            cord-detector-v4-crops-index-stdout.json
+            crop-artifacts.json
+          if-no-files-found: error
+          retention-days: 90
