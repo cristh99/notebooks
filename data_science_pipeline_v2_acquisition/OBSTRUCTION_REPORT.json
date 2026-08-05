@@ -1,0 +1,57 @@
+{
+  "schema": "data-science-pipeline/source-obstruction-report/1",
+  "observed_at": "2026-08-05T22:38:04Z",
+  "github_run_id": 31053467466,
+  "github_job_id": 92465743921,
+  "github_sha": "3b50c0eae0d5205f2f693d440580b6fb67bcc176",
+  "artifact": {
+    "id": 8949334388,
+    "name": "data-science-pipeline-v2-live-acquisition-canary",
+    "zip_sha256": "b6ae9236407e986b28b21b639e777964cd566742681a3fa206edb50d57c37598"
+  },
+  "pipeline_behavior": {
+    "verdict": "PASS_FAIL_CLOSED",
+    "requested": 2,
+    "accepted": 0,
+    "quarantined": 2,
+    "silent_loss": 0,
+    "external_cost_usd": 0.0,
+    "tests": "30/30 PASS",
+    "ledger_head_sha256": "0c45e1e81f4a496be3593e521abb8cb02d5992a3995b70a7bf21130f35cc29fb",
+    "manifest_sha256": "3276569320e0e3d372badf8050c62f98d274e6e64cc8f74783b8a18aac2702c3"
+  },
+  "obstructions": [
+    {
+      "source": "ONCAE HonduCompras 1 artifact host",
+      "request_id": "oncae-hc1-2025-md5",
+      "url": "https://datosabiertos.oncae.gob.hn/datosabiertos/HC1/HC1_2025.md5",
+      "classification": "SOURCE_TLS_BLOCKED",
+      "reason": "TLS certificate validation failed because the certificate was expired",
+      "response_body_available": false,
+      "quarantine_receipt_sha256": "68c49637f6f92bec72267de8008729889cf9d48e4f26bbbc0a0a0688c3117b23",
+      "unsafe_workaround_rejected": "disable TLS verification or downgrade to HTTP"
+    },
+    {
+      "source": "IAIP Portal Único frontend",
+      "request_id": "iaip-portal-home",
+      "url": "https://portalunico.iaip.gob.hn/",
+      "classification": "SOURCE_BOT_CHALLENGE",
+      "reason": "HTTP 403 with Cloudflare cf-mitigated=challenge",
+      "http_status": 403,
+      "response_body_bytes": 5439,
+      "response_body_sha256": "10d087bb2c44e6b1d8d1464c444b1f8756a29b098c76216a3c7ef87eea3427b4",
+      "quarantine_receipt_sha256": "61b52e532b20c352f0b4f5ff135932994fe97ede435c3e7eb745b205318d6239",
+      "unsafe_workaround_rejected": "pretend the challenge page is source data or bypass access controls"
+    }
+  ],
+  "next_policy": {
+    "source_index_canary": [
+      "https://oncae.gob.hn/datos-abiertos/",
+      "https://api.iaip.gob.hn/360/"
+    ],
+    "artifact_download_status": "BLOCKED_PENDING_HEALTHY_OFFICIAL_ROUTE_OR_BROWSER_EXPORT_ADAPTER",
+    "mass_download_authorized": false,
+    "production_promotion_authorized": false,
+    "retuning_after_observation": "only source routing contracts may change; transport security invariants remain fixed"
+  }
+}
