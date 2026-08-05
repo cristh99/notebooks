@@ -1,0 +1,331 @@
+name: Data Science dominance — MusicBrainz V1 query2-3 blind gate
+
+on:
+  push:
+    branches:
+      - agent/data-science-dominance-dab-musicbrainz-v1
+    paths:
+      - .github/workflows/data-science-dominance-dab-musicbrainz-v1-official.yml
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  ROOT: data_science_dominance/dab_musicbrainz_v1
+  DAB_SHA: 9a55e34271a2500a41cbc009e239edd94599e374
+
+jobs:
+  solve-and-seal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove one-shot workflow-only activation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_EVENT_NAME}" = push
+          test "${GITHUB_RUN_ATTEMPT}" = 1
+          test "$(git rev-parse HEAD^)" = 233465ce89367b77107ecbc06201fcf226ddc006
+          test "$(git diff --name-only HEAD^ HEAD)" = .github/workflows/data-science-dominance-dab-musicbrainz-v1-official.yml
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Install exact zero-cost runtime
+        run: |
+          python -m pip install --disable-pip-version-check \
+            'duckdb==1.3.1' 'huggingface-hub==1.2.1'
+          python -m pip freeze | sort > musicbrainz-runtime-pip-freeze.txt
+
+      - name: Verify synthetic PASS and frozen candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: cristh99/notebooks
+          run-id: 31035761155
+          name: musicbrainz-v1-synthetic-v2
+          path: synthetic-proof
+
+      - name: Enforce exact chain of custody
+        shell: bash
+        run: |
+          set -euo pipefail
+          receipt="$(find synthetic-proof -name musicbrainz-synthetic-receipt-v2.json -type f | head -1)"
+          test -n "$receipt"
+          python - "$receipt" <<'PY'
+          import json,sys
+          receipt=json.load(open(sys.argv[1],encoding='utf-8'))
+          assert receipt['verdict']=='PASS'
+          assert receipt['candidate_sha256']=='ac66413570ade3f691f238f574ce34b992fa82a1ed17788f14a46896a7316456'
+          assert receipt['functional_tests']==34
+          assert receipt['entity_stress_rows']==18500
+          assert receipt['entity_stress_entities']==6000
+          assert receipt['held_out_query_content_accessed'] is False
+          assert receipt['validators_executed'] is False
+          assert receipt['ground_truth_accessed'] is False
+          assert receipt['official_dataset_values_accessed'] is False
+          PY
+          echo 'ac66413570ade3f691f238f574ce34b992fa82a1ed17788f14a46896a7316456  data_science_dominance/dab_musicbrainz_v1/musicbrainz_engine.py' | sha256sum -c -
+
+      - name: Acquire only MusicBrainz data and held-out query texts
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GIT_LFS_SKIP_SMUDGE=1
+          git clone --filter=blob:none --no-checkout https://github.com/ucbepic/DataAgentBench.git dab
+          cd dab
+          git sparse-checkout init --no-cone
+          cat > .git/info/sparse-checkout <<'EOF'
+          /query_music_brainz_20k/query2/query.json
+          /query_music_brainz_20k/query3/query.json
+          EOF
+          git -c advice.detachedHead=false checkout "$DAB_SHA"
+          test "$(git rev-parse HEAD)" = "$DAB_SHA"
+          test -z "$(find . -type f \( -name ground_truth.csv -o -name validate.py \) -print -quit)"
+          cd ..
+          python - <<'PY'
+          import hashlib,json,shutil
+          from pathlib import Path
+          from huggingface_hub import hf_hub_download
+
+          root=Path('dab')
+          expected={
+              'query_music_brainz_20k/query_dataset/tracks.db':(
+                  '0c349f70e5bafcba1deb605b49e224abfa95c5a83a44688faa511f9e123a02cc',
+                  2035712,
+              ),
+          }
+          files=[]
+          for rel,(digest,size) in expected.items():
+              target=root/rel
+              downloaded=Path(hf_hub_download(
+                  repo_id='ruiyingm/DataAgentBench-data',repo_type='dataset',
+                  filename=rel,local_dir=str(root),force_download=True,
+              ))
+              if downloaded.resolve()!=target.resolve():
+                  target.parent.mkdir(parents=True,exist_ok=True); shutil.copyfile(downloaded,target)
+              data=target.read_bytes()
+              assert len(data)==size and hashlib.sha256(data).hexdigest()==digest,rel
+              files.append({'path':rel,'bytes':size,'sha256':digest})
+          sales_rel='query_music_brainz_20k/query_dataset/sales.duckdb'
+          sales_target=root/sales_rel
+          downloaded=Path(hf_hub_download(
+              repo_id='ruiyingm/DataAgentBench-data',repo_type='dataset',
+              filename=sales_rel,local_dir=str(root),force_download=True,
+          ))
+          if downloaded.resolve()!=sales_target.resolve():
+              sales_target.parent.mkdir(parents=True,exist_ok=True); shutil.copyfile(downloaded,sales_target)
+          sales_data=sales_target.read_bytes()
+          assert len(sales_data)>0
+          files.append({'path':sales_rel,'bytes':len(sales_data),'sha256':hashlib.sha256(sales_data).hexdigest()})
+          queries=[]
+          for n in (2,3):
+              path=root/f'query_music_brainz_20k/query{n}/query.json'
+              assert path.is_file()
+              queries.append({'path':str(path.relative_to(root)),'bytes':path.stat().st_size,'sha256':hashlib.sha256(path.read_bytes()).hexdigest()})
+          manifest={
+              'schema':'data-science-dominance/musicbrainz-v1-official-data/1',
+              'dab_commit':'9a55e34271a2500a41cbc009e239edd94599e374',
+              'dataset_files':files,
+              'held_out_query_files':queries,
+              'validators_present':False,
+              'ground_truth_present':False,
+          }
+          Path('musicbrainz-data-manifest.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n')
+          print(json.dumps(manifest,sort_keys=True))
+          PY
+
+      - name: Solve both fresh queries once and seal answers
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(find dab -type f \( -name ground_truth.csv -o -name validate.py \) -print -quit)"
+          python - <<'PY' 2>&1 | tee musicbrainz-solve.log
+          import hashlib,importlib.util,json,os,sys,time
+          from pathlib import Path
+
+          root=Path('data_science_dominance/dab_musicbrainz_v1')
+          engine_path=root/'musicbrainz_engine.py'
+          assert hashlib.sha256(engine_path.read_bytes()).hexdigest()=='ac66413570ade3f691f238f574ce34b992fa82a1ed17788f14a46896a7316456'
+          spec=importlib.util.spec_from_file_location('frozen_musicbrainz_v1',engine_path)
+          module=importlib.util.module_from_spec(spec); sys.modules[spec.name]=module; spec.loader.exec_module(module)
+          dab_root=Path('dab').resolve()
+          started=time.perf_counter()
+          tracks,sales=module.load_domain(dab_root)
+          entities,facts=module.build_facts(tracks,sales)
+          resolution_seconds=time.perf_counter()-started
+          known={
+              'artist':[entity.artist for entity in entities],
+              'album':[entity.album for entity in entities],
+              'title':[entity.title for entity in entities],
+          }
+          out=Path('sealed-answers'); out.mkdir()
+          answers={}
+          plans={}
+          for n in (2,3):
+              query=module.read_query(dab_root/f'query_music_brainz_20k/query{n}/query.json')
+              plan=module.plan_query(query,known)
+              answer=module.evaluate(plan,facts)
+              module.write_outputs(out,f'musicbrainz_{n}',query,plan,answer)
+              rendered=module.render_answer(answer,plan)
+              answers[f'musicbrainz_{n}']=rendered
+              plans[f'musicbrainz_{n}']=module.asdict(plan)
+              print(json.dumps({'query_id':f'musicbrainz_{n}','answer':rendered,'plan':plans[f'musicbrainz_{n}']},sort_keys=True),flush=True)
+          (out/'answers.json').write_text(json.dumps(answers,indent=2,sort_keys=True)+'\n')
+          files=[]
+          for path in sorted(item for item in out.rglob('*') if item.is_file()):
+              files.append({'path':str(path.relative_to(out)),'bytes':path.stat().st_size,'sha256':hashlib.sha256(path.read_bytes()).hexdigest()})
+          manifest={
+              'schema':'data-science-dominance/musicbrainz-v1-sealed-answers/1',
+              'github_run_id':int(os.environ['GITHUB_RUN_ID']),
+              'github_run_attempt':int(os.environ['GITHUB_RUN_ATTEMPT']),
+              'github_sha':os.environ['GITHUB_SHA'],
+              'candidate_sha256':'ac66413570ade3f691f238f574ce34b992fa82a1ed17788f14a46896a7316456',
+              'synthetic_pass_run_id':31035761155,
+              'validator_files_present_when_solved':False,
+              'ground_truth_files_present_when_solved':False,
+              'domain_loaded_once':True,
+              'candidate_process_count':1,
+              'entity_count':len(entities),
+              'track_row_count':len(tracks),
+              'sales_row_count':len(sales),
+              'resolution_seconds':resolution_seconds,
+              'post_hoc_retuning_permitted':False,
+              'files':files,
+              'data_manifest_sha256':hashlib.sha256(Path('musicbrainz-data-manifest.json').read_bytes()).hexdigest(),
+          }
+          payload=json.dumps(manifest,indent=2,sort_keys=True)+'\n'
+          Path('musicbrainz-answer-manifest.json').write_text(payload)
+          Path('musicbrainz-answer-manifest.sha256').write_text(hashlib.sha256(payload.encode()).hexdigest()+'  musicbrainz-answer-manifest.json\n')
+          PY
+          for n in 2 3; do test -s "sealed-answers/musicbrainz_${n}.txt"; done
+
+      - name: Upload immutable answers before validation
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: musicbrainz-v1-sealed-answers
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            sealed-answers/**
+            musicbrainz-answer-manifest.json
+            musicbrainz-answer-manifest.sha256
+            musicbrainz-data-manifest.json
+            musicbrainz-solve.log
+            musicbrainz-runtime-pip-freeze.txt
+            data_science_dominance/dab_musicbrainz_v1/FREEZE.json
+            data_science_dominance/dab_musicbrainz_v1/musicbrainz_engine.py
+
+  validate-sealed-answers:
+    needs: solve-and-seal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: musicbrainz-v1-sealed-answers
+          path: sealed-bundle
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Acquire validators only after answer seal
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --no-checkout https://github.com/ucbepic/DataAgentBench.git dab-validation
+          cd dab-validation
+          git sparse-checkout init --no-cone
+          cat > .git/info/sparse-checkout <<'EOF'
+          /query_music_brainz_20k/query2/**
+          /query_music_brainz_20k/query3/**
+          EOF
+          git -c advice.detachedHead=false checkout "$DAB_SHA"
+          test "$(git rev-parse HEAD)" = "$DAB_SHA"
+          test "$(find . -name validate.py -type f | wc -l)" -eq 2
+
+      - name: Execute each official validator exactly once
+        shell: bash
+        run: |
+          set +e
+          python - <<'PY' 2>&1 | tee musicbrainz-validator-output.log
+          import hashlib,importlib.util,json,os,sys
+          from pathlib import Path
+
+          bundle=Path('sealed-bundle')
+          manifest=json.loads(next(bundle.rglob('musicbrainz-answer-manifest.json')).read_text())
+          assert manifest['candidate_sha256']=='ac66413570ade3f691f238f574ce34b992fa82a1ed17788f14a46896a7316456'
+          assert manifest['validator_files_present_when_solved'] is False
+          results=[]
+          for n in (2,3):
+              answer_path=next(bundle.rglob(f'musicbrainz_{n}.txt'))
+              answer=answer_path.read_text(encoding='utf-8')
+              validator_path=Path(f'dab-validation/query_music_brainz_20k/query{n}/validate.py')
+              spec=importlib.util.spec_from_file_location(f'musicbrainz_validator_{n}',validator_path)
+              module=importlib.util.module_from_spec(spec); sys.modules[spec.name]=module; spec.loader.exec_module(module)
+              outcome=module.validate(answer)
+              passed,message=outcome if isinstance(outcome,tuple) else (bool(outcome),str(outcome))
+              result={
+                  'query_id':f'musicbrainz_{n}',
+                  'passed':bool(passed),
+                  'message':str(message),
+                  'answer_sha256':hashlib.sha256(answer_path.read_bytes()).hexdigest(),
+                  'validator_sha256':hashlib.sha256(validator_path.read_bytes()).hexdigest(),
+              }
+              results.append(result); print(json.dumps(result,sort_keys=True),flush=True)
+          pass_count=sum(item['passed'] for item in results)
+          points=25 if pass_count==2 else 0
+          receipt={
+              'schema':'data-science-dominance/musicbrainz-v1-external-receipt/1',
+              'verdict':'PASS' if pass_count==2 else 'FAIL',
+              'query_count':2,
+              'pass_count':pass_count,
+              'results':results,
+              'answers_sealed_before_validator_access':True,
+              'validators_executed_once_each':True,
+              'post_hoc_retuning_permitted':False,
+              'promotion_points':points,
+              'score_before':465,
+              'score_after':465+points,
+              'github_run_id':int(os.environ['GITHUB_RUN_ID']),
+              'github_run_attempt':int(os.environ['GITHUB_RUN_ATTEMPT']),
+          }
+          evidence=Path('musicbrainz-validation-evidence'); evidence.mkdir()
+          payload=json.dumps(receipt,indent=2,sort_keys=True)+'\n'
+          (evidence/'external-receipt.json').write_text(payload)
+          (evidence/'external-receipt.sha256').write_text(hashlib.sha256(payload.encode()).hexdigest()+'  external-receipt.json\n')
+          PY
+          exit 0
+
+      - name: Upload complete official evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: musicbrainz-v1-official
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            sealed-bundle/**
+            musicbrainz-validation-evidence/**
+            musicbrainz-validator-output.log
+            data_science_dominance/dab_musicbrainz_v1/FREEZE.json
+
+      - name: Enforce preregistered promotion gate
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt=json.loads(Path('musicbrainz-validation-evidence/external-receipt.json').read_text())
+          if receipt['pass_count']!=2:
+              raise SystemExit(f"MusicBrainz V1: {receipt['pass_count']}/2; evidence preserved; no retuning")
+          print('MusicBrainz V1: 2/2; +25 dominance points')
+          PY
