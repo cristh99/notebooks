@@ -1,0 +1,40 @@
+{
+  "authorization": {
+    "one_external_evaluation_authorized": true,
+    "reason": "the prior workflow stopped before decoding the source archive or loading any external task because one character in a monolithic base64 transport was mistranscribed",
+    "retry_scope": "replace only the monolithic base64 transport with nine independently hashed chunks"
+  },
+  "candidate": {
+    "changed_after_invalid_run": false,
+    "dominance_v2_sha256": "5555b5ccbaa7ba538c872fb40eac8c7a8176f1a9f7ce3be229a5a3bc8a1ab1c4",
+    "legacy_estimator_sha256": "6b0e275b6e60ec766ba5d8d19c27234c252bbcae22a3f7df6d0e3908f81e1c90"
+  },
+  "invalid_run": {
+    "actual_external_evaluation_count": 0,
+    "artifact_id": 8915590914,
+    "artifact_zip_sha256": "e299a29550c940448871c73a3449ef61f606df700563793a14c206be46f5f366",
+    "candidate_loaded": false,
+    "external_task_values_accessed": false,
+    "failure_stage": "pre-data source-transport hash check",
+    "github_run_id": 30968310720,
+    "job_id": 92186986611,
+    "published_corrupt_base64_sha256": "284976822a2bb9327d25492ae9562afc2855f411738ffd8db0c2d9361da0ca92",
+    "test_labels_accessed": false,
+    "verdict": "INVALID_RUN"
+  },
+  "protocol": {
+    "competitors_changed": false,
+    "evaluation_gates_changed": false,
+    "post_hoc_retuning_permitted": false,
+    "resource_limits_changed": false,
+    "task_selection_changed": false,
+    "tasks_v2_sha256": "1499963d09fe1d38b19599601d017f4dbdd2875405d76a5cfe4da98d3e39bb84"
+  },
+  "schema": "data-science-dominance/tabarena-robust-fresh12-transport-retry/1",
+  "transport": {
+    "decoded_archive_sha256": "d5c24947607d2401fdac3a5b5f936ac6f061990ac3e92dcd9b1f8844e48fe447",
+    "intended_monolithic_base64_sha256": "f3b3067f540a2c9b2569424cf203f9a7ad9b471acf0602e5d656d1db27ebab47",
+    "part_count": 9,
+    "repair_changes_source_semantics": false
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "benchmark": {
+    "classification_tasks": 6,
+    "commit": "9f3878b882439cb885003b5f978676961b059b6d",
+    "regression_tasks": 6,
+    "repository": "autogluon/tabarena",
+    "selection_frozen_before_task_values": true,
+    "split": "OpenML repeat 0, fold 0, sample 0",
+    "task_count": 12,
+    "tasks_path": "data_science_dominance/tabarena_portfolio_v2/tasks_v2.json"
+  },
+  "candidate_contract": {
+    "dataset_identifier_access": false,
+    "filesystem_access": "fixed local legacy estimator module only",
+    "network_access": false,
+    "post_hoc_retuning_permitted": false,
+    "process_access": false,
+    "task_identifier_access": false,
+    "test_label_access": false,
+    "training_only_model_selection": true
+  },
+  "competitors": {
+    "catboost": "1.2.8",
+    "legacy_portfolio_sha256": "6b0e275b6e60ec766ba5d8d19c27234c252bbcae22a3f7df6d0e3908f81e1c90",
+    "lightgbm": "4.6.0",
+    "tabiclv2_commit": "46b91961db4f8873dd049ec09990698a435e1e29",
+    "xgboost": "3.1.3"
+  },
+  "environment": {
+    "cpu_only": true,
+    "numpy": "1.26.4",
+    "openml": "0.15.1",
+    "paid_compute": false,
+    "pandas": "2.2.3",
+    "python": "3.11",
+    "scikit_learn": "1.5.2",
+    "scipy": "1.14.1",
+    "torch": "2.8.0+cpu"
+  },
+  "novelty_weight": 0,
+  "pre_data_proof": {
+    "external_task_values_accessed": false,
+    "prior_invalid_run_external_evaluation_count": 0,
+    "python_compile": "PASS",
+    "test_labels_accessed": false,
+    "unit_tests": "7/7 PASS"
+  },
+  "resource_contract": {
+    "max_encoded_features": 500,
+    "max_test_rows": 2000,
+    "max_train_rows": 6000,
+    "same_rows_and_features_for_all_competitors": true
+  },
+  "schema": "data-science-dominance/tabarena-robust-fresh12-source-manifest/2",
+  "score_before": 465,
+  "selector": {
+    "default_anchor": "legacy_portfolio",
+    "minimum_anchor_weight": 0.55,
+    "name": "uncertainty-aware anchor-shrunk portfolio V2",
+    "small_sample_rules_stricter": true,
+    "small_sample_threshold_rows": 2000
+  },
+  "sources": {
+    "README.md": "57cdade9e4b71250b36b50ae6aaeba3c786a939a8f66ebc2e2daf41f8414b78b",
+    "decoded_archive_sha256": "d5c24947607d2401fdac3a5b5f936ac6f061990ac3e92dcd9b1f8844e48fe447",
+    "dominance_v2.py": "5555b5ccbaa7ba538c872fb40eac8c7a8176f1a9f7ce3be229a5a3bc8a1ab1c4",
+    "logic_plan_v2.py": "d6d10217da1642f68e269b7d36ce8cf801286ed4bb3f1be61851cdd126fe9dad",
+    "parts": {
+      "part_00.b64": "d983e654b103467598b262ebde2a4a28405f0a36a66b05ca0e8614c4c4c6a58a",
+      "part_01.b64": "442b6c7c4b53f4ee3b4bf25003e8640f5143cdc2928e33e7a930b42cdaabb85e",
+      "part_02.b64": "fdaf455d4f782690cfcd066eec262fcf347323e37fcee805f26834e2389108c8",
+      "part_03.b64": "cccea75b4b58192154a3ef6a6fe20d50fe0201a6f9f8c13e432fc23aadaafcef",
+      "part_04.b64": "62afec7f47eb062c624fbcaa0e71ea68157a215404e545c623126a16f7404665",
+      "part_05.b64": "4cd7d89c69cdcdd6f2928d7f4b71c42bcc1ba12c61514e3e089ec526b5367409",
+      "part_06.b64": "3e0beb027364b7ea0d2edf8035430561b0d1519613e5af170ec8ce5a255c73f3",
+      "part_07.b64": "8ed04927ca39d66dadfa313fcb76a03a09ea51a4173b1bf6c268d2975f9a31ea",
+      "part_08.b64": "656d4a5a1e01b11ffaac0963909ada24ecc0ddaa3b406acecb5c0e862cc75cae"
+    },
+    "runner_v2.py": "5ce2c48a6fbba72c2eb988bc208068af607f452090fdfd42a8b0d99cb1da1c60",
+    "tasks_v2.json": "1499963d09fe1d38b19599601d017f4dbdd2875405d76a5cfe4da98d3e39bb84",
+    "test_portfolio_v2.py": "f2424271df9862f0ca940ac92bd938e1def90b6d9232968529e942b13c81362a",
+    "transport_retry_authorization_sha256": "6963697866a9aa1de8ae85db741d8dac3900372d5893f926c8d135829325b13d",
+    "unit-tests.txt": "69ed84f034352d93fb50b503e353040bbe5d9480057e93b53a6ea3200ee79207"
+  },
+  "transport_repair": {
+    "candidate_changed": false,
+    "evaluation_gates_changed": false,
+    "part_count": 9,
+    "resource_limits_changed": false,
+    "task_selection_changed": false
+  }
+}
