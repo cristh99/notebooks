@@ -1,0 +1,39 @@
+{
+  "schema": "data-science-dominance/dab-official-six-source/1",
+  "candidate": {
+    "compressed_base64_path": "data_science_dominance/dab_slice_v2/agent.py.gz.b64",
+    "compressed_base64_sha256": "e50bcbdf4316f26606766cee3a5afc60e34dcdcd8a11093ad77936b217144bb2",
+    "compressed_gzip_sha256": "3f3438e9b9a01dcddd01f37cbf5bd2a09490fec86cb335ef1cc99d00ef8b6b2b",
+    "source_sha256": "0796f1d66d944e832181034f6e8e8800461b60d71e66716d5b19fe3fd1957dec",
+    "source_bytes": 36798,
+    "frozen_before_dataset_values": true,
+    "post_hoc_retuning_permitted": false,
+    "novelty_weight": 0
+  },
+  "benchmark": {
+    "repository": "ucbepic/DataAgentBench",
+    "commit": "9a55e34271a2500a41cbc009e239edd94599e374",
+    "queries": [
+      "query_civic_unstructured/query1",
+      "query_cve/query1",
+      "query_stockindex/query1",
+      "query_usaspending/query1",
+      "query_bookreview/query1",
+      "query_music_brainz_20k/query1"
+    ],
+    "official_validators_only": true,
+    "ground_truth_access_before_freeze": false,
+    "query_count": 6,
+    "pass_gate": 6
+  },
+  "systems": ["PostgreSQL", "SQLite", "DuckDB", "BSON"],
+  "candidate_contract": {
+    "llm_calls": false,
+    "internet_access_during_inference": false,
+    "writes_to_source_databases": false,
+    "dataset_specific_query_ids_are_fixed_in_dispatch_only": true,
+    "answer_validation_after_execution_only": true
+  },
+  "score_before": 465,
+  "maximum_score_after_pass": 505
+}
