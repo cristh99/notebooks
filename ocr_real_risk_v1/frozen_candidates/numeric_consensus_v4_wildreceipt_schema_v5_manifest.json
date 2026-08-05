@@ -1,0 +1,366 @@
+{
+  "candidate_id": "numeric-consensus-v4-wildreceipt-schema-v5",
+  "constraints": {
+    "external_spend_usd": 0,
+    "gcloud_used": false,
+    "gpu_used": false,
+    "paid_api_used": false,
+    "production_modified": false
+  },
+  "decision": {
+    "automatic_production_change": false,
+    "candidate_frozen_before_wildreceipt_ocr_outcomes": true,
+    "candidate_frozen_before_wildreceipt_source_opening": false,
+    "external_certificate_claimed": false,
+    "honduras_production_ready": false,
+    "production_ready": false,
+    "ready_for_one_wildreceipt_schema_repaired_external_evaluation": true,
+    "tenfold_reduction_claimed": false,
+    "untouched_external_certificate_claimed": false
+  },
+  "detector": {
+    "configuration": {
+      "guard_mode": "psm7_any",
+      "id": "broad-v2-conflict-ok-psm7_any",
+      "minimum_distinct_psm_votes": 2,
+      "psm_set": "broad",
+      "psms": [
+        3,
+        4,
+        6,
+        11,
+        12
+      ],
+      "reject_equal_length_conflict": false,
+      "uses_annotation_bbox_for_candidate_construction": false,
+      "uses_truth_for_candidate_construction": false
+    },
+    "development_artifact_id": 8919281422,
+    "development_artifact_zip_sha256": "766be199eafc3f87437359a39d1685fb4dd67772643cb459f845a24a838bf6a1",
+    "development_evidence_sha256": "171d74f6b5d2c7e137b91c487be1910992ef0eb066ca42df9428fe25acf49d43",
+    "development_stable_payload_sha256": "cdad9018a3049848ad86fc53ce9a4a201391b8d36c2106d8239160226692b58b"
+  },
+  "development_evidence": {
+    "accepted": 319,
+    "baseline_errors": 46,
+    "counterfactual_false_accepts": 0,
+    "coverage_lower": 0.2882547927213468,
+    "eligible": 504,
+    "internal_only": true,
+    "natural_false_accepts": 0,
+    "reduction_lower": 4.73797137470466,
+    "selected": 993
+  },
+  "digit_model": {
+    "artifact_id": 8917522937,
+    "artifact_zip_sha256": "080b0efd4b91a180a1a5c6acd767d72e0a8f286718e64eb90d8ec9d370d2dc17",
+    "candidate_stable_payload_sha256": "0f88d94af81e0f7921e654e452059d2075b07ee35bcffd83dd8b02ebdd9e93a1",
+    "model_file": "model/digit_forest.joblib",
+    "model_sha256": "53229915331c2bbea2454f9e7cb5768a26e9edb30de750747f4397f1ff4cf92c",
+    "threshold": 0.25,
+    "tree_count": 500
+  },
+  "external_protocol": {
+    "annotation_geometry": {
+      "clipping": "clip to normalized 0-1000 canvas; fail closed on non-positive, fully outside, or pixel-collapsed boxes",
+      "projection": "floor lower bounds and ceil upper bounds after independent width/height scaling",
+      "repair_fixed_before_ocr": true,
+      "source_canvas": [
+        1000,
+        1000
+      ],
+      "source_coordinate_space": "layoutlm_normalized_xyxy_0_1000",
+      "target_coordinate_space": "original_image_pixels"
+    },
+    "baseline": {
+      "eligible_equal_canonical_length_required": true,
+      "engine": "Tesseract 5.3.4",
+      "input": "complete original receipt image",
+      "language": "eng",
+      "oem": 1,
+      "psm": 3,
+      "spatial_truth_matching_only_for_scoring": true
+    },
+    "candidate": {
+      "annotation_bbox_available_at_inference": false,
+      "claim_resolution": "selected spatial detector cluster only for scoring",
+      "crop_guard": "independent PSM-7 gray or autocontrast reading equals claim",
+      "detector_configuration": {
+        "guard_mode": "psm7_any",
+        "id": "broad-v2-conflict-ok-psm7_any",
+        "minimum_distinct_psm_votes": 2,
+        "psm_set": "broad",
+        "psms": [
+          3,
+          4,
+          6,
+          11,
+          12
+        ],
+        "reject_equal_length_conflict": false,
+        "uses_annotation_bbox_for_candidate_construction": false,
+        "uses_truth_for_candidate_construction": false
+      },
+      "forest_threshold": 0.25,
+      "input": "complete original receipt image",
+      "threshold_change_after_outcomes": false,
+      "truth_available_at_inference": false
+    },
+    "claim_limits": {
+      "general_ocr_superiority_claimed": false,
+      "honduras_production_readiness_claimed": false,
+      "production_change_automatic": false,
+      "schema_repaired_external_numeric_certificate_only": true,
+      "untouched_external_certificate_claimed": false
+    },
+    "counterfactual": {
+      "generated_before_candidate_inference": true,
+      "one_equal_length_digit_substitution_per_selected_receipt": true,
+      "physical_association_invariant": true,
+      "seed": "SHA-256-bound physical evidence key; invariant to shard and row association"
+    },
+    "dataset": "kaydee/wildreceipt",
+    "exact_gates": {
+      "alpha_per_leg_bonferroni": 0.0125,
+      "baseline_errors_must_be_positive": true,
+      "candidate_upper_must_not_exceed_baseline_lower_divided_by_10": true,
+      "counterfactual_maximum_upper": 0.01,
+      "family_alpha": 0.05,
+      "leave_one_source_shard_out_minimum_pass_fraction": 0.6666666666666666,
+      "minimum_accepted": 400,
+      "minimum_coverage_lower": 0.25,
+      "minimum_selected_unique_receipts": 1200,
+      "target_error_reduction": 10.0
+    },
+    "lineage": {
+      "mirror_declared_license": null,
+      "upstream_dataset": "WildReceipt",
+      "upstream_declared_license": "apache-2.0"
+    },
+    "power_plan": {
+      "development_acceptance_rate": 0.32124874118831825,
+      "development_accepted": 319,
+      "development_selected": 993,
+      "finite_population_feasibility": true,
+      "maximum_possible_selected_unique_receipts": 1739,
+      "minimum_selected_for_projected_400_accepts": 1246,
+      "minimum_selected_unique_receipts": 1200,
+      "minimum_selection_yield_for_projected_400_accepts": 0.7165037377803335,
+      "minimum_selection_yield_required": 0.6900517538815412,
+      "planning_only_not_a_certificate": true,
+      "published_receipt_rows_from_hub_metadata": 1739,
+      "underpower_is_an_allowed_terminal_result": true
+    },
+    "protocol_id": "wildreceipt-one-numeric-word-per-receipt-v3-physical-invariance",
+    "required_columns": [
+      "image",
+      "id",
+      "words",
+      "bboxes"
+    ],
+    "revision": "cedafaf3c8b0246c9fad68af29324d655715ad12",
+    "risk_unit": "one SHA-256-selected eligible numeric annotation per unique physical receipt image; at most one unit survives per decoded image SHA-256",
+    "runtime": {
+      "aggregate_recomputes_deduplication_and_all_exact_bounds": true,
+      "neutral_workdir_import_required": true,
+      "one_worker_per_source_shard": true,
+      "same_candidate_bytes_and_runtime_in_every_worker": true,
+      "self_contained_source_bundle": true,
+      "source_bundle_closure_algorithm": "python-ast-local-import-closure-v1",
+      "source_bundle_roots": [
+        "ocr_real_risk_v1/numeric_consensus_candidate_v4_wildreceipt.py",
+        "ocr_real_risk_v1/wildreceipt_adapter.py",
+        "ocr_real_risk_v1/wildreceipt_external.py"
+      ],
+      "source_shards": 3
+    },
+    "schema_discovery": {
+      "candidate_inference_executed": false,
+      "failure_stage": "outcome_blind_manifest_build_before_ocr",
+      "model_or_threshold_changed": false,
+      "numeric_text_scope_changed": false,
+      "observed_schema_defect": "LayoutLM-normalized 0-1000 bboxes were interpreted as image pixels",
+      "ocr_binary_installed": false,
+      "ocr_executed": false,
+      "opened_source_scope": "prefix of the WildReceipt test split during manifest-only geometry census",
+      "repair_scope": "deterministic coordinate projection only",
+      "source_objects_downloaded": 3,
+      "workflow_run_id": 30991994931
+    },
+    "selection": {
+      "deduplicate_candidates_within_receipt": "canonical truth plus bbox",
+      "deduplicate_receipts_across_shards": "decoded image SHA-256",
+      "duplicate_image_conflict": "fail_closed",
+      "eligible_text": "4-12 ASCII digits after separator/currency removal; standalone years, repeated-digit junk, letters, and non-ASCII digits excluded",
+      "performed_before_ocr": true,
+      "physical_association_invariant": true,
+      "rank": "SHA-256(dataset revision, image SHA-256, projected pixel bbox, canonical truth); invariant to shard and row association",
+      "uses_candidate_outcome": false,
+      "uses_ocr_output": false
+    },
+    "source_objects": {
+      "data/test-00000-of-00001.parquet": {
+        "sha256": "43254778a33b83ae65f9a152b2b559a043f4d4239c4d903b4aca315d129efca0",
+        "shard_id": "test-00000-of-00001",
+        "size_bytes": 427468952,
+        "split": "test"
+      },
+      "data/train-00000-of-00002.parquet": {
+        "sha256": "f11bd09c7373df1726aa3fba02b6513c436809b3417c5b85a24cd0dd4226fc07",
+        "shard_id": "train-00000-of-00002",
+        "size_bytes": 449790572,
+        "split": "train"
+      },
+      "data/train-00001-of-00002.parquet": {
+        "sha256": "e988eeff3ad994f77c1c0fed0a85675f5f132f7911cb5574e8439c2661b0cce7",
+        "shard_id": "train-00001-of-00002",
+        "size_bytes": 490390793,
+        "split": "train"
+      }
+    }
+  },
+  "external_source_binding": {
+    "candidate_inference_executed_before_this_freeze": false,
+    "dataset_id": "kaydee/wildreceipt",
+    "ocr_executed_before_this_freeze": false,
+    "original_source_seal_unopened": true,
+    "resolved_revision": "cedafaf3c8b0246c9fad68af29324d655715ad12",
+    "schema_discovery": {
+      "candidate_inference_executed": false,
+      "failure_stage": "outcome_blind_manifest_build_before_ocr",
+      "model_or_threshold_changed": false,
+      "numeric_text_scope_changed": false,
+      "observed_schema_defect": "LayoutLM-normalized 0-1000 bboxes were interpreted as image pixels",
+      "ocr_binary_installed": false,
+      "ocr_executed": false,
+      "opened_source_scope": "prefix of the WildReceipt test split during manifest-only geometry census",
+      "repair_scope": "deterministic coordinate projection only",
+      "source_objects_downloaded": 3,
+      "workflow_run_id": 30991994931
+    },
+    "source_rows_opened_before_this_freeze": true,
+    "source_seal_file": "wildreceipt_source_seal_v1.json",
+    "source_seal_file_sha256": "d5e3bf7187e1f343ac21263e378a84715982ce2c312179a3b2a4ae6bf2dbcc53",
+    "source_seal_stable_payload_sha256": "7775f57d92aa293b05e45298179154f54a3ffec1adb73087434fe54a1aa731f5"
+  },
+  "runtime": {
+    "deterministic_threads": 1,
+    "requirements": [
+      "python==3.11",
+      "tesseract==5.3.4",
+      "Pillow==12.2.0",
+      "numpy==2.2.6",
+      "opencv-python-headless==4.10.0.84",
+      "scikit-learn==1.8.0",
+      "joblib==1.5.3",
+      "pyarrow==18.1.0",
+      "pytesseract==0.3.13"
+    ],
+    "requirements_file": "requirements.lock",
+    "requirements_sha256": "5606a8f15d52a6c851dd4c5fa294ca7192463eeaedabe9f224a02ee7da517fe4",
+    "source_closure_algorithm": "python-ast-local-import-closure-v1",
+    "source_file_count": 18,
+    "source_file_set_sha256": "6ec4fc2b1da6e697f8e55b8e1faa5f72fd87f26745749ecde7207e027420abf7",
+    "source_roots": [
+      "ocr_real_risk_v1/numeric_consensus_candidate_v4_wildreceipt.py",
+      "ocr_real_risk_v1/wildreceipt_adapter.py",
+      "ocr_real_risk_v1/wildreceipt_external.py"
+    ]
+  },
+  "schema": "ocr-numeric-consensus-wildreceipt-candidate/8",
+  "source_commit": "03e4787e7d9aed5a4a92ee399797bf117a5857f0",
+  "source_files": [
+    {
+      "path": "ocr_real_risk_v1/__init__.py",
+      "sha256": "1cd68e0a02747c798f9d384c57b75684d44ee3d59dfcaa1696b2ad6db9de4384",
+      "size_bytes": 57
+    },
+    {
+      "path": "ocr_real_risk_v1/cord_consensus_detector_v4.py",
+      "sha256": "e2a5dc4fad9af4e4751f6afd650297ee3f7d7adf4a559eef193e734ceff9e422",
+      "size_bytes": 44167
+    },
+    {
+      "path": "ocr_real_risk_v1/cord_detector_crops_v4.py",
+      "sha256": "727528cf50f13856e710746689a272e0f8018401aeda4969614e8b371b326ab5",
+      "size_bytes": 18282
+    },
+    {
+      "path": "ocr_real_risk_v1/cord_natural_holdout.py",
+      "sha256": "e0383bf79fc1b9960c177f8ca61db5e4793a524ba0f9ddff7d7406100b6d97d2",
+      "size_bytes": 42737
+    },
+    {
+      "path": "ocr_real_risk_v1/cord_source_seal.py",
+      "sha256": "70f600d31920eb9e3adb664417ed35063e44332d45ed5d8cb0b30ac6a2a476fc",
+      "size_bytes": 4521
+    },
+    {
+      "path": "ocr_real_risk_v1/core.py",
+      "sha256": "23593784005eccf9136077d29c29f5f934b7650ab60924a83a2458db932718d0",
+      "size_bytes": 11262
+    },
+    {
+      "path": "ocr_real_risk_v1/coru_source_seal.py",
+      "sha256": "dc46d87c73a47674f8b3df5ed12568249a1703ca4e9b08047c5e742597656785",
+      "size_bytes": 5707
+    },
+    {
+      "path": "ocr_real_risk_v1/exact_bounds.py",
+      "sha256": "8eaf9ef1c9bcbca3ededbc9a248c3be6872f9131dd3173da82453eca26d29763",
+      "size_bytes": 3690
+    },
+    {
+      "path": "ocr_real_risk_v1/isolated_crop.py",
+      "sha256": "d8344ea2c57cc08e29bcb89e304a61218d5b4a6c5a72b45b2a55127326a0e992",
+      "size_bytes": 2168
+    },
+    {
+      "path": "ocr_real_risk_v1/numeric_consensus_candidate_v4.py",
+      "sha256": "a63b942026740651287c142a06d7940ff82aa06e971cf90eb69e15adf7614729",
+      "size_bytes": 16940
+    },
+    {
+      "path": "ocr_real_risk_v1/numeric_consensus_candidate_v4_wildreceipt.py",
+      "sha256": "211ec0e21dcde1105045b2c3cedea36b246ac5e9c4441f177bb05cc15d5347ea",
+      "size_bytes": 22389
+    },
+    {
+      "path": "ocr_real_risk_v1/numeric_digit_forest.py",
+      "sha256": "9df796379701098cab3e8dd99793f1635b53aa44114352a27d405fc59d85ef50",
+      "size_bytes": 32281
+    },
+    {
+      "path": "ocr_real_risk_v1/numeric_digit_forest_deterministic.py",
+      "sha256": "7f29776775d5ec5b790153b0a2d5318e3088288da4c53438220fa40a5c83c76e",
+      "size_bytes": 1223
+    },
+    {
+      "path": "ocr_real_risk_v1/pixel_digit_alignment.py",
+      "sha256": "09499a8891949fc487f55cf8b9e533d464ce71fb1a4bcc9fdbd353d61a80ec91",
+      "size_bytes": 15834
+    },
+    {
+      "path": "ocr_real_risk_v1/sroie_natural_holdout.py",
+      "sha256": "daf0c8ba59c184b0843f098a1981ab388bc63467b1e829931a9365b9516d212f",
+      "size_bytes": 30317
+    },
+    {
+      "path": "ocr_real_risk_v1/wildreceipt_adapter.py",
+      "sha256": "4e7afb8be5ff0299936a3d1a06a4e92baa694006464df7413f9ce679f2d9bc7b",
+      "size_bytes": 10139
+    },
+    {
+      "path": "ocr_real_risk_v1/wildreceipt_external.py",
+      "sha256": "bc6a96a1ac09dd1bb762ac93751903a2c2471c362942e9c9d5111516f327c961",
+      "size_bytes": 42227
+    },
+    {
+      "path": "ocr_real_risk_v1/wildreceipt_source_seal.py",
+      "sha256": "4a2cf8de3b8e0cd2e5ad597db64c8e5ad2dea3b37621df7de7249060ff3f4898",
+      "size_bytes": 5465
+    }
+  ],
+  "stable_payload_sha256": "95d4525b8c14de6168d080c8d3aec51852c7f954097426e2f69c00682dd3d387",
+  "status": "FROZEN_AFTER_WILDRECEIPT_GEOMETRY_SCHEMA_DISCOVERY_BEFORE_ANY_OCR_OUTCOMES"
+}
