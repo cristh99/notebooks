@@ -1,0 +1,72 @@
+name: Data Science fresh gate v1 — materialize frozen base
+
+on:
+  push:
+    branches:
+      - agent/data-science-dominance-dab-slice
+    paths:
+      - .github/workflows/data-science-fresh-gate-v1-materialize-base.yml
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout frozen branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+
+      - name: Prove workflow-only activation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_EVENT_NAME}" = "push"
+          test "${GITHUB_RUN_ATTEMPT}" = "1"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/data-science-fresh-gate-v1-materialize-base.yml"
+
+      - name: Reconstruct and verify immutable base
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_root='data_science_dominance/dab_slice'
+          target_root='data_science_dominance/fresh_gate_v1'
+          bash "$source_root/reconstruct_dab_slice.sh"
+          freeze_sha=$(python - <<'PY'
+          import json
+          from pathlib import Path
+          freeze=json.loads(Path('data_science_dominance/dab_slice/DAB_SLICE_FREEZE.json').read_text())
+          print(freeze['candidate']['sha256'])
+          PY
+          )
+          actual_sha=$(sha256sum "$source_root/dab_slice_agent.py" | awk '{print $1}')
+          test "$freeze_sha" = "$actual_sha"
+          cp "$source_root/dab_slice_agent.py" "$target_root/base_candidate.py"
+          printf '%s  base_candidate.py\n' "$actual_sha" > "$target_root/base_candidate.sha256"
+          python -m py_compile "$target_root/base_candidate.py"
+
+      - name: Preserve materialized base
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            data_science_dominance/fresh_gate_v1/base_candidate.py \
+            data_science_dominance/fresh_gate_v1/base_candidate.sha256
+          git commit -m 'Materialize immutable DAB base candidate [skip ci]'
+          git fetch origin agent/data-science-dominance-dab-slice
+          git rebase origin/agent/data-science-dominance-dab-slice
+          git push origin HEAD:agent/data-science-dominance-dab-slice
+
+      - name: Upload materialization evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-fresh-gate-v1-materialized-base
+          retention-days: 90
+          path: |
+            data_science_dominance/fresh_gate_v1/base_candidate.py
+            data_science_dominance/fresh_gate_v1/base_candidate.sha256
