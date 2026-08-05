@@ -1,0 +1,203 @@
+    publication_start = publication_end = review_start = review_end = None
+    if years:
+        start, end = (min(years[:2]), max(years[:2])) if len(years) >= 2 else (years[0], years[0])
+        if re.search(r"\b(?:reviewed|review time|review year|reviews? (?:posted|written))\b", lowered):
+            review_start, review_end = start, end
+        else:
+            publication_start, publication_end = start, end
+
+    category_values = sorted({category for book in books for category in book.categories})
+    authors = sorted({book.author for book in books if book.author})
+    titles = sorted({book.title for book in books if book.title})
+    publishers = sorted({book.publisher for book in books if book.publisher})
+    category = catalog_match(query, category_values)
+    author = catalog_match(query, authors)
+    title = catalog_match(query, titles)
+    publisher = catalog_match(query, publishers)
+
+    terms: list[str] = []
+    for quoted in re.findall(r"[\"']([^\"']{2,100})[\"']", query):
+        terms.append(fold_text(quoted).lower())
+    if not terms:
+        match = re.search(r"\b(?:containing|mentioning|mentions?|about|with the word|including the term)\s+([a-z0-9][a-z0-9 -]{2,80}?)(?:\?|\.|,|$)", lowered)
+        if match: terms.append(match.group(1).strip())
+
+    return QueryPlan(
+        raw_query=query, operation=operation, target=target, metric=metric, top_n=top_n,
+        min_group_count=min_group, min_distinct_books=min_books,
+        rating_op=rating_op, rating_value=rating_value,
+        price_op=price_op, price_value=price_value,
+        helpful_op=helpful_op, helpful_value=helpful_value,
+        verified=verified,
+        publication_year_start=publication_start, publication_year_end=publication_end,
+        review_year_start=review_start, review_year_end=review_end,
+        category=category, author=author, title=title, publisher=publisher,
+        text_terms=tuple(dict.fromkeys(terms)),
+        include_value=bool(re.search(r"\b(?:and (?:the|its) (?:value|rating|count|percentage)|with (?:its|the) value)\b", lowered)),
+    )
+
+
+def joined_passes(plan: QueryPlan, row: JoinedReview) -> bool:
+    review, book = row.review, row.book
+    if plan.verified is not None and review.verified_purchase != plan.verified: return False
+    if not apply_op(review.rating, plan.rating_op, plan.rating_value): return False
+    if not apply_op(review.helpful_vote, plan.helpful_op, plan.helpful_value): return False
+    if plan.review_year_start is not None:
+        if review.review_time is None or not (plan.review_year_start <= review.review_time.year <= (plan.review_year_end or plan.review_year_start)): return False
+    if plan.text_terms:
+        haystack = f"{review.title}\n{review.text}".lower()
+        if not all(term in haystack for term in plan.text_terms): return False
+    if book is None:
+        return not any((plan.category, plan.author, plan.title, plan.publisher, plan.price_op, plan.publication_year_start))
+    if plan.category and phrase_key(plan.category) not in {phrase_key(cat) for cat in book.categories}: return False
+    if plan.author and phrase_key(book.author) != phrase_key(plan.author): return False
+    if plan.title and phrase_key(book.title) != phrase_key(plan.title): return False
+    if plan.publisher and phrase_key(book.publisher) != phrase_key(plan.publisher): return False
+    if not apply_op(book.price, plan.price_op, plan.price_value): return False
+    if plan.publication_year_start is not None:
+        if book.publication_year is None or not (plan.publication_year_start <= book.publication_year <= (plan.publication_year_end or plan.publication_year_start)): return False
+    return True
+
+
+def group_label(target: str, row: JoinedReview) -> tuple[str, str] | None:
+    book = row.book
+    if target == "review": return row.review.entity_id, row.review.title or row.review.entity_id
+    if book is None: return None
+    if target == "book": return book.entity_id, book.title or book.book_id
+    if target == "author": return phrase_key(book.author), book.author
+    if target == "publisher": return phrase_key(book.publisher), book.publisher
+    if target == "store": return phrase_key(book.store), book.store
+    if target == "publication_year": return str(book.publication_year), str(book.publication_year) if book.publication_year else ""
+    if target == "decade":
+        if book.publication_year is None: return None
+        decade = book.publication_year - book.publication_year % 10
+        return str(decade), f"{decade}s"
+    return None
+
+
+def category_groups(rows: Sequence[JoinedReview]) -> tuple[dict[str, list[JoinedReview]], dict[str, str]]:
+    groups: dict[str, list[JoinedReview]] = {}
+    displays: dict[str, str] = {}
+    for row in rows:
+        if row.book is None: continue
+        for category in row.book.categories:
+            key = phrase_key(category)
+            if key:
+                groups.setdefault(key, []).append(row)
+                displays.setdefault(key, category)
+    return groups, displays
+
+
+def metric_value(metric: str, rows: Sequence[JoinedReview]) -> float:
+    if metric == "average_rating":
+        values = [row.review.rating for row in rows if row.review.rating is not None]
+        return float(statistics.fmean(values)) if values else 0.0
+    if metric == "review_count": return float(len({row.review.entity_id for row in rows}))
+    if metric == "helpful_votes": return float(sum(row.review.helpful_vote for row in rows))
+    if metric == "verified_share":
+        return 100.0 * sum(row.review.verified_purchase for row in rows) / len(rows) if rows else 0.0
+    if metric == "price":
+        prices = {row.book.entity_id: row.book.price for row in rows if row.book and row.book.price is not None}
+        return float(statistics.fmean(prices.values())) if prices else 0.0
+    if metric == "rating_number":
+        values = {row.book.entity_id: row.book.rating_number for row in rows if row.book and row.book.rating_number is not None}
+        return float(sum(values.values()))
+    return float(len({row.book.entity_id for row in rows if row.book is not None}))
+
+
+def evaluate(plan: QueryPlan, joined: Sequence[JoinedReview]) -> Any:
+    rows = [row for row in joined if joined_passes(plan, row)]
+    if plan.operation == "count":
+        if plan.target == "review": return len({row.review.entity_id for row in rows})
+        if plan.target == "category":
+            groups, _ = category_groups(rows); return len(groups)
+        labels = [group_label(plan.target, row) for row in rows]
+        return len({label[0] for label in labels if label and label[0]})
+    if plan.operation == "percentage":
+        denominator = list(joined)
+        return 100.0 * len(rows) / len(denominator) if denominator else 0.0
+    if plan.operation in {"average", "median", "sum"} and plan.target in {"review", "book"}:
+        if plan.metric == "average_rating" or plan.metric == "count": values = [row.review.rating for row in rows if row.review.rating is not None]
+        elif plan.metric == "helpful_votes": values = [float(row.review.helpful_vote) for row in rows]
+        elif plan.metric == "price": values = [row.book.price for row in rows if row.book and row.book.price is not None]
+        else: values = [1.0 for _ in rows]
+        if not values: return 0.0
+        if plan.operation == "average": return float(statistics.fmean(values))
+        if plan.operation == "median": return float(statistics.median(values))
+        return float(sum(values))
+
+    if plan.target == "category":
+        groups, displays = category_groups(rows)
+    else:
+        groups: dict[str, list[JoinedReview]] = {}
+        displays: dict[str, str] = {}
+        for row in rows:
+            label = group_label(plan.target, row)
+            if label and label[0]:
+                groups.setdefault(label[0], []).append(row)
+                displays.setdefault(label[0], label[1])
+    scored: list[tuple[float, str, str]] = []
+    for key, group_rows in groups.items():
+        distinct_books = len({row.book.entity_id for row in group_rows if row.book})
+        distinct_reviews = len({row.review.entity_id for row in group_rows})
+        if distinct_books < plan.min_distinct_books or distinct_reviews < plan.min_group_count: continue
+        scored.append((metric_value(plan.metric, group_rows), displays.get(key, key), key))
+    if plan.operation == "list": return sorted({display for _, display, _ in scored}, key=str.casefold)
+    if not scored: return ""
+    minimize = plan.operation == "argmin"
+    scored.sort(key=lambda item: (item[0], item[1].casefold()) if minimize else (-item[0], item[1].casefold()))
+    if plan.operation == "top": return [(display, value) for value, display, _ in scored[:plan.top_n]]
+    return scored[0][1]
+
+
+def render_answer(value: Any) -> str:
+    if isinstance(value, list):
+        return "\n".join(f"{item[0]}: {format_number(item[1])}" if isinstance(item, tuple) and len(item) == 2 else str(item) for item in value)
+    if isinstance(value, tuple): return "\n".join(str(item) for item in value)
+    if isinstance(value, (int, float)): return format_number(value)
+    return fold_text(value)
+
+
+def format_number(value: float | int) -> str:
+    number = float(value)
+    if math.isclose(number, round(number), abs_tol=1e-9): return str(int(round(number)))
+    return f"{number:.10f}".rstrip("0").rstrip(".")
+
+
+def read_query(path: Path) -> str:
+    text = path.read_text(encoding="utf-8").strip()
+    try: payload = json.loads(text)
+    except json.JSONDecodeError: return text.strip('"')
+    if isinstance(payload, str): return payload
+    if isinstance(payload, Mapping):
+        for key in ("query", "question", "prompt", "text"):
+            if key in payload: return fold_text(payload[key])
+    return fold_text(payload)
+
+
+def write_outputs(output_dir: Path, query_id: str, query: str, plan: QueryPlan, answer: Any) -> None:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    rendered = render_answer(answer)
+    (output_dir / f"{query_id}.txt").write_text(rendered + ("\n" if rendered else ""), encoding="utf-8")
+    (output_dir / f"{query_id}.json").write_text(json.dumps({
+        "query_id": query_id, "query": query, "plan": plan.__dict__, "answer": answer, "rendered_answer": rendered,
+    }, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dab-root", type=Path, required=True)
+    parser.add_argument("--query-path", type=Path, required=True)
+    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--query-id", required=True)
+    args = parser.parse_args()
+    books, reviews, joined = load_domain(args.dab_root.resolve())
+    query = read_query(args.query_path)
+    plan = plan_query(query, books)
+    answer = evaluate(plan, joined)
+    write_outputs(args.output_dir.resolve(), args.query_id, query, plan, answer)
+    print(json.dumps({"query_id": args.query_id, "answer": render_answer(answer)}, sort_keys=True))
+
+
+if __name__ == "__main__":
+    main()
