@@ -1,0 +1,55 @@
+{
+  "candidate_commit": "fe8865e9182f8ef62babcc1bdda0ac4c107cebfd",
+  "constraints": {
+    "annotations_used_at_inference": false,
+    "external_spend_usd": 0.0,
+    "gcloud_used": false,
+    "github_actions_used": false,
+    "gpu_used": false,
+    "paid_api_used": false,
+    "production_modified": false
+  },
+  "evaluated": {
+    "evaluator_version": "v4.2.2-short-decimal-and-bare-year-fix",
+    "file_sha256": "1560e8655f040eb8083868e02b81c9cbf00a03ee78f4a6923196c1f78babf7a1",
+    "metrics": {
+      "accepted": 0,
+      "baseline_errors": 1,
+      "evaluated": 1,
+      "false_replacements": 0,
+      "false_semantic_flags": 0,
+      "final_errors_among_accepted": 0,
+      "flags": 1,
+      "quarantined": 1,
+      "selective_coverage": 0.0,
+      "unresolved": 0
+    },
+    "stable_payload_sha256": "0cd380341494d035d1fb8ed8ccd9af55fcbd7469686b284089feeaf610309b48"
+  },
+  "flags": [
+    {
+      "action": "QUARANTINE",
+      "baseline": "260",
+      "baseline_correct": false,
+      "decision_sha256": "26d711199981702360820193b58cfc395ad600b947908708c2b14abbc342d729",
+      "evaluation_status": "EVALUATED",
+      "final_correct_if_accepted": null,
+      "reason": "PIXEL_VIEWS_DO_NOT_PRODUCE_RIVAL",
+      "rival": "250",
+      "stem": "X51008099089",
+      "token_index": 91,
+      "truth": "250",
+      "truth_text": "2.50"
+    }
+  ],
+  "production_promotion": false,
+  "schema": "ocr-v4-2-untouched-batch4-evidence/1",
+  "sealed": {
+    "file_sha256": "5ff9350db8da9e6134966cb3de29f4f091fed2629632a61afe9cbc52c998ac44",
+    "metrics": {"images":10,"quarantines":1,"replacements":0,"semantic_flags":1},
+    "stable_payload_sha256": "5fcc44e0d7ff8d4607cfebe142801d7508978981f4f287cef84cb68e68f30c30",
+    "timing": {"bank_warm_seconds":2.603903459000094,"candidate_runtime_ratio_warm":1.0008148182332173,"full_page_tesseract_seconds":11.14031403600029,"selective_pixel_seconds":0.006071721999887814,"semantic_trigger_seconds":0.0030056090004109137}
+  },
+  "significance_look_performed": false,
+  "stable_payload_sha256": "ae9b09dbe50ac6dd5d1afdc12048841f07af09eb624fcdb47a8f13a704f1b82a"
+}
