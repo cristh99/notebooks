@@ -4,6 +4,7 @@ import copy
 import unittest
 
 from .wildreceipt_adapter import (
+    BBOX_COORDINATE_SPACE,
     DATASET_REVISION,
     annotation_bbox,
     canonical_ascii_numeric_word,
@@ -23,27 +24,43 @@ class WildReceiptAdapterTests(unittest.TestCase):
         self.assertIsNone(canonical_ascii_numeric_word("123"))
         self.assertIsNone(canonical_ascii_numeric_word("1234567890123"))
 
-    def test_bbox_accepts_xyxy_and_polygon_and_clips(self) -> None:
-        self.assertEqual(annotation_bbox([1, 2, 11, 22], (20, 30)), ((1, 2, 11, 22), False))
+    def test_bbox_projects_layoutlm_xyxy_and_polygon_into_pixels(self) -> None:
         self.assertEqual(
-            annotation_bbox([1, 2, 11, 2, 11, 22, 1, 22], (20, 30)),
-            ((1, 2, 11, 22), False),
+            annotation_bbox([100, 200, 550, 800], (200, 100)),
+            ((20, 20, 110, 80), False),
         )
         self.assertEqual(
-            annotation_bbox([-2, 2, 21, 31], (20, 30)),
-            ((0, 2, 20, 30), True),
+            annotation_bbox(
+                [100, 200, 550, 200, 550, 800, 100, 800],
+                (200, 100),
+            ),
+            ((20, 20, 110, 80), False),
+        )
+        self.assertEqual(
+            annotation_bbox([-20, 200, 1020, 800], (200, 100)),
+            ((0, 20, 200, 80), True),
+        )
+        self.assertEqual(
+            annotation_bbox([0, 0, 1, 1], (20, 30)),
+            ((0, 0, 1, 1), False),
         )
         with self.assertRaisesRegex(RuntimeError, "no overlap"):
-            annotation_bbox([21, 2, 30, 20], (20, 30))
+            annotation_bbox([1100, 200, 1200, 800], (200, 100))
+        with self.assertRaisesRegex(RuntimeError, "non-positive area"):
+            annotation_bbox([500, 500, 400, 600], (200, 100))
         with self.assertRaisesRegex(RuntimeError, "4 or 8"):
-            annotation_bbox([1, 2, 3], (20, 30))
+            annotation_bbox([1, 2, 3], (200, 100))
 
-    def test_selection_is_order_independent(self) -> None:
+    def test_selection_is_order_independent_after_projection(self) -> None:
         base = {
             "image": {"bytes": b"unused"},
             "id": 7,
             "words": ["12,345", "TOTAL", "67.890"],
-            "bboxes": [[1, 1, 20, 10], [1, 12, 40, 22], [1, 24, 20, 34]],
+            "bboxes": [
+                [10, 10, 200, 100],
+                [10, 120, 400, 220],
+                [10, 240, 200, 340],
+            ],
         }
         first, first_counts = select_numeric_annotation(
             row=base,
@@ -65,15 +82,22 @@ class WildReceiptAdapterTests(unittest.TestCase):
         self.assertEqual(
             first["selection_rank_sha256"], second["selection_rank_sha256"]
         )
+        self.assertEqual(first["bbox_coordinate_space"], "image_pixels")
+        self.assertEqual(
+            first["source_bbox_coordinate_space"], BBOX_COORDINATE_SPACE
+        )
         self.assertEqual(first_counts["unique_numeric_candidates"], 2)
         self.assertEqual(second_counts["unique_numeric_candidates"], 2)
+        self.assertEqual(
+            first_counts["numeric_annotations_projected_to_pixels"], 2
+        )
 
     def test_selection_deduplicates_same_physical_annotation(self) -> None:
         row = {
             "image": {"bytes": b"unused"},
             "id": "receipt-a",
             "words": ["12,345", "12345"],
-            "bboxes": [[1, 1, 20, 10], [1, 1, 20, 10]],
+            "bboxes": [[10, 10, 200, 100], [10, 10, 200, 100]],
         }
         selected, counts = select_numeric_annotation(
             row=row,
@@ -82,6 +106,7 @@ class WildReceiptAdapterTests(unittest.TestCase):
             image_size=(100, 100),
         )
         self.assertEqual(selected["truth"], "12345")
+        self.assertEqual(selected["bbox"], [1, 1, 20, 10])
         self.assertEqual(counts["numeric_annotations_in_scope"], 2)
         self.assertEqual(counts["unique_numeric_candidates"], 1)
 
@@ -90,7 +115,7 @@ class WildReceiptAdapterTests(unittest.TestCase):
             "image": {"bytes": b"unused"},
             "id": 1,
             "words": ["12345"],
-            "bboxes": [[1, 1, 20, 10]],
+            "bboxes": [[10, 10, 200, 100]],
         }
         broken = dict(base)
         broken.pop("words")
@@ -117,6 +142,7 @@ class WildReceiptAdapterTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertEqual(len(first), 64)
         self.assertEqual(len(DATASET_REVISION), 40)
+        self.assertEqual(BBOX_COORDINATE_SPACE, "layoutlm_normalized_xyxy_0_1000")
 
 
 if __name__ == "__main__":
