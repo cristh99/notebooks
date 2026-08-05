@@ -1,0 +1,129 @@
+{
+  "aggregate_artifact": {
+    "artifact_id": 8918392858,
+    "report_sha256": "561e2d589d4cbbda4d1dae6f22589189ccd1be1ffc0c0e90346ae94234ccaf37",
+    "stable_payload_sha256": "56a384277b68f22a919c44d984ca340b99f2f5ec9b497d14bed2860a03b65e91",
+    "zip_sha256": "efaa965db3e57c5fc4cdcb6e76cc277f58a4d979aa5e21ce9faea916a390bcb6"
+  },
+  "baseline": {
+    "claims": 292,
+    "false_predictions": 32,
+    "observed_error_rate": 0.1095890410958904,
+    "simultaneous_95pct_lower": 0.07212564343217798
+  },
+  "candidate": {
+    "artifact_id": 8917522937,
+    "artifact_zip_sha256": "080b0efd4b91a180a1a5c6acd767d72e0a8f286718e64eb90d8ec9d370d2dc17",
+    "candidate_id": "digit-forest-v3",
+    "model_sha256": "53229915331c2bbea2454f9e7cb5768a26e9edb30de750747f4397f1ff4cf92c",
+    "source_commit": "197fe61235a5c34c878d53369a50d26b0aaece1d",
+    "stable_payload_sha256": "0f88d94af81e0f7921e654e452059d2075b07ee35bcffd83dd8b02ebdd9e93a1",
+    "threshold": 0.25,
+    "tree_count": 500
+  },
+  "candidate_result": {
+    "accepted": 194,
+    "certified_error_reduction_lower": 1.750108696464358,
+    "coverage_observed": 0.19536757301107754,
+    "coverage_simultaneous_95pct_lower": 0.16784894331047928,
+    "false_accepted": 2,
+    "observed_false_acceptance_rate": 0.010309278350515464,
+    "simultaneous_95pct_upper": 0.041212093613321954
+  },
+  "constraints": {
+    "external_spend_usd": 0,
+    "gcloud_used": false,
+    "gpu_used": false,
+    "paid_api_used": false,
+    "production_modified": false
+  },
+  "counterfactual": {
+    "cases": 993,
+    "false_accepts": 1,
+    "simultaneous_95pct_upper": 0.006408524086801204
+  },
+  "dataset": {
+    "license": "CC-BY-4.0",
+    "protocol_stable_payload_sha256": "faf1d558b8ec84bb6fbc49b4661e1e2ba7ce86c84078a874893ca4341ad5ed11",
+    "published_rows": 1000,
+    "repo": "naver-clova-ix/cord-v2",
+    "revision": "7f0115a4b758a71d6473b8d085751692da2fef98",
+    "selected_key_set_sha256": "22ef2c1c1ecb7fb0417381ed2170778dfcf5bb401693b39e4a98fe843e01934f"
+  },
+  "decision": {
+    "automatic_production_change": false,
+    "cord_is_now_development_only": true,
+    "fresh_untouched_external_corpus_required_for_any_future_certificate": true,
+    "honduras_production_readiness_claimed": false,
+    "pass_statistical_10x": false,
+    "verdict": "CORD_EXTERNAL_TENFOLD_BOUND_NOT_REACHED"
+  },
+  "execution": {
+    "eligible_claims": 292,
+    "length_mismatch": 71,
+    "low_spatial_coverage": 2,
+    "no_spatial_match": 628,
+    "ocr_timeouts": 0,
+    "selected_locations": 993,
+    "unique_physical_locations": 993
+  },
+  "failures": [
+    {
+      "candidate_prediction": "8400",
+      "crop_sha256": "ce03b3262cdf74638bafa3eff163b479346d68948c83ddcaae80cfeadb7cbe63",
+      "key": "train:0149",
+      "kind": "NATURAL_FALSE_ACCEPT",
+      "minimum_mean_probability": 0.2597979706921138,
+      "row_index": 149,
+      "shard": "train-00000-of-00004",
+      "tesseract_claim": "8400",
+      "truth": "6400",
+      "visual_diagnosis": "clear first digit 6 was classified as 8"
+    },
+    {
+      "candidate_prediction": "87000",
+      "crop_sha256": "62ba6dc2853d8c1ea9f4b4586f1ca3dbd44910138613f016b4c89922c49d5ab1",
+      "key": "train:0776",
+      "kind": "NATURAL_FALSE_ACCEPT",
+      "minimum_mean_probability": 0.257436419685113,
+      "row_index": 176,
+      "shard": "train-00003-of-00004",
+      "tesseract_claim": "87000",
+      "truth": "67000",
+      "visual_diagnosis": "clear first digit 6 was classified as 8"
+    },
+    {
+      "candidate_prediction": "101000",
+      "counterfactual_claim": "101000",
+      "crop_sha256": "8ad05e7a2092bcef3efb35057afc6607549cb256cfbc1428bbd88bfd1b0b52b9",
+      "key": "train:0407",
+      "kind": "COUNTERFACTUAL_FALSE_ACCEPT",
+      "minimum_mean_probability": 0.44366866193082843,
+      "row_index": 7,
+      "shard": "train-00002-of-00004",
+      "truth": "100000",
+      "visual_diagnosis": "punctuation and spacing induced a spurious internal 1"
+    }
+  ],
+  "record_stable_payload_sha256": "3aaf7836e44d180b055548825200899cfb80ef298d574ebc727a44dd5f268d57",
+  "schema": "ocr-cord-external-validation-run-record/1",
+  "stability": {
+    "folds": 6,
+    "leave_one_shard_out_passes": 0,
+    "required_pass_fraction": 0.8
+  },
+  "status": "EXTERNAL_VALIDATION_COMPLETE_FAIL",
+  "timing": {
+    "median_candidate_ms": 43.27336149999894,
+    "median_full_image_tesseract_seconds": 0.5177848909999909,
+    "p95_candidate_ms": 51.12763300002143,
+    "p95_full_image_tesseract_seconds": 2.2163947920000027
+  },
+  "workflow": {
+    "aggregate_job_id": 92210970947,
+    "head_sha": "08a6ff386cfebc80738ce306ffeba6e8687923a4",
+    "name": "OCR CORD external natural-scan validation v1",
+    "run_id": 30975996631,
+    "seal_job_id": 92209985858
+  }
+}
