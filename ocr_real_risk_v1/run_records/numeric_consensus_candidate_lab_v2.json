@@ -1,0 +1,69 @@
+{
+  "artifact_digest": "59789b5d161a93c27b8380f37baf8b822570b24eddb80772bc4a6d876ed5fdd7",
+  "artifact_id": 8916317568,
+  "automatic_production_change": false,
+  "candidate_ready_to_freeze": false,
+  "commit_sha": "003f0e02428221ba416da04facd026916cf67c39",
+  "diagnostics": {
+    "counterfactual_false_accept_keys": [
+      "X51006557194"
+    ],
+    "current_strict": {
+      "accepted": 47,
+      "counterfactual_false_accepts": 1,
+      "natural_false_accepts": 0
+    },
+    "natural_false_accept_keys": []
+  },
+  "job": "develop-candidate",
+  "metrics": {
+    "combined_posthoc": {
+      "accepted": 82,
+      "accepted_correct": 82,
+      "counterfactual_false_accepts": 1,
+      "natural_false_accepts": 0,
+      "observed_coverage": 0.1436077057793345,
+      "selected": 571,
+      "simultaneous_95pct_counterfactual_upper": 0.011122491277396895,
+      "simultaneous_95pct_coverage_lower": 0.11225563523229076,
+      "simultaneous_95pct_natural_risk_upper": 0.05203656600223594
+    },
+    "test_posthoc_check": {
+      "accepted": 27,
+      "accepted_correct": 27,
+      "counterfactual_false_accepts": 1,
+      "natural_false_accepts": 0,
+      "observed_coverage": 0.125,
+      "selected": 216,
+      "simultaneous_95pct_counterfactual_upper": 0.02917602882658027,
+      "simultaneous_95pct_coverage_lower": 0.07912348643279543,
+      "simultaneous_95pct_natural_risk_upper": 0.14981157939710166
+    },
+    "train_selection": {
+      "accepted": 55,
+      "accepted_correct": 55,
+      "counterfactual_false_accepts": 0,
+      "natural_false_accepts": 0,
+      "observed_coverage": 0.15492957746478872,
+      "selected": 355,
+      "simultaneous_95pct_counterfactual_upper": 0.012267865577345383,
+      "simultaneous_95pct_coverage_lower": 0.11430297268329781,
+      "simultaneous_95pct_natural_risk_upper": 0.07658194054820033
+    }
+  },
+  "report_file_sha256": "21622af5ca62fcdf8a85d6610355b4cdea9c022f75e9bc9e1b4ae9dd091b6705",
+  "run_id": 30970297456,
+  "schema": "ocr-candidate-development-run-record/1",
+  "selected_rule": {
+    "full_page_confidence_min": 70.0,
+    "ocr_exact_votes_min": 3,
+    "position_median_claim_score_min": 0.56,
+    "position_vote_min": 3,
+    "predicted_views_min": 3,
+    "retain_original_strict": true
+  },
+  "stable_payload_sha256": "a67e6443cb3ccfff53722506efdc30602cbc14180c783eaf9a39c62cdd7e86e3",
+  "status": "POST_OUTCOME_DEVELOPMENT_ONLY",
+  "untouched_external_dataset_required": true,
+  "workflow": "OCR numeric consensus candidate laboratory v2"
+}
