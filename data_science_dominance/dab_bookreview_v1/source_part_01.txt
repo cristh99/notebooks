@@ -1,0 +1,220 @@
+                return mapping[key]
+    return ""
+
+
+def extract_categories(value: Any) -> tuple[str, ...]:
+    candidates = flatten_values(value)
+    output: list[str] = []
+    for candidate in candidates:
+        text = re.sub(r"(?i)^categories?\s*:\s*", "", candidate)
+        parts = re.split(r"\s*(?:>|/|\\|;|\||,)\s*", text)
+        for part in parts:
+            cleaned = fold_text(part).strip("[]{}()'\"")
+            if cleaned and len(cleaned) <= 120 and phrase_key(cleaned) not in {"category", "categories", "none", "null"}:
+                output.append(cleaned)
+    return tuple(dict.fromkeys(output))
+
+
+def parse_date(value: Any) -> date | None:
+    text = fold_text(value)
+    if not text:
+        return None
+    for candidate in (text, text[:10]):
+        try:
+            return datetime.fromisoformat(candidate.replace("Z", "+00:00")).date()
+        except ValueError:
+            pass
+    for fmt in ("%m/%d/%Y", "%Y/%m/%d", "%b %d, %Y", "%B %d, %Y"):
+        try:
+            return datetime.strptime(text, fmt).date()
+        except ValueError:
+            pass
+    match = re.search(r"\b((?:19|20)\d{2})[-/](\d{1,2})[-/](\d{1,2})\b", text)
+    if match:
+        try:
+            return date(int(match.group(1)), int(match.group(2)), int(match.group(3)))
+        except ValueError:
+            return None
+    return None
+
+
+def parse_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    return phrase_key(value) in {"1", "true", "yes", "y", "verified", "verifiedpurchase"}
+
+
+def pg_rows(query: str) -> list[tuple[Any, ...]]:
+    import psycopg2  # type: ignore
+    conn = psycopg2.connect(
+        host=os.environ.get("PGHOST", "127.0.0.1"),
+        port=int(os.environ.get("PGPORT", "5432")),
+        user=os.environ.get("PGUSER", "postgres"),
+        password=os.environ.get("PGPASSWORD", "postgres"),
+        dbname=os.environ.get("PGDATABASE", "bookreview_db"),
+    )
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(query)
+            return list(cursor.fetchall())
+    finally:
+        conn.close()
+
+
+def sqlite_rows(path: Path, query: str) -> list[tuple[Any, ...]]:
+    conn = sqlite3.connect(path)
+    try:
+        return list(conn.execute(query))
+    finally:
+        conn.close()
+
+
+def load_domain(dab_root: Path) -> tuple[list[Book], list[Review], list[JoinedReview]]:
+    book_rows = pg_rows(
+        "SELECT title, subtitle, author, rating_number, features, description, price, store, categories, details, book_id FROM books_info"
+    )
+    books: list[Book] = []
+    for index, row in enumerate(book_rows):
+        title, subtitle, author, rating_number, features, description, price, store, categories, details, book_id = row
+        books.append(Book(
+            entity_id=f"book:{index}",
+            book_id=fold_text(book_id),
+            title=fold_text(title),
+            subtitle=fold_text(subtitle),
+            author=fold_text(author),
+            rating_number=int(rating_number) if rating_number is not None else None,
+            features=parse_literal(features),
+            description=parse_literal(description),
+            price=float(price) if price is not None else None,
+            store=fold_text(store),
+            categories=extract_categories(categories),
+            details=parse_literal(details),
+            publication_year=extract_year(details, features, description),
+            publisher=extract_publisher(details, features),
+        ))
+    resolver = IdResolver((book.book_id, book) for book in books)
+    review_path = Path(dab_root) / "query_bookreview" / "query_dataset" / "review_query.db"
+    review_rows = sqlite_rows(
+        review_path,
+        "SELECT rating, title, text, purchase_id, review_time, helpful_vote, verified_purchase FROM review",
+    )
+    reviews: list[Review] = []
+    joined: list[JoinedReview] = []
+    for index, row in enumerate(review_rows):
+        rating, title, text, purchase_id, review_time, helpful_vote, verified_purchase = row
+        book = resolver.resolve(purchase_id)
+        review = Review(
+            entity_id=f"review:{index}",
+            purchase_id=fold_text(purchase_id),
+            rating=float(rating) if rating is not None else None,
+            title=fold_text(title),
+            text=fold_text(text),
+            review_time=parse_date(review_time),
+            helpful_vote=int(helpful_vote or 0),
+            verified_purchase=parse_bool(verified_purchase),
+            book_entity_id=book.entity_id if isinstance(book, Book) else None,
+        )
+        reviews.append(review)
+        joined.append(JoinedReview(review, book if isinstance(book, Book) else None))
+    return books, reviews, joined
+
+
+def extract_comparator(query: str, noun: str) -> tuple[str | None, float | None]:
+    number = r"([0-9]+(?:\.[0-9]+)?)"
+    patterns = (
+        (rf"(?:greater than|more than|above|over|exceed(?:ing|s|ed)?)\s+{number}\s*{noun}", ">"),
+        (rf"(?:at least|no less than|minimum of)\s+{number}\s*{noun}", ">="),
+        (rf"(?:less than|below|under)\s+{number}\s*{noun}", "<"),
+        (rf"(?:at most|no more than|maximum of)\s+{number}\s*{noun}", "<="),
+        (rf"{noun}\s+(?:greater than|more than|above|over)\s+{number}", ">"),
+        (rf"{noun}\s+(?:at least|of at least)\s+{number}", ">="),
+        (rf"{noun}\s+(?:less than|below|under)\s+{number}", "<"),
+    )
+    lowered = fold_text(query).lower()
+    for pattern, op in patterns:
+        match = re.search(pattern, lowered)
+        if match:
+            return op, float(match.group(1))
+    return None, None
+
+
+def apply_op(value: float | int | None, op: str | None, threshold: float | None) -> bool:
+    if op is None:
+        return True
+    if value is None or threshold is None:
+        return False
+    if op == ">": return value > threshold
+    if op == ">=": return value >= threshold
+    if op == "<": return value < threshold
+    if op == "<=": return value <= threshold
+    return math.isclose(float(value), threshold, rel_tol=0.0, abs_tol=1e-9)
+
+
+def catalog_match(query: str, values: Sequence[str]) -> str | None:
+    lowered = fold_text(query).lower()
+    matches = [(len(value), value) for value in values if len(phrase_key(value)) >= 4 and re.search(r"(?<![a-z0-9])" + re.escape(fold_text(value).lower()) + r"(?![a-z0-9])", lowered)]
+    if not matches:
+        return None
+    matches.sort(key=lambda item: (-item[0], item[1]))
+    return matches[0][1]
+
+
+def plan_query(query: str, books: Sequence[Book]) -> QueryPlan:
+    lowered = fold_text(query).lower()
+    top_match = re.search(r"\btop\s+(\d+)\b", lowered)
+    top_n = int(top_match.group(1)) if top_match else 1
+    if top_match:
+        operation = "top"
+    elif re.search(r"\b(?:which|what|who)\b", lowered) and re.search(r"\b(?:highest|largest|most|best)\b", lowered):
+        operation = "argmax"
+    elif re.search(r"\b(?:which|what|who)\b", lowered) and re.search(r"\b(?:lowest|smallest|least|worst)\b", lowered):
+        operation = "argmin"
+    elif re.search(r"\b(?:average|mean)\b", lowered):
+        operation = "average"
+    elif re.search(r"\bmedian\b", lowered):
+        operation = "median"
+    elif re.search(r"\b(?:sum|total)\b", lowered):
+        operation = "sum"
+    elif re.search(r"\b(?:percentage|percent|share|proportion)\b", lowered):
+        operation = "percentage"
+    elif re.search(r"\b(?:how many|number of|count of)\b", lowered):
+        operation = "count"
+    elif re.search(r"\b(?:list|show|identify)\b", lowered):
+        operation = "list"
+    else:
+        operation = "count"
+
+    if re.search(r"\bdecades?\b", lowered): target = "decade"
+    elif re.search(r"\b(?:publication years?|years? of publication)\b", lowered): target = "publication_year"
+    elif re.search(r"\bcategor(?:y|ies)\b", lowered): target = "category"
+    elif re.search(r"\bauthors?\b", lowered): target = "author"
+    elif re.search(r"\bpublishers?\b", lowered): target = "publisher"
+    elif re.search(r"\bstores?\b", lowered): target = "store"
+    elif re.search(r"\b(?:books?|titles?)\b", lowered): target = "book"
+    elif re.search(r"\breviews?\b", lowered): target = "review"
+    else: target = "book"
+
+    if re.search(r"\b(?:average|mean)\s+(?:review\s+)?rating|highest average rating|lowest average rating\b", lowered): metric = "average_rating"
+    elif re.search(r"\b(?:number|count|most|fewest)\s+of\s+reviews?|most reviewed|review count\b", lowered): metric = "review_count"
+    elif re.search(r"\bhelpful(?:ness)?(?:\s+votes?)?\b", lowered): metric = "helpful_votes"
+    elif re.search(r"\bverified(?: purchase)?\b", lowered) and operation in {"percentage", "argmax", "argmin", "top"}: metric = "verified_share"
+    elif re.search(r"\bprice\b", lowered): metric = "price"
+    elif re.search(r"\brating number|ratings received\b", lowered): metric = "rating_number"
+    else: metric = "count"
+
+    min_group = 0
+    min_books = 0
+    match = re.search(r"\b(?:at least|minimum of|no fewer than)\s+(\d+)\s+(?:distinct\s+)?books?\b", lowered)
+    if match: min_books = int(match.group(1))
+    match = re.search(r"\b(?:at least|minimum of|no fewer than)\s+(\d+)\s+reviews?\b", lowered)
+    if match: min_group = int(match.group(1))
+
+    rating_op, rating_value = extract_comparator(query, r"(?:star\s+)?rating")
+    price_op, price_value = extract_comparator(query, r"(?:dollar\s+)?price")
+    helpful_op, helpful_value = extract_comparator(query, r"helpful\s+votes?")
+
+    verified: bool | None = None
+    if re.search(r"\b(?:verified purchases?|verified reviews?)\b", lowered): verified = True
+    if re.search(r"\b(?:unverified|not verified|non-verified)\b", lowered): verified = False
+
+    years = [int(v) for v in re.findall(r"\b(?:18|19|20)\d{2}\b", lowered)]
