@@ -1,0 +1,322 @@
+name: Data Science dominance — official DataAgentBench six-query slice
+
+on:
+  push:
+    branches:
+      - agent/data-science-dominance-dab-slice-v2
+    paths:
+      - '.github/workflows/data-science-dominance-dab-slice-v2.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  official-dab-slice:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DAB_COMMIT: 9a55e34271a2500a41cbc009e239edd94599e374
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      HF_HUB_DISABLE_XET: '1'
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: postgres
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove workflow-only activation after candidate freeze
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_RUN_ATTEMPT}" = '1'
+          test "$(git rev-parse HEAD^)" = 'fd2bc9d4a463f9a6670736ab51e6a3de39808094'
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/data-science-dominance-dab-slice-v2.yml'
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install pinned CPU and database environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+          python -m pip install --disable-pip-version-check \
+            'numpy==1.26.4' 'pandas==2.2.3' 'duckdb==1.3.2' \
+            'psycopg2-binary==2.9.10' 'pymongo==4.10.1' \
+            'huggingface-hub==0.36.0' 'pyyaml==6.0.2'
+          mkdir -p dab-logs dab-output
+          python -m pip freeze | sort > dab-logs/pip-freeze.txt
+
+      - name: Reconstruct and audit frozen candidate before data access
+        shell: bash
+        run: |
+          set -euo pipefail
+          root='data_science_dominance/dab_slice_v2'
+          echo 'e50bcbdf4316f26606766cee3a5afc60e34dcdcd8a11093ad77936b217144bb2  data_science_dominance/dab_slice_v2/agent.py.gz.b64' | sha256sum -c -
+          echo '1153d5f8099fb5f5f0c49becfeb47ff13f831c3a58090609b7208c833a0b8624  data_science_dominance/dab_slice_v2/MANIFEST.json' | sha256sum -c -
+          bash "$root/reconstruct.sh"
+          python - <<'PY'
+          import ast, hashlib, importlib.util, json, sys
+          from pathlib import Path
+
+          path = Path('data_science_dominance/dab_slice_v2/dab_slice_agent.py')
+          source = path.read_text(encoding='utf-8')
+          assert hashlib.sha256(path.read_bytes()).hexdigest() == '0796f1d66d944e832181034f6e8e8800461b60d71e66716d5b19fe3fd1957dec'
+          lowered = source.lower()
+          for forbidden in ('ground_truth', 'validate.py', 'query.json', 'subprocess', 'requests', 'socket', 'urlopen'):
+              assert forbidden not in lowered, forbidden
+          tree = ast.parse(source)
+          imported = set()
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                  imported.update(alias.name.split('.')[0] for alias in node.names)
+              elif isinstance(node, ast.ImportFrom) and node.level == 0:
+                  imported.add((node.module or '').split('.')[0])
+          assert not (imported & {'urllib', 'requests', 'socket', 'subprocess'})
+
+          spec = importlib.util.spec_from_file_location('dab_slice_agent_frozen', path)
+          module = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = module
+          spec.loader.exec_module(module)
+          assert module.canonical_cve('CVE-2023-1234') == 'CVE-2023-1234'
+          assert abs(module.parse_money('$1.2M') - 1_200_000.0) < 1e-9
+          assert module.extract_publication_year("{'publication_date': '2020-03-01'}") == 2020
+          receipt = {
+              'schema': 'data-science-dominance/dab-slice-static-audit/1',
+              'candidate_sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+              'candidate_ground_truth_access': False,
+              'candidate_validator_access': False,
+              'candidate_network_or_process_access': False,
+              'pure_function_checks': 3,
+              'external_dataset_values_accessed': False,
+          }
+          Path('dab-logs/static-audit.json').write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          print(json.dumps(receipt, indent=2, sort_keys=True))
+          PY
+
+      - name: Fetch frozen DataAgentBench code and selected data
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir dab
+          cd dab
+          git init -q
+          git remote add origin https://github.com/ucbepic/DataAgentBench.git
+          git sparse-checkout init --cone
+          git sparse-checkout set \
+            query_civic_unstructured query_cve query_stockindex \
+            query_usaspending query_bookreview query_music_brainz_20k \
+            common_scaffold
+          GIT_LFS_SKIP_SMUDGE=1 git fetch -q --depth 1 origin "${DAB_COMMIT}"
+          git checkout -q --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "${DAB_COMMIT}"
+          cd ..
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, json, shutil, time
+          from huggingface_hub import hf_hub_download
+
+          files = [
+              'query_civic_unstructured/query_dataset/civic_docs_dump/civic_db/civic_docs.bson',
+              'query_civic_unstructured/query_dataset/funding.db',
+              'query_cve/query_dataset/vulns.db',
+              'query_cve/query_dataset/cpe.duckdb',
+              'query_cve/query_dataset/kev.sql',
+              'query_stockindex/query_dataset/indexInfo_query.db',
+              'query_stockindex/query_dataset/indextrade_query.db',
+              'query_usaspending/query_dataset/contracts.sql',
+              'query_usaspending/query_dataset/recipients.db',
+              'query_usaspending/query_dataset/agencies.duckdb',
+              'query_bookreview/query_dataset/books_info.sql',
+              'query_bookreview/query_dataset/review_query.db',
+              'query_music_brainz_20k/query_dataset/tracks.db',
+              'query_music_brainz_20k/query_dataset/sales.duckdb',
+          ]
+          rows = []
+          for filename in files:
+              last = None
+              for attempt in range(5):
+                  try:
+                      source = Path(hf_hub_download(
+                          repo_id='ruiyingm/DataAgentBench-data',
+                          repo_type='dataset',
+                          filename=filename,
+                      ))
+                      break
+                  except Exception as exc:
+                      last = exc
+                      time.sleep(2 ** attempt)
+              else:
+                  raise RuntimeError(f'failed to download {filename}: {last}')
+              target = Path('dab') / filename
+              target.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copyfile(source, target)
+              rows.append({
+                  'path': filename,
+                  'bytes': target.stat().st_size,
+                  'sha256': hashlib.sha256(target.read_bytes()).hexdigest(),
+              })
+          manifest = {
+              'schema': 'data-science-dominance/dab-slice-data-manifest/1',
+              'source_repository': 'ucbepic/DataAgentBench',
+              'source_commit': '9a55e34271a2500a41cbc009e239edd94599e374',
+              'mirror_repository': 'ruiyingm/DataAgentBench-data',
+              'files': rows,
+              'query_count': 6,
+              'candidate_frozen_before_values': True,
+          }
+          Path('dab-logs/data-manifest.json').write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
+          print(json.dumps(manifest, indent=2, sort_keys=True))
+          PY
+
+      - name: Load official PostgreSQL sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          for db in cve_kev usaspending_contracts bookreview_db; do
+            dropdb --if-exists "$db"
+            createdb "$db"
+          done
+          psql -v ON_ERROR_STOP=1 -d cve_kev -f dab/query_cve/query_dataset/kev.sql > dab-logs/cve-postgres-load.txt
+          psql -v ON_ERROR_STOP=1 -d usaspending_contracts -f dab/query_usaspending/query_dataset/contracts.sql > dab-logs/usaspending-postgres-load.txt
+          psql -v ON_ERROR_STOP=1 -d bookreview_db -f dab/query_bookreview/query_dataset/books_info.sql > dab-logs/bookreview-postgres-load.txt
+
+      - name: Execute frozen six-query data agent exactly once
+        shell: bash
+        run: |
+          set +e
+          python data_science_dominance/dab_slice_v2/dab_slice_agent.py \
+            --dab-root dab \
+            --output-dir dab-output \
+            2>&1 | tee dab-logs/agent-output.txt
+          status=${PIPESTATUS[0]}
+          echo "$status" > dab-logs/agent-exit-status.txt
+          exit 0
+
+      - name: Run official validators and seal verdict
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib, importlib.util, json, os
+          from pathlib import Path
+
+          mapping = {
+              'civic_unstructured_1': 'query_civic_unstructured/query1',
+              'cve_1': 'query_cve/query1',
+              'stockindex_1': 'query_stockindex/query1',
+              'usaspending_1': 'query_usaspending/query1',
+              'bookreview_1': 'query_bookreview/query1',
+              'music_brainz_20k_1': 'query_music_brainz_20k/query1',
+          }
+          status_path = Path('dab-logs/agent-exit-status.txt')
+          agent_status = int(status_path.read_text().strip()) if status_path.exists() else None
+          results = []
+          for query_id, relative in mapping.items():
+              answer_path = Path('dab-output') / f'{query_id}.txt'
+              answer = answer_path.read_text(encoding='utf-8') if answer_path.exists() else ''
+              validator_path = Path('dab') / relative / 'validate.py'
+              spec = importlib.util.spec_from_file_location(f'validator_{query_id}', validator_path)
+              module = importlib.util.module_from_spec(spec)
+              spec.loader.exec_module(module)
+              value = module.validate(answer)
+              if isinstance(value, tuple):
+                  passed, reason = bool(value[0]), str(value[1])
+              elif isinstance(value, dict):
+                  passed, reason = bool(value.get('is_valid')), str(value.get('reason', ''))
+              else:
+                  passed, reason = bool(value), ''
+              results.append({
+                  'query_id': query_id,
+                  'passed': passed,
+                  'reason': reason,
+                  'answer': answer.strip(),
+                  'answer_sha256': hashlib.sha256(answer.encode()).hexdigest(),
+                  'validator_sha256': hashlib.sha256(validator_path.read_bytes()).hexdigest(),
+              })
+          passed = sum(int(row['passed']) for row in results)
+          verdict = 'PASS' if agent_status == 0 and passed == len(mapping) else 'FAIL'
+          report = {
+              'schema': 'data-science-dominance/dab-slice-report/1',
+              'verdict': verdict,
+              'passed_queries': passed,
+              'query_count': len(mapping),
+              'agent_exit_status': agent_status,
+              'results': results,
+          }
+          Path('dab-logs/official-report.json').write_text(json.dumps(report, indent=2, sort_keys=True) + '\n')
+
+          def digest(path):
+              p = Path(path)
+              return hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None
+
+          receipt = {
+              'schema': 'data-science-dominance/dab-slice-freeze/1',
+              'verdict': verdict,
+              'score_before': 465,
+              'novelty_points': 0,
+              'actual_external_evaluation_count': 1 if agent_status is not None else 0,
+              'query_count': len(mapping),
+              'candidate_frozen_before_dataset_values': True,
+              'post_hoc_retuning_permitted': False,
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_run_attempt': int(os.environ['GITHUB_RUN_ATTEMPT']),
+              'github_sha': os.environ['GITHUB_SHA'],
+              'hashes': {
+                  'candidate_sha256': digest('data_science_dominance/dab_slice_v2/dab_slice_agent.py'),
+                  'transport_manifest_sha256': digest('data_science_dominance/dab_slice_v2/MANIFEST.json'),
+                  'static_audit_sha256': digest('dab-logs/static-audit.json'),
+                  'data_manifest_sha256': digest('dab-logs/data-manifest.json'),
+                  'official_report_sha256': digest('dab-logs/official-report.json'),
+              },
+          }
+          payload = json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          Path('dab-logs/freeze-receipt.json').write_text(payload)
+          Path('dab-logs/freeze-receipt.sha256').write_text(hashlib.sha256(payload.encode()).hexdigest() + '  freeze-receipt.json\n')
+          print(json.dumps(report, indent=2, sort_keys=True))
+          print(payload)
+          PY
+
+      - name: Upload complete immutable evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-dominance-dab-slice-v2
+          retention-days: 90
+          path: |
+            data_science_dominance/dab_slice_v2/**
+            dab-output/**
+            dab-logs/**
+
+      - name: Enforce official six-query verdict
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path('dab-logs/freeze-receipt.json').read_text())
+          if receipt['actual_external_evaluation_count'] != 1:
+              raise SystemExit('DAB slice evaluation invalid or incomplete; evidence preserved')
+          if receipt['verdict'] != 'PASS':
+              raise SystemExit('DAB slice gate: FAIL; evidence preserved; no retuning')
+          print('DAB six-query slice: PASS; no retuning permitted')
+          PY
