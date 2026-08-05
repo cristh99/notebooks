@@ -1,0 +1,121 @@
+--- a/ocr_real_risk_v1/cord_natural_holdout.py
++++ b/ocr_real_risk_v1/cord_natural_holdout.py
+@@ -153,6 +153,33 @@
+     return bbox
+ 
+ 
++def clip_bbox_to_image(
++    bbox: Sequence[int], image_size: tuple[int, int]
++) -> tuple[tuple[int, int, int, int], bool]:
++    """Clip annotation coordinates to the decoded image rectangle.
++
++    CORD quads occasionally use inclusive or rounded edge coordinates that
++    extend a few pixels beyond the decoded image. Clipping is deterministic,
++    outcome-blind, and occurs before selection ranking. A box with no overlap
++    still fails closed.
++    """
++    if len(bbox) != 4:
++        raise RuntimeError("CORD bbox must contain four coordinates")
++    width, height = image_size
++    if width <= 0 or height <= 0:
++        raise RuntimeError("CORD image dimensions must be positive")
++    raw = tuple(int(value) for value in bbox)
++    clipped = (
++        max(0, min(width, raw[0])),
++        max(0, min(height, raw[1])),
++        max(0, min(width, raw[2])),
++        max(0, min(height, raw[3])),
++    )
++    if clipped[2] <= clipped[0] or clipped[3] <= clipped[1]:
++        raise RuntimeError("CORD numeric word quad has no overlap with image")
++    return clipped, clipped != raw
++
++
+ def receipt_identity(
+     payload: Mapping[str, Any],
+     expected_split: str,
+@@ -255,14 +282,12 @@
+             quad = word.get("quad")
+             if not isinstance(quad, Mapping):
+                 raise RuntimeError("CORD numeric word is missing quad")
+-            bbox = quad_bbox(quad)
+-            if (
+-                bbox[0] < 0
+-                or bbox[1] < 0
+-                or bbox[2] > width
+-                or bbox[3] > height
+-            ):
+-                raise RuntimeError("CORD numeric word quad lies outside image")
++            raw_bbox = quad_bbox(quad)
++            bbox, was_clipped = clip_bbox_to_image(
++                raw_bbox, (width, height)
++            )
++            if was_clipped:
++                counts["numeric_annotations_clipped_to_image"] += 1
+             counts["numeric_annotations_in_scope"] += 1
+             rank = selection_rank(
+                 shard_id=shard_id,
+@@ -276,6 +301,8 @@
+                 "truth": truth,
+                 "annotation_text": annotation_text,
+                 "bbox": list(bbox),
++                "annotation_bbox_raw": list(raw_bbox),
++                "bbox_clipped_to_image": was_clipped,
+                 "selection_rank_sha256": rank,
+                 "line_index": line_index,
+                 "word_index": word_index,
+--- a/ocr_real_risk_v1/test_cord_natural_holdout.py
++++ b/ocr_real_risk_v1/test_cord_natural_holdout.py
+@@ -14,6 +14,7 @@
+     MANIFEST_SCHEMA,
+     SHARD_SPECS,
+     build_protocol_bundle,
++    clip_bbox_to_image,
+     quad_bbox,
+     select_numeric_annotation,
+ )
+@@ -94,6 +95,44 @@
+             self.assertEqual(first[field], second[field])
+         self.assertEqual(len(first["selection_rank_sha256"]), 64)
+ 
++    def test_annotation_bbox_is_clipped_before_selection(self) -> None:
++        clipped, changed = clip_bbox_to_image((-2, 4, 103, 101), (100, 100))
++        self.assertEqual(clipped, (0, 4, 100, 100))
++        self.assertTrue(changed)
++        with self.assertRaises(RuntimeError):
++            clip_bbox_to_image((101, 5, 110, 20), (100, 100))
++
++        payload = {
++            "meta": {
++                "split": "train",
++                "image_id": 1,
++                "image_size": {"width": 100, "height": 100},
++            },
++            "valid_line": [
++                {
++                    "words": [
++                        {
++                            "text": "12,345",
++                            "quad": _quad(-2, 4, 103, 101),
++                        }
++                    ],
++                    "category": "total.total_price",
++                }
++            ],
++        }
++        selected, counts = select_numeric_annotation(
++            payload=payload,
++            shard_id="train-00000-of-00004",
++            split="train",
++            key="train:0001",
++            image_sha256="b" * 64,
++            image_size=(100, 100),
++        )
++        self.assertEqual(selected["bbox"], [0, 4, 100, 100])
++        self.assertEqual(selected["annotation_bbox_raw"], [-2, 4, 103, 101])
++        self.assertTrue(selected["bbox_clipped_to_image"])
++        self.assertEqual(counts["numeric_annotations_clipped_to_image"], 1)
++
+     def test_numeric_annotation_with_malformed_quad_fails_closed(self) -> None:
+         payload = {
+             "meta": {
