@@ -1,0 +1,180 @@
+name: Apply WildReceipt v6 counterfactual replay v2
+
+on:
+  push:
+    branches:
+      - agent/ocr-consensus-v6-development
+    paths:
+      - '.github/workflows/apply-wildreceipt-v6-counterfactual-replay-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-wildreceipt-v6-counterfactual-replay-v2-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 20
+      - name: Move to latest branch and repair replay semantics
+        run: |
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard "origin/${GITHUB_REF_NAME}"
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('ocr_real_risk_v1/wildreceipt_v6_policy_lab.py')
+          text = path.read_text(encoding='utf-8')
+
+          anchor = '''def exact_summary(
+              rows: Sequence[Mapping[str, Any]],
+              policy: Policy,
+              *,
+              adjudicated: bool,
+              minimum_selected: int = MINIMUM_SELECTED,
+              minimum_accepted: int = MINIMUM_ACCEPTED,
+          ) -> dict[str, Any]:
+              selected = list(rows)
+              accepted: list[tuple[Mapping[str, Any], str]] = []
+              for row in selected:
+                  prediction = policy(row)
+                  if prediction is not None:
+                      accepted.append((row, prediction))
+              false_accepted = sum(
+                  prediction != _truth(row, adjudicated)
+                  for row, prediction in accepted
+              )
+              counterfactual_false = sum(
+                  prediction == str(row["counterfactual_claim"])
+                  for row, prediction in accepted
+              )
+          '''
+          replacement = '''def _counterfactual_false(
+              row: Mapping[str, Any],
+              prediction: str | None,
+              policy_name: str,
+          ) -> bool:
+              if policy_name == "v5_current":
+                  return bool(row["counterfactual"]["false_accept"])
+              return bool(
+                  prediction is not None
+                  and prediction == str(row["counterfactual_claim"])
+              )
+
+
+          def exact_summary(
+              rows: Sequence[Mapping[str, Any]],
+              policy: Policy,
+              *,
+              adjudicated: bool,
+              minimum_selected: int = MINIMUM_SELECTED,
+              minimum_accepted: int = MINIMUM_ACCEPTED,
+              policy_name: str = "development_policy",
+          ) -> dict[str, Any]:
+              selected = list(rows)
+              accepted: list[tuple[Mapping[str, Any], str]] = []
+              predictions: dict[str, str | None] = {}
+              for row in selected:
+                  prediction = policy(row)
+                  predictions[str(row["key"])] = prediction
+                  if prediction is not None:
+                      accepted.append((row, prediction))
+              false_accepted = sum(
+                  prediction != _truth(row, adjudicated)
+                  for row, prediction in accepted
+              )
+              counterfactual_false = sum(
+                  _counterfactual_false(
+                      row,
+                      predictions[str(row["key"])],
+                      policy_name,
+                  )
+                  for row in selected
+              )
+          '''
+          anchor = '\n'.join(line[10:] if line.startswith('          ') else line for line in anchor.splitlines())
+          replacement = '\n'.join(line[10:] if line.startswith('          ') else line for line in replacement.splitlines())
+          if 'def _counterfactual_false(' not in text:
+              if anchor not in text:
+                  raise SystemExit('exact_summary replacement anchor not found')
+              text = text.replace(anchor, replacement, 1)
+
+          text = text.replace(
+              '"all": exact_summary(rows, policy, adjudicated=False),',
+              '"all": exact_summary(\n'
+              '                    rows, policy, adjudicated=False, policy_name=name\n'
+              '                ),',
+          )
+          text = text.replace(
+              '"all": exact_summary(rows, policy, adjudicated=True),',
+              '"all": exact_summary(\n'
+              '                    rows, policy, adjudicated=True, policy_name=name\n'
+              '                ),',
+          )
+
+          targets = [
+              'minimum_accepted=_scaled_minimum(\n'
+              '                        MINIMUM_ACCEPTED, len(train), len(rows)\n'
+              '                    ),\n'
+              '                ),',
+              'minimum_accepted=_scaled_minimum(\n'
+              '                        MINIMUM_ACCEPTED, len(test), len(rows)\n'
+              '                    ),\n'
+              '                ),',
+          ]
+          for target in targets:
+              replacement_target = target.replace(
+                  '                ),',
+                  '                    policy_name=name,\n'
+                  '                ),',
+                  1,
+              )
+              while target in text:
+                  text = text.replace(target, replacement_target, 1)
+
+          fold_target = (
+              'minimum_accepted=_scaled_minimum(\n'
+              '                        MINIMUM_ACCEPTED, len(subset), len(rows)\n'
+              '                    ),\n'
+              '                ),'
+          )
+          if fold_target in text:
+              text = text.replace(
+                  fold_target,
+                  fold_target.replace(
+                      '                ),',
+                      '                    policy_name=selected_name,\n'
+                      '                ),',
+                      1,
+                  ),
+                  1,
+              )
+
+          path.write_text(text, encoding='utf-8')
+          PY
+          python -m py_compile \
+            ocr_real_risk_v1/wildreceipt_v6_policy_lab.py \
+            ocr_real_risk_v1/test_wildreceipt_v6_policy_lab.py
+          grep -q 'policy_name == "v5_current"' \
+            ocr_real_risk_v1/wildreceipt_v6_policy_lab.py
+          grep -q 'policy_name=selected_name' \
+            ocr_real_risk_v1/wildreceipt_v6_policy_lab.py
+      - name: Commit repaired replay semantics
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ocr_real_risk_v1/wildreceipt_v6_policy_lab.py
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m 'Replay injected counterfactuals faithfully in v6 lab'
+          git fetch origin "${GITHUB_REF_NAME}"
+          git rebase "origin/${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
