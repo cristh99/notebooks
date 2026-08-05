@@ -1,0 +1,24 @@
+{
+  "canonicalization": {
+    "cases": 16384,
+    "failures": 0,
+    "families": 32,
+    "number_ranges": [9999, 99999, 999999, 9999999],
+    "samples_per_range": 128,
+    "source_context_reencoding": true
+  },
+  "functional_tests": {
+    "count": 9,
+    "failures": 0,
+    "result": "PASS"
+  },
+  "held_out_query_content_accessed": false,
+  "official_dataset_values_accessed": false,
+  "schema": "data-science-dominance/cve-v1-pre-data-stress/1",
+  "source_hashes": {
+    "candidate_sha256": "0ba9dfa4f583a8c5aad5b975b913dbf2ffa5e1ec2f04d6649067e0ab46967cff",
+    "tests_sha256": "18557756c32cf4aadccdf7a1e5d026ff122b5143eaf6cc3f676d7838f9dbe7bc"
+  },
+  "validators_executed": false,
+  "ground_truth_accessed": false
+}
