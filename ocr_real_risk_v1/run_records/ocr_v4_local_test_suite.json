@@ -1,0 +1,15 @@
+{
+  "branch": "agent/ocr-numeric-consensus-v4-zero-cost",
+  "errors": 0,
+  "execution": "local CPU; no GitHub Actions, cloud VM, GPU, or paid API",
+  "failures": 0,
+  "log_sha256": "6c92694abe847b4741098c1a1c4283bf3f93ccce5fbfcf3b64409d8fd49539ae",
+  "production_change": false,
+  "python": "3.13.5",
+  "receipt_sha256": "af6d83b9ac2131c8f7521d1c7e7db541f642b786780810cc0d68581f71a22530",
+  "runtime_seconds": 1.347,
+  "schema": "ocr-v4-local-test-suite/1",
+  "spend_usd": 0.0,
+  "status": "PASS",
+  "tests_run": 40
+}
