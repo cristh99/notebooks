@@ -1,0 +1,359 @@
+name: Apply WildReceipt LayoutLM geometry repair v2
+
+on:
+  push:
+    branches:
+      - agent/ocr-consensus-detector-v4
+    paths:
+      - '.github/workflows/apply-wildreceipt-layoutlm-geometry-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-wildreceipt-layoutlm-geometry-v2-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 20
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+
+      - name: Move to latest isolated branch head
+        run: |
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard "origin/${GITHUB_REF_NAME}"
+
+      - name: Patch methodology bindings without touching model thresholds
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              target = Path(path)
+              text = target.read_text(encoding='utf-8')
+              if new in text:
+                  return
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(
+                      f'{path}: expected one replacement target, found {count}'
+                  )
+              target.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          candidate = 'ocr_real_risk_v1/numeric_consensus_candidate_v4_wildreceipt.py'
+          evaluator = 'ocr_real_risk_v1/wildreceipt_external.py'
+          candidate_test = 'ocr_real_risk_v1/test_numeric_consensus_candidate_v4_wildreceipt.py'
+          evaluator_test = 'ocr_real_risk_v1/test_wildreceipt_external.py'
+
+          replace_once(
+              candidate,
+              'from .wildreceipt_adapter import DATASET_ID, DATASET_REVISION, REQUIRED_COLUMNS\n',
+              'from .wildreceipt_adapter import (\n'
+              '    BBOX_COORDINATE_SPACE,\n'
+              '    DATASET_ID,\n'
+              '    DATASET_REVISION,\n'
+              '    REQUIRED_COLUMNS,\n'
+              ')\n',
+          )
+          replace_once(
+              candidate,
+              'CANDIDATE_SCHEMA = "ocr-numeric-consensus-wildreceipt-candidate/4"\n'
+              'CANDIDATE_ID = "numeric-consensus-v4-wildreceipt"\n',
+              'CANDIDATE_SCHEMA = "ocr-numeric-consensus-wildreceipt-candidate/5"\n'
+              'CANDIDATE_ID = "numeric-consensus-v4-wildreceipt-schema-v2"\n'
+              'SCHEMA_DISCOVERY = {\n'
+              '    "workflow_run_id": 30991994931,\n'
+              '    "failure_stage": "outcome_blind_manifest_build_before_ocr",\n'
+              '    "opened_source_scope": (\n'
+              '        "prefix of the WildReceipt test split during manifest-only "\n'
+              '        "geometry census"\n'
+              '    ),\n'
+              '    "source_objects_downloaded": 3,\n'
+              '    "ocr_binary_installed": False,\n'
+              '    "ocr_executed": False,\n'
+              '    "candidate_inference_executed": False,\n'
+              '    "observed_schema_defect": (\n'
+              '        "LayoutLM-normalized 0-1000 bboxes were interpreted as "\n'
+              '        "image pixels"\n'
+              '    ),\n'
+              '    "repair_scope": "deterministic coordinate projection only",\n'
+              '    "numeric_text_scope_changed": False,\n'
+              '    "model_or_threshold_changed": False,\n'
+              '}\n',
+          )
+          replace_once(
+              candidate,
+              '        "protocol_id": "wildreceipt-one-numeric-word-per-receipt-v1",\n',
+              '        "protocol_id": (\n'
+              '            "wildreceipt-one-numeric-word-per-receipt-v2-layoutlm-geometry"\n'
+              '        ),\n',
+          )
+          replace_once(
+              candidate,
+              '        "required_columns": list(REQUIRED_COLUMNS),\n'
+              '        "risk_unit": (\n',
+              '        "required_columns": list(REQUIRED_COLUMNS),\n'
+              '        "annotation_geometry": {\n'
+              '            "source_coordinate_space": BBOX_COORDINATE_SPACE,\n'
+              '            "source_canvas": [1000, 1000],\n'
+              '            "target_coordinate_space": "original_image_pixels",\n'
+              '            "projection": (\n'
+              '                "floor lower bounds and ceil upper bounds after "\n'
+              '                "independent width/height scaling"\n'
+              '            ),\n'
+              '            "clipping": (\n'
+              '                "clip to normalized 0-1000 canvas; fail closed on "\n'
+              '                "non-positive, fully outside, or pixel-collapsed boxes"\n'
+              '            ),\n'
+              '            "repair_fixed_before_ocr": True,\n'
+              '        },\n'
+              '        "schema_discovery": dict(SCHEMA_DISCOVERY),\n'
+              '        "risk_unit": (\n',
+          )
+          replace_once(
+              candidate,
+              '                "SHA-256(dataset revision, shard, receipt id, image SHA-256, "\n'
+              '                "clipped annotation bbox, canonical truth)"\n',
+              '                "SHA-256(dataset revision, shard, receipt id, image SHA-256, "\n'
+              '                "projected pixel bbox, canonical truth)"\n',
+          )
+          replace_once(
+              candidate,
+              '            "external_numeric_quality_certificate_only": True,\n'
+              '            "general_ocr_superiority_claimed": False,\n',
+              '            "schema_repaired_external_numeric_certificate_only": True,\n'
+              '            "untouched_external_certificate_claimed": False,\n'
+              '            "general_ocr_superiority_claimed": False,\n',
+          )
+          replace_once(
+              candidate,
+              '        "status": "FROZEN_FOR_UNTOUCHED_WILDRECEIPT_EXTERNAL_VALIDATION_ONLY",\n',
+              '        "status": (\n'
+              '            "FROZEN_AFTER_WILDRECEIPT_GEOMETRY_SCHEMA_DISCOVERY_"\n'
+              '            "BEFORE_ANY_OCR_OUTCOMES"\n'
+              '        ),\n',
+          )
+          replace_once(
+              candidate,
+              '            "outcomes_opened_before_freeze": False,\n',
+              '            "original_source_seal_unopened": True,\n'
+              '            "source_rows_opened_before_this_freeze": True,\n'
+              '            "ocr_executed_before_this_freeze": False,\n'
+              '            "candidate_inference_executed_before_this_freeze": False,\n'
+              '            "schema_discovery": dict(SCHEMA_DISCOVERY),\n',
+          )
+          replace_once(
+              candidate,
+              '            "candidate_frozen_before_wildreceipt_outcomes": True,\n'
+              '            "ready_for_one_wildreceipt_external_evaluation": True,\n'
+              '            "external_certificate_claimed": False,\n',
+              '            "candidate_frozen_before_wildreceipt_ocr_outcomes": True,\n'
+              '            "candidate_frozen_before_wildreceipt_source_opening": False,\n'
+              '            "ready_for_one_wildreceipt_schema_repaired_external_evaluation": True,\n'
+              '            "untouched_external_certificate_claimed": False,\n'
+              '            "external_certificate_claimed": False,\n',
+          )
+
+          replace_once(
+              evaluator,
+              'The candidate, adapter, source objects, detector, model, guard, risk unit, and\n'
+              'exact gates are frozen before any Parquet row is opened. Exactly one selected\n'
+              'numeric annotation may survive per unique decoded receipt image. Expert text\n'
+              'and geometry are used only for pre-OCR selection and post-inference scoring.\n',
+              'The model, thresholds, risk unit, corrected LayoutLM coordinate projection,\n'
+              'evaluator, and exact gates are frozen before any OCR outcome is generated. A\n'
+              'prior manifest-only attempt exposed the normalized bbox schema; it installed\n'
+              'no OCR binary and executed neither OCR nor candidate inference. Exactly one\n'
+              'selected numeric annotation may survive per unique decoded receipt image.\n',
+          )
+          replace_once(
+              evaluator,
+              '        "FROZEN_FOR_UNTOUCHED_WILDRECEIPT_EXTERNAL_VALIDATION_ONLY"\n',
+              '        "FROZEN_AFTER_WILDRECEIPT_GEOMETRY_SCHEMA_DISCOVERY_"\n'
+              '        "BEFORE_ANY_OCR_OUTCOMES"\n',
+          )
+          replace_once(
+              evaluator,
+              '    if manifest.get("external_source_binding", {}).get(\n'
+              '        "outcomes_opened_before_freeze"\n'
+              '    ) is not False:\n'
+              '        raise RuntimeError("WildReceipt outcomes were opened before freeze")\n'
+              '    if manifest.get("decision", {}).get(\n'
+              '        "candidate_frozen_before_wildreceipt_outcomes"\n'
+              '    ) is not True:\n'
+              '        raise RuntimeError("WildReceipt candidate was not frozen before outcomes")\n',
+              '    source_binding = manifest.get("external_source_binding", {})\n'
+              '    if source_binding.get("source_rows_opened_before_this_freeze") is not True:\n'
+              '        raise RuntimeError("WildReceipt schema discovery is not disclosed")\n'
+              '    if source_binding.get("ocr_executed_before_this_freeze") is not False:\n'
+              '        raise RuntimeError("WildReceipt OCR outcomes were opened before freeze")\n'
+              '    if source_binding.get(\n'
+              '        "candidate_inference_executed_before_this_freeze"\n'
+              '    ) is not False:\n'
+              '        raise RuntimeError("candidate inference ran before repaired freeze")\n'
+              '    decision = manifest.get("decision", {})\n'
+              '    if decision.get(\n'
+              '        "candidate_frozen_before_wildreceipt_ocr_outcomes"\n'
+              '    ) is not True:\n'
+              '        raise RuntimeError("candidate was not frozen before OCR outcomes")\n'
+              '    if decision.get(\n'
+              '        "candidate_frozen_before_wildreceipt_source_opening"\n'
+              '    ) is not False:\n'
+              '        raise RuntimeError("source-opening chronology is misstated")\n'
+              '    if decision.get("untouched_external_certificate_claimed") is not False:\n'
+              '        raise RuntimeError("candidate improperly claims an untouched corpus")\n',
+          )
+          replace_once(
+              evaluator,
+              '        "status": "SEALED_BEFORE_WILDRECEIPT_OCR",\n',
+              '        "status": (\n'
+              '            "SEALED_AFTER_GEOMETRY_SCHEMA_REPAIR_BEFORE_WILDRECEIPT_OCR"\n'
+              '        ),\n',
+          )
+          replace_once(
+              evaluator,
+              '            "candidate_bytes_fixed_before_ocr": True,\n'
+              '            "selection_completed_before_ocr": True,\n',
+              '            "candidate_bytes_fixed_before_ocr": True,\n'
+              '            "selection_completed_before_ocr": True,\n'
+              '            "geometry_schema_repair_disclosed": True,\n'
+              '            "untouched_external_certificate": False,\n',
+          )
+          replace_once(
+              evaluator,
+              '    if protocol.get("status") != "SEALED_BEFORE_WILDRECEIPT_OCR":\n'
+              '        raise RuntimeError("WildReceipt protocol was not sealed before OCR")\n',
+              '    if protocol.get("status") != (\n'
+              '        "SEALED_AFTER_GEOMETRY_SCHEMA_REPAIR_BEFORE_WILDRECEIPT_OCR"\n'
+              '    ):\n'
+              '        raise RuntimeError("WildReceipt repaired protocol was not sealed before OCR")\n',
+          )
+          replace_once(
+              evaluator,
+              '        verdict = "PASS_EXTERNAL_WILDRECEIPT_NUMERIC_10X_CERTIFICATE"\n',
+              '        verdict = (\n'
+              '            "PASS_EXTERNAL_WILDRECEIPT_SCHEMA_REPAIRED_"\n'
+              '            "NUMERIC_10X_CERTIFICATE"\n'
+              '        )\n',
+          )
+          replace_once(
+              evaluator,
+              '            "external_validation_complete": True,\n'
+              '            "candidate_bound_before_outcomes": True,\n',
+              '            "schema_repaired_external_validation_complete": True,\n'
+              '            "candidate_bound_before_ocr_outcomes": True,\n'
+              '            "untouched_external_certificate_claimed": False,\n',
+          )
+
+          replace_once(
+              candidate_test,
+              '        self.assertEqual(set(protocol["source_objects"]), set(SOURCE_OBJECTS))\n',
+              '        self.assertEqual(set(protocol["source_objects"]), set(SOURCE_OBJECTS))\n'
+              '        self.assertEqual(\n'
+              '            protocol["annotation_geometry"]["source_coordinate_space"],\n'
+              '            "layoutlm_normalized_xyxy_0_1000",\n'
+              '        )\n'
+              '        self.assertTrue(\n'
+              '            protocol["annotation_geometry"]["repair_fixed_before_ocr"]\n'
+              '        )\n'
+              '        self.assertFalse(protocol["schema_discovery"]["ocr_executed"])\n'
+              '        self.assertFalse(\n'
+              '            protocol["schema_discovery"]["candidate_inference_executed"]\n'
+              '        )\n',
+          )
+          replace_once(
+              candidate_test,
+              '        self.assertFalse(protocol["claim_limits"]["general_ocr_superiority_claimed"])\n',
+              '        self.assertFalse(\n'
+              '            protocol["claim_limits"]["untouched_external_certificate_claimed"]\n'
+              '        )\n'
+              '        self.assertFalse(protocol["claim_limits"]["general_ocr_superiority_claimed"])\n',
+          )
+          replace_once(
+              evaluator_test,
+              '        self.assertEqual(gates["minimum_coverage_lower"], MINIMUM_COVERAGE)\n',
+              '        self.assertEqual(gates["minimum_coverage_lower"], MINIMUM_COVERAGE)\n'
+              '        self.assertEqual(\n'
+              '            protocol["annotation_geometry"]["source_coordinate_space"],\n'
+              '            "layoutlm_normalized_xyxy_0_1000",\n'
+              '        )\n'
+              '        self.assertFalse(\n'
+              '            protocol["claim_limits"]["untouched_external_certificate_claimed"]\n'
+              '        )\n',
+          )
+          PY
+
+      - name: Install pinned test dependencies
+        run: |
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13
+
+      - name: Focused red-to-green and regression proof
+        run: |
+          python -m unittest -v \
+            ocr_real_risk_v1.test_wildreceipt_adapter \
+            ocr_real_risk_v1.test_wildreceipt_external \
+            ocr_real_risk_v1.test_numeric_consensus_candidate_v4_wildreceipt \
+            ocr_real_risk_v1.test_wildreceipt_source_seal \
+            ocr_real_risk_v1.test_cord_consensus_detector_v4
+          python -m compileall -q ocr_real_risk_v1
+          python - <<'PY'
+          from ocr_real_risk_v1.numeric_consensus_candidate_v4_wildreceipt import (
+              CANDIDATE_ID,
+              CANDIDATE_SCHEMA,
+              SCHEMA_DISCOVERY,
+              external_protocol,
+          )
+          from ocr_real_risk_v1.wildreceipt_adapter import annotation_bbox
+
+          assert CANDIDATE_SCHEMA.endswith('/5')
+          assert CANDIDATE_ID.endswith('schema-v2')
+          assert SCHEMA_DISCOVERY['ocr_executed'] is False
+          assert SCHEMA_DISCOVERY['candidate_inference_executed'] is False
+          protocol = external_protocol()
+          assert protocol['annotation_geometry']['source_canvas'] == [1000, 1000]
+          assert protocol['claim_limits']['untouched_external_certificate_claimed'] is False
+          assert annotation_bbox([678, 958, 975, 986], (150, 400))[0] == (
+              101, 383, 147, 395
+          )
+          print({
+              'candidate_id': CANDIDATE_ID,
+              'candidate_schema': CANDIDATE_SCHEMA,
+              'protocol_id': protocol['protocol_id'],
+              'projection_example': annotation_bbox(
+                  [678, 958, 975, 986], (150, 400)
+              )[0],
+          })
+          PY
+
+      - name: Commit the auditable schema repair
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            ocr_real_risk_v1/numeric_consensus_candidate_v4_wildreceipt.py \
+            ocr_real_risk_v1/wildreceipt_external.py \
+            ocr_real_risk_v1/test_numeric_consensus_candidate_v4_wildreceipt.py \
+            ocr_real_risk_v1/test_wildreceipt_external.py
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m 'Bind normalized WildReceipt geometry before OCR outcomes'
+          git fetch origin "${GITHUB_REF_NAME}"
+          git rebase "origin/${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
