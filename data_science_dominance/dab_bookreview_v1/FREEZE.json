@@ -1,0 +1,61 @@
+{
+  "schema": "data-science-dominance/bookreview-v1-freeze/1",
+  "score_before": 465,
+  "branch": "agent/data-science-dominance-dab-bookreview-v1",
+  "source_freeze_parent_sha": "1554c2dfc3ff0c95669fc3fd0d91df2a331435de",
+  "dab_repository": "ucbepic/DataAgentBench",
+  "dab_commit": "9a55e34271a2500a41cbc009e239edd94599e374",
+  "candidate": {
+    "reconstructed_path": "data_science_dominance/dab_bookreview_v1/bookreview_engine.py",
+    "sha256": "f539ea1d8e7434ade8b8333054ba40d10a69f6e4c430e784ea321ccafde06414",
+    "source_parts": {
+      "source_part_00.txt": "fc9718ecf8a2165c8428404a0de04a4b77c4871068754d5e11eddd833dc0524b",
+      "source_part_01.txt": "8d2fa67d41ab683c9f6a1d96b0f1ffcd2dc7ca1fa20978d9520a9e99b9facad6",
+      "source_part_02.txt": "1428e1a6cd1ccd9c09cd98a97505f2e9853e9635466e89a565f4f15e15db8bd4"
+    },
+    "frozen_before_query2_3_content": true,
+    "frozen_before_query2_3_validators": true,
+    "frozen_before_query2_3_ground_truth": true,
+    "frozen_before_official_dataset_values": true,
+    "post_hoc_retuning_permitted": false
+  },
+  "tests": {
+    "path": "data_science_dominance/dab_bookreview_v1/test_bookreview_engine.py",
+    "sha256": "70603c0e07ad8698f659fc42709f812ab0eb68daeca2b4da18f2b3b9cb32a95a",
+    "log_sha256": "af1f86ca05831d6f34b4b9b1af33cec0d130987b353b4b431a1d7638d6a63ca0",
+    "count": 12,
+    "result": "PASS"
+  },
+  "public_inputs_accessed": [
+    "query_bookreview/db_description.txt",
+    "query_bookreview/db_description_withhint.txt",
+    "query_bookreview/db_config.yaml",
+    "query_bookreview/query1/query.json"
+  ],
+  "held_out_scope": [
+    "query_bookreview/query2",
+    "query_bookreview/query3"
+  ],
+  "prohibited_pre_activation_inputs": [
+    "query_bookreview/query2/query.json",
+    "query_bookreview/query2/validate.py",
+    "query_bookreview/query2/ground_truth.csv",
+    "query_bookreview/query3/query.json",
+    "query_bookreview/query3/validate.py",
+    "query_bookreview/query3/ground_truth.csv"
+  ],
+  "execution_policy": {
+    "candidate_network_access": false,
+    "candidate_process_access": false,
+    "answers_sealed_before_validator_checkout": true,
+    "validators_execute_once_each": true,
+    "merge_permitted": false,
+    "novelty_points": 0,
+    "gcloud_permitted": false,
+    "paid_compute_permitted": false
+  },
+  "promotion_rule": {
+    "pass_2_of_2_points": 25,
+    "pass_0_or_1_points": 0
+  }
+}
