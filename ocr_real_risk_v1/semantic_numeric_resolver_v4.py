@@ -8,8 +8,9 @@ looks for two narrow internal contradictions in baseline OCR output:
 * a quantity-one item row whose unit price and amount disagree by one digit.
 
 Only the implicated token is re-read from two independently parameterized crop
-views. Agreement can resolve the token; disagreement quarantines it. No rule
-silently guesses from arithmetic or document frequency alone.
+views. Agreement on the same alternative can resolve the token; any unresolved
+semantic contradiction quarantines it. No rule silently guesses from arithmetic,
+document frequency, or repeated readings from the same OCR engine alone.
 """
 from __future__ import annotations
 
@@ -224,8 +225,14 @@ def resolve_flagged_token(
             reason = "CROP_PROBES_DISAGREE"
             output = baseline
         elif candidates[0] == baseline_digits:
-            action = ResolutionAction.KEEP
-            reason = "CROP_PROBES_CONFIRM_BASELINE"
+            # This function is called only after an independent semantic
+            # contradiction has flagged the baseline token. Repeating the same
+            # reading through two Tesseract crop views does not clear that
+            # contradiction because the probes share an engine and can repeat
+            # the same systematic glyph error. Fail closed instead of silently
+            # restoring the disputed baseline.
+            action = ResolutionAction.QUARANTINE
+            reason = "SEMANTIC_CONTRADICTION_NOT_CLEARED_BY_SAME_ENGINE_PROBES"
             output = baseline
         else:
             action = ResolutionAction.REPLACE
