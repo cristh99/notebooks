@@ -1,0 +1,220 @@
+name: Data Science dominance — sharded one-shot TabArena V3 v2
+
+on:
+  push:
+    branches:
+      - agent/data-science-dominance-tabarena-v3-sharded
+    paths:
+      - '.github/workflows/data-science-dominance-tabarena-v3-sharded-v2.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove workflow-only activation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_RUN_ATTEMPT}" = '1'
+          test "$(git rev-parse HEAD^)" = '4083c93dcafd6869790016b46d714529cd5632e3'
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/data-science-dominance-tabarena-v3-sharded-v2.yml'
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install pinned CPU competitors
+        run: |
+          mkdir -p dominance-v3-preflight
+          python -m pip install --disable-pip-version-check \
+            'numpy==1.26.4' 'scipy==1.14.1' 'pandas==2.2.3' \
+            'scikit-learn==1.5.2' 'openml==0.15.1' \
+            'catboost==1.2.8' 'lightgbm==4.6.0' 'xgboost==3.1.3'
+          python -m pip install --disable-pip-version-check \
+            --index-url https://download.pytorch.org/whl/cpu 'torch==2.8.0'
+          python -m pip install --disable-pip-version-check \
+            'einops>=0.7' 'psutil' 'tqdm>=4.64' 'huggingface-hub'
+          python -m pip install --disable-pip-version-check --no-deps \
+            'git+https://github.com/soda-inria/tabicl.git@46b91961db4f8873dd049ec09990698a435e1e29'
+          python -m pip freeze | sort > dominance-v3-preflight/pip-freeze.txt
+
+      - name: Reconstruct and verify unchanged V3 capsule
+        run: |
+          echo 'b145d1ce1a55cc723edc839d22b2cff4af41c671b8f287afd2eb4bc75c3e5b1a  data_science_dominance/tabarena_portfolio_v3/INFRASTRUCTURE_RETRY_AUTHORIZATION.json' | sha256sum -c -
+          echo '51269f8a63e5a06d47d4f7289f3442998d01b1339822442038d402b481d80981  data_science_dominance/tabarena_portfolio_v3/reconstruct_v3_sharded.sh' | sha256sum -c -
+          echo '64646177ef94b946d689c5ce64d3459ab4494f42afc084d374a1f421cfca2110  data_science_dominance/tabarena_portfolio_v3/evaluate_shard_v3.py' | sha256sum -c -
+          echo '8656bc9ecefe98115a94eb212ae91839f5cf88abd39397e543ac557d7388b599  data_science_dominance/tabarena_portfolio_v3/aggregate_shards_v3.py' | sha256sum -c -
+          bash data_science_dominance/tabarena_portfolio_v3/reconstruct_v3_sharded.sh
+          python -m py_compile \
+            data_science_dominance/tabarena_portfolio_v3/evaluate_shard_v3.py \
+            data_science_dominance/tabarena_portfolio_v3/aggregate_shards_v3.py
+
+      - name: Run original scientific preflight without task evaluation
+        shell: bash
+        run: |
+          root='data_science_dominance/tabarena_portfolio_v3'
+          awk '/# First and only actual external V3 evaluation\./{exit} {print}' \
+            "$root/run_ci_v3.sh" > /tmp/v3-preflight.sh
+          bash /tmp/v3-preflight.sh 2>&1 | tee dominance-v3-preflight/preflight-output.txt
+          cp -a dominance-v3-logs/. dominance-v3-preflight/
+          cp "$root/logic-plan-v3-receipt.json" dominance-v3-preflight/
+          test -f dominance-v3-preflight/static-audit.json
+          test -f dominance-v3-preflight/logic-plan-v3-receipt.json
+          test -f dominance-v3-preflight/tabiclv2-smoke.json
+
+      - name: Upload immutable preflight evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: v3-preflight-v2
+          retention-days: 90
+          path: |
+            dominance-v3-preflight/**
+            data_science_dominance/tabarena_portfolio_v3/INFRASTRUCTURE_RETRY_AUTHORIZATION.json
+            data_science_dominance/tabarena_portfolio_v3/evaluate_shard_v3.py
+            data_science_dominance/tabarena_portfolio_v3/aggregate_shards_v3.py
+
+  evaluate:
+    needs: preflight
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        index: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install pinned CPU competitors
+        run: |
+          python -m pip install --disable-pip-version-check \
+            'numpy==1.26.4' 'scipy==1.14.1' 'pandas==2.2.3' \
+            'scikit-learn==1.5.2' 'openml==0.15.1' \
+            'catboost==1.2.8' 'lightgbm==4.6.0' 'xgboost==3.1.3'
+          python -m pip install --disable-pip-version-check \
+            --index-url https://download.pytorch.org/whl/cpu 'torch==2.8.0'
+          python -m pip install --disable-pip-version-check \
+            'einops>=0.7' 'psutil' 'tqdm>=4.64' 'huggingface-hub'
+          python -m pip install --disable-pip-version-check --no-deps \
+            'git+https://github.com/soda-inria/tabicl.git@46b91961db4f8873dd049ec09990698a435e1e29'
+
+      - name: Reconstruct exact frozen V3 source
+        run: |
+          echo 'b145d1ce1a55cc723edc839d22b2cff4af41c671b8f287afd2eb4bc75c3e5b1a  data_science_dominance/tabarena_portfolio_v3/INFRASTRUCTURE_RETRY_AUTHORIZATION.json' | sha256sum -c -
+          echo '64646177ef94b946d689c5ce64d3459ab4494f42afc084d374a1f421cfca2110  data_science_dominance/tabarena_portfolio_v3/evaluate_shard_v3.py' | sha256sum -c -
+          bash data_science_dominance/tabarena_portfolio_v3/reconstruct_v3_sharded.sh
+
+      - name: Execute one frozen external task
+        env:
+          OMP_NUM_THREADS: '4'
+          MKL_NUM_THREADS: '4'
+          OPENBLAS_NUM_THREADS: '4'
+          HF_HUB_DISABLE_TELEMETRY: '1'
+        shell: bash
+        run: |
+          set +e
+          mkdir -p shard-output
+          python data_science_dominance/tabarena_portfolio_v3/evaluate_shard_v3.py \
+            --index '${{ matrix.index }}' \
+            --output 'shard-output/shard-${{ matrix.index }}.json' \
+            2>&1 | tee 'shard-output/shard-${{ matrix.index }}.log'
+          status=${PIPESTATUS[0]}
+          echo "$status" > 'shard-output/shard-${{ matrix.index }}.status'
+          exit 0
+
+      - name: Upload immutable shard evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: v3-v2-shard-${{ matrix.index }}
+          retention-days: 90
+          if-no-files-found: warn
+          path: shard-output/**
+
+      - name: Enforce shard completion
+        if: always()
+        run: |
+          test -f 'shard-output/shard-${{ matrix.index }}.json'
+          test "$(cat 'shard-output/shard-${{ matrix.index }}.status')" = '0'
+
+  aggregate:
+    needs: [preflight, evaluate]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+      - run: python -m pip install --disable-pip-version-check 'numpy==1.26.4'
+
+      - name: Reconstruct exact frozen V3 source
+        run: |
+          echo '8656bc9ecefe98115a94eb212ae91839f5cf88abd39397e543ac557d7388b599  data_science_dominance/tabarena_portfolio_v3/aggregate_shards_v3.py' | sha256sum -c -
+          bash data_science_dominance/tabarena_portfolio_v3/reconstruct_v3_sharded.sh
+
+      - name: Download all available shard artifacts
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: v3-v2-shard-*
+          merge-multiple: true
+          path: downloaded-shards
+
+      - name: Download preflight evidence
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: v3-preflight-v2
+          path: preflight-evidence
+
+      - name: Aggregate once and adjudicate frozen gates
+        run: |
+          mkdir -p dominance-v3-final
+          python data_science_dominance/tabarena_portfolio_v3/aggregate_shards_v3.py \
+            --shards-dir downloaded-shards \
+            --output dominance-v3-final/fresh12-v3-report.json \
+            --receipt dominance-v3-final/freeze-receipt.json \
+            2>&1 | tee dominance-v3-final/aggregation-output.txt
+
+      - name: Upload complete immutable V3 evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-dominance-tabarena-v3-sharded-v2-final
+          retention-days: 90
+          path: |
+            dominance-v3-final/**
+            downloaded-shards/**
+            preflight-evidence/**
+            data_science_dominance/tabarena_portfolio_v3/INFRASTRUCTURE_RETRY_AUTHORIZATION.json
+
+      - name: Enforce one-shot V3 verdict
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path('dominance-v3-final/freeze-receipt.json').read_text())
+          if receipt['actual_external_evaluation_count'] != 1:
+              raise SystemExit('V3 sharded evaluation invalid or incomplete; evidence preserved')
+          if receipt['verdict'] != 'PASS':
+              raise SystemExit(f"V3 dominance gate: {receipt['verdict']}; evidence preserved; no retuning")
+          print('V3 dominance gate: PASS; score advances to 490/1000')
+          PY
