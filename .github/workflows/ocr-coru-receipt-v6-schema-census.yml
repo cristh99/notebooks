@@ -1,0 +1,463 @@
+name: OCR CORU Receipt v6 frozen schema census
+
+on:
+  push:
+    branches:
+      - agent/ocr-consensus-v6-coru-freeze
+    paths:
+      - '.github/workflows/ocr-coru-receipt-v6-schema-census.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: ocr-coru-receipt-v6-schema-census-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CANDIDATE_ARTIFACT_ID: '8933146744'
+  CANDIDATE_ARTIFACT_DIGEST: e9b6c2ea3f7622dc49afb5291556b2f62e2933f6ea0ebec6e75ec81daaf6aa5e
+  CANDIDATE_STABLE_SHA256: 97a317c87a28556376588d708da5b8117e6da6095e8b093e4206061695b8e49b
+  SOURCE_FILE_SET_SHA256: 3f65f77d8b44dfb79f4d292cbc86a866f89fc7abfa51419b019989a5a30cb2bc
+  CANDIDATE_SOURCE_COMMIT: 00c5d56512dd08baa91a2649c5529a82dc880059
+  CORU_REVISION: c3c4b97b232bbe03046c78a974f516d439c1124e
+  LABELS_SHA256: 4d7ee3c5720620f15791980c30514e110a89c64f40c6b1f9a296b2523ba46555
+  LABELS_BYTES: '31'
+  TEST_JSON_SHA256: f9bd21061515ca79ce1ceecf0837faa8c1f418eaa406fc6d38c6eff012ee6ab7
+  TEST_JSON_BYTES: '5022111'
+  TEST_ARCHIVE_SHA256: 351d1c5a2ab1ef12399787679563fbc9922a8d18e0f6296e16d7db0e0a4f7f41
+  TEST_ARCHIVE_BYTES: '1057581808'
+  GITHUB_TOKEN: ${{ github.token }}
+  PYTHONHASHSEED: '0'
+  OMP_THREAD_LIMIT: '1'
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  NUMEXPR_NUM_THREADS: '1'
+
+jobs:
+  census:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      run-archive: ${{ steps.gate.outputs.run_archive }}
+      selected: ${{ steps.gate.outputs.selected }}
+      projected-accepted: ${{ steps.gate.outputs.projected_accepted }}
+      schema-status: ${{ steps.gate.outputs.schema_status }}
+      census-stable: ${{ steps.gate.outputs.census_stable }}
+    steps:
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+
+      - name: Install pinned candidate runtime without OCR binary
+        run: |
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            scipy==1.17.1 \
+            threadpoolctl==3.6.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13 \
+            packaging==26.3
+
+      - name: Recover and verify byte-frozen v6 candidate
+        run: |
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${CANDIDATE_ARTIFACT_ID}/zip" \
+            --output candidate.zip
+          echo "${CANDIDATE_ARTIFACT_DIGEST}  candidate.zip" | \
+            sha256sum --check --strict
+          mkdir candidate-artifact
+          unzip -q candidate.zip -d candidate-artifact
+          test -d candidate-artifact/frozen-coru-v6-a
+          (
+            cd candidate-artifact/frozen-coru-v6-a
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+
+      - name: Prove neutral-workdir imports and frozen claim boundaries
+        run: |
+          candidate="${GITHUB_WORKSPACE}/candidate-artifact/frozen-coru-v6-a"
+          work="${RUNNER_TEMP}/coru-v6-schema-census"
+          rm -rf "${work}"
+          mkdir -p "${work}"
+          cd "${work}"
+          PYTHONPATH="${candidate}/source" CANDIDATE_ROOT="${candidate}" \
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import ocr_real_risk_v1.coru_receipt_schema_adapter_v6 as adapter
+          import ocr_real_risk_v1.coru_receipt_external_v6 as evaluator
+          import ocr_real_risk_v1.numeric_consensus_candidate_v6_coru as candidate_module
+          from ocr_real_risk_v1.core import canonical_json, sha256_bytes, sha256_file
+          from ocr_real_risk_v1.numeric_consensus_candidate_v6_coru import \
+              discover_source_files, verify_manifest
+
+          root = Path(os.environ['CANDIDATE_ROOT']).resolve()
+          source = (root / 'source').resolve()
+          expected_paths = {
+              'candidate': source / (
+                  'ocr_real_risk_v1/numeric_consensus_candidate_v6_coru.py'
+              ),
+              'adapter': source / (
+                  'ocr_real_risk_v1/coru_receipt_schema_adapter_v6.py'
+              ),
+              'evaluator': source / (
+                  'ocr_real_risk_v1/coru_receipt_external_v6.py'
+              ),
+          }
+          observed_paths = {
+              'candidate': Path(candidate_module.__file__).resolve(),
+              'adapter': Path(adapter.__file__).resolve(),
+              'evaluator': Path(evaluator.__file__).resolve(),
+          }
+          assert observed_paths == expected_paths
+          manifest = json.loads((root / 'frozen_candidate.json').read_text())
+          assert verify_manifest(manifest)
+          assert manifest['candidate_id'] == \
+              'numeric-consensus-v6-coru-receipt'
+          assert manifest['stable_payload_sha256'] == \
+              os.environ['CANDIDATE_STABLE_SHA256']
+          assert manifest['source_commit'] == \
+              os.environ['CANDIDATE_SOURCE_COMMIT']
+          assert manifest['status'] == \
+              'FROZEN_BEFORE_CORU_RECEIPT_SCHEMA_OR_IMAGE_OPENING'
+          runtime = manifest['runtime']
+          assert runtime['source_file_count'] == 19
+          assert runtime['source_file_set_sha256'] == \
+              os.environ['SOURCE_FILE_SET_SHA256']
+          declared = tuple(row['path'] for row in manifest['source_files'])
+          assert candidate_module.discover_source_files(source) == declared
+          assert runtime['source_file_set_sha256'] == sha256_bytes(
+              canonical_json(list(declared)).encode()
+          )
+          source_hashes = {
+              row['path']: row['sha256'] for row in manifest['source_files']
+          }
+          for row in manifest['source_files']:
+              assert sha256_file(source / row['path']) == row['sha256']
+          decision = manifest['decision']
+          assert decision['candidate_frozen_before_coru_schema_opening'] is True
+          assert decision['ready_for_coru_schema_and_power_census'] is True
+          assert decision['ready_to_open_coru_test_archive'] is False
+          assert decision['archive_open_requires_frozen_census_pass'] is True
+          assert decision['external_certificate_claimed'] is False
+          assert decision['production_ready'] is False
+          protocol = manifest['external_protocol']
+          assert protocol['schema_adapter'][
+              'requires_explicit_transcription_field'
+          ] is True
+          assert protocol['schema_adapter'][
+              'category_name_is_not_ocr_truth'
+          ] is True
+          assert protocol['schema_adapter'][
+              'unknown_or_ambiguous_schema'
+          ] == 'terminal_no_ocr'
+          assert protocol['test_archive'][
+              'download_only_after_schema_and_power_gate'
+          ] is True
+          assert protocol['claim_limits']['external_certificate_claimed'] is False
+          print(json.dumps({
+              'candidate_id': manifest['candidate_id'],
+              'stable_payload_sha256': manifest['stable_payload_sha256'],
+              'source_file_count': runtime['source_file_count'],
+              'module_paths': {
+                  key: str(value) for key, value in observed_paths.items()
+              },
+              'schema_opened_before_freeze': False,
+          }, indent=2, sort_keys=True))
+          PY
+
+      - name: Download only labels.txt and test.json
+        run: |
+          work="${RUNNER_TEMP}/coru-v6-schema-census"
+          mkdir -p "${work}/source"
+          curl --fail --location --retry 8 --retry-all-errors \
+            "https://huggingface.co/datasets/abdoelsayed/CORU/resolve/${CORU_REVISION}/Receipt/labels.txt?download=true" \
+            --output "${work}/source/labels.txt"
+          echo "${LABELS_SHA256}  ${work}/source/labels.txt" | \
+            sha256sum --check --strict
+          test "$(stat -c %s "${work}/source/labels.txt")" = "${LABELS_BYTES}"
+
+          curl --fail --location --retry 8 --retry-all-errors \
+            "https://huggingface.co/datasets/abdoelsayed/CORU/resolve/${CORU_REVISION}/Receipt/test.json?download=true" \
+            --output "${work}/source/test.json"
+          echo "${TEST_JSON_SHA256}  ${work}/source/test.json" | \
+            sha256sum --check --strict
+          test "$(stat -c %s "${work}/source/test.json")" = "${TEST_JSON_BYTES}"
+
+          test ! -e "${work}/source/test.zip"
+          test "$(du -sb "${work}/source" | cut -f1)" -lt 6000000
+
+      - name: Execute only frozen schema adapter
+        run: |
+          candidate="${GITHUB_WORKSPACE}/candidate-artifact/frozen-coru-v6-a"
+          work="${RUNNER_TEMP}/coru-v6-schema-census"
+          cd "${work}"
+          mkdir -p output
+          PYTHONPATH="${candidate}/source" \
+          python -m ocr_real_risk_v1.coru_receipt_schema_adapter_v6 \
+            --labels source/labels.txt \
+            --test-json source/test.json \
+            --output output/coru_receipt_v6_schema_census.json \
+            | tee output/stdout.json
+
+      - name: Independent schema, safety, and power gates
+        id: gate
+        run: |
+          candidate="${GITHUB_WORKSPACE}/candidate-artifact/frozen-coru-v6-a"
+          work="${RUNNER_TEMP}/coru-v6-schema-census"
+          cd "${work}"
+          PYTHONPATH="${candidate}/source" \
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          from ocr_real_risk_v1.coru_receipt_external_v6 import \
+              normalized_member_name
+          from ocr_real_risk_v1.sroie_natural_holdout import \
+              verify_stable_payload
+
+          root = Path('output')
+          path = root / 'coru_receipt_v6_schema_census.json'
+          report = json.loads(path.read_text())
+          assert verify_stable_payload(report, 'stable_payload_sha256')
+          assert report['schema'] == 'ocr-coru-receipt-schema-census/6'
+          assert report['adapter_schema'] == \
+              'ocr-coru-receipt-schema-adapter/6'
+          dataset = report['dataset']
+          assert dataset['id'] == 'abdoelsayed/CORU'
+          assert dataset['revision'] == \
+              'c3c4b97b232bbe03046c78a974f516d439c1124e'
+          assert dataset['labels']['sha256'] == \
+              '4d7ee3c5720620f15791980c30514e110a89c64f40c6b1f9a296b2523ba46555'
+          assert dataset['test_json']['sha256'] == \
+              'f9bd21061515ca79ce1ceecf0837faa8c1f418eaa406fc6d38c6eff012ee6ab7'
+          assert dataset['test_archive']['sha256'] == \
+              '351d1c5a2ab1ef12399787679563fbc9922a8d18e0f6296e16d7db0e0a4f7f41'
+          assert dataset['test_archive']['size_bytes'] == 1057581808
+          assert dataset['test_archive']['downloaded'] is False
+          assert report['adapter']['category_names_are_not_ocr_truth'] is True
+          assert report['adapter']['selection_uses_ocr'] is False
+          assert report['adapter']['selection_uses_candidate_output'] is False
+          assert report['decision']['schema_census_complete'] is True
+          assert report['decision']['test_archive_opened'] is False
+          assert report['decision']['ocr_executed'] is False
+          assert report['decision']['candidate_inference_executed'] is False
+          assert report['decision']['external_certificate_claimed'] is False
+          assert report['decision']['production_ready'] is False
+          assert report['constraints']['external_spend_usd'] == 0
+          assert report['constraints']['production_modified'] is False
+
+          schema = report['schema_census']
+          selected_records = schema.get('selected_records') or []
+          for record in selected_records:
+              assert normalized_member_name(record['filename']) == \
+                  record['filename']
+              assert record['truth'].isdigit()
+              assert 4 <= len(record['truth']) <= 12
+              assert record['transcription_field'] in {
+                  'transcription', 'text', 'ocr_text', 'label_text',
+                  'value', 'content', 'caption'
+              }
+
+          power = report['power_gate']
+          selected = int(power['selected_available'])
+          projected = float(power['projected_accepted'])
+          run_archive = bool(power['download_test_archive_and_run_ocr'])
+          if run_archive:
+              assert schema['supported_schema'] is True
+              assert schema['schema_status'] == \
+                  'SUPPORTED_COCO_WITH_EXPLICIT_NUMERIC_TRANSCRIPTIONS'
+              assert selected >= 3000
+              assert projected >= 900
+              assert len(selected_records) == selected
+              assert report['decision']['verdict'] == \
+                  'CORU_RECEIPT_SCHEMA_AND_POWER_GATE_PASS'
+          else:
+              assert (
+                  schema['schema_status'] !=
+                  'SUPPORTED_COCO_WITH_EXPLICIT_NUMERIC_TRANSCRIPTIONS'
+                  or selected < 3000
+                  or projected < 900
+              )
+              assert report['decision']['verdict'] == \
+                  'CORU_RECEIPT_TERMINAL_NO_OCR'
+
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          (root / 'SHA256SUMS.txt').write_text(
+              f'{digest}  {path.name}\n', encoding='utf-8'
+          )
+          with Path(os.environ['GITHUB_OUTPUT']).open('a') as output:
+              output.write(
+                  f"run_archive={'true' if run_archive else 'false'}\n"
+              )
+              output.write(f"selected={selected}\n")
+              output.write(f"projected_accepted={projected}\n")
+              output.write(
+                  f"schema_status={schema['schema_status']}\n"
+              )
+              output.write(
+                  f"census_stable={report['stable_payload_sha256']}\n"
+              )
+          print(json.dumps({
+              'schema_status': schema['schema_status'],
+              'counts': schema.get('counts', {}),
+              'power_gate': power,
+              'decision': report['decision'],
+              'stable_payload_sha256': report['stable_payload_sha256'],
+              'file_sha256': digest,
+              'test_archive_downloaded': False,
+          }, indent=2, sort_keys=True))
+          PY
+          (
+            cd output
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-coru-receipt-v6-schema-census
+          path: ${{ runner.temp }}/coru-v6-schema-census/output
+          if-no-files-found: error
+          retention-days: 90
+
+  terminal-no-ocr:
+    needs: census
+    if: ${{ needs.census.outputs.run-archive == 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Emit terminal resource-saving decision
+        env:
+          SELECTED: ${{ needs.census.outputs.selected }}
+          PROJECTED_ACCEPTED: ${{ needs.census.outputs.projected-accepted }}
+          SCHEMA_STATUS: ${{ needs.census.outputs.schema-status }}
+          CENSUS_STABLE: ${{ needs.census.outputs.census-stable }}
+        run: |
+          mkdir terminal
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          report = {
+              'schema': 'ocr-coru-receipt-v6-terminal-no-ocr/1',
+              'candidate_artifact_id': 8933146744,
+              'candidate_artifact_zip_sha256':
+                  'e9b6c2ea3f7622dc49afb5291556b2f62e2933f6ea0ebec6e75ec81daaf6aa5e',
+              'candidate_stable_payload_sha256':
+                  '97a317c87a28556376588d708da5b8117e6da6095e8b093e4206061695b8e49b',
+              'census_stable_payload_sha256': os.environ['CENSUS_STABLE'],
+              'schema_status': os.environ['SCHEMA_STATUS'],
+              'selected_available': int(os.environ['SELECTED']),
+              'projected_accepted': float(os.environ['PROJECTED_ACCEPTED']),
+              'minimum_selected_required': 3000,
+              'minimum_accepted_required': 900,
+              'labels_and_json_bytes_opened': 5022142,
+              'test_archive_bytes_avoided': 1057581808,
+              'test_archive_downloaded': False,
+              'ocr_executed': False,
+              'candidate_inference_executed': False,
+              'external_certificate_claimed': False,
+              'production_ready': False,
+              'automatic_production_change': False,
+              'verdict': 'CORU_RECEIPT_TERMINAL_NO_OCR',
+              'external_spend_usd': 0,
+          }
+          stable = dict(report)
+          report['stable_payload_sha256'] = hashlib.sha256(
+              json.dumps(
+                  stable, sort_keys=True, separators=(',', ':')
+              ).encode()
+          ).hexdigest()
+          path = Path('terminal/coru_receipt_v6_terminal_no_ocr.json')
+          path.write_text(json.dumps(report, indent=2, sort_keys=True) + '\n')
+          Path('terminal/SHA256SUMS.txt').write_text(
+              f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n"
+          )
+          print(json.dumps(report, indent=2, sort_keys=True))
+          PY
+          (
+            cd terminal
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-coru-receipt-v6-terminal-no-ocr
+          path: terminal
+          if-no-files-found: error
+          retention-days: 90
+
+  archive-authorized:
+    needs: census
+    if: ${{ needs.census.outputs.run-archive == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Record authorization without downloading archive
+        env:
+          SELECTED: ${{ needs.census.outputs.selected }}
+          PROJECTED_ACCEPTED: ${{ needs.census.outputs.projected-accepted }}
+          SCHEMA_STATUS: ${{ needs.census.outputs.schema-status }}
+          CENSUS_STABLE: ${{ needs.census.outputs.census-stable }}
+        run: |
+          mkdir authorization
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          report = {
+              'schema': 'ocr-coru-receipt-v6-archive-authorization/1',
+              'candidate_artifact_id': 8933146744,
+              'candidate_stable_payload_sha256':
+                  '97a317c87a28556376588d708da5b8117e6da6095e8b093e4206061695b8e49b',
+              'census_stable_payload_sha256': os.environ['CENSUS_STABLE'],
+              'schema_status': os.environ['SCHEMA_STATUS'],
+              'selected_available': int(os.environ['SELECTED']),
+              'projected_accepted': float(os.environ['PROJECTED_ACCEPTED']),
+              'test_archive_sha256':
+                  '351d1c5a2ab1ef12399787679563fbc9922a8d18e0f6296e16d7db0e0a4f7f41',
+              'test_archive_size_bytes': 1057581808,
+              'archive_download_authorized_by_frozen_gate': True,
+              'archive_downloaded_in_this_job': False,
+              'ocr_executed': False,
+              'external_certificate_claimed': False,
+              'production_ready': False,
+              'automatic_production_change': False,
+              'external_spend_usd': 0,
+          }
+          stable = dict(report)
+          report['stable_payload_sha256'] = hashlib.sha256(
+              json.dumps(stable, sort_keys=True, separators=(',', ':')).encode()
+          ).hexdigest()
+          path = Path('authorization/coru_receipt_v6_archive_authorization.json')
+          path.write_text(json.dumps(report, indent=2, sort_keys=True) + '\n')
+          Path('authorization/SHA256SUMS.txt').write_text(
+              f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n"
+          )
+          print(json.dumps(report, indent=2, sort_keys=True))
+          PY
+          (
+            cd authorization
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-coru-receipt-v6-archive-authorization
+          path: authorization
+          if-no-files-found: error
+          retention-days: 90
