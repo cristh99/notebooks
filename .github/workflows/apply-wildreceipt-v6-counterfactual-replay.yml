@@ -1,0 +1,47 @@
+name: Apply WildReceipt v6 counterfactual replay
+
+on:
+  push:
+    branches:
+      - agent/ocr-consensus-v6-development
+    paths:
+      - '.github/patches/wildreceipt-v6-counterfactual-replay.patch'
+      - '.github/workflows/apply-wildreceipt-v6-counterfactual-replay.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-wildreceipt-v6-counterfactual-replay-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 20
+      - name: Apply fail-closed counterfactual replay patch
+        run: |
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard "origin/${GITHUB_REF_NAME}"
+          patch=.github/patches/wildreceipt-v6-counterfactual-replay.patch
+          git apply --check "${patch}"
+          git apply "${patch}"
+          python -m py_compile \
+            ocr_real_risk_v1/wildreceipt_v6_policy_lab.py \
+            ocr_real_risk_v1/test_wildreceipt_v6_policy_lab.py
+          grep -q 'policy_name == "v5_current"' \
+            ocr_real_risk_v1/wildreceipt_v6_policy_lab.py
+      - name: Commit repaired replay semantics
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ocr_real_risk_v1/wildreceipt_v6_policy_lab.py
+          git commit -m 'Replay injected counterfactuals faithfully in v6 lab'
+          git fetch origin "${GITHUB_REF_NAME}"
+          git rebase "origin/${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
