@@ -16,13 +16,17 @@ check 82b6809b76ffd9a9b4748c7af21e84ceb01ea1453852eb3be83528b8c245a5b5 "$OVERLAY
 check 7f3116d9a9d0b84039bf269e5e8574eb070896769de6aa6dfb60301e37ca06a2 "$OVERLAY/part_00_01.b64"
 check 456da3483c8460a3ca2c401d02b9b9a6dd1f8ea15ef68eb54c5ff9027a4abc97 "$OVERLAY/part_00_02.b64"
 check 23770bd5ad55728513530fd12ab58b77aaab6511811c7ab849e34df5654d206e "$OVERLAY/part_00_03.b64"
-check 9f9cb3d8901445039919c1de0de250f9cd07f2b1238b32a20eb5141fc1a10bb3 "$OVERLAY/part_01.b64"
+check 871a0c58cad4a5a19b94c8f01cccbe9ea05c480c4aa8087ca1a057a757927d67 "$OVERLAY/part_01_00.b64"
+check e9c0818dd7bdf5bd152fabb874a08ccdf0dc88a12e6d43b14c0a7826ea6a3b5a "$OVERLAY/part_01_01.b64"
+check e929043a26acdc6ed965f607e50f167b4300bff694020815682f3e4d6ef0ae88 "$OVERLAY/part_01_02.b64"
 cat \
   "$OVERLAY/part_00_00.b64" \
   "$OVERLAY/part_00_01.b64" \
   "$OVERLAY/part_00_02.b64" \
   "$OVERLAY/part_00_03.b64" \
-  "$OVERLAY/part_01.b64" \
+  "$OVERLAY/part_01_00.b64" \
+  "$OVERLAY/part_01_01.b64" \
+  "$OVERLAY/part_01_02.b64" \
   > "$TMP/browser-overlay.b64"
 check e0723066c37d62181536ae8be0c20eb06d6145cef601cc6e65bb7a4f168e64ae "$TMP/browser-overlay.b64"
 base64 -d "$TMP/browser-overlay.b64" > "$TMP/browser-overlay.tar.gz"
