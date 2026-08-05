@@ -1,0 +1,42 @@
+{
+  "candidate_commit": "75a5273564fc3a4ca8e1bc87ed86db2c4af2bcf5",
+  "candidate_files": {
+    "run_semantic_numeric_resolver_canary_v4.py": "b0c5ae13d93b4d9a44724e82f43813e1d22459c419f73b77a72084e7d02b4bd4",
+    "semantic_numeric_resolver_v4.py": "1053b76ca341fe65c5f668f973c5ddc9dc9c477bc21e43a1dffdc8712476a704",
+    "test_semantic_numeric_resolver_v4.py": "311bd696e472a233c188fdc13e8558f3a32907d722f2c688a423fbfc735ddc7c"
+  },
+  "constraints": {"external_spend_usd": 0.0, "gcloud_used": false, "github_actions_used": false, "gpu_used": false, "paid_api_used": false, "production_modified": false},
+  "isolation": {
+    "annotation_text_fetched_before_seal": false,
+    "development_stems": ["X51005361907", "X51005365179", "X51005568911", "X51005568913", "X51005568914", "X51005577192", "X51005663324", "X51005675095", "X51005676536", "X51005676538"],
+    "disjoint_from_development_stems": true,
+    "image_bytes_fetched_before_seal": false,
+    "outcomes_inspected_before_seal": false
+  },
+  "manifest_sha256": "36c0b1f5e0464659cbfd985a987548ecac61554404b8d2431b8b6b10b9707849",
+  "schema": "ocr-semantic-numeric-resolver-v4-receipt-disjoint-manifest/1",
+  "sealed_status": "SEALED_BEFORE_IMAGE_OR_ANNOTATION_FETCH",
+  "selection": {
+    "algorithm": "ascending SHA-256 of UTF-8 stem",
+    "count": 5,
+    "ranked_frame": [
+      {"rank_sha256": "11e14931c6b13ca9c03a6df3b464f4141e113ceb739322b7c2fea427b8f7f8cf", "stem": "X51008063849"},
+      {"rank_sha256": "172d6209060cabff74e78d7bfde40a4f38f14d8aa82efb0748a2d4ada10e1ba4", "stem": "X51008099044"},
+      {"rank_sha256": "1c5081feae9b550140ec86cb7917512c07ca0c361bf93a0727124f6d871d4054", "stem": "X51008099054"},
+      {"rank_sha256": "2479c29185312e741b363f729c5451ae26517a70a0bcb8b6247e79567e131e52", "stem": "X51008099043"},
+      {"rank_sha256": "6a6c14df28f5891d8d5ee207e3ab344b7d3560f51cc0a38be9cd628704aa4d58", "stem": "X51008099049"},
+      {"rank_sha256": "817b0c2a96abf81f00e31db6c3bbd375a71d35cc807f4864069eed604c0ab5ca", "stem": "X51008099048"},
+      {"rank_sha256": "981031aca4f9be5a5472ac2f3260776228711e9283793f21b0cf52844a49ae87", "stem": "X51008099041"},
+      {"rank_sha256": "99982c0b76deb49a820daff08ab8f91931e383b64d39dc6c1b0ec54b2fd368a0", "stem": "X51008099073"},
+      {"rank_sha256": "9e2843170e0f93404747e4c4f19988e0dad53685e413fce92d9a2d41a10711f2", "stem": "X51008099071"},
+      {"rank_sha256": "deb4add1c7327d7ee8d186f46f489fbb78c5c28e5f6acdcbb2e8e19b222223a0", "stem": "X51008099046"}
+    ],
+    "selected_stems": ["X51008063849", "X51008099044", "X51008099054", "X51008099043", "X51008099049"]
+  },
+  "source": {
+    "candidate_frame": ["X51008099073", "X51008099071", "X51008099054", "X51008099049", "X51008099048", "X51008099046", "X51008099041", "X51008099044", "X51008099043", "X51008063849"],
+    "corpus": "ICDAR2019 SROIE Task 1 train folder",
+    "folder_id": "1xvZ6jpZQfpMHJCUD0L_5KHQy0T9QAepx",
+    "frame_definition": "ten previously unfetched image stems visible in the same bounded folder listing window"
+  }
+}
