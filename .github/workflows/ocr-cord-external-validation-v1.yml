@@ -1,0 +1,712 @@
+name: OCR CORD external natural-scan validation v1
+
+on:
+  push:
+    branches:
+      - agent/ocr-cord-external-validation-v1
+    paths:
+      - 'ocr_real_risk_v1/cord_natural_holdout.py'
+      - 'ocr_real_risk_v1/cord_aggregate.py'
+      - 'ocr_real_risk_v1/test_cord_natural_holdout.py'
+      - '.github/workflows/ocr-cord-external-validation-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: ocr-cord-external-validation-v1-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CORD_REPO: naver-clova-ix/cord-v2
+  CORD_REVISION: 7f0115a4b758a71d6473b8d085751692da2fef98
+  CANDIDATE_ARTIFACT_ID: '8917522937'
+  CANDIDATE_ARTIFACT_DIGEST: 080b0efd4b91a180a1a5c6acd767d72e0a8f286718e64eb90d8ec9d370d2dc17
+  CANDIDATE_SOURCE_COMMIT: 197fe61235a5c34c878d53369a50d26b0aaece1d
+  MODEL_SHA256: 53229915331c2bbea2454f9e7cb5768a26e9edb30de750747f4397f1ff4cf92c
+  CANDIDATE_STABLE_SHA256: 0f88d94af81e0f7921e654e452059d2075b07ee35bcffd83dd8b02ebdd9e93a1
+  GITHUB_TOKEN: ${{ github.token }}
+  PYTHONHASHSEED: '0'
+  OMP_THREAD_LIMIT: '1'
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  NUMEXPR_NUM_THREADS: '1'
+
+jobs:
+  seal-protocol:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+      artifact-digest: ${{ steps.upload.outputs.artifact-digest }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+
+      - name: Install frozen CPU dependencies without OCR binary
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            fonts-dejavu-core fonts-lato
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13
+
+      - name: Unit tests and compilation before dataset access
+        run: |
+          python -m unittest -v \
+            ocr_real_risk_v1.test_cord_natural_holdout \
+            ocr_real_risk_v1.test_numeric_digit_forest \
+            ocr_real_risk_v1.test_sroie_natural_holdout
+          python -m compileall -q ocr_real_risk_v1
+
+      - name: Recover and verify the byte-frozen candidate
+        run: |
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${CANDIDATE_ARTIFACT_ID}/zip" \
+            --output candidate.zip
+          echo "${CANDIDATE_ARTIFACT_DIGEST}  candidate.zip" | \
+            sha256sum --check --strict
+          mkdir candidate-artifact
+          unzip -q candidate.zip -d candidate-artifact
+          test -d candidate-artifact/frozen-digit-forest-v3
+          (
+            cd candidate-artifact/frozen-digit-forest-v3
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.numeric_digit_forest_deterministic import (
+              load_frozen_candidate,
+          )
+
+          root = Path('candidate-artifact/frozen-digit-forest-v3')
+          candidate, model = load_frozen_candidate(root)
+          assert candidate['candidate_id'] == 'digit-forest-v3'
+          assert candidate['model']['sha256'] == \
+              '53229915331c2bbea2454f9e7cb5768a26e9edb30de750747f4397f1ff4cf92c'
+          assert candidate['stable_payload_sha256'] == \
+              '0f88d94af81e0f7921e654e452059d2075b07ee35bcffd83dd8b02ebdd9e93a1'
+          assert candidate['inference']['threshold'] == 0.25
+          assert candidate['inference']['uses_truth'] is False
+          assert candidate['inference']['uses_annotation_bbox'] is False
+          assert candidate['decision']['production_ready'] is False
+          assert len(model.estimators_) == 500
+          print(json.dumps({
+              'candidate_id': candidate['candidate_id'],
+              'model_sha256': candidate['model']['sha256'],
+              'stable_payload_sha256': candidate['stable_payload_sha256'],
+              'threshold': candidate['inference']['threshold'],
+              'tree_count': len(model.estimators_),
+          }, indent=2, sort_keys=True))
+          PY
+
+      - name: Seal source metadata without opening parquet rows
+        run: |
+          python -m ocr_real_risk_v1.cord_source_seal \
+            --output cord-source-seal.json \
+            | tee cord-source-seal-stdout.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.cord_source_seal import (
+              EXPECTED_FILES,
+              verify,
+          )
+
+          seal = json.loads(Path('cord-source-seal.json').read_text())
+          assert verify(seal)
+          assert seal['resolved_revision'] == \
+              '7f0115a4b758a71d6473b8d085751692da2fef98'
+          assert seal['outcomes_opened'] is False
+          assert seal['parquet_rows_read'] == 0
+          assert seal['expected_total_rows'] == 1000
+          assert {row['path'] for row in seal['files']} == \
+              set(EXPECTED_FILES)
+          print(json.dumps({
+              'resolved_revision': seal['resolved_revision'],
+              'stable_payload_sha256':
+                  seal['stable_payload_sha256'],
+              'total_source_bytes': seal['total_source_bytes'],
+              'parquet_rows_read': seal['parquet_rows_read'],
+          }, indent=2, sort_keys=True))
+          PY
+
+      - name: Download the exact six CORD-v2 parquet shards
+        run: |
+          mkdir source-files
+          cat > cord-shards.tsv <<'EOF'
+          train-00000-of-00004	data/train-00000-of-00004-b4aaeceff1d90ecb.parquet
+          train-00001-of-00004	data/train-00001-of-00004-7dbbe248962764c5.parquet
+          train-00002-of-00004	data/train-00002-of-00004-688fe1305a55e5cc.parquet
+          train-00003-of-00004	data/train-00003-of-00004-2d0cd200555ed7fd.parquet
+          validation-00000-of-00001	data/validation-00000-of-00001-cc3c5779fe22e8ca.parquet
+          test-00000-of-00001	data/test-00000-of-00001-9c204eb3f4e11791.parquet
+          EOF
+          while IFS=$'\t' read -r shard filename; do
+            curl --fail --location --retry 8 --retry-all-errors \
+              "https://huggingface.co/datasets/${CORD_REPO}/resolve/${CORD_REVISION}/${filename}?download=true" \
+              --output "source-files/${shard}.parquet"
+            test -s "source-files/${shard}.parquet"
+          done < cord-shards.tsv
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          seal = json.loads(Path('cord-source-seal.json').read_text())
+          expected = {
+              row['path']:
+                  str(row['lfs_oid']).removeprefix('sha256:')
+              for row in seal['files']
+          }
+          mapping = {
+              'data/train-00000-of-00004-b4aaeceff1d90ecb.parquet':
+                  'train-00000-of-00004',
+              'data/train-00001-of-00004-7dbbe248962764c5.parquet':
+                  'train-00001-of-00004',
+              'data/train-00002-of-00004-688fe1305a55e5cc.parquet':
+                  'train-00002-of-00004',
+              'data/train-00003-of-00004-2d0cd200555ed7fd.parquet':
+                  'train-00003-of-00004',
+              'data/validation-00000-of-00001-cc3c5779fe22e8ca.parquet':
+                  'validation-00000-of-00001',
+              'data/test-00000-of-00001-9c204eb3f4e11791.parquet':
+                  'test-00000-of-00001',
+          }
+          for filename, shard in mapping.items():
+              digest = hashlib.sha256()
+              with (
+                  Path('source-files') / f'{shard}.parquet'
+              ).open('rb') as handle:
+                  for chunk in iter(
+                      lambda: handle.read(1024 * 1024), b''
+                  ):
+                      digest.update(chunk)
+              assert digest.hexdigest() == expected[filename]
+          print('all six downloaded parquet files match sealed LFS SHA-256')
+          PY
+          du -h source-files/*.parquet
+
+      - name: Seal all manifests before any OCR execution
+        run: |
+          rm -rf sealed-manifests cord-protocol-v1
+          mkdir sealed-manifests
+          while IFS=$'\t' read -r shard filename; do
+            python -m ocr_real_risk_v1.cord_natural_holdout seal \
+              --parquet "source-files/${shard}.parquet" \
+              --shard-id "${shard}" \
+              --output "sealed-manifests/${shard}.json" \
+              --candidate-root candidate-artifact/frozen-digit-forest-v3 \
+              --candidate-artifact-id "${CANDIDATE_ARTIFACT_ID}" \
+              --candidate-artifact-digest "${CANDIDATE_ARTIFACT_DIGEST}" \
+              --candidate-source-commit "${CANDIDATE_SOURCE_COMMIT}" \
+              --expected-model-sha256 "${MODEL_SHA256}" \
+              --expected-candidate-stable-sha256 "${CANDIDATE_STABLE_SHA256}"
+          done < cord-shards.tsv
+          python -m ocr_real_risk_v1.cord_natural_holdout bundle \
+            sealed-manifests/*.json \
+            --source-seal cord-source-seal.json \
+            --output-dir cord-protocol-v1 \
+            | tee cord-protocol-stdout.json
+
+      - name: Independent outcome-blind protocol gates
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.cord_natural_holdout import (
+              DATASET_EXPECTED_SPLITS,
+              DATASET_REVISION,
+              SHARD_SPECS,
+              verify_hash_manifest,
+          )
+          from ocr_real_risk_v1.sroie_natural_holdout import (
+              verify_stable_payload,
+          )
+
+          root = Path('cord-protocol-v1')
+          verify_hash_manifest(root)
+          protocol = json.loads((root / 'protocol.json').read_text())
+          assert verify_stable_payload(
+              protocol, 'stable_payload_sha256'
+          )
+          assert protocol['status'] == 'SEALED_BEFORE_CORD_OCR'
+          assert protocol['dataset']['revision'] == DATASET_REVISION
+          assert protocol['dataset']['splits'] == DATASET_EXPECTED_SPLITS
+          assert set(protocol['manifests']) == set(SHARD_SPECS)
+          assert protocol['candidate_binding'] == {
+              'candidate_id': 'digit-forest-v3',
+              'artifact_id': 8917522937,
+              'artifact_zip_sha256':
+                  '080b0efd4b91a180a1a5c6acd767d72e0a8f286718e64eb90d8ec9d370d2dc17',
+              'source_commit':
+                  '197fe61235a5c34c878d53369a50d26b0aaece1d',
+              'model_sha256':
+                  '53229915331c2bbea2454f9e7cb5768a26e9edb30de750747f4397f1ff4cf92c',
+              'candidate_stable_payload_sha256':
+                  '0f88d94af81e0f7921e654e452059d2075b07ee35bcffd83dd8b02ebdd9e93a1',
+          }
+          assert protocol['census']['published_rows'] == 1000
+          assert protocol['census']['selected_locations'] >= 500
+          assert protocol['source_seal']['resolved_revision'] == \
+              DATASET_REVISION
+          assert protocol['source_seal']['outcomes_opened'] is False
+          assert protocol['source_seal']['parquet_rows_read'] == 0
+          assert protocol['execution_plan'][
+              'candidate_bytes_fixed_before_ocr'
+          ] is True
+          assert protocol['execution_plan'][
+              'selection_uses_ocr'
+          ] is False
+          for path in sorted((root / 'manifests').glob('*.json')):
+              manifest = json.loads(path.read_text())
+              assert verify_stable_payload(
+                  manifest, 'manifest_sha256'
+              )
+              assert all(
+                  'tesseract' not in record
+                  and 'candidate' not in record
+                  for record in manifest['records']
+              )
+          print(json.dumps({
+              'protocol_stable_payload_sha256':
+                  protocol['stable_payload_sha256'],
+              'selected_locations':
+                  protocol['census']['selected_locations'],
+              'candidate_binding': protocol['candidate_binding'],
+          }, indent=2, sort_keys=True))
+          PY
+          (cd cord-protocol-v1 && \
+            sha256sum --check --strict SHA256SUMS.txt)
+
+      - id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-cord-protocol-v1
+          path: |
+            cord-protocol-v1
+            cord-protocol-stdout.json
+          if-no-files-found: error
+          retention-days: 90
+
+  evaluate-shards:
+    needs: seal-protocol
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        include:
+          - shard_id: train-00000-of-00004
+            filename: data/train-00000-of-00004-b4aaeceff1d90ecb.parquet
+          - shard_id: train-00001-of-00004
+            filename: data/train-00001-of-00004-7dbbe248962764c5.parquet
+          - shard_id: train-00002-of-00004
+            filename: data/train-00002-of-00004-688fe1305a55e5cc.parquet
+          - shard_id: train-00003-of-00004
+            filename: data/train-00003-of-00004-2d0cd200555ed7fd.parquet
+          - shard_id: validation-00000-of-00001
+            filename: data/validation-00000-of-00001-cc3c5779fe22e8ca.parquet
+          - shard_id: test-00000-of-00001
+            filename: data/test-00000-of-00001-9c204eb3f4e11791.parquet
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+
+      - name: Install complete frozen CPU runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            tesseract-ocr tesseract-ocr-eng \
+            fonts-dejavu-core fonts-lato
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13
+          python -m compileall -q ocr_real_risk_v1
+
+      - name: Recover and verify sealed protocol
+        env:
+          PROTOCOL_ARTIFACT_ID: ${{ needs.seal-protocol.outputs.artifact-id }}
+          PROTOCOL_ARTIFACT_DIGEST: ${{ needs.seal-protocol.outputs.artifact-digest }}
+        run: |
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${PROTOCOL_ARTIFACT_ID}/zip" \
+            --output protocol.zip
+          echo "${PROTOCOL_ARTIFACT_DIGEST#sha256:}  protocol.zip" | \
+            sha256sum --check --strict
+          mkdir protocol-artifact
+          unzip -q protocol.zip -d protocol-artifact
+          test -d protocol-artifact/cord-protocol-v1
+          (
+            cd protocol-artifact/cord-protocol-v1
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+
+      - name: Recover and verify frozen candidate
+        run: |
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${CANDIDATE_ARTIFACT_ID}/zip" \
+            --output candidate.zip
+          echo "${CANDIDATE_ARTIFACT_DIGEST}  candidate.zip" | \
+            sha256sum --check --strict
+          mkdir candidate-artifact
+          unzip -q candidate.zip -d candidate-artifact
+          (
+            cd candidate-artifact/frozen-digit-forest-v3
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+
+      - name: Download and verify one pinned CORD shard
+        run: |
+          curl --fail --location --retry 8 --retry-all-errors \
+            "https://huggingface.co/datasets/${CORD_REPO}/resolve/${CORD_REVISION}/${{ matrix.filename }}?download=true" \
+            --output source.parquet
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          shard = '${{ matrix.shard_id }}'
+          manifest = json.loads(
+              (
+                  Path('protocol-artifact/cord-protocol-v1/manifests')
+                  / f'{shard}.json'
+              ).read_text()
+          )
+          digest = hashlib.sha256(Path('source.parquet').read_bytes()).hexdigest()
+          assert digest == manifest['dataset']['parquet_sha256']
+          print(json.dumps({
+              'shard_id': shard,
+              'parquet_sha256': digest,
+              'rows': manifest['dataset']['rows'],
+              'selected': len(manifest['records']),
+          }, indent=2, sort_keys=True))
+          PY
+
+      - name: Execute the frozen candidate on the natural shard
+        run: |
+          rm -rf "cord-${{ matrix.shard_id }}"
+          python -m ocr_real_risk_v1.cord_natural_holdout evaluate \
+            --parquet source.parquet \
+            --manifest "protocol-artifact/cord-protocol-v1/manifests/${{ matrix.shard_id }}.json" \
+            --candidate-root candidate-artifact/frozen-digit-forest-v3 \
+            --output-dir "cord-${{ matrix.shard_id }}" \
+            | tee "cord-${{ matrix.shard_id }}-stdout.json"
+
+      - name: Independent shard integrity gates
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.cord_natural_holdout import (
+              REPORT_SCHEMA,
+              verify_hash_manifest,
+          )
+          from ocr_real_risk_v1.sroie_natural_holdout import (
+              verify_stable_payload,
+          )
+
+          shard = '${{ matrix.shard_id }}'
+          root = Path(f'cord-{shard}')
+          verify_hash_manifest(root)
+          manifest = json.loads((root / 'manifest.json').read_text())
+          report = json.loads((root / 'shard_report.json').read_text())
+          assert report['schema'] == REPORT_SCHEMA
+          assert verify_stable_payload(
+              report, 'stable_payload_sha256'
+          )
+          assert report['manifest_sha256'] == manifest['manifest_sha256']
+          assert report['candidate_binding']['model_sha256'] == \
+              '53229915331c2bbea2454f9e7cb5768a26e9edb30de750747f4397f1ff4cf92c'
+          assert report['execution']['selected_locations'] == \
+              len(report['observations'])
+          assert report['decision']['shard_execution_complete'] is True
+          assert report['decision']['automatic_production_change'] is False
+          for row in report['observations']:
+              if row['tesseract']['eligible']:
+                  assert row['candidate']['crop_source'] == \
+                      'tesseract_matched_bbox'
+                  assert row['candidate']['crop_file']
+                  assert row['candidate']['crop_sha256']
+              else:
+                  assert row['candidate']['accepted'] is False
+                  assert row['counterfactual']['accepted'] is False
+          print(json.dumps({
+              'shard_id': shard,
+              'execution': report['execution'],
+              'descriptive': report['descriptive'],
+              'stable_payload_sha256':
+                  report['stable_payload_sha256'],
+          }, indent=2, sort_keys=True))
+          PY
+          (
+            cd "cord-${{ matrix.shard_id }}"
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-cord-${{ matrix.shard_id }}-v1
+          path: cord-${{ matrix.shard_id }}
+          if-no-files-found: error
+          retention-days: 90
+
+  aggregate:
+    needs:
+      - seal-protocol
+      - evaluate-shards
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+
+      - name: Install frozen aggregate dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            fonts-dejavu-core fonts-lato
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13
+          python -m unittest -v \
+            ocr_real_risk_v1.test_cord_natural_holdout
+          python -m compileall -q ocr_real_risk_v1
+
+      - name: Recover and verify sealed protocol
+        env:
+          PROTOCOL_ARTIFACT_ID: ${{ needs.seal-protocol.outputs.artifact-id }}
+          PROTOCOL_ARTIFACT_DIGEST: ${{ needs.seal-protocol.outputs.artifact-digest }}
+        run: |
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${PROTOCOL_ARTIFACT_ID}/zip" \
+            --output protocol.zip
+          echo "${PROTOCOL_ARTIFACT_DIGEST#sha256:}  protocol.zip" | \
+            sha256sum --check --strict
+          mkdir protocol-artifact
+          unzip -q protocol.zip -d protocol-artifact
+          (
+            cd protocol-artifact/cord-protocol-v1
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+
+      - name: Recover and verify all six shard artifacts
+        run: |
+          mkdir shard-roots
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+          from pathlib import Path
+
+          expected = {
+              'ocr-cord-train-00000-of-00004-v1':
+                  'train-00000-of-00004',
+              'ocr-cord-train-00001-of-00004-v1':
+                  'train-00001-of-00004',
+              'ocr-cord-train-00002-of-00004-v1':
+                  'train-00002-of-00004',
+              'ocr-cord-train-00003-of-00004-v1':
+                  'train-00003-of-00004',
+              'ocr-cord-validation-00000-of-00001-v1':
+                  'validation-00000-of-00001',
+              'ocr-cord-test-00000-of-00001-v1':
+                  'test-00000-of-00001',
+          }
+          request = urllib.request.Request(
+              (
+                  f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}"
+                  f"/actions/runs/{os.environ['GITHUB_RUN_ID']}/artifacts?per_page=100"
+              ),
+              headers={
+                  'Authorization':
+                      f"Bearer {os.environ['GITHUB_TOKEN']}",
+                  'Accept': 'application/vnd.github+json',
+                  'X-GitHub-Api-Version': '2022-11-28',
+              },
+          )
+          with urllib.request.urlopen(request, timeout=60) as response:
+              payload = json.load(response)
+          selected = [
+              row for row in payload['artifacts']
+              if row['name'] in expected
+          ]
+          if {row['name'] for row in selected} != set(expected):
+              raise SystemExit(
+                  f"missing shard artifacts: {[row['name'] for row in selected]}"
+              )
+          with Path('shard-artifacts.tsv').open(
+              'w', encoding='utf-8'
+          ) as output:
+              for row in selected:
+                  output.write(
+                      f"{row['id']}\t{expected[row['name']]}\t"
+                      f"{row['digest']}\n"
+                  )
+          Path('shard-artifacts.json').write_text(
+              json.dumps(selected, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          PY
+          while IFS=$'\t' read -r artifact_id shard digest; do
+            curl --fail --location --retry 5 --retry-all-errors \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" \
+              --output "${shard}.zip"
+            echo "${digest#sha256:}  ${shard}.zip" | \
+              sha256sum --check --strict
+            mkdir -p "shard-roots/${shard}"
+            unzip -q "${shard}.zip" -d "shard-roots/${shard}"
+            (
+              cd "shard-roots/${shard}"
+              sha256sum --check --strict SHA256SUMS.txt
+            )
+          done < shard-artifacts.tsv
+
+      - name: Aggregate exact risk, coverage, counterfactuals, and stability
+        run: |
+          rm -rf cord-aggregate-v1
+          mkdir cord-aggregate-v1
+          python -m ocr_real_risk_v1.cord_aggregate \
+            --protocol-root protocol-artifact/cord-protocol-v1 \
+            shard-roots/test-00000-of-00001 \
+            shard-roots/train-00000-of-00004 \
+            shard-roots/train-00001-of-00004 \
+            shard-roots/train-00002-of-00004 \
+            shard-roots/train-00003-of-00004 \
+            shard-roots/validation-00000-of-00001 \
+            --output-dir cord-aggregate-v1 \
+            | tee cord-aggregate-stdout.json
+
+      - name: Independent aggregate certificate gates
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.cord_aggregate import (
+              AGGREGATE_SCHEMA,
+          )
+          from ocr_real_risk_v1.cord_natural_holdout import (
+              verify_hash_manifest,
+          )
+          from ocr_real_risk_v1.sroie_natural_holdout import (
+              verify_stable_payload,
+          )
+
+          root = Path('cord-aggregate-v1')
+          verify_hash_manifest(root)
+          report = json.loads(
+              (root / 'cord_natural_holdout_aggregate.json').read_text()
+          )
+          assert report['schema'] == AGGREGATE_SCHEMA
+          assert verify_stable_payload(
+              report, 'stable_payload_sha256'
+          )
+          assert report['dataset']['published_rows'] == 1000
+          assert report['candidate_binding']['artifact_id'] == 8917522937
+          assert report['candidate_binding']['model_sha256'] == \
+              '53229915331c2bbea2454f9e7cb5768a26e9edb30de750747f4397f1ff4cf92c'
+          assert report['execution']['published_rows'] == 1000
+          assert report['execution'][
+              'receipt_associated_selected_locations'
+          ] >= report['execution']['unique_physical_locations']
+          assert report['decision'][
+              'external_natural_scan_validation_complete'
+          ] is True
+          assert report['decision']['candidate_bound_before_ocr'] is True
+          assert report['decision']['automatic_production_change'] is False
+          assert report['decision'][
+              'honduras_production_readiness_claimed'
+          ] is False
+          if report['decision']['pass_statistical_10x']:
+              assert report['candidate']['accepted'] >= \
+                  report['protocol']['minimum_accepted']
+              assert report['candidate'][
+                  'simultaneous_95pct_coverage_lower'
+              ] >= report['protocol']['minimum_coverage_lower']
+              assert report['candidate'][
+                  'certified_error_reduction_lower'
+              ] >= report['protocol']['target_error_reduction']
+              assert report['counterfactual'][
+                  'simultaneous_95pct_upper'
+              ] <= report['protocol']['counterfactual_maximum_upper']
+              assert report['stability']['pass'] is True
+          print(json.dumps({
+              'execution': report['execution'],
+              'baseline': report['baseline'],
+              'candidate': report['candidate'],
+              'counterfactual': report['counterfactual'],
+              'stability': {
+                  key: value
+                  for key, value in report['stability'].items()
+                  if key != 'folds'
+              },
+              'decision': report['decision'],
+              'stable_payload_sha256':
+                  report['stable_payload_sha256'],
+          }, indent=2, sort_keys=True))
+          PY
+          (
+            cd cord-aggregate-v1
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-cord-natural-aggregate-v1
+          path: |
+            cord-aggregate-v1
+            cord-aggregate-stdout.json
+            shard-artifacts.json
+          if-no-files-found: error
+          retention-days: 90
