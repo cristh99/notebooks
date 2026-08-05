@@ -1,0 +1,57 @@
+{
+  "schema": "data-science-dominance/bookreview-v1-official-result/1",
+  "verdict": "FAIL",
+  "score_before": 465,
+  "score_after": 465,
+  "promotion_points": 0,
+  "candidate": {
+    "sha256": "f539ea1d8e7434ade8b8333054ba40d10a69f6e4c430e784ea321ccafde06414",
+    "retuned_after_freeze": false,
+    "rerun_after_first_execution": false
+  },
+  "github": {
+    "source_candidate_run_id": 31026531776,
+    "source_candidate_job_id": 92376335393,
+    "recovery_validation_run_id": 31026852816,
+    "recovery_validation_sha": "260f848f1536e3ae042379dea475a37d8c92e8d5"
+  },
+  "artifact": {
+    "id": 8939004533,
+    "name": "bookreview-v1-official",
+    "zip_sha256": "2ed61d4f3abf3ed6943e61f622357d6166847dfc380749e5fad50a4c9427fbc6"
+  },
+  "chain_of_custody": {
+    "answers_recovered_from_original_job_log": true,
+    "candidate_rerun": false,
+    "answers_sealed_before_ground_truth_access": true,
+    "validators_executed_once_each": true,
+    "post_hoc_retuning_permitted": false,
+    "answer_manifest_sha256": "4a136662b02e69a5b9d36e2addfe3fb95e49e6deee2bb9c6becbf6b29c32398a",
+    "official_validation_sha256": "46b649c869ed1d9d7cef7bd583db711cadc4c0a137eb8f0bad142fee87f3c9fa",
+    "external_receipt_sha256": "78d6b5b86776f338569f0e27e023a3faa62f1870c868c223041192d7a59b6e52"
+  },
+  "results": [
+    {
+      "query_number": 2,
+      "answer": "",
+      "passed": false,
+      "missing_expected_title": "The Sludge"
+    },
+    {
+      "query_number": 3,
+      "answer": "Benny Goes To The Moon: The great new book from Top Children's entertainer Gerry Ogilvie (1)",
+      "passed": false,
+      "missing_expected_title": "Around the World Mazes"
+    }
+  ],
+  "diagnosis": [
+    "The planner lacked the hidden multi-book listing semantics needed by query2 and query3.",
+    "Fuzzy joins and semistructured parsing were insufficient to infer the requested result set from unseen wording.",
+    "The empty query2 answer was valid candidate output; a shell non-empty check caused only a pre-validation evidence failure and was repaired without rerunning the candidate."
+  ],
+  "retirement": {
+    "bookreview_queries_1_through_3_exposed": true,
+    "suite_permitted_for_future_promotion": false,
+    "future_use": "diagnostic and regression only"
+  }
+}
