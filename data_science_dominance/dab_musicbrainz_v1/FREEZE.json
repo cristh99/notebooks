@@ -1,0 +1,86 @@
+{
+  "branch": "agent/data-science-dominance-dab-musicbrainz-v1",
+  "candidate": {
+    "bytes": 45862,
+    "frozen_before_official_dataset_values": true,
+    "frozen_before_query2_3_content": true,
+    "frozen_before_query2_3_ground_truth": true,
+    "frozen_before_query2_3_validators": true,
+    "network_access": false,
+    "path": "data_science_dominance/dab_musicbrainz_v1/musicbrainz_engine.py",
+    "post_hoc_retuning_permitted": false,
+    "sha256": "8fa98c1f7d4c92e511fdf8cb2c233ad544b1307f079655ee59c7457e50a95ae1"
+  },
+  "capabilities": [
+    "fuzzy multi-attribute track entity resolution",
+    "SQLite-DuckDB relational join",
+    "filters and temporal windows",
+    "single and composite GROUP BY",
+    "SUM, MEAN, MEDIAN, COUNT and distinct COUNT",
+    "HAVING minimum support and aggregate thresholds",
+    "shares and normalized measures",
+    "cross-country and cross-store contrasts",
+    "all-country and all-store coverage predicates",
+    "deterministic ranking, top-k and tie-breaking"
+  ],
+  "dab_commit": "9a55e34271a2500a41cbc009e239edd94599e374",
+  "dab_repository": "ucbepic/DataAgentBench",
+  "execution_policy": {
+    "answers_sealed_before_validator_checkout": true,
+    "candidate_process_count": 1,
+    "cost_usd": 0,
+    "gcloud": false,
+    "merge_permitted": false,
+    "novelty_points": 0,
+    "paid_compute": false,
+    "validators_execute_once_each": true
+  },
+  "held_out_scope": [
+    "query_music_brainz_20k/query2",
+    "query_music_brainz_20k/query3"
+  ],
+  "logic_power_decision": {
+    "rejected": [
+      "USAspending query1-10 because all are exposed",
+      "BookReview query1-3 because all are exposed",
+      "StockIndex query2-3 because both are exposed",
+      "CVE query2-10 because the frozen planner was structurally dominated before data acquisition"
+    ],
+    "selected_front": "MusicBrainz query2-3",
+    "selection_reason": "fresh external family with prior query1 success, explicit duplicate-entity challenge, two heterogeneous stores, and a candidate that implements the missing relational operator graph"
+  },
+  "pre_data_evidence": {
+    "entity_resolution_stress_entities": 6000,
+    "entity_resolution_stress_false_merges": 0,
+    "entity_resolution_stress_rows": 18500,
+    "entity_resolution_stress_seconds_local": 13.35,
+    "synthetic_tests": 34,
+    "synthetic_failures": 0,
+    "tests_bytes": 15743,
+    "tests_path": "data_science_dominance/dab_musicbrainz_v1/test_musicbrainz_engine.py",
+    "tests_sha256": "d57c9091fb9d714e4082d478e2d60ff1de6b469ffa846fa1371939685013fc58"
+  },
+  "prohibited_pre_activation_inputs": [
+    "query_music_brainz_20k/query2/query.json",
+    "query_music_brainz_20k/query2/validate.py",
+    "query_music_brainz_20k/query2/ground_truth.csv",
+    "query_music_brainz_20k/query3/query.json",
+    "query_music_brainz_20k/query3/validate.py",
+    "query_music_brainz_20k/query3/ground_truth.csv"
+  ],
+  "promotion_rule": {
+    "pass_0_or_1_points": 0,
+    "pass_2_of_2_points": 25,
+    "score_before": 465
+  },
+  "public_inputs_accessed": [
+    "query_music_brainz_20k/db_description.txt",
+    "query_music_brainz_20k/db_description_withhint.txt",
+    "query_music_brainz_20k/db_config.yaml",
+    "query_music_brainz_20k/query1/query.json",
+    "query_music_brainz_20k/query1/validate.py",
+    "dataset_manifest.tsv"
+  ],
+  "schema": "data-science-dominance/musicbrainz-v1-freeze/1",
+  "source_base_sha": "4676c5500f9938ba59a77091f3d4e1870f2fb534"
+}
