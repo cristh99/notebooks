@@ -1,0 +1,305 @@
+name: OCR numeric-consensus-v6 CORU Receipt freeze
+
+on:
+  push:
+    branches:
+      - agent/ocr-consensus-v6-coru-freeze
+    paths:
+      - 'ocr_real_risk_v1/coru_receipt_schema_adapter_v6.py'
+      - 'ocr_real_risk_v1/test_coru_receipt_schema_adapter_v6.py'
+      - 'ocr_real_risk_v1/coru_receipt_external_v6.py'
+      - 'ocr_real_risk_v1/test_coru_receipt_external_v6.py'
+      - 'ocr_real_risk_v1/numeric_consensus_candidate_v6_coru.py'
+      - 'ocr_real_risk_v1/test_numeric_consensus_candidate_v6_coru.py'
+      - '.github/workflows/ocr-numeric-consensus-v6-coru-freeze.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: ocr-numeric-consensus-v6-coru-freeze-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  MODEL_ARTIFACT_ID: '8917522937'
+  MODEL_ARTIFACT_DIGEST: 080b0efd4b91a180a1a5c6acd767d72e0a8f286718e64eb90d8ec9d370d2dc17
+  MODEL_SHA256: 53229915331c2bbea2454f9e7cb5768a26e9edb30de750747f4397f1ff4cf92c
+  CORU_SOURCE_SEAL_STABLE_SHA256: d97900ffadd1871f2062bb33f44dd69a10a2bcb298b187e079673037e87edeb3
+  V6_DEVELOPMENT_RECORD_STABLE_SHA256: 144182c4147834d4e09f159ba70686ecb2563854b9415b83255342d06ca412dc
+  V6_GATE_LAB_STABLE_SHA256: 2d31bf83f18d22f22b0f010a8ddec1773ce44d686893f3b2fd7b485598295a69
+  GITHUB_TOKEN: ${{ github.token }}
+  PYTHONHASHSEED: '0'
+  OMP_THREAD_LIMIT: '1'
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  NUMEXPR_NUM_THREADS: '1'
+
+jobs:
+  freeze:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 20
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Install complete pinned CPU runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            tesseract-ocr tesseract-ocr-eng \
+            fonts-dejavu-core fonts-lato
+          test "$(tesseract --version | head -n 1)" = 'tesseract 5.3.4'
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            scipy==1.17.1 \
+            threadpoolctl==3.6.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13 \
+            packaging==26.3
+      - name: Unit tests and compilation before CORU access
+        run: |
+          python -m unittest -v \
+            ocr_real_risk_v1.test_coru_receipt_schema_adapter_v6 \
+            ocr_real_risk_v1.test_coru_receipt_external_v6 \
+            ocr_real_risk_v1.test_numeric_consensus_candidate_v6_coru \
+            ocr_real_risk_v1.test_wildreceipt_v6_gate_completion_lab \
+            ocr_real_risk_v1.test_numeric_digit_forest
+          python -m compileall -q ocr_real_risk_v1
+      - name: Prove CORU Receipt source is still unopened
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.coru_source_seal import verify
+          path = Path(
+              'ocr_real_risk_v1/source_seals/coru_receipt_source_seal_v1.json'
+          )
+          payload = json.loads(path.read_text())
+          assert verify(payload)
+          assert payload['stable_payload_sha256'] == \
+              'd97900ffadd1871f2062bb33f44dd69a10a2bcb298b187e079673037e87edeb3'
+          assert payload['resolved_revision'] == \
+              'c3c4b97b232bbe03046c78a974f516d439c1124e'
+          assert payload['component'] == 'Receipt'
+          assert payload['repository_metadata_only'] is True
+          assert payload['archives_downloaded'] == 0
+          assert payload['annotation_bytes_read'] == 0
+          assert payload['labels_read'] == 0
+          assert payload['dataset_rows_read'] == 0
+          assert payload['images_opened'] == 0
+          assert payload['ocr_executed'] is False
+          assert payload['outcomes_opened'] is False
+          objects = {row['path']: row for row in payload['objects']}
+          assert objects['Receipt/test.json']['identity']['digest'] == \
+              'f9bd21061515ca79ce1ceecf0837faa8c1f418eaa406fc6d38c6eff012ee6ab7'
+          assert objects['Receipt/test.zip']['identity']['digest'] == \
+              '351d1c5a2ab1ef12399787679563fbc9922a8d18e0f6296e16d7db0e0a4f7f41'
+          print({
+              'revision': payload['resolved_revision'],
+              'test_json_bytes': objects['Receipt/test.json']['size_bytes'],
+              'test_archive_bytes': objects['Receipt/test.zip']['size_bytes'],
+              'outcomes_opened': False,
+          })
+          PY
+      - name: Verify v6 development evidence without self-authorizing external claims
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.numeric_consensus_candidate_v6_coru import _verify_record
+          path = Path(
+              'ocr_real_risk_v1/run_records/'
+              'wildreceipt_v6_gate_completion_lab.json'
+          )
+          record = json.loads(path.read_text())
+          _verify_record(record)
+          assert record['record_stable_payload_sha256'] == \
+              '144182c4147834d4e09f159ba70686ecb2563854b9415b83255342d06ca412dc'
+          assert record['lab_stable_payload_sha256'] == \
+              '2d31bf83f18d22f22b0f010a8ddec1773ce44d686893f3b2fd7b485598295a69'
+          assert record['exact_results']['all']['accepted'] == 472
+          assert record['exact_results']['all']['accepted_false'] == 0
+          assert record['exact_results']['all']['counterfactual_false'] == 0
+          assert record['exact_results']['all']['coverage_lower'] > 0.25
+          assert record['exact_results']['all']['reduction_lower'] > 10.0
+          assert record['decision']['leave_one_shard_out_stability_pass'] is False
+          assert record['decision']['external_certificate_claimed'] is False
+          assert record['decision']['candidate_ready_to_freeze'] is False
+          PY
+      - name: Recover and verify frozen digit-forest-v3 bytes
+        run: |
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${MODEL_ARTIFACT_ID}/zip" \
+            --output model-artifact.zip
+          echo "${MODEL_ARTIFACT_DIGEST}  model-artifact.zip" | \
+            sha256sum --check --strict
+          mkdir model-artifact
+          unzip -q model-artifact.zip -d model-artifact
+          (
+            cd model-artifact/frozen-digit-forest-v3
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+          test "$(sha256sum model-artifact/frozen-digit-forest-v3/digit_forest.joblib | cut -d' ' -f1)" = \
+            "${MODEL_SHA256}"
+      - name: Build byte-identical v6 candidates twice
+        run: |
+          rm -rf frozen-coru-v6-a frozen-coru-v6-b
+          for output in frozen-coru-v6-a frozen-coru-v6-b; do
+            python -m ocr_real_risk_v1.numeric_consensus_candidate_v6_coru \
+              --repository-root . \
+              --model-root model-artifact/frozen-digit-forest-v3 \
+              --development-record \
+                ocr_real_risk_v1/run_records/wildreceipt_v6_gate_completion_lab.json \
+              --source-seal \
+                ocr_real_risk_v1/source_seals/coru_receipt_source_seal_v1.json \
+              --source-commit "${GITHUB_SHA}" \
+              --output-dir "${output}" \
+              > "${output}-stdout.json"
+          done
+          diff -rq frozen-coru-v6-a frozen-coru-v6-b
+          diff frozen-coru-v6-a/SHA256SUMS.txt frozen-coru-v6-b/SHA256SUMS.txt
+      - name: Independent frozen-candidate gates
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.core import canonical_json, sha256_bytes, sha256_file
+          from ocr_real_risk_v1.coru_source_seal import verify as verify_source
+          from ocr_real_risk_v1.numeric_consensus_candidate_v6_coru import (
+              CANDIDATE_ID,
+              CANDIDATE_SCHEMA,
+              SOURCE_CLOSURE_ALGORITHM,
+              discover_source_files,
+              verify_manifest,
+          )
+          roots = [Path('frozen-coru-v6-a'), Path('frozen-coru-v6-b')]
+          manifests = []
+          for root in roots:
+              manifest = json.loads((root / 'frozen_candidate.json').read_text())
+              manifests.append(manifest)
+              assert manifest['schema'] == CANDIDATE_SCHEMA
+              assert manifest['candidate_id'] == CANDIDATE_ID
+              assert manifest['status'] == \
+                  'FROZEN_BEFORE_CORU_RECEIPT_SCHEMA_OR_IMAGE_OPENING'
+              assert verify_manifest(manifest)
+              assert manifest['source_commit'] == '${{ github.sha }}'
+              runtime = manifest['runtime']
+              assert runtime['source_closure_algorithm'] == SOURCE_CLOSURE_ALGORITHM
+              declared = tuple(row['path'] for row in manifest['source_files'])
+              assert declared == discover_source_files(Path('.'))
+              assert runtime['source_file_count'] == len(declared)
+              assert runtime['source_file_set_sha256'] == sha256_bytes(
+                  canonical_json(list(declared)).encode('utf-8')
+              )
+              assert 'ocr_real_risk_v1/coru_receipt_schema_adapter_v6.py' in declared
+              assert 'ocr_real_risk_v1/coru_receipt_external_v6.py' in declared
+              assert 'ocr_real_risk_v1/wildreceipt_v6_gate_completion_lab.py' in declared
+              for row in manifest['source_files']:
+                  assert sha256_file(root / 'source' / row['path']) == row['sha256']
+              binding = manifest['external_source_binding']
+              assert binding['source_seal_stable_payload_sha256'] == \
+                  '${{ env.CORU_SOURCE_SEAL_STABLE_SHA256 }}'
+              assert binding['schema_or_outcomes_opened_before_freeze'] is False
+              source = json.loads((root / binding['source_seal_file']).read_text())
+              assert verify_source(source)
+              assert source['annotation_bytes_read'] == 0
+              assert source['labels_read'] == 0
+              assert source['images_opened'] == 0
+              assert source['outcomes_opened'] is False
+              protocol = manifest['external_protocol']
+              assert protocol['schema_adapter'][
+                  'requires_explicit_transcription_field'
+              ] is True
+              assert protocol['schema_adapter'][
+                  'category_name_is_not_ocr_truth'
+              ] is True
+              assert protocol['test_archive'][
+                  'download_only_after_schema_and_power_gate'
+              ] is True
+              assert protocol['selective_policy'][
+                  'frozen_before_coru_schema_opening'
+              ] is True
+              assert protocol['exact_gates']['target_error_reduction'] == 10.0
+              assert protocol['exact_gates']['minimum_selected'] == 3000
+              assert protocol['exact_gates']['minimum_accepted'] == 900
+              decision = manifest['decision']
+              assert decision['candidate_frozen_before_coru_schema_opening'] is True
+              assert decision['ready_for_coru_schema_and_power_census'] is True
+              assert decision['ready_to_open_coru_test_archive'] is False
+              assert decision['external_certificate_claimed'] is False
+              assert decision['production_ready'] is False
+              assert decision['honduras_production_ready'] is False
+              assert manifest['constraints']['external_spend_usd'] == 0
+              assert manifest['constraints']['production_modified'] is False
+              assert sha256_file(root / 'model/digit_forest.joblib') == \
+                  manifest['digit_model']['model_sha256']
+              (root / 'SHA256SUMS.txt').read_text()
+          assert manifests[0] == manifests[1]
+          sums = {
+              root.name: hashlib.sha256(
+                  (root / 'SHA256SUMS.txt').read_bytes()
+              ).hexdigest()
+              for root in roots
+          }
+          assert len(set(sums.values())) == 1
+          Path('deterministic-build-replay.json').write_text(
+              json.dumps(sums, indent=2, sort_keys=True) + '\n'
+          )
+          print(json.dumps({
+              'candidate_id': manifests[0]['candidate_id'],
+              'source_commit': manifests[0]['source_commit'],
+              'source_file_count': manifests[0]['runtime']['source_file_count'],
+              'stable_payload_sha256': manifests[0]['stable_payload_sha256'],
+              'source_file_set_sha256': manifests[0]['runtime'][
+                  'source_file_set_sha256'
+              ],
+              'coru_schema_opened_before_freeze': False,
+              'deterministic_builds': sums,
+          }, indent=2, sort_keys=True))
+          PY
+          (
+            cd frozen-coru-v6-a
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+          (
+            cd frozen-coru-v6-b
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+      - id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-numeric-consensus-v6-coru-receipt-frozen
+          path: |
+            frozen-coru-v6-a
+            deterministic-build-replay.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Record frozen manifest without model bytes
+        run: |
+          mkdir -p ocr_real_risk_v1/frozen_candidates
+          cp frozen-coru-v6-a/frozen_candidate.json \
+            ocr_real_risk_v1/frozen_candidates/numeric_consensus_v6_coru_receipt_manifest.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            ocr_real_risk_v1/frozen_candidates/numeric_consensus_v6_coru_receipt_manifest.json
+          if ! git diff --cached --quiet; then
+            git commit -m '[skip ci] Record frozen numeric-consensus-v6 CORU manifest'
+            git fetch origin "${GITHUB_REF_NAME}"
+            git rebase "origin/${GITHUB_REF_NAME}"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
