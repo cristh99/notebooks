@@ -1,0 +1,115 @@
+name: OCR WildReceipt untouched source seal v1
+
+on:
+  push:
+    branches:
+      - agent/ocr-10x10x-v4-development
+    paths:
+      - '.github/workflows/ocr-wildreceipt-source-seal-v1.yml'
+      - 'ocr_real_risk_v1/wildreceipt_source_seal.py'
+      - 'ocr_real_risk_v1/test_wildreceipt_source_seal.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ocr-wildreceipt-source-seal-v1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-seal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Unit tests and compilation
+        run: |
+          python -m unittest -v ocr_real_risk_v1.test_wildreceipt_source_seal
+          python -m compileall -q \
+            ocr_real_risk_v1/wildreceipt_source_seal.py \
+            ocr_real_risk_v1/test_wildreceipt_source_seal.py
+      - name: Seal repository metadata without opening corpus
+        run: |
+          rm -rf wildreceipt-source-seal
+          mkdir -p wildreceipt-source-seal
+          python -m ocr_real_risk_v1.wildreceipt_source_seal \
+            --output wildreceipt-source-seal/wildreceipt_source_seal_v1.json \
+            | tee wildreceipt-source-seal/stdout.json
+      - name: Independent fail-closed replay
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.wildreceipt_source_seal import (
+              DATASET_ID,
+              MINIMUM_SOURCE_OBJECTS,
+              MINIMUM_TOTAL_BYTES,
+              verify,
+          )
+
+          root = Path('wildreceipt-source-seal')
+          path = root / 'wildreceipt_source_seal_v1.json'
+          payload = json.loads(path.read_text())
+          assert verify(payload)
+          assert payload['dataset_id'] == DATASET_ID
+          assert len(payload['resolved_revision']) == 40
+          assert payload['repository_metadata_only'] is True
+          assert payload['archives_downloaded'] == 0
+          assert payload['dataset_rows_read'] == 0
+          assert payload['images_opened'] == 0
+          assert payload['annotations_opened'] == 0
+          assert payload['ocr_executed'] is False
+          assert payload['object_count'] >= MINIMUM_SOURCE_OBJECTS
+          assert payload['total_source_bytes'] >= MINIMUM_TOTAL_BYTES
+          assert len(payload['objects']) == payload['object_count']
+          for row in payload['objects']:
+              identity = row['identity']
+              assert identity['algorithm'] in {'sha256', 'git-sha1'}
+              expected = 64 if identity['algorithm'] == 'sha256' else 40
+              assert len(identity['digest']) == expected
+              assert payload['resolved_revision'] in row['download_url']
+              assert row['size_bytes'] > 0
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          (root / 'SHA256SUMS.txt').write_text(
+              f'{digest}  wildreceipt_source_seal_v1.json\n'
+          )
+          (root / 'ATTRIBUTION.md').write_text(
+              '# Attribution\n\n'
+              '`Theivaprakasham/wildreceipt` is identified by its immutable '
+              'repository revision and declares Apache-2.0. This source-seal '
+              'stage reads repository metadata only; no corpus outcome was opened.\n'
+          )
+          print(json.dumps({
+              'resolved_revision': payload['resolved_revision'],
+              'object_count': payload['object_count'],
+              'total_source_bytes': payload['total_source_bytes'],
+              'stable_payload_sha256': payload['stable_payload_sha256'],
+              'manifest_file_sha256': digest,
+              'outcomes_opened': False,
+          }, indent=2, sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-wildreceipt-source-seal-v1
+          path: wildreceipt-source-seal
+          if-no-files-found: error
+          retention-days: 90
+      - name: Record immutable seal on isolated branch
+        run: |
+          mkdir -p ocr_real_risk_v1/source_seals
+          cp wildreceipt-source-seal/wildreceipt_source_seal_v1.json \
+            ocr_real_risk_v1/source_seals/wildreceipt_source_seal_v1.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ocr_real_risk_v1/source_seals/wildreceipt_source_seal_v1.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'Record untouched WildReceipt source seal'
+            git push origin HEAD:${GITHUB_REF_NAME}
+          fi
