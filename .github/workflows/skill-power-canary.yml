@@ -5,7 +5,7 @@ on:
     paths:
       - ".github/workflows/skill-power-canary.yml"
       - "skill_power_canary/**"
-      - "tests/test_skill_power_canary.py"
+      - "tests/test_skill_power*.py"
       - "SKILL_POWER_CANARY.md"
   workflow_dispatch:
 
@@ -35,11 +35,11 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Run independent tests
-        run: python -m unittest discover -s tests -p "test_skill_power_canary.py" -v
+      - name: Run independent and exhaustive tests
+        run: python -m unittest discover -s tests -p "test_skill_power*.py" -v
 
       - name: Compile public verifier
-        run: python -m compileall -q skill_power_canary tests/test_skill_power_canary.py
+        run: python -m compileall -q skill_power_canary tests/test_skill_power_canary.py tests/test_skill_power_exhaustive.py
 
       - name: Rebuild frozen canary report
         run: |
@@ -66,12 +66,15 @@ jobs:
               ensure_ascii=False,
               allow_nan=False,
           )
-          expected_bytes = canonical(expected).encode("utf-8")
-          generated_bytes = canonical(generated).encode("utf-8")
-          if expected_bytes != generated_bytes:
+          if canonical(expected).encode("utf-8") != canonical(generated).encode("utf-8"):
               raise SystemExit("Canonical deterministic replay differs")
           print("Canonical deterministic replay PASS")
           PY
+
+      - name: Run exhaustive finite grammar and maximum-privilege checks
+        run: |
+          python -m skill_power_canary.exhaustive \
+            --output /tmp/exhaustive-skill-power-summary.json
 
       - name: Enforce zero-spend and finite-claim boundary
         run: |
@@ -80,14 +83,15 @@ jobs:
           from pathlib import Path
 
           report = json.loads(Path("/tmp/generated-skill-power-report.json").read_text())
+          exhaustive = json.loads(Path("/tmp/exhaustive-skill-power-summary.json").read_text())
           capsule = report["capsule"]
           metrics = report["metrics"]
-          if capsule["external_spend_usd"] != 0:
+          if capsule["external_spend_usd"] != 0 or exhaustive["external_spend_usd"] != 0:
               raise SystemExit("External spend must remain zero")
-          if capsule["network_calls_by_capsule"] != 0:
+          if capsule["network_calls_by_capsule"] != 0 or exhaustive["network_calls"] != 0:
               raise SystemExit("The verifier must not make network calls")
-          if report["outcome"] != "PASS":
-              raise SystemExit("Frozen finite canary did not pass")
+          if report["outcome"] != "PASS" or exhaustive["outcome"] != "PASS":
+              raise SystemExit("Finite verification did not pass")
           if metrics["governed_accuracy"] != "32/32":
               raise SystemExit("Governed procedure lost a frozen scenario")
           if metrics["baseline_accuracy"] != "8/32":
@@ -96,38 +100,58 @@ jobs:
               raise SystemExit("Negative-trigger regression")
           if metrics["governed_unsafe_accepts"] != 0:
               raise SystemExit("Unsafe acceptance regression")
-          print("Zero-spend finite canary PASS")
+          expected_counts = {
+              "claims": 14,
+              "logic": 13825,
+              "portfolio": 541,
+              "secrets": 1024,
+              "total": 15404,
+              "maximum_privilege": 768,
+          }
+          if exhaustive["counts"] != expected_counts:
+              raise SystemExit("Exhaustive finite grammar count changed")
+          if exhaustive["mismatch_count"] != 0:
+              raise SystemExit("Exhaustive finite grammar mismatch")
+          print("Zero-spend frozen canary and exhaustive finite extension PASS")
           PY
 
       - name: Emit hashes and summary
         run: |
           sha256sum \
             skill_power_canary/capsule.py \
+            skill_power_canary/exhaustive.py \
             skill_power_canary/frozen_scenarios.json \
             skill_power_canary/expected_report.json \
-            tests/test_skill_power_canary.py
+            tests/test_skill_power_canary.py \
+            tests/test_skill_power_exhaustive.py
           python - <<'PY'
           import json
           import os
           from pathlib import Path
 
           report = json.loads(Path("/tmp/generated-skill-power-report.json").read_text())
+          exhaustive = json.loads(Path("/tmp/exhaustive-skill-power-summary.json").read_text())
           metrics = report["metrics"]
           lines = [
               "# Skill Power Canary",
               "",
-              f"- Outcome: **{report['outcome']}**",
-              f"- Report digest: `{report['digest']}`",
+              f"- Frozen outcome: **{report['outcome']}**",
+              f"- Frozen report digest: `{report['digest']}`",
               f"- Scenario manifest: `{report['scenario_manifest_digest']}`",
               f"- Governed: **{metrics['governed_accuracy']}**",
               f"- Baseline: **{metrics['baseline_accuracy']}**",
               f"- Canary scenarios: **{metrics['canary_count']}**",
               f"- False activations: **{metrics['governed_false_activations']}**",
               f"- Unsafe accepts: **{metrics['governed_unsafe_accepts']}**",
+              f"- Exhaustive outcome: **{exhaustive['outcome']}**",
+              f"- Exhaustive cases: **{exhaustive['counts']['total']}**",
+              f"- Maximum-privilege cases: **{exhaustive['counts']['maximum_privilege']}**",
+              f"- Exhaustive mismatches: **{exhaustive['mismatch_count']}**",
+              f"- Exhaustive digest: `{exhaustive['digest']}`",
               "- External spend: **$0**",
               "- Capsule network calls: **0**",
               "",
-              "This PASS is limited to the frozen finite procedures. It is not a Verified or production claim.",
+              "This PASS is limited to frozen and exhaustively enumerated finite grammars. It is not hidden real-world out-of-sample, Verified, or production evidence.",
           ]
           Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines) + "\n")
           PY
