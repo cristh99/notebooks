@@ -1,0 +1,118 @@
+{
+  "baseline_wrong_cases": [
+    {
+      "alignment_status": "INDETERMINATE",
+      "baseline_correct": false,
+      "candidate_confidence": 76.966087,
+      "candidate_digits": "2890",
+      "candidate_text": "28,90",
+      "crop_sha256": "6112baf48d80a9f5e7a89261c8040ec915132dd7cb849a01713bb5cf868c515c",
+      "decision_sha256": "a6685d96759e66766dc3d9202c882bea319533f6eb1b8af49c881cccbfb396e5",
+      "geometry_score": 1.05,
+      "iou": 0.781981981981982,
+      "page_id": "X51005568911",
+      "predicted_digits": "2990",
+      "runtime_ms": 1.713225000003149,
+      "scope": "SAME_LENGTH_SUBSTITUTION",
+      "smaller_coverage": 1.0,
+      "truth_digits": "2990",
+      "truth_text": "29.90",
+      "vertical_overlap": 1.0
+    }
+  ],
+  "decision": {
+    "external_10x_quality": "BLOCKED",
+    "external_10x_speed": "NOT_MEASURED_END_TO_END",
+    "production": "BLOCKED",
+    "semantic_context": "SEPARATE_GATE_REQUIRED"
+  },
+  "environment": {
+    "language": "eng",
+    "oem": 1,
+    "omp_thread_limit": 1,
+    "pixel_configuration_sha256": "ae02f776c70e9afd7a57fcf4cfb31edae983294b0c1ce5c48d1ee12fc6e3334f",
+    "psm": 3,
+    "tesseract_version": "tesseract 5.5.0"
+  },
+  "external_certification": false,
+  "full_report_bytes": 61194,
+  "full_report_file_sha256": "e0c0b63c803a869dc1ed5d6411400b3c7fdf0b72cd9e9a138175b8b11c85fc26",
+  "full_report_receipt_sha256": "d80008c25366f062a10e06a49f185d2e058afef37b11d38a88e2eda24901bc63",
+  "promotion_status": "BLOCKED",
+  "protocol": {
+    "candidate_selection": "Tesseract TSV ASCII numeric tokens, 4-12 digits",
+    "geometric_matching": "one-to-one geometry without token strings",
+    "truth_use": "post-selection evaluation only",
+    "visual_scope": "SAME_LENGTH_SUBSTITUTION"
+  },
+  "schema": "ocr-sroie-official-task1-development-canary-v4-summary/1",
+  "source": {
+    "dataset": "SROIE 2019 task 1 original public Google Drive files",
+    "page_ids": [
+      "X51005676538",
+      "X51005577192",
+      "X51005675095",
+      "X51005676536",
+      "X51005663324",
+      "X51005568914",
+      "X51005568913",
+      "X51005568911",
+      "X51005361907",
+      "X51005365179"
+    ],
+    "pages": 10,
+    "selection": "fixed convenience subset before execution"
+  },
+  "spend_usd": 0.0,
+  "status": "DEVELOPMENT_CANARY_ONLY",
+  "summary": {
+    "all_numeric": {
+      "candidate_count": 139,
+      "geometrically_matched": 77,
+      "truth_units": 95,
+      "unmatched_candidates": 62,
+      "unmatched_truth": 18
+    },
+    "pixel_verifier": {
+      "accepted_coverage": 0.7662337662337663,
+      "accepted_error_rate": 0.0,
+      "accepted_error_wilson_95": [
+        0.0,
+        0.061129370526788386
+      ],
+      "aligned_accept": 59,
+      "conservative_error_reduction_factor": 0.03756324132468847,
+      "correct_quarantined": 0,
+      "indeterminate_abstain": 18,
+      "misaligned_quarantine": 0,
+      "observed_error_reduction_factor": "Infinity",
+      "quality_10x_gate": false,
+      "wrong_abstained": 1,
+      "wrong_accepted": 0,
+      "wrong_detected": 0,
+      "wrong_not_accepted_rate": 1.0
+    },
+    "runtime": {
+      "pixel_bank_warmup_seconds": 1.3200177419998909,
+      "pixel_selective_warm_seconds": 0.18681220300140922,
+      "pixel_warm_median_ms": 1.9451590001153818,
+      "pixel_warm_p95_ms": 3.6343880001368234,
+      "speed_10x_gate": "NOT_MEASURED_END_TO_END",
+      "tesseract_full_page_seconds": 5.644395149000502
+    },
+    "same_length_baseline": {
+      "correct": 76,
+      "error_rate": 0.012987012987012988,
+      "wilson_95": [
+        0.0022962172971240508,
+        0.06996198914680525
+      ],
+      "wrong": 1
+    },
+    "scope_partition": {
+      "out_of_scope_length_or_partial_match": 0,
+      "same_length_substitution": 77
+    }
+  },
+  "summary_receipt_sha256": "d05cc208e36c826fc3532fa92a2401ebea06b27aa23a512e7b8cc21a0a1b12fe"
+}
