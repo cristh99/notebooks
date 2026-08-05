@@ -1,0 +1,71 @@
+{
+  "base_branch": "agent/data-science-dominance-dab-slice",
+  "base_sha": "6245f7ad5f3366074411e1ed114b0a2d4a48a3f8",
+  "candidate": {
+    "frozen_before_held_out_ground_truth": true,
+    "frozen_before_held_out_query_content": true,
+    "frozen_before_held_out_validators": true,
+    "frozen_before_official_dataset_values_for_this_candidate": true,
+    "path": "data_science_dominance/dab_fresh_usaspending_v1/usaspending_fresh_engine.py",
+    "sha256": "a0afa1d615b138e46d588401d6c228ad8dd5992033abfc3486b30e2aff633976"
+  },
+  "dab_commit": "9a55e34271a2500a41cbc009e239edd94599e374",
+  "dab_repository": "ucbepic/DataAgentBench",
+  "execution_policy": {
+    "candidate_may_access_ground_truth": false,
+    "candidate_may_access_query_text_only_at_runtime": true,
+    "candidate_may_access_validators": false,
+    "candidate_network_access": false,
+    "outputs_sealed_before_validation": true,
+    "post_hoc_retuning_permitted": false,
+    "validators_execute_once_after_seal": true
+  },
+  "held_out_scope": [
+    "query_usaspending/query2",
+    "query_usaspending/query3",
+    "query_usaspending/query4"
+  ],
+  "prohibited_inputs_not_accessed": [
+    "query_usaspending/query2/query.json",
+    "query_usaspending/query2/validate.py",
+    "query_usaspending/query2/ground_truth.csv",
+    "query_usaspending/query3/query.json",
+    "query_usaspending/query3/validate.py",
+    "query_usaspending/query3/ground_truth.csv",
+    "query_usaspending/query4/query.json",
+    "query_usaspending/query4/validate.py",
+    "query_usaspending/query4/ground_truth.csv",
+    "query_usaspending/manual_querycode/compute_ground_truth.py"
+  ],
+  "promotion_rule": {
+    "merge_permitted": false,
+    "novelty_points": 0,
+    "pass_0_or_1_points": 0,
+    "pass_2_of_3_points": 15,
+    "pass_3_of_3_points": 35,
+    "score_before": 465
+  },
+  "public_inputs_accessed": [
+    "query_usaspending/db_description.txt",
+    "query_usaspending/db_description_withhint.txt",
+    "query_usaspending/manual_querycode/corrupt.py",
+    "query_usaspending/query1/query.json",
+    "query_usaspending/query1/validate.py"
+  ],
+  "schema": "data-science-dominance/fresh-usaspending-freeze/1",
+  "tests": {
+    "path": "data_science_dominance/dab_fresh_usaspending_v1/test_usaspending_fresh_engine.py",
+    "public_corruption_id_cases": 500,
+    "public_prefix_family_count": 207,
+    "result": "PASS",
+    "sha256": "3dd9caadd54e208c92053e98c46e2068c11abc0d553d2d5f7f0d24fbe2c4f37a",
+    "synthetic_test_count": 14
+  },
+  "transport": {
+    "candidate_base64_sha256": "af616c4e761b225592cf2833cadecbbee684955295c5d23dfa1b7e1b15021d37",
+    "candidate_gzip_sha256": "bf506972123ddd3c63ca0186aede3faf72d0c404eed74a4b6f7826bf5c258078",
+    "encoding": "gzip+base64",
+    "tests_base64_sha256": "9bbe5ff71f71dfe1432cbdf18c11d7860624ebde6e96ea7f612dafd439376d1f",
+    "tests_gzip_sha256": "332ec324ce4bbb451e90f4a55201aeffbcd8a792bdc797dfc328d69e9be9ac5e"
+  }
+}
