@@ -1,0 +1,267 @@
+name: Data Science dominance — fresh USAspending V3 query8-10 blind gate
+
+on:
+  push:
+    branches:
+      - agent/data-science-dominance-dab-fresh-usaspending-v3
+    paths:
+      - .github/workflows/data-science-dominance-dab-fresh-usaspending-v3-official.yml
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  V2_ROOT: data_science_dominance/dab_fresh_usaspending_v2
+  V3_ROOT: data_science_dominance/dab_fresh_usaspending_v3
+  DAB_SHA: 9a55e34271a2500a41cbc009e239edd94599e374
+  PGPASSWORD: postgres
+
+jobs:
+  solve-and-seal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove one-shot workflow-only activation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_EVENT_NAME}" = push
+          test "${GITHUB_RUN_ATTEMPT}" = 1
+          test "$(git rev-parse HEAD^)" = c380b00f6f5cd980f170cc25e0c3dac08d85434b
+          test "$(git diff --name-only HEAD^ HEAD)" = .github/workflows/data-science-dominance-dab-fresh-usaspending-v3-official.yml
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Install exact runtime and acquisition dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client git-lfs
+          python -m pip install --disable-pip-version-check \
+            'duckdb==1.3.1' 'psycopg2-binary==2.9.9' 'pymongo==4.13.2' \
+            'huggingface-hub==1.2.1'
+          python -m pip freeze | sort > official-runtime-pip-freeze.txt
+
+      - name: Verify repaired synthetic PASS
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: cristh99/notebooks
+          run-id: 31023289206
+          name: fresh-usaspending-v3-synthetic-v2
+          path: synthetic-proof
+
+      - name: Reconstruct exact candidate and official harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          receipt="$(find synthetic-proof -name v3-synthetic-receipt-v2.json -type f | head -1)"
+          test -n "$receipt"
+          python - "$receipt" <<'PY'
+          import json, sys
+          receipt = json.load(open(sys.argv[1], encoding='utf-8'))
+          assert receipt['verdict'] == 'PASS'
+          assert receipt['candidate_sha256'] == 'b963b2579756dbe6900da06c2c49de6c81d80354af83073e6572226e25811621'
+          assert receipt['base_v2_sha256'] == '76d240d4f4bb1ed5a87f32c18ae92e7629b971f761577eb16d2b5deccf57ef8f'
+          assert receipt['held_out_query_content_accessed'] is False
+          assert receipt['validators_executed'] is False
+          assert receipt['ground_truth_accessed'] is False
+          assert receipt['official_dataset_values_accessed'] is False
+          PY
+          bash "$V2_ROOT/reconstruct.sh"
+          cp "$V2_ROOT/usaspending_fresh_engine.py" "$V3_ROOT/usaspending_v2_engine.py"
+          echo '76d240d4f4bb1ed5a87f32c18ae92e7629b971f761577eb16d2b5deccf57ef8f  '"$V3_ROOT"'/usaspending_v2_engine.py' | sha256sum -c -
+          echo 'b963b2579756dbe6900da06c2c49de6c81d80354af83073e6572226e25811621  '"$V3_ROOT"'/usaspending_v3_engine.py' | sha256sum -c -
+          bash "$V2_ROOT/reconstruct_official_harness.sh"
+          cp "$V2_ROOT/official_harness.py" "$V3_ROOT/official_harness_v2_base.py"
+          echo '4893bfa4a24d1385d2f71b4e22676124c533f98a6e24d3bbc45b3d2c30f75412  '"$V3_ROOT"'/official_harness_v2_base.py' | sha256sum -c -
+          python "$V3_ROOT/build_official_harness.py"
+          echo 'c69b3021578c4ca478716415abd4bbb7c98e08896ac5e5d433de6ac445abdda2  '"$V3_ROOT"'/official_harness_v3.py' | sha256sum -c -
+          python -m py_compile "$V3_ROOT/usaspending_v3_engine.py" "$V3_ROOT/official_harness_v3.py"
+
+      - name: Acquire only USAspending datasets and held-out query texts
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GIT_LFS_SKIP_SMUDGE=1
+          git clone --filter=blob:none --no-checkout https://github.com/ucbepic/DataAgentBench.git dab
+          cd dab
+          git sparse-checkout init --no-cone
+          cat > .git/info/sparse-checkout <<'EOF'
+          /dataset_manifest.tsv
+          /query_usaspending/query_dataset/**
+          /query_usaspending/query8/query.json
+          /query_usaspending/query9/query.json
+          /query_usaspending/query10/query.json
+          EOF
+          git -c advice.detachedHead=false checkout "$DAB_SHA"
+          test "$(git rev-parse HEAD)" = "$DAB_SHA"
+          test -z "$(find . -type f \( -name ground_truth.csv -o -name validate.py \) -print -quit)"
+          cd ..
+          python "$V3_ROOT/official_harness_v3.py" acquire \
+            --dab-root "$PWD/dab" \
+            --output "$PWD/official-data-manifest.json"
+
+      - name: Build exact PostgreSQL contracts database
+        shell: bash
+        run: |
+          set -euo pipefail
+          dropdb --if-exists -h 127.0.0.1 -U postgres usaspending_contracts
+          createdb -h 127.0.0.1 -U postgres usaspending_contracts
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U postgres -d usaspending_contracts \
+            -f dab/query_usaspending/query_dataset/contracts.sql > usaspending-import.log
+          python - <<'PY'
+          import json, psycopg2
+          conn = psycopg2.connect(host='127.0.0.1', port=5432, user='postgres', password='postgres', dbname='usaspending_contracts')
+          checks = {}
+          try:
+              with conn.cursor() as cur:
+                  for table in ('contracts','contract_amounts'):
+                      cur.execute(f'SELECT COUNT(*) FROM {table}')
+                      count = int(cur.fetchone()[0])
+                      if count <= 0: raise SystemExit(f'empty table: {table}')
+                      checks[table] = count
+          finally:
+              conn.close()
+          open('postgres-integrity.json','w').write(json.dumps(checks, indent=2, sort_keys=True)+'\n')
+          print(checks)
+          PY
+
+      - name: Solve all three fresh queries in one frozen process and seal answers
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(find dab -type f \( -name ground_truth.csv -o -name validate.py \) -print -quit)"
+          mkdir -p sealed-answers
+          python "$V3_ROOT/official_harness_v3.py" solve \
+            --dab-root "$PWD/dab" \
+            --engine "$PWD/$V3_ROOT/usaspending_v3_engine.py" \
+            --freeze "$PWD/$V3_ROOT/FREEZE.json" \
+            --output-dir "$PWD/sealed-answers" \
+            --data-manifest "$PWD/official-data-manifest.json" \
+            --postgres-integrity "$PWD/postgres-integrity.json" \
+            --answer-manifest "$PWD/answer-manifest.json" \
+            2>&1 | tee candidate-solve.log
+          for n in 8 9 10; do test -s "sealed-answers/usaspending_${n}.txt"; done
+
+      - name: Upload immutable answers before validator checkout
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fresh-usaspending-v3-sealed-answers
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            sealed-answers/**
+            answer-manifest.json
+            answer-manifest.sha256
+            official-data-manifest.json
+            postgres-integrity.json
+            candidate-solve.log
+            usaspending-import.log
+            official-runtime-pip-freeze.txt
+            data_science_dominance/dab_fresh_usaspending_v3/FREEZE.json
+            data_science_dominance/dab_fresh_usaspending_v3/usaspending_v3_engine.py
+            data_science_dominance/dab_fresh_usaspending_v3/build_official_harness.py
+
+  validate-sealed-answers:
+    needs: solve-and-seal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: fresh-usaspending-v3-sealed-answers
+          path: sealed-bundle
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Reconstruct exact validation harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash "$V2_ROOT/reconstruct_official_harness.sh"
+          cp "$V2_ROOT/official_harness.py" "$V3_ROOT/official_harness_v2_base.py"
+          python "$V3_ROOT/build_official_harness.py"
+          echo 'c69b3021578c4ca478716415abd4bbb7c98e08896ac5e5d433de6ac445abdda2  '"$V3_ROOT"'/official_harness_v3.py' | sha256sum -c -
+
+      - name: Acquire validators and ground truth only after answer sealing
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --no-checkout https://github.com/ucbepic/DataAgentBench.git dab-validation
+          cd dab-validation
+          git sparse-checkout init --no-cone
+          cat > .git/info/sparse-checkout <<'EOF'
+          /query_usaspending/query8/**
+          /query_usaspending/query9/**
+          /query_usaspending/query10/**
+          EOF
+          git -c advice.detachedHead=false checkout "$DAB_SHA"
+          test "$(git rev-parse HEAD)" = "$DAB_SHA"
+          test "$(find . -name ground_truth.csv -type f | wc -l)" -eq 3
+          test "$(find . -name validate.py -type f | wc -l)" -eq 3
+
+      - name: Run each official validator exactly once
+        shell: bash
+        run: |
+          set +e
+          python "$V3_ROOT/official_harness_v3.py" validate \
+            --sealed-bundle "$PWD/sealed-bundle" \
+            --validation-root "$PWD/dab-validation" \
+            --evidence-dir "$PWD/validation-evidence" \
+            2>&1 | tee validator-output.log
+          status=${PIPESTATUS[0]}
+          echo "$status" > validator-process.status
+          exit 0
+
+      - name: Upload complete official evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: fresh-usaspending-v3-official
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            sealed-bundle/**
+            validation-evidence/**
+            validator-output.log
+            validator-process.status
+            data_science_dominance/dab_fresh_usaspending_v3/FREEZE.json
+            data_science_dominance/dab_fresh_usaspending_v3/usaspending_v3_engine.py
+            data_science_dominance/dab_fresh_usaspending_v3/build_official_harness.py
+
+      - name: Enforce preregistered promotion gate
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path('validation-evidence/external-receipt.json').read_text())
+          if receipt['pass_count'] < 2:
+              raise SystemExit(f"fresh USAspending V3: {receipt['pass_count']}/3; evidence preserved; no retuning")
+          print(f"fresh USAspending V3: {receipt['pass_count']}/3; +{receipt['promotion_points']} points")
+          PY
