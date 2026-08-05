@@ -1,0 +1,110 @@
+name: Skill Power Canary Public Verification
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/skill-power-canary.yml"
+      - "skill_power_canary/**"
+      - "tests/test_skill_power_canary.py"
+      - "SKILL_POWER_CANARY.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: skill-power-canary-${{ github.repository }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONHASHSEED: "0"
+      TZ: UTC
+
+    steps:
+      - name: Check out public capsule
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12"
+
+      - name: Run independent tests
+        run: python -m unittest discover -s tests -p "test_skill_power_canary.py" -v
+
+      - name: Compile public verifier
+        run: python -m compileall -q skill_power_canary tests/test_skill_power_canary.py
+
+      - name: Rebuild frozen canary report
+        run: |
+          python -m skill_power_canary \
+            --scenarios skill_power_canary/frozen_scenarios.json \
+            --output /tmp/generated-skill-power-report.json
+
+      - name: Require byte-identical deterministic replay
+        run: cmp skill_power_canary/expected_report.json /tmp/generated-skill-power-report.json
+
+      - name: Enforce zero-spend and finite-claim boundary
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("/tmp/generated-skill-power-report.json").read_text())
+          capsule = report["capsule"]
+          metrics = report["metrics"]
+          if capsule["external_spend_usd"] != 0:
+              raise SystemExit("External spend must remain zero")
+          if capsule["network_calls_by_capsule"] != 0:
+              raise SystemExit("The verifier must not make network calls")
+          if report["outcome"] != "PASS":
+              raise SystemExit("Frozen finite canary did not pass")
+          if metrics["governed_accuracy"] != "32/32":
+              raise SystemExit("Governed procedure lost a frozen scenario")
+          if metrics["baseline_accuracy"] != "8/32":
+              raise SystemExit("Frozen baseline changed")
+          if metrics["governed_false_activations"] != 0:
+              raise SystemExit("Negative-trigger regression")
+          if metrics["governed_unsafe_accepts"] != 0:
+              raise SystemExit("Unsafe acceptance regression")
+          print("Zero-spend finite canary PASS")
+          PY
+
+      - name: Emit hashes and summary
+        run: |
+          sha256sum \
+            skill_power_canary/capsule.py \
+            skill_power_canary/frozen_scenarios.json \
+            skill_power_canary/expected_report.json \
+            tests/test_skill_power_canary.py
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          report = json.loads(Path("/tmp/generated-skill-power-report.json").read_text())
+          metrics = report["metrics"]
+          lines = [
+              "# Skill Power Canary",
+              "",
+              f"- Outcome: **{report['outcome']}**",
+              f"- Report digest: `{report['digest']}`",
+              f"- Scenario manifest: `{report['scenario_manifest_digest']}`",
+              f"- Governed: **{metrics['governed_accuracy']}**",
+              f"- Baseline: **{metrics['baseline_accuracy']}**",
+              f"- Canary scenarios: **{metrics['canary_count']}**",
+              f"- False activations: **{metrics['governed_false_activations']}**",
+              f"- Unsafe accepts: **{metrics['governed_unsafe_accepts']}**",
+              "- External spend: **$0**",
+              "- Capsule network calls: **0**",
+              "",
+              "This PASS is limited to the frozen finite procedures. It is not a Verified or production claim.",
+          ]
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines) + "\n")
+          PY
