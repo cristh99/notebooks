@@ -1,0 +1,160 @@
+{
+  "candidate_commit": "fe8865e9182f8ef62babcc1bdda0ac4c107cebfd",
+  "constraints": {
+    "external_spend_usd": 0.0,
+    "gcloud_used": false,
+    "github_actions_used": false,
+    "gpu_used": false,
+    "paid_api_used": false,
+    "production_modified": false
+  },
+  "flags": [
+    {
+      "accepted": false,
+      "baseline_correct": true,
+      "baseline_digits": "3000",
+      "batch": "batch1",
+      "decision_action": "QUARANTINE",
+      "decision_reason": "PIXEL_VIEWS_DO_NOT_PRODUCE_RIVAL",
+      "decision_sha256": "3f51a0e07746a625adeacc92711b9519d070bc214a4a5f59567bf4ebf64c0338",
+      "final_correct_if_accepted": null,
+      "output_digits": "3000",
+      "rival_digits": "3800",
+      "stem": "X51008164998",
+      "token_index": 66,
+      "truth_annotation_line": 20,
+      "truth_digits": "3000",
+      "truth_match": {
+        "center_distance": 23.521266972678152,
+        "flag_coverage": 1.0,
+        "iou": 0.38266129032258067,
+        "truth_coverage": 0.38266129032258067
+      },
+      "truth_text": "30.00 SR"
+    },
+    {
+      "accepted": false,
+      "baseline_correct": false,
+      "baseline_digits": "3600",
+      "batch": "batch1",
+      "decision_action": "QUARANTINE",
+      "decision_reason": "PIXEL_PARTITION_INDETERMINATE",
+      "decision_sha256": "4ba06bfd13c98ed8a559e7e709286ee2f4346caa196e41d53ef68199925d030b",
+      "final_correct_if_accepted": null,
+      "output_digits": "3600",
+      "rival_digits": "3800",
+      "stem": "X51008164998",
+      "token_index": 93,
+      "truth_annotation_line": 31,
+      "truth_digits": "3800",
+      "truth_match": {
+        "center_distance": 2.5,
+        "flag_coverage": 1.0,
+        "iou": 0.5964052287581699,
+        "truth_coverage": 0.5964052287581699
+      },
+      "truth_text": "38.00"
+    },
+    {
+      "accepted": false,
+      "baseline_correct": false,
+      "baseline_digits": "3890",
+      "batch": "batch1",
+      "decision_action": "QUARANTINE",
+      "decision_reason": "PIXEL_PARTITION_INDETERMINATE",
+      "decision_sha256": "853bfc5ca985bca0a0e1677e33d80b4f78ccfe7c652787f8f653d8fcf03ea601",
+      "final_correct_if_accepted": null,
+      "output_digits": "3890",
+      "rival_digits": "3800",
+      "stem": "X51008164998",
+      "token_index": 99,
+      "truth_annotation_line": 33,
+      "truth_digits": "3800",
+      "truth_match": {
+        "center_distance": 1.0,
+        "flag_coverage": 1.0,
+        "iou": 0.7647058823529411,
+        "truth_coverage": 0.7647058823529411
+      },
+      "truth_text": "38.00"
+    },
+    {
+      "accepted": true,
+      "baseline_correct": false,
+      "baseline_digits": "1600",
+      "batch": "batch2",
+      "decision_action": "REPLACE",
+      "decision_reason": "SEMANTIC_RIVAL_CONFIRMED_BY_TWO_PIXEL_VIEWS",
+      "decision_sha256": "26807adfedabd2c54bd38f0281d768563a18758129bac3e967ae8f51399d2a58",
+      "final_correct_if_accepted": true,
+      "output_digits": "1500",
+      "rival_digits": "1500",
+      "stem": "X51008164996",
+      "token_index": 93,
+      "truth_annotation_line": 28,
+      "truth_digits": "1500",
+      "truth_match": {
+        "center_distance": 23.0,
+        "flag_coverage": 1.0,
+        "iou": 0.4803921568627451,
+        "truth_coverage": 0.4803921568627451
+      },
+      "truth_text": "15.00 SR"
+    },
+    {
+      "accepted": false,
+      "baseline_correct": true,
+      "baseline_digits": "1500",
+      "batch": "batch2",
+      "decision_action": "QUARANTINE",
+      "decision_reason": "PIXEL_VIEWS_DO_NOT_PRODUCE_RIVAL",
+      "decision_sha256": "a286f0eecd33110881b668384d046915ba68dc0e290b89124eb08c63a29b9d32",
+      "final_correct_if_accepted": null,
+      "output_digits": "1500",
+      "rival_digits": "3500",
+      "stem": "X51008164991",
+      "token_index": 81,
+      "truth_annotation_line": 28,
+      "truth_digits": "1500",
+      "truth_match": {
+        "center_distance": 20.506096654409877,
+        "flag_coverage": 1.0,
+        "iou": 0.44838630204483865,
+        "truth_coverage": 0.44838630204483865
+      },
+      "truth_text": "15.00 SR"
+    },
+    {
+      "accepted": false,
+      "baseline_correct": true,
+      "baseline_digits": "1600",
+      "batch": "batch2",
+      "decision_action": "QUARANTINE",
+      "decision_reason": "PIXEL_PARTITION_INDETERMINATE",
+      "decision_sha256": "7013185d46d539d0f51247e5f026b46b1e32e10e216d8f8812eae02040b806b7",
+      "final_correct_if_accepted": null,
+      "output_digits": "1600",
+      "rival_digits": "1400",
+      "stem": "X51008145504",
+      "token_index": 86,
+      "truth_annotation_line": 26,
+      "truth_digits": "1600",
+      "truth_match": {
+        "center_distance": 1.4142135623730951,
+        "flag_coverage": 1.0,
+        "iou": 0.8308270676691729,
+        "truth_coverage": 0.8308270676691729
+      },
+      "truth_text": "16.00"
+    }
+  ],
+  "rules": {
+    "annotations_opened_only_for_flagged_pages_after_decisions_sealed": true,
+    "annotations_used_at_inference": false,
+    "candidate_changed_from_outcomes": false,
+    "significance_look_performed": false
+  },
+  "schema": "ocr-v4-2-untouched-flag-evidence/1",
+  "stable_payload_sha256": "870ce9e58e9362bc00219fbf3e7568ea525b754f508642754b7e5277523598b1",
+  "status": "POST_SEAL_EVALUATION_ACCUMULATION_ONLY"
+}
