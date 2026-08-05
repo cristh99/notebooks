@@ -1,0 +1,23 @@
+test_argmax_recipient ... ok
+test_count_awards ... ok
+test_description_and_state_filter ... ok
+test_grouped_count_and_recipient_name_deduplication ... ok
+test_all_public_prefix_families_and_ocr_equivalence ... ok
+test_public_corruption_pipeline_resolves_500_ids ... ok
+test_superseded_suffix_is_detected_but_primary_key_is_stable ... ok
+test_public_money_families ... ok
+test_highest_proportion_with_minimum_group_size ... ok
+test_small_high_rate_group_is_excluded ... ok
+test_active_year_is_interval_overlap ... ok
+test_argmax_recipient_plan ... ok
+test_contract_object_wins_over_recipient_filter_noun ... ok
+test_exposed_query1_plan ... ok
+test_naics_average_plan ... ok
+test_suffix_amount_comparator ... ok
+test_distinct_recipient_count_uses_registry_entity_not_collapsed_key ... ok
+test_ocr_collision_preserves_distinct_recipient_entities ... ok
+
+----------------------------------------------------------------------
+Ran 18 tests in 0.074s
+
+OK
