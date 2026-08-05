@@ -1,0 +1,244 @@
+name: Data Science dominance — fresh USAspending official blind gate v2
+
+on:
+  push:
+    branches:
+      - agent/data-science-dominance-dab-fresh-usaspending-v1
+    paths:
+      - .github/workflows/data-science-dominance-dab-fresh-usaspending-v1-official-v2.yml
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  ROOT: data_science_dominance/dab_fresh_usaspending_v1
+  DAB_SHA: 9a55e34271a2500a41cbc009e239edd94599e374
+  HF_HUB_DISABLE_TELEMETRY: '1'
+  HF_HUB_DISABLE_XET: '1'
+  PGHOST: 127.0.0.1
+  PGPORT: '5432'
+  PGUSER: postgres
+  PGPASSWORD: postgres
+
+jobs:
+  one-shot-evaluation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove workflow-only activation after zero-data repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_EVENT_NAME}" = push
+          test "${GITHUB_RUN_ATTEMPT}" = 1
+          test "$(git rev-parse HEAD^)" = 264d6e6f39879de3c67b4ec247792f26e4877e1c
+          test "$(git diff --name-only HEAD^ HEAD)" = .github/workflows/data-science-dominance-dab-fresh-usaspending-v1-official-v2.yml
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+          python -m pip install --disable-pip-version-check \
+            'duckdb==1.3.1' 'psycopg2-binary==2.9.9' \
+            'pymongo==4.13.2' 'huggingface-hub==0.36.0'
+          python -m pip freeze | sort > official-runtime-pip-freeze.txt
+
+      - name: Verify synthetic PASS and reconstruct immutable code
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: cristh99/notebooks
+          run-id: 31001083009
+          name: fresh-usaspending-synthetic-v1
+          path: synthetic-proof
+
+      - name: Enforce chain of custody
+        shell: bash
+        run: |
+          set -euo pipefail
+          receipt="$(find synthetic-proof -name fresh-usaspending-synthetic-receipt.json -type f | head -1)"
+          test -n "$receipt"
+          python - "$receipt" <<'PY'
+          import json, sys
+          receipt = json.load(open(sys.argv[1], encoding='utf-8'))
+          assert receipt['verdict'] == 'PASS'
+          assert receipt['github_run_id'] == 31001083009
+          assert receipt['held_out_query_content_accessed'] is False
+          assert receipt['held_out_validators_executed'] is False
+          assert receipt['held_out_ground_truth_accessed'] is False
+          assert receipt['official_dataset_values_accessed'] is False
+          assert receipt['hashes']['candidate_sha256'] == 'a0afa1d615b138e46d588401d6c228ad8dd5992033abfc3486b30e2aff633976'
+          PY
+          bash "$ROOT/reconstruct.sh"
+          bash "$ROOT/reconstruct_official_harness.sh"
+          echo "a0afa1d615b138e46d588401d6c228ad8dd5992033abfc3486b30e2aff633976  $ROOT/usaspending_fresh_engine.py" | sha256sum -c -
+          echo "1371f02e00ea9c3dccf4eba266c7309a0e0631ecac7f0a7a7ee4ec026d907dd2  $ROOT/official_harness.py" | sha256sum -c -
+
+      - name: Acquire only query texts and data, never validators
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GIT_LFS_SKIP_SMUDGE=1
+          git clone --filter=blob:none --no-checkout https://github.com/ucbepic/DataAgentBench.git dab
+          cd dab
+          git sparse-checkout init --no-cone
+          cat > .git/info/sparse-checkout <<'EOF'
+          /dataset_manifest.tsv
+          /query_usaspending/query_dataset/**
+          /query_usaspending/query2/query.json
+          /query_usaspending/query3/query.json
+          /query_usaspending/query4/query.json
+          EOF
+          git -c advice.detachedHead=false checkout "$DAB_SHA"
+          test "$(git rev-parse HEAD)" = "$DAB_SHA"
+          test -z "$(find . -type f \( -name ground_truth.csv -o -name validate.py \) -print -quit)"
+          cd ..
+          python "$ROOT/official_harness.py" acquire --dab-root "$PWD/dab" --output "$PWD/official-data-manifest.json"
+
+      - name: Build exact PostgreSQL source
+        shell: bash
+        run: |
+          set -euo pipefail
+          dropdb --if-exists -h 127.0.0.1 -U postgres usaspending_contracts
+          createdb -h 127.0.0.1 -U postgres usaspending_contracts
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U postgres -d usaspending_contracts \
+            -f dab/query_usaspending/query_dataset/contracts.sql > usaspending-import.log
+          python - <<'PY'
+          import json, psycopg2
+          conn = psycopg2.connect(host='127.0.0.1', port=5432, user='postgres', password='postgres', dbname='usaspending_contracts')
+          try:
+              result = {}
+              with conn.cursor() as cur:
+                  for table in ('contracts', 'contract_amounts'):
+                      cur.execute(f'SELECT COUNT(*) FROM {table}')
+                      result[table] = int(cur.fetchone()[0])
+                      assert result[table] > 0
+          finally:
+              conn.close()
+          open('postgres-integrity.json', 'w').write(json.dumps(result, indent=2, sort_keys=True) + '\n')
+          PY
+
+      - name: Solve and seal before validator checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(find dab -type f \( -name ground_truth.csv -o -name validate.py \) -print -quit)"
+          mkdir -p sealed-bundle/sealed-answers
+          python "$ROOT/official_harness.py" solve \
+            --dab-root "$PWD/dab" \
+            --engine "$PWD/$ROOT/usaspending_fresh_engine.py" \
+            --freeze "$PWD/$ROOT/FREEZE.json" \
+            --output-dir "$PWD/sealed-bundle/sealed-answers" \
+            --data-manifest "$PWD/official-data-manifest.json" \
+            --postgres-integrity "$PWD/postgres-integrity.json" \
+            --answer-manifest "$PWD/sealed-bundle/answer-manifest.json" \
+            2>&1 | tee candidate-solve.log
+          test -s sealed-bundle/answer-manifest.json
+          test -s sealed-bundle/sealed-answers/answers.json
+
+      - name: Upload sealed answers before any validation material exists
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fresh-usaspending-sealed-answers-v2
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            sealed-bundle/**
+            official-data-manifest.json
+            postgres-integrity.json
+            candidate-solve.log
+            usaspending-import.log
+            official-runtime-pip-freeze.txt
+
+      - name: Remove solver data, then acquire validators and ground truth
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf dab
+          git clone --filter=blob:none --no-checkout https://github.com/ucbepic/DataAgentBench.git dab-validation
+          cd dab-validation
+          git sparse-checkout init --no-cone
+          cat > .git/info/sparse-checkout <<'EOF'
+          /query_usaspending/query2/**
+          /query_usaspending/query3/**
+          /query_usaspending/query4/**
+          EOF
+          git -c advice.detachedHead=false checkout "$DAB_SHA"
+          test "$(git rev-parse HEAD)" = "$DAB_SHA"
+          test "$(find . -name ground_truth.csv -type f | wc -l)" -eq 3
+          test "$(find . -name validate.py -type f | wc -l)" -eq 3
+          cd ..
+
+      - name: Execute each validator exactly once
+        shell: bash
+        run: |
+          set -euo pipefail
+          python "$ROOT/official_harness.py" validate \
+            --sealed-bundle "$PWD/sealed-bundle" \
+            --validation-root "$PWD/dab-validation" \
+            --evidence-dir "$PWD/validation-evidence" \
+            2>&1 | tee validator-output.log
+          test -s validation-evidence/external-receipt.json
+
+      - name: Upload immutable official evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fresh-usaspending-official-v2
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            sealed-bundle/**
+            validation-evidence/**
+            validator-output.log
+            official-data-manifest.json
+            postgres-integrity.json
+            candidate-solve.log
+            data_science_dominance/dab_fresh_usaspending_v1/FREEZE.json
+            data_science_dominance/dab_fresh_usaspending_v1/official_harness.py.gz.b64
+            data_science_dominance/dab_fresh_usaspending_v1/reconstruct_official_harness.sh
+
+      - name: Confirm adjudicable result
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path('validation-evidence/external-receipt.json').read_text())
+          assert receipt['query_count'] == 3
+          assert receipt['pass_count'] in {0, 1, 2, 3}
+          assert receipt['score_before'] == 465
+          assert receipt['score_after'] in {465, 480, 500}
+          assert receipt['post_hoc_retuning_permitted'] is False
+          print(json.dumps({
+              'verdict': receipt['verdict'],
+              'pass_count': receipt['pass_count'],
+              'promotion_points': receipt['promotion_points'],
+              'score_after': receipt['score_after'],
+          }, sort_keys=True))
+          PY
