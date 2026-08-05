@@ -25,6 +25,8 @@ A run, Flight, table, chart, or monitor has zero operational value when no possi
 
 This skill is a read-only governor. It selects, rejects, or specifies work. It does not silently mutate MotherDuck, cancel a worker, spend money, delete evidence, or change an active agent's lease. Any external write requires a separate authorization-bearing executor.
 
+Schema changes and Dive persistence are also external writes: prepare an idempotent migration or reviewed Dive source plus rollback first, then obtain a separate explicit confirmation before calling `query_rw` or `save_dive`.
+
 MotherDuck is an analytical and orchestration layer. GCS retains primary bytes and hashes, BigQuery retains exhaustive canonical facts, GitHub retains code and tests, and Notion retains decisions and semantic guidance.
 
 ## Inputs
@@ -113,6 +115,8 @@ Return:
 - No mutation of a Flight created or updated by another active agent without a fail-closed defect and a reversible plan.
 - No promotion from a candidate signal to a factual, legal, or financial conclusion.
 - No new schedule without idempotence, mutual exclusion, bounded cost, a stopping rule, and a verifiable receipt.
+- No `query_rw` call without a separately stated schema/data diff, rollback, and explicit confirmation.
+- No `save_dive` call until the design has been reviewed and the user explicitly confirms that iteration is complete.
 - No secret in source, config, logs, Dives, or URL state.
 - No claim that a `NOOP` is material progress.
 
