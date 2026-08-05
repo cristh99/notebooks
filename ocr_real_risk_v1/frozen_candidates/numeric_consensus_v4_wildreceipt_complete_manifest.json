@@ -201,7 +201,7 @@
     "requirements_sha256": "5606a8f15d52a6c851dd4c5fa294ca7192463eeaedabe9f224a02ee7da517fe4"
   },
   "schema": "ocr-numeric-consensus-wildreceipt-candidate/4",
-  "source_commit": "56dbe782509155efa9ff74a059181b431d675f61",
+  "source_commit": "4bb6dbeb1b406420899fc3df9047ed1ad5b770cf",
   "source_files": [
     {
       "path": "ocr_real_risk_v1/__init__.py",
@@ -250,8 +250,8 @@
     },
     {
       "path": "ocr_real_risk_v1/wildreceipt_adapter.py",
-      "sha256": "04f1e71a19bc9c59190989c4446130d931bdc558603c63b97eb0c7e63ef62c14",
-      "size_bytes": 8170
+      "sha256": "14c70f601437f680177e89ae1254b9d1a00245548c4974da2f22f7bfee80635e",
+      "size_bytes": 10224
     },
     {
       "path": "ocr_real_risk_v1/wildreceipt_external.py",
@@ -264,6 +264,6 @@
       "size_bytes": 15704
     }
   ],
-  "stable_payload_sha256": "4b09fce3fc03e8c33ffe06c06dbcb8ecfbec0b1b2199b82440780a180fba9153",
+  "stable_payload_sha256": "97ec7eab91f1e390de081c373f8a19061c60c5e8bcc33d24a51dfed8ef327c86",
   "status": "FROZEN_FOR_UNTOUCHED_WILDRECEIPT_EXTERNAL_VALIDATION_ONLY"
 }
