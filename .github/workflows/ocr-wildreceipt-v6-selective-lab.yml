@@ -1,0 +1,185 @@
+name: OCR WildReceipt v6 selective-consensus laboratory
+
+on:
+  push:
+    branches:
+      - agent/ocr-consensus-v6-development
+    paths:
+      - 'ocr_real_risk_v1/wildreceipt_v6_selective_lab.py'
+      - 'ocr_real_risk_v1/test_wildreceipt_v6_selective_lab.py'
+      - '.github/workflows/ocr-wildreceipt-v6-selective-lab.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: ocr-wildreceipt-v6-selective-lab-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GITHUB_TOKEN: ${{ github.token }}
+  PYTHONHASHSEED: '0'
+  OMP_THREAD_LIMIT: '1'
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  NUMEXPR_NUM_THREADS: '1'
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+      - name: Install pinned replay dependencies
+        run: |
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13
+      - name: Unit tests and compilation
+        run: |
+          python -m unittest -v \
+            ocr_real_risk_v1.test_wildreceipt_v6_selective_lab
+          python -m compileall -q \
+            ocr_real_risk_v1/wildreceipt_v6_selective_lab.py \
+            ocr_real_risk_v1/test_wildreceipt_v6_selective_lab.py
+      - name: Recover immutable schema-v5 shard reports
+        run: |
+          mkdir -p shard-roots/train0 shard-roots/train1 shard-roots/test
+          cat > artifacts.tsv <<'EOF'
+          8928046292	train0	2556c18bfc9685cce6cb5d659b688a1cde716b617b9ecc7041276c877af05991
+          8928237073	train1	864f32b137edc348c4b6c83549b67d2c6225d82887b8250eceb29b80fbe336bf
+          8928150174	test	13bf90167330fa9849ce0ec6574774a68a26af576f7e1211dce82afbc01d57dd
+          EOF
+          while IFS=$'\t' read -r artifact_id name digest; do
+            curl --fail --location --retry 5 --retry-all-errors \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" \
+              --output "${name}.zip"
+            echo "${digest}  ${name}.zip" | sha256sum --check --strict
+            unzip -q "${name}.zip" -d "shard-roots/${name}"
+            (
+              cd "shard-roots/${name}"
+              sha256sum --check --strict SHA256SUMS.txt
+            )
+            test -f "shard-roots/${name}/shard_report.json"
+          done < artifacts.tsv
+      - name: Run train-selected post-outcome policy laboratory
+        run: |
+          rm -rf v6-lab
+          mkdir v6-lab
+          python -m ocr_real_risk_v1.wildreceipt_v6_selective_lab \
+            shard-roots/train0/shard_report.json \
+            shard-roots/train1/shard_report.json \
+            shard-roots/test/shard_report.json \
+            --output v6-lab/wildreceipt_v6_selective_lab.json \
+            | tee v6-lab/stdout.json
+      - name: Independent terminal development gates
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.sroie_natural_holdout import verify_stable_payload
+          from ocr_real_risk_v1.wildreceipt_v6_selective_lab import REPORT_SCHEMA
+
+          root = Path('v6-lab')
+          path = root / 'wildreceipt_v6_selective_lab.json'
+          report = json.loads(path.read_text())
+          assert report['schema'] == REPORT_SCHEMA
+          assert report['status'] == 'POST_OUTCOME_DEVELOPMENT_ONLY'
+          assert verify_stable_payload(report, 'stable_payload_sha256')
+          assert report['source']['selected_unique_receipts'] == 1720
+          assert report['source']['train_receipts'] == 1252
+          assert report['source']['test_receipts'] == 468
+
+          original = report['v5_terminal_original']
+          assert original['baseline_eligible'] == 680
+          assert original['baseline_false'] == 92
+          assert original['accepted'] == 347
+          assert original['accepted_false'] == 1
+          assert original['counterfactual_false'] == 1
+          assert original['pass'] is False
+
+          sensitivity = report['v5_label_adjudicated_sensitivity']
+          assert sensitivity['baseline_false'] == 91
+          assert sensitivity['accepted'] == 347
+          assert sensitivity['accepted_false'] == 0
+          assert sensitivity['counterfactual_false'] == 1
+          assert sensitivity['reduction_lower'] > 8.4
+          assert sensitivity['pass'] is False
+
+          selected = report['train_only_selection']
+          assert selected['selected_policy'] == \
+              'detector_forest_or_crop_unanimous'
+          assert selected['train']['accepted'] == 288
+          assert selected['train']['accepted_false'] == 0
+          assert selected['train']['counterfactual_false'] == 0
+          assert selected['test']['accepted'] == 120
+          assert selected['test']['accepted_false'] == 0
+          assert selected['test']['counterfactual_false'] == 0
+          assert selected['all']['accepted'] == 408
+          assert selected['all']['accepted_false'] == 0
+          assert selected['all']['counterfactual_false'] == 0
+          assert selected['all']['reduction_lower'] > 9.9
+          assert selected['all']['reduction_lower'] < 10.0
+          assert selected['all']['coverage_lower'] > 0.21
+          assert selected['all']['coverage_lower'] < 0.22
+          assert selected['all']['pass'] is False
+
+          decision = report['decision']
+          assert decision['v5_external_10x_pass'] is False
+          assert decision['v5_original_result_immutable'] is True
+          assert decision['label_defect_confirmed_high_confidence'] is True
+          assert decision[
+              'selected_policy_zero_adjudicated_natural_failures'
+          ] is True
+          assert decision[
+              'selected_policy_zero_counterfactual_collisions'
+          ] is True
+          assert decision['selected_policy_reaches_minimum_accepted'] is True
+          assert decision['selected_policy_reaches_coverage_gate'] is False
+          assert decision['selected_policy_reaches_10x_bound'] is False
+          assert decision['candidate_ready_to_freeze'] is False
+          assert decision['fresh_external_corpus_required'] is True
+          assert decision['production_ready'] is False
+          assert report['constraints']['external_spend_usd'] == 0
+          assert report['constraints']['production_modified'] is False
+
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          (root / 'SHA256SUMS.txt').write_text(
+              f'{digest}  {path.name}\n', encoding='utf-8'
+          )
+          print(json.dumps({
+              'v5_original': original,
+              'v5_adjudicated_sensitivity': sensitivity,
+              'selected_policy': selected,
+              'decision': decision,
+              'stable_payload_sha256': report['stable_payload_sha256'],
+              'file_sha256': digest,
+          }, indent=2, sort_keys=True))
+          PY
+          (
+            cd v6-lab
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-wildreceipt-v6-selective-lab
+          path: v6-lab
+          if-no-files-found: error
+          retention-days: 90
