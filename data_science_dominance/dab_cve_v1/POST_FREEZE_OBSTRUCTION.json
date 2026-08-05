@@ -1,0 +1,80 @@
+{
+  "candidate_sha256": "0ba9dfa4f583a8c5aad5b975b913dbf2ffa5e1ec2f04d6649067e0ab46967cff",
+  "decision": "REJECTED_DOMINATED_BEFORE_DATA_ACQUISITION",
+  "external_evaluation_count": 0,
+  "ground_truth_accessed": false,
+  "held_out_queries": [
+    {
+      "id": 2,
+      "query_sha256": "627348b86e8dabe54a1c3b7e6ba2c6b7000315a0",
+      "required": "group canonical vendor; critical severity; ransomware flagged; minimum group size 3; argmax",
+      "frozen_plan": "list vendor values; no grouping or minimum group size; direction min",
+      "structural_match": false
+    },
+    {
+      "id": 3,
+      "query_sha256": "8240e1092103bbafc9ed27eff67ca406c552f967",
+      "required": "count KEV CVEs absent from NVD",
+      "frozen_plan": "count KEV CVEs present in NVD",
+      "structural_match": false
+    },
+    {
+      "id": 4,
+      "query_sha256": "a20ebbbd20e25211671cf133051cfa144dfe5add",
+      "required": "vendor grouping; minimum 10; share with score >=9; argmax",
+      "frozen_plan": "list CVEs; no grouping, denominator, threshold, or share",
+      "structural_match": false
+    },
+    {
+      "id": 5,
+      "query_sha256": "24bd35a2179e25b1d20bf93451f251509f1eb658",
+      "required": "count distinct normalized versions across Apache Tomcat KEV CVEs",
+      "frozen_plan": "count CVEs constrained to example version 9.0.71",
+      "structural_match": false
+    },
+    {
+      "id": 6,
+      "query_sha256": "d56241a277b9b5644e67e2397b16e440b666f46a",
+      "required": "no English and at least one non-English description",
+      "frozen_plan": "English description required",
+      "structural_match": false
+    },
+    {
+      "id": 7,
+      "query_sha256": "35714470d29deb614082a8ece70ea5973e75973d",
+      "required": "count CPE rows by canonical vendor-product pair; argmax",
+      "frozen_plan": "count CVEs without composite grouping",
+      "structural_match": false
+    },
+    {
+      "id": 8,
+      "query_sha256": "935a17efbea0ba96589517b1c129a58c6938a5ff",
+      "required": "count Microsoft vulnerable CPE KEV CVEs with exact score >=7",
+      "frozen_plan": "same joins but score threshold omitted",
+      "structural_match": false
+    },
+    {
+      "id": 9,
+      "query_sha256": "b32478f1763437e0979a822fe5f320381e0fe04a",
+      "required": "count duplicate NVD CVEs with conflicting attack vectors and KEV membership",
+      "frozen_plan": "count KEV CVEs; duplicate-conflict predicate omitted",
+      "structural_match": false
+    },
+    {
+      "id": 10,
+      "query_sha256": "13b9886e2393f32fef4bb3c55c95a3fafcf3ab1c",
+      "required": "count distinct case-insensitive Microsoft KEV products with score >=9",
+      "frozen_plan": "count CVEs; score omitted; prose fragments misparsed as product names",
+      "structural_match": false
+    }
+  ],
+  "logic_power_conclusion": "The preregistered minimum promotion threshold is 5/9. Zero of nine frozen plans match the required relational operator graph. Acquiring approximately 120 MB and running validators cannot produce defensible promotion evidence; terminate the dominated experiment.",
+  "official_dataset_values_accessed": false,
+  "promotion_points": 0,
+  "queries_exposed_and_retired": [2,3,4,5,6,7,8,9,10],
+  "schema": "data-science-dominance/cve-v1-post-freeze-obstruction/1",
+  "score_after": 465,
+  "score_before": 465,
+  "synthetic_pass_run_id": 31032913923,
+  "validators_accessed": false
+}
