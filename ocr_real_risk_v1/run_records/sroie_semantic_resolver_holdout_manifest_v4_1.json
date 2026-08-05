@@ -1,0 +1,49 @@
+{
+  "candidate_commit": "968ab666327d98dd5a93b7b70c6453412c24ff4f",
+  "candidate_files": {
+    "run_semantic_numeric_resolver_canary_v4.py": "b0c5ae13d93b4d9a44724e82f43813e1d22459c419f73b77a72084e7d02b4bd4",
+    "semantic_numeric_resolver_v4.py": "a8db894fd378dd2059a1ea538cad64fa7a29c8d28e80ed2333d05defd4a1ca85",
+    "test_semantic_numeric_resolver_v4.py": "8ff4e5531b869e68ec459d9089eabcf7c7d538e6cb244f6f0147871acb0aef92"
+  },
+  "constraints": {
+    "external_spend_usd": 0.0,
+    "gcloud_used": false,
+    "github_actions_used": false,
+    "gpu_used": false,
+    "paid_api_used": false,
+    "production_modified": false
+  },
+  "isolation": {
+    "annotation_text_fetched_before_seal": false,
+    "disjoint_from_development_stems": true,
+    "disjoint_from_v4_holdout_stems": true,
+    "image_bytes_fetched_before_seal": false,
+    "outcomes_inspected_before_seal": false,
+    "v4_holdout_now_development_only": true
+  },
+  "manifest_sha256": "0c0df5723de9d860da3ac16f45121a9125a3c4e0b6b3e6b0e349e7ddeb7de2bb",
+  "protocol_change": {
+    "no_threshold_tuning": true,
+    "only_change": "when a semantic contradiction is flagged and both same-engine crop probes repeat the disputed baseline, quarantine instead of keep",
+    "reason": "sealed v4 canary showed a systematic 14.00-for-15.00 error repeated by both Tesseract crop probes"
+  },
+  "schema": "ocr-semantic-numeric-resolver-v4-1-receipt-disjoint-manifest/1",
+  "sealed_status": "SEALED_BEFORE_IMAGE_OR_ANNOTATION_FETCH",
+  "selection": {
+    "count": 5,
+    "selected_stems": [
+      "X51008099048",
+      "X51008099041",
+      "X51008099073",
+      "X51008099071",
+      "X51008099046"
+    ]
+  },
+  "source": {
+    "corpus": "ICDAR2019 SROIE Task 1 train folder",
+    "folder_id": "1xvZ6jpZQfpMHJCUD0L_5KHQy0T9QAepx",
+    "parent_manifest_commit": "5d18d44ed5ecbdd041810428c1ce8d70b4c92725",
+    "parent_manifest_sha256": "36c0b1f5e0464659cbfd985a987548ecac61554404b8d2431b8b6b10b9707849",
+    "selection": "all five stems left unopened from the ten-stem frame sealed before the v4 canary"
+  }
+}
