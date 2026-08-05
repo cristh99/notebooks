@@ -1,0 +1,17 @@
+test_category_total_helpful_votes (test_bookreview_engine.EvaluationTests.test_category_total_helpful_votes) ... ok
+test_count_books_with_rating_filter (test_bookreview_engine.EvaluationTests.test_count_books_with_rating_filter) ... ok
+test_decade_highest_average_rating (test_bookreview_engine.EvaluationTests.test_decade_highest_average_rating) ... ok
+test_no_fresh_query_leakage (test_bookreview_engine.EvaluationTests.test_no_fresh_query_leakage) ... ok
+test_text_filter (test_bookreview_engine.EvaluationTests.test_text_filter) ... ok
+test_verified_percentage (test_bookreview_engine.EvaluationTests.test_verified_percentage) ... ok
+test_categories_from_nested_strings (test_bookreview_engine.ParsingTests.test_categories_from_nested_strings) ... ok
+test_fuzzy_id_resolver (test_bookreview_engine.ParsingTests.test_fuzzy_id_resolver) ... ok
+test_structured_metadata_and_year (test_bookreview_engine.ParsingTests.test_structured_metadata_and_year) ... ok
+test_category_helpful_plan (test_bookreview_engine.PlanningTests.test_category_helpful_plan) ... ok
+test_public_query1_plan (test_bookreview_engine.PlanningTests.test_public_query1_plan) ... ok
+test_verified_percentage_plan (test_bookreview_engine.PlanningTests.test_verified_percentage_plan) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 0.013s
+
+OK
