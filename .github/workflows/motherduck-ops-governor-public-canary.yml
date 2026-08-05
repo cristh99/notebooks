@@ -1,0 +1,106 @@
+name: MotherDuck Ops Governor Public Canary
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/motherduck-ops-governor-public-canary.yml"
+      - "motherduck_ops_governor_capsule/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: motherduck-ops-governor-public-canary-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONHASHSEED: "0"
+      TZ: UTC
+
+    steps:
+      - name: Check out public capsule
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12"
+
+      - name: Compile capsule
+        run: python -m compileall -q motherduck_ops_governor_capsule
+
+      - name: Run exhaustive verifier
+        run: python motherduck_ops_governor_capsule/verify.py
+
+      - name: Run focused tests
+        run: python -m unittest discover -s motherduck_ops_governor_capsule -p 'test_*.py' -v
+
+      - name: Add workflow context
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path("motherduck_ops_governor_capsule/artifacts")
+          root.mkdir(exist_ok=True)
+          context = {
+              "event": os.environ.get("GITHUB_EVENT_NAME"),
+              "ref": os.environ.get("GITHUB_REF"),
+              "repository": os.environ.get("GITHUB_REPOSITORY"),
+              "run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT"),
+              "run_id": os.environ.get("GITHUB_RUN_ID"),
+              "sha": os.environ.get("GITHUB_SHA"),
+              "network_calls_by_capsule": 0,
+              "external_spend_usd": 0,
+          }
+          (root / "workflow-context.json").write_text(
+              json.dumps(context, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+          (cd motherduck_ops_governor_capsule/artifacts && sha256sum *.json > SHA256SUMS)
+
+      - name: Publish summary
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          report = json.loads(
+              Path("motherduck_ops_governor_capsule/artifacts/report.json").read_text()
+          )
+          frozen = report["frozen"]
+          exhaustive = report["exhaustive"]
+          lines = [
+              "# MotherDuck Operations Governor — Public Canary",
+              "",
+              f"- Frozen fixtures: **{frozen['fixture_passed']}/{frozen['fixture_count']}**",
+              f"- Exhaustive configurations: **{exhaustive['cases']:,}**",
+              f"- Candidate/oracle mismatches: **{exhaustive['candidate_oracle_mismatches']}**",
+              f"- Network calls: **{report['network_calls']}**",
+              f"- External spend: **${report['external_spend_usd']}**",
+              f"- Report digest: `{report['report_digest']}`",
+              "",
+              "This is a finite public Canary only. It grants no production authority or lifecycle promotion.",
+          ]
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text(
+              "\n".join(lines) + "\n", encoding="utf-8"
+          )
+          PY
+
+      - name: Upload deterministic evidence bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: motherduck-ops-governor-public-canary-${{ github.run_id }}-${{ github.run_attempt }}
+          path: motherduck_ops_governor_capsule/artifacts/
+          retention-days: 30
+          if-no-files-found: error
