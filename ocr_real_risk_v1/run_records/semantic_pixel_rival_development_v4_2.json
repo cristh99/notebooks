@@ -1,0 +1,181 @@
+{
+  "candidate": {
+    "branch": "agent/ocr-numeric-consensus-v4-zero-cost",
+    "files_sha256": {
+      "run_semantic_pixel_rival_development_v4_2.py": "6796bcd78f096285092bfed2c272b6ca4996a98814d01e47ac129e39cc67e287",
+      "semantic_pixel_rival_v4_2.py": "8e92d986e1f59b2d376aa28ae35d7e8a28812a0bc0fb9692a2c6de5177edc4d8",
+      "semantic_rival_detector_v4_2.py": "25c7db14804ba3ab2def9a62a9d495c48e73e9194c7c1e34e80b05df3e6915f2",
+      "sroie_numeric_eval_helpers_v4_2.py": "18cefa6fb0c3f389a0c44f2cf7c75cec5b93053d2efd2dd01d0b495ae7242494",
+      "test_semantic_pixel_rival_v4_2.py": "c5f32ecf2fbe8229f06e799d09c582576874c7532a555f243a78e001f57a3eb7",
+      "test_semantic_rival_detector_v4_2.py": "8975ad6ccd7666cec753141a9b81e14208a9f4d8955b1061628be28c4470c22d"
+    },
+    "parent_commit": "700b1fd92becf21a2a7fb6317acae5d9e75d5ccb",
+    "policy": {
+      "global_pixel_autocorrection_allowed": false,
+      "minimum_rival_advantage": 0.025,
+      "minimum_rival_score": 0.74,
+      "pixel_views": [
+        "pad2_scale1",
+        "pad6_scale3"
+      ],
+      "replacement_rule": "both pixel views must predict the complete unique semantic rival and satisfy both evidence floors; otherwise quarantine",
+      "risk_unit": "one numeric claim with a unique same-length one-digit semantic rival selected before pixel resolution"
+    }
+  },
+  "constraints": {
+    "external_spend_usd": 0.0,
+    "gcloud_used": false,
+    "github_actions_used": false,
+    "gpu_used": false,
+    "merged": false,
+    "paid_api_used": false,
+    "production_modified": false,
+    "pull_request_created": false
+  },
+  "decision": {
+    "external_10x_certification": false,
+    "next_gate": "freeze v4.2 and validate on untouched receipt-disjoint semantic flags under the corrected 51→87→148 alpha-spending plan",
+    "production_promotion": false,
+    "verdict": "READY_TO_FREEZE_FOR_NEW_UNTOUCHED_SELECTIVE_FLAG_VALIDATION"
+  },
+  "metrics": {
+    "baseline_errors": 3,
+    "eligible_claims": 93,
+    "false_replacements": 0,
+    "flagged_baseline_errors": 3,
+    "flagged_final_errors": 0,
+    "flagged_quarantines": 0,
+    "flagged_replacements": 3,
+    "flags_with_unique_truth_match": 3,
+    "global_final_accepted": 93,
+    "global_final_errors": 0,
+    "semantic_flags": 3
+  },
+  "negative_control": {
+    "case": "a correct token 1745 was globally misread by the pixel recognizer as 1744",
+    "conclusion": "pixel recognition cannot be used globally; it is only a verifier for one independently generated semantic rival",
+    "reason_code": "RIVAL_PIXEL_SCORE_TOO_LOW",
+    "v4_2_disposition": "QUARANTINE"
+  },
+  "real_corrections": [
+    {
+      "action": "REPLACE",
+      "baseline_digits": "14488",
+      "changed_position": 3,
+      "decision_sha256": "0dc239affe4eef3217c6ad22c21215f59f6a865a14244a96c32c1f2e6b5b3942",
+      "matched_truths": [
+        "14468"
+      ],
+      "reason_code": "SEMANTIC_RIVAL_CONFIRMED_BY_TWO_PIXEL_VIEWS",
+      "semantic_rival_digits": "14468",
+      "stem": "X51005361907",
+      "views": [
+        {
+          "partition_quality": 4.647108390927315,
+          "predicted": "14468",
+          "rival_advantage": 0.061562955379486084,
+          "rival_score": 0.9078617095947266,
+          "top_margin": 0.0581592321395874,
+          "view_id": "pad2_scale1"
+        },
+        {
+          "partition_quality": 4.5282933712005615,
+          "predicted": "14468",
+          "rival_advantage": 0.05192279815673828,
+          "rival_score": 0.8716591000556946,
+          "top_margin": 0.04303401708602905,
+          "view_id": "pad6_scale3"
+        }
+      ]
+    },
+    {
+      "action": "REPLACE",
+      "baseline_digits": "2890",
+      "changed_position": 1,
+      "decision_sha256": "e83d697207af2e5cf7d763f7ef2329afdc366b7579f1d72d027722fef0d5a0a1",
+      "matched_truths": [
+        "2990"
+      ],
+      "reason_code": "SEMANTIC_RIVAL_CONFIRMED_BY_TWO_PIXEL_VIEWS",
+      "semantic_rival_digits": "2990",
+      "stem": "X51005568911",
+      "views": [
+        {
+          "partition_quality": 3.502575933933258,
+          "predicted": "2990",
+          "rival_advantage": 0.03179526329040527,
+          "rival_score": 0.8788830637931824,
+          "top_margin": 0.03179526329040527,
+          "view_id": "pad2_scale1"
+        },
+        {
+          "partition_quality": 3.5407620817422867,
+          "predicted": "2990",
+          "rival_advantage": 0.03663128614425659,
+          "rival_score": 0.8769112825393677,
+          "top_margin": 0.02695763111114502,
+          "view_id": "pad6_scale3"
+        }
+      ]
+    },
+    {
+      "action": "REPLACE",
+      "baseline_digits": "1400",
+      "changed_position": 1,
+      "decision_sha256": "fc8f69400ac1bf68599e110d9c111e28207dbf93601456fea45c9b95a00c1cc2",
+      "matched_truths": [
+        "1500"
+      ],
+      "reason_code": "SEMANTIC_RIVAL_CONFIRMED_BY_TWO_PIXEL_VIEWS",
+      "semantic_rival_digits": "1500",
+      "stem": "X51008099054",
+      "views": [
+        {
+          "partition_quality": 3.092591106891632,
+          "predicted": "1500",
+          "rival_advantage": 0.21450692415237427,
+          "rival_score": 0.7824442982673645,
+          "top_margin": 0.012028157711029053,
+          "view_id": "pad2_scale1"
+        },
+        {
+          "partition_quality": 3.1607594937086105,
+          "predicted": "1500",
+          "rival_advantage": 0.16503620147705078,
+          "rival_score": 0.7467994689941406,
+          "top_margin": 0.004482269287109375,
+          "view_id": "pad6_scale3"
+        }
+      ]
+    }
+  ],
+  "schema": "ocr-semantic-pixel-rival-development-v4-2-record/1",
+  "source": {
+    "annotations_used_at_inference": false,
+    "annotations_used_for_post_decision_evaluation": true,
+    "contaminated_for_external_certification": true,
+    "corpus": "ICDAR2019 SROIE Task 1 natural receipt images",
+    "eligible_numeric_claims": 93,
+    "pages": 20
+  },
+  "stable_payload_sha256": "ef3d8f0282b241639cfdc4c2981a0b61b2048e502c32437616a02b8eea477ffa",
+  "status": "POST_OUTCOME_DEVELOPMENT_ONLY",
+  "timing": {
+    "bank_warm_seconds": 1.2138066449997496,
+    "candidate_runtime_ratio_warm": 1.0047783915024535,
+    "full_page_tesseract_seconds": 12.72020699199902,
+    "mean_selective_pixel_ms_per_flag": 20.260709666672483,
+    "selective_pixel_seconds": 0.06078212900001745
+  },
+  "validation": {
+    "compileall": "PASS",
+    "report_file_sha256": "916db8b7cc390ea63cb0b66ae09411f75a99a6217a09de6529a067ad3157d3fc",
+    "report_stable_payload_sha256": "6e6a1e97b4228e425cea44f969423c1a32f693db796d660b480449339edda1d3",
+    "unit_tests": {
+      "errors": 0,
+      "failures": 0,
+      "status": "PASS",
+      "tests_run": 10
+    }
+  }
+}
