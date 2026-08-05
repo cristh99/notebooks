@@ -9,6 +9,7 @@ runtime before any OCR outcome is generated.
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import shutil
 from pathlib import Path
@@ -37,8 +38,8 @@ from .wildreceipt_adapter import (
 )
 from .wildreceipt_source_seal import verify as verify_source_seal
 
-CANDIDATE_SCHEMA = "ocr-numeric-consensus-wildreceipt-candidate/7"
-CANDIDATE_ID = "numeric-consensus-v4-wildreceipt-schema-v4"
+CANDIDATE_SCHEMA = "ocr-numeric-consensus-wildreceipt-candidate/8"
+CANDIDATE_ID = "numeric-consensus-v4-wildreceipt-schema-v5"
 SCHEMA_DISCOVERY = {
     "workflow_run_id": 30991994931,
     "failure_stage": "outcome_blind_manifest_build_before_ocr",
@@ -81,24 +82,100 @@ SOURCE_OBJECTS = {
         "shard_id": "train-00001-of-00002",
     },
 }
-SOURCE_FILES = (
-    "ocr_real_risk_v1/__init__.py",
-    "ocr_real_risk_v1/core.py",
-    "ocr_real_risk_v1/exact_bounds.py",
-    "ocr_real_risk_v1/pixel_digit_alignment.py",
-    "ocr_real_risk_v1/numeric_digit_forest.py",
-    "ocr_real_risk_v1/numeric_digit_forest_deterministic.py",
-    "ocr_real_risk_v1/sroie_natural_holdout.py",
-    "ocr_real_risk_v1/cord_natural_holdout.py",
-    "ocr_real_risk_v1/cord_consensus_detector_v4.py",
-    "ocr_real_risk_v1/cord_detector_crops_v4.py",
-    "ocr_real_risk_v1/coru_source_seal.py",
-    "ocr_real_risk_v1/numeric_consensus_candidate_v4.py",
-    "ocr_real_risk_v1/wildreceipt_source_seal.py",
+PACKAGE_NAME = "ocr_real_risk_v1"
+SOURCE_CLOSURE_ALGORITHM = "python-ast-local-import-closure-v1"
+SOURCE_ROOTS = (
+    "ocr_real_risk_v1/numeric_consensus_candidate_v4_wildreceipt.py",
     "ocr_real_risk_v1/wildreceipt_adapter.py",
     "ocr_real_risk_v1/wildreceipt_external.py",
-    "ocr_real_risk_v1/numeric_consensus_candidate_v4_wildreceipt.py",
 )
+
+
+def _module_source_paths(repository_root: Path, module: str) -> tuple[str, ...]:
+    if module != PACKAGE_NAME and not module.startswith(f"{PACKAGE_NAME}."):
+        return ()
+    parts = module.split(".")
+    base = repository_root.joinpath(*parts)
+    module_file = base.with_suffix(".py")
+    package_init = base / "__init__.py"
+    paths: set[str] = set()
+    root_init = repository_root / PACKAGE_NAME / "__init__.py"
+    if root_init.is_file():
+        paths.add(root_init.relative_to(repository_root).as_posix())
+    if module_file.is_file():
+        paths.add(module_file.relative_to(repository_root).as_posix())
+    elif package_init.is_file():
+        paths.add(package_init.relative_to(repository_root).as_posix())
+    else:
+        raise RuntimeError(f"local import cannot be resolved: {module}")
+    for index in range(1, len(parts)):
+        parent_init = repository_root.joinpath(*parts[:index]) / "__init__.py"
+        if parent_init.is_file():
+            paths.add(parent_init.relative_to(repository_root).as_posix())
+    return tuple(sorted(paths))
+
+
+def _local_import_modules(relative: str, source: str) -> tuple[str, ...]:
+    tree = ast.parse(source, filename=relative)
+    module_name = relative.removesuffix(".py").replace("/", ".")
+    if module_name.endswith(".__init__"):
+        package_parts = module_name.removesuffix(".__init__").split(".")
+    else:
+        package_parts = module_name.split(".")[:-1]
+    imported: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == PACKAGE_NAME or alias.name.startswith(
+                    f"{PACKAGE_NAME}."
+                ):
+                    imported.add(alias.name)
+            continue
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        if node.level:
+            ascend = node.level - 1
+            if ascend > len(package_parts):
+                raise RuntimeError(
+                    f"relative import escapes package in {relative}: level={node.level}"
+                )
+            base_parts = package_parts[: len(package_parts) - ascend]
+            if node.module:
+                imported.add(".".join([*base_parts, *node.module.split(".")]))
+            else:
+                for alias in node.names:
+                    imported.add(".".join([*base_parts, alias.name]))
+        elif node.module == PACKAGE_NAME or str(node.module or "").startswith(
+            f"{PACKAGE_NAME}."
+        ):
+            imported.add(str(node.module))
+    return tuple(sorted(imported))
+
+
+def discover_source_files(repository_root: Path) -> tuple[str, ...]:
+    repository_root = repository_root.resolve()
+    discovered: set[str] = {f"{PACKAGE_NAME}/__init__.py", *SOURCE_ROOTS}
+    pending = list(sorted(discovered))
+    parsed: set[str] = set()
+    while pending:
+        relative = pending.pop(0)
+        if relative in parsed:
+            continue
+        source_path = repository_root / relative
+        if not source_path.is_file():
+            raise RuntimeError(f"candidate source file missing: {relative}")
+        parsed.add(relative)
+        source = source_path.read_text(encoding="utf-8")
+        for module in _local_import_modules(relative, source):
+            for imported_path in _module_source_paths(repository_root, module):
+                if imported_path not in discovered:
+                    discovered.add(imported_path)
+                    pending.append(imported_path)
+        pending.sort()
+    return tuple(sorted(discovered))
+
+
+SOURCE_FILES = discover_source_files(Path(__file__).resolve().parents[1])
 
 
 def external_protocol() -> dict[str, Any]:
@@ -213,6 +290,8 @@ def external_protocol() -> dict[str, Any]:
             "same_candidate_bytes_and_runtime_in_every_worker": True,
             "self_contained_source_bundle": True,
             "neutral_workdir_import_required": True,
+            "source_bundle_closure_algorithm": SOURCE_CLOSURE_ALGORITHM,
+            "source_bundle_roots": list(SOURCE_ROOTS),
             "aggregate_recomputes_deduplication_and_all_exact_bounds": True,
         },
         "claim_limits": {
@@ -233,7 +312,8 @@ def verify_manifest(payload: Mapping[str, Any]) -> bool:
 
 def _copy_sources(repository_root: Path, output_dir: Path) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
-    for relative in SOURCE_FILES:
+    source_files = discover_source_files(repository_root)
+    for relative in source_files:
         source = repository_root / relative
         if not source.is_file():
             raise RuntimeError(f"candidate source file missing: {relative}")
@@ -349,6 +429,14 @@ def build_candidate(
             "requirements_file": requirements_path.name,
             "requirements_sha256": sha256_file(requirements_path),
             "deterministic_threads": 1,
+            "source_closure_algorithm": SOURCE_CLOSURE_ALGORITHM,
+            "source_roots": list(SOURCE_ROOTS),
+            "source_file_count": len(source_records),
+            "source_file_set_sha256": sha256_bytes(
+                canonical_json([row["path"] for row in source_records]).encode(
+                    "utf-8"
+                )
+            ),
         },
         "detector": {
             "configuration": dict(SELECTED_CONFIGURATION),

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import unittest
+from pathlib import Path
 
 from .cord_detector_crops_v4 import SELECTED_CONFIGURATION
 from .core import canonical_json, sha256_bytes
@@ -9,9 +10,12 @@ from .numeric_consensus_candidate_v4_wildreceipt import (
     CANDIDATE_ID,
     CANDIDATE_SCHEMA,
     DATASET_REVISION,
+    SOURCE_CLOSURE_ALGORITHM,
     SOURCE_FILES,
     SOURCE_OBJECTS,
+    SOURCE_ROOTS,
     SOURCE_SEAL_STABLE_SHA256,
+    discover_source_files,
     external_protocol,
     verify_manifest,
 )
@@ -81,23 +85,42 @@ class NumericConsensusCandidateV4WildReceiptTests(unittest.TestCase):
             protocol["claim_limits"]["honduras_production_readiness_claimed"]
         )
 
-    def test_frozen_sources_include_adapter(self) -> None:
-        self.assertIn("ocr_real_risk_v1/wildreceipt_adapter.py", SOURCE_FILES)
-        self.assertIn("ocr_real_risk_v1/wildreceipt_external.py", SOURCE_FILES)
-        self.assertIn(
-            "ocr_real_risk_v1/numeric_consensus_candidate_v4_wildreceipt.py",
-            SOURCE_FILES,
+    def test_frozen_sources_are_ast_closed(self) -> None:
+        repository_root = Path(__file__).resolve().parents[1]
+        discovered = discover_source_files(repository_root)
+        self.assertEqual(SOURCE_FILES, discovered)
+        self.assertEqual(
+            SOURCE_CLOSURE_ALGORITHM, "python-ast-local-import-closure-v1"
+        )
+        self.assertEqual(
+            set(SOURCE_ROOTS),
+            {
+                "ocr_real_risk_v1/numeric_consensus_candidate_v4_wildreceipt.py",
+                "ocr_real_risk_v1/wildreceipt_adapter.py",
+                "ocr_real_risk_v1/wildreceipt_external.py",
+            },
         )
         required_runtime_closure = {
             "ocr_real_risk_v1/cord_detector_crops_v4.py",
+            "ocr_real_risk_v1/cord_source_seal.py",
             "ocr_real_risk_v1/coru_source_seal.py",
             "ocr_real_risk_v1/numeric_consensus_candidate_v4.py",
             "ocr_real_risk_v1/wildreceipt_source_seal.py",
         }
-        self.assertTrue(required_runtime_closure.issubset(set(SOURCE_FILES)))
+        self.assertTrue(required_runtime_closure.issubset(set(discovered)))
+        self.assertTrue(
+            all((repository_root / relative).is_file() for relative in discovered)
+        )
         protocol = external_protocol()
         self.assertTrue(protocol["runtime"]["self_contained_source_bundle"])
         self.assertTrue(protocol["runtime"]["neutral_workdir_import_required"])
+        self.assertEqual(
+            protocol["runtime"]["source_bundle_closure_algorithm"],
+            SOURCE_CLOSURE_ALGORITHM,
+        )
+        self.assertEqual(
+            protocol["runtime"]["source_bundle_roots"], list(SOURCE_ROOTS)
+        )
         self.assertEqual(len(SOURCE_SEAL_STABLE_SHA256), 64)
         self.assertEqual(len(DATASET_REVISION), 40)
         self.assertEqual(len(SOURCE_OBJECTS), 3)
