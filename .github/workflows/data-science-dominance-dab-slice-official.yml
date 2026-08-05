@@ -1,0 +1,550 @@
+name: Data Science dominance — official blind DAB slice
+
+on:
+  push:
+    branches:
+      - agent/data-science-dominance-dab-slice
+    paths:
+      - '.github/workflows/data-science-dominance-dab-slice-official.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  solve-and-seal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DAB_SHA: 9a55e34271a2500a41cbc009e239edd94599e374
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      HF_HUB_DISABLE_XET: '1'
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove one-shot workflow-only activation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_EVENT_NAME}" = 'push'
+          test "${GITHUB_RUN_ATTEMPT}" = '1'
+          test "$(git rev-parse HEAD^)" = '50603c77330931f9145da9877723e3e57f7a7421'
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/data-science-dominance-dab-slice-official.yml'
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Install exact runtime and acquisition dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client git-lfs
+          python -m pip install --disable-pip-version-check \
+            'duckdb==1.3.1' 'psycopg2-binary==2.9.9' 'pymongo==4.13.2' \
+            'huggingface-hub==1.2.1'
+          python -m pip freeze | sort > official-runtime-pip-freeze.txt
+          psql --version > postgres-client-version.txt
+          git lfs version > git-lfs-version.txt
+
+      - name: Verify prior synthetic PASS and reconstruct frozen candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: cristh99/notebooks
+          run-id: 30990427526
+          name: data-science-dominance-dab-slice-synthetic-v2
+          path: synthetic-proof
+
+      - name: Enforce frozen chain of custody
+        shell: bash
+        run: |
+          set -euo pipefail
+          root='data_science_dominance/dab_slice'
+          receipt="$(find synthetic-proof -name dab-slice-synthetic-receipt.json -type f | head -1)"
+          test -n "$receipt"
+          python - "$receipt" <<'PY'
+          import json, sys
+          receipt = json.load(open(sys.argv[1], encoding='utf-8'))
+          assert receipt['verdict'] == 'PASS'
+          assert receipt['official_dataset_values_accessed'] is False
+          assert receipt['ground_truth_accessed'] is False
+          assert receipt['validators_executed'] is False
+          assert receipt['hashes']['candidate_sha256'] == '0796f1d66d944e832181034f6e8e8800461b60d71e66716d5b19fe3fd1957dec'
+          PY
+          bash "$root/reconstruct_dab_slice.sh"
+          echo '0796f1d66d944e832181034f6e8e8800461b60d71e66716d5b19fe3fd1957dec  '"$root"'/dab_slice_agent.py' | sha256sum -c -
+          test "$(git hash-object "$root/apply_dab_slice_patch_v3.py")" = '25a235b016939c0f0d6343533fe90ce14e308f95'
+
+      - name: Acquire only the six official query datasets at the pinned DAB commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GIT_LFS_SKIP_SMUDGE=1
+          git clone --filter=blob:none --no-checkout https://github.com/ucbepic/DataAgentBench.git dab
+          cd dab
+          git sparse-checkout init --no-cone
+          cat > .git/info/sparse-checkout <<'EOF'
+          /dataset_manifest.tsv
+          /query_civic_unstructured/query_dataset/**
+          /query_cve/query_dataset/**
+          /query_stockindex/query_dataset/**
+          /query_usaspending/query_dataset/**
+          /query_bookreview/query_dataset/**
+          /query_music_brainz_20k/query_dataset/**
+          EOF
+          git -c advice.detachedHead=false checkout "$DAB_SHA"
+          test "$(git rev-parse HEAD)" = "$DAB_SHA"
+          if find . -type f \( -name 'ground_truth.csv' -o -name 'validate.py' \) | grep -q .; then
+            echo 'Ground truth or validator leaked into solver workspace' >&2
+            exit 1
+          fi
+          cd ..
+          python - <<'PY'
+          from __future__ import annotations
+          import hashlib, json, os
+          from pathlib import Path
+          from huggingface_hub import hf_hub_download
+
+          root = Path('dab')
+          selected = [
+              'query_civic_unstructured/query_dataset/civic_docs_dump/civic_db/civic_docs.bson',
+              'query_civic_unstructured/query_dataset/funding.db',
+              'query_cve/query_dataset/cpe.duckdb',
+              'query_cve/query_dataset/kev.sql',
+              'query_cve/query_dataset/vulns.db',
+              'query_stockindex/query_dataset/indexInfo_query.db',
+              'query_stockindex/query_dataset/indextrade_query.db',
+              'query_usaspending/query_dataset/agencies.duckdb',
+              'query_usaspending/query_dataset/contracts.sql',
+              'query_bookreview/query_dataset/books_info.sql',
+              'query_bookreview/query_dataset/review_query.db',
+              'query_music_brainz_20k/query_dataset/sales.duckdb',
+              'query_music_brainz_20k/query_dataset/tracks.db',
+          ]
+
+          def digest(path: Path) -> str:
+              h = hashlib.sha256()
+              with path.open('rb') as handle:
+                  for chunk in iter(lambda: handle.read(1 << 20), b''):
+                      h.update(chunk)
+              return h.hexdigest()
+
+          manifest = {}
+          with (root / 'dataset_manifest.tsv').open(encoding='utf-8') as handle:
+              for line in handle:
+                  line = line.rstrip('\n')
+                  if not line or line.startswith('#'):
+                      continue
+                  path, sha256, size = line.split('\t')
+                  manifest[path] = (sha256, int(size))
+
+          evidence = []
+          for relative in selected:
+              target = root / relative
+              expected = manifest.get(relative)
+              matched = False
+              if expected and target.is_file() and target.stat().st_size == expected[1]:
+                  matched = digest(target) == expected[0]
+              if expected and not matched:
+                  hf_hub_download(
+                      repo_id='ruiyingm/DataAgentBench-data',
+                      repo_type='dataset',
+                      filename=relative,
+                      local_dir=str(root),
+                      force_download=True,
+                  )
+              if expected:
+                  actual_size = target.stat().st_size
+                  actual_hash = digest(target)
+                  if (actual_hash, actual_size) != expected:
+                      raise SystemExit(f'dataset integrity failure: {relative}')
+                  source = 'dataset_manifest.tsv/Hugging Face mirror'
+              else:
+                  if not target.is_file() or target.stat().st_size < 1024:
+                      raise SystemExit(f'unresolved non-manifest dataset file: {relative}')
+                  actual_size = target.stat().st_size
+                  actual_hash = digest(target)
+                  source = 'pinned Git blob'
+                  if relative == 'query_cve/query_dataset/cpe.duckdb':
+                      if actual_size != 94384128:
+                          raise SystemExit('cpe.duckdb size mismatch')
+              evidence.append({
+                  'path': relative,
+                  'bytes': actual_size,
+                  'sha256': actual_hash,
+                  'source': source,
+              })
+          Path('official-data-manifest.json').write_text(
+              json.dumps({
+                  'schema': 'data-science-dominance/dab-slice-official-data/1',
+                  'dab_commit': os.environ['DAB_SHA'],
+                  'selected_file_count': len(evidence),
+                  'files': evidence,
+                  'ground_truth_present': False,
+                  'validators_present': False,
+              }, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          print(json.dumps(evidence, indent=2, sort_keys=True))
+          PY
+
+      - name: Build the three exact PostgreSQL databases
+        shell: bash
+        run: |
+          set -euo pipefail
+          for db in cve_kev usaspending_contracts bookreview_db; do
+            dropdb --if-exists -h 127.0.0.1 -U postgres "$db"
+            createdb -h 127.0.0.1 -U postgres "$db"
+          done
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U postgres -d cve_kev \
+            -f dab/query_cve/query_dataset/kev.sql > cve-import.log
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U postgres -d usaspending_contracts \
+            -f dab/query_usaspending/query_dataset/contracts.sql > usaspending-import.log
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U postgres -d bookreview_db \
+            -f dab/query_bookreview/query_dataset/books_info.sql > bookreview-import.log
+          python - <<'PY'
+          import json, psycopg2
+          checks = {}
+          queries = {
+              'cve_kev': ['kev_entries'],
+              'usaspending_contracts': ['contracts', 'contract_amounts'],
+              'bookreview_db': ['books_info'],
+          }
+          for db, tables in queries.items():
+              conn = psycopg2.connect(host='127.0.0.1', port=5432, user='postgres', password='postgres', dbname=db)
+              try:
+                  with conn.cursor() as cur:
+                      checks[db] = {}
+                      for table in tables:
+                          cur.execute(f'SELECT COUNT(*) FROM {table}')
+                          count = int(cur.fetchone()[0])
+                          if count <= 0:
+                              raise SystemExit(f'empty imported table: {db}.{table}')
+                          checks[db][table] = count
+              finally:
+                  conn.close()
+          open('postgres-integrity.json', 'w', encoding='utf-8').write(json.dumps(checks, indent=2, sort_keys=True) + '\n')
+          print(json.dumps(checks, indent=2, sort_keys=True))
+          PY
+
+      - name: Execute candidate without validators, ground truth, or network code
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(find dab -type f \( -name 'ground_truth.csv' -o -name 'validate.py' \) -print -quit)"
+          mkdir -p sealed-answers
+          python data_science_dominance/dab_slice/dab_slice_agent.py \
+            --dab-root "$PWD/dab" \
+            --output-dir "$PWD/sealed-answers" \
+            2>&1 | tee candidate-solve.log
+          test -f sealed-answers/answers.json
+          for id in civic_unstructured_1 cve_1 stockindex_1 usaspending_1 bookreview_1 music_brainz_20k_1; do
+            test -s "sealed-answers/${id}.txt"
+            test -s "sealed-answers/${id}.json"
+          done
+
+      - name: Seal answers before any validator exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+          import hashlib, json, os
+          from pathlib import Path
+
+          out = Path('sealed-answers')
+          files = []
+          for path in sorted(p for p in out.rglob('*') if p.is_file()):
+              files.append({
+                  'path': str(path.relative_to(out)),
+                  'bytes': path.stat().st_size,
+                  'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+              })
+          expected_txt = {
+              'civic_unstructured_1.txt', 'cve_1.txt', 'stockindex_1.txt',
+              'usaspending_1.txt', 'bookreview_1.txt', 'music_brainz_20k_1.txt',
+          }
+          actual_txt = {row['path'] for row in files if row['path'].endswith('.txt')}
+          if actual_txt != expected_txt:
+              raise SystemExit(f'unexpected answer text set: {sorted(actual_txt)}')
+          manifest = {
+              'schema': 'data-science-dominance/dab-slice-sealed-answers/1',
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_sha': os.environ['GITHUB_SHA'],
+              'dab_commit': os.environ['DAB_SHA'],
+              'candidate_sha256': '0796f1d66d944e832181034f6e8e8800461b60d71e66716d5b19fe3fd1957dec',
+              'synthetic_pass_run_id': 30990427526,
+              'validator_files_present_when_solved': False,
+              'ground_truth_files_present_when_solved': False,
+              'post_hoc_retuning_permitted': False,
+              'files': files,
+              'official_data_manifest_sha256': hashlib.sha256(Path('official-data-manifest.json').read_bytes()).hexdigest(),
+              'postgres_integrity_sha256': hashlib.sha256(Path('postgres-integrity.json').read_bytes()).hexdigest(),
+          }
+          payload = json.dumps(manifest, indent=2, sort_keys=True) + '\n'
+          Path('answer-manifest.json').write_text(payload, encoding='utf-8')
+          Path('answer-manifest.sha256').write_text(
+              hashlib.sha256(payload.encode()).hexdigest() + '  answer-manifest.json\n',
+              encoding='utf-8',
+          )
+          print(payload)
+          PY
+
+      - name: Upload immutable sealed answers
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: dab-slice-sealed-answers
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            sealed-answers/**
+            answer-manifest.json
+            answer-manifest.sha256
+            official-data-manifest.json
+            postgres-integrity.json
+            candidate-solve.log
+            cve-import.log
+            usaspending-import.log
+            bookreview-import.log
+            official-runtime-pip-freeze.txt
+            postgres-client-version.txt
+            git-lfs-version.txt
+            data_science_dominance/dab_slice/DAB_SLICE_FREEZE.json
+            data_science_dominance/dab_slice/apply_dab_slice_patch_v3.py
+
+  validate-sealed-answers:
+    needs: solve-and-seal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      DAB_SHA: 9a55e34271a2500a41cbc009e239edd94599e374
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: dab-slice-sealed-answers
+          path: sealed-bundle
+
+      - name: Verify sealed artifact before acquiring validators
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest="$(find sealed-bundle -name answer-manifest.json -type f | head -1)"
+          answers="$(find sealed-bundle -name answers.json -type f | head -1)"
+          test -n "$manifest"
+          test -n "$answers"
+          python - "$manifest" <<'PY'
+          import hashlib, json, sys
+          from pathlib import Path
+          manifest_path = Path(sys.argv[1])
+          manifest = json.loads(manifest_path.read_text())
+          assert manifest['candidate_sha256'] == '0796f1d66d944e832181034f6e8e8800461b60d71e66716d5b19fe3fd1957dec'
+          assert manifest['dab_commit'] == '9a55e34271a2500a41cbc009e239edd94599e374'
+          assert manifest['validator_files_present_when_solved'] is False
+          assert manifest['ground_truth_files_present_when_solved'] is False
+          answer_dir = next(manifest_path.parent.rglob('answers.json')).parent
+          for row in manifest['files']:
+              path = answer_dir / row['path']
+              assert path.is_file()
+              assert path.stat().st_size == row['bytes']
+              assert hashlib.sha256(path.read_bytes()).hexdigest() == row['sha256']
+          print(answer_dir)
+          PY
+          echo "ANSWER_DIR=$(dirname "$answers")" >> "$GITHUB_ENV"
+          echo "ANSWER_MANIFEST=$manifest" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Install official validator dependencies
+        run: |
+          python -m pip install --disable-pip-version-check \
+            'numpy==2.2.6' 'pandas==2.3.0' 'regex==2025.11.3' 'python-dateutil==2.9.0.post0'
+          python -m pip freeze | sort > validator-pip-freeze.txt
+
+      - name: Acquire validators and ground truths only after answer sealing
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --no-checkout https://github.com/ucbepic/DataAgentBench.git dab-validation
+          cd dab-validation
+          git sparse-checkout init --no-cone
+          cat > .git/info/sparse-checkout <<'EOF'
+          /common_scaffold/validate/**
+          /query_civic_unstructured/query1/**
+          /query_cve/query1/**
+          /query_stockindex/query1/**
+          /query_usaspending/query1/**
+          /query_bookreview/query1/**
+          /query_music_brainz_20k/query1/**
+          EOF
+          git -c advice.detachedHead=false checkout "$DAB_SHA"
+          test "$(git rev-parse HEAD)" = "$DAB_SHA"
+          test "$(find . -name ground_truth.csv -type f | wc -l)" -eq 6
+          test "$(find . -name validate.py -type f | wc -l)" -eq 7
+
+      - name: Run six official query validators against the sealed text answers
+        shell: bash
+        run: |
+          set +e
+          mkdir -p validation-evidence
+          python - <<'PY' 2>&1 | tee validation-evidence/validator-output.log
+          from __future__ import annotations
+          import hashlib, importlib.util, json, os, sys, traceback
+          from pathlib import Path
+
+          root = Path('dab-validation').resolve()
+          sys.path.insert(0, str(root))
+          framework_path = root / 'common_scaffold/validate/validate.py'
+          spec = importlib.util.spec_from_file_location('dab_validation_framework', framework_path)
+          framework = importlib.util.module_from_spec(spec)
+          assert spec.loader is not None
+          spec.loader.exec_module(framework)
+
+          answer_dir = Path(os.environ['ANSWER_DIR'])
+          mapping = {
+              'civic_unstructured_1': root / 'query_civic_unstructured/query1',
+              'cve_1': root / 'query_cve/query1',
+              'stockindex_1': root / 'query_stockindex/query1',
+              'usaspending_1': root / 'query_usaspending/query1',
+              'bookreview_1': root / 'query_bookreview/query1',
+              'music_brainz_20k_1': root / 'query_music_brainz_20k/query1',
+          }
+          results = []
+          for answer_id, query_dir in mapping.items():
+              answer_path = answer_dir / f'{answer_id}.txt'
+              answer = answer_path.read_text(encoding='utf-8').strip()
+              try:
+                  result = framework.validate(query_dir, answer, 'sealed candidate output')
+              except Exception as error:
+                  result = {
+                      'query_name': query_dir.name,
+                      'is_valid': False,
+                      'reason': f'{type(error).__name__}: {error}',
+                      'ground_truth': '<validator exception before result>',
+                      'llm_answer': answer,
+                      'traceback': traceback.format_exc(),
+                  }
+              result['answer_id'] = answer_id
+              result['answer_sha256'] = hashlib.sha256(answer_path.read_bytes()).hexdigest()
+              results.append(result)
+              print(json.dumps({
+                  'answer_id': answer_id,
+                  'is_valid': bool(result.get('is_valid')),
+                  'reason': result.get('reason'),
+              }, sort_keys=True), flush=True)
+
+          pass_count = sum(bool(row.get('is_valid')) for row in results)
+          report = {
+              'schema': 'data-science-dominance/dab-slice-official-validation/1',
+              'verdict': 'PASS' if pass_count == len(results) else 'FAIL',
+              'pass_count': pass_count,
+              'query_count': len(results),
+              'pass_rate': pass_count / len(results),
+              'candidate_sha256': '0796f1d66d944e832181034f6e8e8800461b60d71e66716d5b19fe3fd1957dec',
+              'dab_commit': os.environ['DAB_SHA'],
+              'answers_were_sealed_before_validator_checkout': True,
+              'post_hoc_retuning_permitted': False,
+              'results': results,
+          }
+          payload = json.dumps(report, indent=2, sort_keys=True) + '\n'
+          Path('validation-evidence/official-validation.json').write_text(payload, encoding='utf-8')
+          Path('validation-evidence/official-validation.sha256').write_text(
+              hashlib.sha256(payload.encode()).hexdigest() + '  official-validation.json\n',
+              encoding='utf-8',
+          )
+          print(json.dumps({
+              'verdict': report['verdict'],
+              'pass_count': pass_count,
+              'query_count': len(results),
+              'pass_rate': report['pass_rate'],
+          }, sort_keys=True))
+          PY
+          status=${PIPESTATUS[0]}
+          echo "$status" > validation-evidence/validator-process.status
+          exit 0
+
+      - name: Seal complete external-evaluation receipt
+        if: always()
+        run: |
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          report_path = Path('validation-evidence/official-validation.json')
+          report = json.loads(report_path.read_text()) if report_path.exists() else None
+          manifest_path = Path(os.environ['ANSWER_MANIFEST'])
+          receipt = {
+              'schema': 'data-science-dominance/dab-slice-external-receipt/1',
+              'verdict': report['verdict'] if report else 'INVALID_RUN',
+              'pass_count': report['pass_count'] if report else 0,
+              'query_count': report['query_count'] if report else 6,
+              'pass_rate': report['pass_rate'] if report else 0.0,
+              'candidate_sha256': '0796f1d66d944e832181034f6e8e8800461b60d71e66716d5b19fe3fd1957dec',
+              'dab_commit': os.environ['DAB_SHA'],
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_run_attempt': int(os.environ['GITHUB_RUN_ATTEMPT']),
+              'answers_sealed_before_ground_truth_access': True,
+              'validators_executed_once': True,
+              'post_hoc_retuning_permitted': False,
+              'score_before': 465,
+              'score_after': 465,
+              'score_promotion_deferred_to_next_preregistered_gate': True,
+              'hashes': {
+                  'answer_manifest_sha256': hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+                  'validation_report_sha256': hashlib.sha256(report_path.read_bytes()).hexdigest() if report_path.exists() else None,
+              },
+          }
+          payload = json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          Path('validation-evidence/external-receipt.json').write_text(payload, encoding='utf-8')
+          Path('validation-evidence/external-receipt.sha256').write_text(
+              hashlib.sha256(payload.encode()).hexdigest() + '  external-receipt.json\n',
+              encoding='utf-8',
+          )
+          print(payload)
+          PY
+
+      - name: Upload complete immutable official evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-dominance-dab-slice-official
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            sealed-bundle/**
+            validation-evidence/**
+            validator-pip-freeze.txt
+
+      - name: Enforce the one-shot official verdict
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('validation-evidence/external-receipt.json')
+          if not path.exists():
+              raise SystemExit('official external receipt missing')
+          receipt = json.loads(path.read_text())
+          if receipt['verdict'] != 'PASS':
+              raise SystemExit(f"DAB slice official gate: {receipt['verdict']} ({receipt['pass_count']}/{receipt['query_count']}); evidence preserved; no retuning")
+          print(f"DAB slice official gate: PASS ({receipt['pass_count']}/{receipt['query_count']})")
+          PY
