@@ -1,0 +1,139 @@
+name: OCR untouched TextOCR source seal v1
+
+on:
+  push:
+    branches:
+      - agent/ocr-consensus-v6-textocr-freeze
+    paths:
+      - 'ocr_real_risk_v1/textocr_source_seal.py'
+      - 'ocr_real_risk_v1/test_textocr_source_seal.py'
+      - '.github/workflows/ocr-textocr-source-seal-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ocr-textocr-source-seal-v1-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  source-seal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 20
+
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+
+      - name: Tests and compilation before repository metadata access
+        run: |
+          python -m unittest -v ocr_real_risk_v1.test_textocr_source_seal
+          python -m compileall -q \
+            ocr_real_risk_v1/textocr_source_seal.py \
+            ocr_real_risk_v1/test_textocr_source_seal.py
+
+      - name: Seal metadata without opening Parquet or outcomes
+        run: |
+          rm -rf textocr-source-seal
+          mkdir textocr-source-seal
+          python -m ocr_real_risk_v1.textocr_source_seal \
+            --output textocr-source-seal/textocr_source_seal_v1.json \
+            | tee textocr-source-seal/stdout.json
+
+      - name: Independent fail-closed source identity gates
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          from ocr_real_risk_v1.textocr_source_seal import (
+              COMPONENT,
+              DATASET_ID,
+              MAXIMUM_SOURCE_BYTES,
+              MINIMUM_SOURCE_BYTES,
+              verify,
+          )
+
+          root = Path('textocr-source-seal')
+          path = root / 'textocr_source_seal_v1.json'
+          payload = json.loads(path.read_text())
+          assert verify(payload)
+          assert payload['dataset_id'] == DATASET_ID
+          assert payload['component'] == COMPONENT
+          assert len(payload['resolved_revision']) == 40
+          source = payload['source_object']
+          assert source['path'].startswith('data/TextOCR')
+          assert source['path'].endswith('.parquet')
+          assert len(source['sha256']) == 64
+          assert MINIMUM_SOURCE_BYTES <= source['size_bytes'] <= \
+              MAXIMUM_SOURCE_BYTES
+          assert payload['licenses']['mirror_declared'] == 'apache-2.0'
+          assert payload['licenses']['upstream_textocr_declared'] == \
+              'cc-by-4.0'
+          assert payload['licenses']['upstream_terms_take_precedence'] is True
+          assert payload['repository_metadata_only'] is True
+          assert payload['parquet_footer_read'] is False
+          assert payload['parquet_bytes_downloaded'] == 0
+          assert payload['dataset_rows_read'] == 0
+          assert payload['texts_opened'] == 0
+          assert payload['bounding_boxes_opened'] == 0
+          assert payload['polygons_opened'] == 0
+          assert payload['images_opened'] == 0
+          assert payload['ocr_executed'] is False
+          assert payload['candidate_inference_executed'] is False
+          assert payload['outcomes_opened'] is False
+          assert payload['resolved_revision'] in source['download_url']
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          (root / 'SHA256SUMS.txt').write_text(
+              f'{digest}  {path.name}\n', encoding='utf-8'
+          )
+          (root / 'ATTRIBUTION.md').write_text(
+              '# Attribution\n\n'
+              '`Yesianrohn/OCR-Data`, TextOCR component. The mirror declares '
+              'Apache-2.0; upstream TextOCR declares CC BY 4.0 and upstream '
+              'terms take precedence. This seal reads repository metadata '
+              'only: no Parquet footer, row, text, box, polygon, image, OCR '
+              'output, or benchmark outcome was opened.\n',
+              encoding='utf-8',
+          )
+          print(json.dumps({
+              'resolved_revision': payload['resolved_revision'],
+              'source_object': source,
+              'stable_payload_sha256': payload['stable_payload_sha256'],
+              'manifest_file_sha256': digest,
+              'outcomes_opened': False,
+          }, indent=2, sort_keys=True))
+          PY
+          (
+            cd textocr-source-seal
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-textocr-source-seal-v1
+          path: textocr-source-seal
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Record immutable source seal on isolated branch
+        run: |
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard "origin/${GITHUB_REF_NAME}"
+          mkdir -p ocr_real_risk_v1/source_seals
+          cp textocr-source-seal/textocr_source_seal_v1.json \
+            ocr_real_risk_v1/source_seals/textocr_source_seal_v1.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ocr_real_risk_v1/source_seals/textocr_source_seal_v1.json
+          if ! git diff --cached --quiet; then
+            git commit -m '[skip ci] Record untouched TextOCR source seal'
+            git fetch origin "${GITHUB_REF_NAME}"
+            git rebase "origin/${GITHUB_REF_NAME}"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
