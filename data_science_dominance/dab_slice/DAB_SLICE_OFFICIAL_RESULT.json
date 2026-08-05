@@ -1,0 +1,41 @@
+{
+  "candidate_retuned_after_freeze": false,
+  "canonicalization_note": "The later synthetic 10/10 run is an engineering regression gate only; the sole adjudicable official result remains the one-shot 4/6 FAIL.",
+  "merged": false,
+  "official_artifact": {
+    "id": 8924130021,
+    "name": "data-science-dominance-dab-slice-official",
+    "zip_sha256": "56a3971eebd7dbf993898dce9bcb1f43341ff83f2f25ce16e71a14577525180b"
+  },
+  "official_head_sha": "d02814dd66ddcdd7e4158966605574f63cce60e6",
+  "official_run_id": 30990924371,
+  "official_workflow_conclusion": "failure",
+  "official_workflow_status": "completed",
+  "post_hoc_retuning_permitted": false,
+  "promotion_points_awarded": 0,
+  "receipt": {
+    "answers_sealed_before_ground_truth_access": true,
+    "candidate_sha256": "0796f1d66d944e832181034f6e8e8800461b60d71e66716d5b19fe3fd1957dec",
+    "dab_commit": "9a55e34271a2500a41cbc009e239edd94599e374",
+    "github_run_attempt": 1,
+    "github_run_id": 30990924371,
+    "hashes": {
+      "answer_manifest_sha256": "597d2519520c8644626fc4fa4762f1dca757cc2e068ab35b243fb9d0d8597fc2",
+      "validation_report_sha256": "957c8f2c5d5eb781503e671b52b3fc28836dbdaa654d7775e19892aa8eb5bcd7"
+    },
+    "pass_count": 4,
+    "pass_rate": 0.6666666666666666,
+    "post_hoc_retuning_permitted": false,
+    "query_count": 6,
+    "schema": "data-science-dominance/dab-slice-external-receipt/1",
+    "score_after": 465,
+    "score_before": 465,
+    "score_promotion_deferred_to_next_preregistered_gate": true,
+    "validators_executed_once": true,
+    "verdict": "FAIL"
+  },
+  "schema": "data-science-dominance/dab-slice-canonical-result/1",
+  "scientific_verdict": "FAIL",
+  "score_after": 465,
+  "score_before": 465
+}
