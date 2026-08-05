@@ -122,9 +122,12 @@ class CoruReceiptExternalV6Tests(unittest.TestCase):
         self.assertEqual(result["counterfactual_false"], 0)
         self.assertTrue(result["pass"])
 
-        rows[1499]["candidate"]["false_accept"] = True
+        # One retained error can still satisfy a 10x exact bound with this
+        # large, high-error baseline. Use a genuinely unsafe synthetic rate.
+        for index in range(1480, 1500):
+            rows[index]["candidate"]["false_accept"] = True
         unsafe = exact_summary(rows)
-        self.assertEqual(unsafe["accepted_false"], 1)
+        self.assertEqual(unsafe["accepted_false"], 20)
         self.assertFalse(unsafe["pass"])
 
 
