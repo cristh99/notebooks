@@ -66,6 +66,7 @@ SOURCE_FILES = (
     "ocr_real_risk_v1/cord_natural_holdout.py",
     "ocr_real_risk_v1/cord_consensus_detector_v4.py",
     "ocr_real_risk_v1/wildreceipt_adapter.py",
+    "ocr_real_risk_v1/wildreceipt_external.py",
     "ocr_real_risk_v1/numeric_consensus_candidate_v4_wildreceipt.py",
 )
 

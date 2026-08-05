@@ -56,6 +56,7 @@ class NumericConsensusCandidateV4WildReceiptTests(unittest.TestCase):
 
     def test_frozen_sources_include_adapter(self) -> None:
         self.assertIn("ocr_real_risk_v1/wildreceipt_adapter.py", SOURCE_FILES)
+        self.assertIn("ocr_real_risk_v1/wildreceipt_external.py", SOURCE_FILES)
         self.assertIn(
             "ocr_real_risk_v1/numeric_consensus_candidate_v4_wildreceipt.py",
             SOURCE_FILES,
