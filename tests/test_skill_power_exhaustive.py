@@ -21,10 +21,10 @@ class ExhaustiveFiniteGrammarTests(unittest.TestCase):
             {
                 "claims": 14,
                 "logic": 13825,
-                "portfolio": 541,
+                "portfolio": 285,
                 "secrets": 1024,
-                "total": 15404,
-                "maximum_privilege": 768,
+                "total": 15148,
+                "maximum_privilege": 640,
             },
         )
 
