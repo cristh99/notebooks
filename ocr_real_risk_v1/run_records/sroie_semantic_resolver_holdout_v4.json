@@ -1,0 +1,116 @@
+{
+  "candidate_commit": "75a5273564fc3a4ca8e1bc87ed86db2c4af2bcf5",
+  "constraints": {
+    "external_spend_usd": 0.0,
+    "gcloud_used": false,
+    "github_actions_used": false,
+    "gpu_used": false,
+    "omp_thread_limit": 1,
+    "paid_api_used": false,
+    "production_modified": false,
+    "python": "3.13.5",
+    "tesseract": "tesseract 5.5.0"
+  },
+  "decision": {
+    "finding": "semantic contradiction triggered, but both Tesseract crop probes repeated 14.00 while annotation was 15.00",
+    "holdout_reuse": "CONTAMINATED_FOR_FUTURE_CERTIFICATION_DEVELOPMENT_ONLY",
+    "next_gate": "same-engine confirmation must not override an independent semantic contradiction; unresolved flagged tokens quarantine; freeze a new candidate before another untouched receipt-disjoint canary",
+    "production_promotion": false,
+    "verdict": "BLOCKED_PERSISTENT_SAME_ENGINE_DIGIT_ERROR"
+  },
+  "diagnostics": [
+    {
+      "baseline_confidence": 65.0,
+      "baseline_correct": false,
+      "baseline_digits": "1400",
+      "baseline_text": "14.00",
+      "final": {
+        "accepted": true,
+        "correct": false,
+        "digits": "1400",
+        "text": "14.00"
+      },
+      "page": "X51008099054",
+      "semantic_resolution": {
+        "crop_box": [659, 1264, 755, 1307],
+        "decision": {
+          "action": "KEEP",
+          "baseline": "14.00",
+          "decision_sha256": "ee96a4a7556d857493b58e352fb48a17b5381b4c7b1b3e4e84a33d8bc83adfb8",
+          "evidence": [
+            {
+              "elapsed_seconds": 0.07835305900016465,
+              "psm": 7,
+              "source_id": "original-gray-psm7",
+              "text": "14,00",
+              "timeout": false,
+              "view": "original_gray"
+            },
+            {
+              "elapsed_seconds": 0.07927113099981398,
+              "psm": 13,
+              "source_id": "autocontrast-2x-psm13",
+              "text": "14.00",
+              "timeout": false,
+              "view": "autocontrast_2x"
+            }
+          ],
+          "output": "14.00",
+          "reason_code": "CROP_PROBES_CONFIRM_BASELINE"
+        },
+        "flag": {
+          "reasons": ["NEAR_DUPLICATE_DOCUMENT_MAJORITY"],
+          "token_index": 110
+        }
+      },
+      "truth": "1500"
+    }
+  ],
+  "full_report_sha256": "90995d41405f67e516f33017560f76f4227aff17579ca8f7cb8dd66aef5790c0",
+  "full_report_stable_payload_sha256": "2d1648882c2101a6360c3cafe15be08b02de27f07dcbc6d703a56c73af08369d",
+  "manifest_commit": "5d18d44ed5ecbdd041810428c1ce8d70b4c92725",
+  "manifest_sha256": "36c0b1f5e0464659cbfd985a987548ecac61554404b8d2431b8b6b10b9707849",
+  "metrics": {
+    "accepted": 9,
+    "accepted_coverage": 1.0,
+    "baseline_errors": 1,
+    "baseline_observed_error_rate": 0.1111111111111111,
+    "conservative_error_reduction_lower": 0.013243006847977945,
+    "corrected_errors": 0,
+    "eligible_claims": 9,
+    "false_replacements": 0,
+    "final_errors": 1,
+    "final_observed_error_rate": 0.1111111111111111,
+    "observed_baseline_errors_eliminated_fraction": 0.0,
+    "one_sided_95pct_baseline_error_lower": 0.005683044988048048,
+    "one_sided_95pct_final_error_upper": 0.42913554703143447,
+    "quarantined": 0,
+    "replacements": 0,
+    "semantic_flags": 1,
+    "statistical_10x_certified": false
+  },
+  "record_sha256": "e05bbecb7126bcf00d0639039f9e19f3e549570ce1597fa605dea93f1bd06778",
+  "schema": "ocr-semantic-numeric-resolver-v4-holdout-record/1",
+  "source": {
+    "annotations_used_at_inference": false,
+    "annotations_used_for_post_decision_evaluation": true,
+    "corpus": "ICDAR2019 SROIE Task 1 natural receipt images",
+    "pages": 5,
+    "stems": [
+      "X51008063849",
+      "X51008099044",
+      "X51008099054",
+      "X51008099043",
+      "X51008099049"
+    ]
+  },
+  "status": "RECEIPT_DISJOINT_SEALED_CANARY",
+  "timing": {
+    "baseline_full_page_seconds": 3.209044287999859,
+    "candidate_to_baseline_runtime_ratio": 1.049593296544702,
+    "candidate_total_seconds": 3.3681913729997177,
+    "crop_resolver_wall_seconds": 0.15816296399998464,
+    "semantic_trigger_seconds": 0.0009841209998739942,
+    "speed_10x_certified": false
+  }
+}
