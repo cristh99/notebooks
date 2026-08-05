@@ -1,0 +1,108 @@
+{
+  "branch": "agent/data-science-dominance-dab-cve-v1",
+  "candidate": {
+    "frozen_before_held_out_query_content": true,
+    "frozen_before_held_out_validators": true,
+    "frozen_before_held_out_ground_truth": true,
+    "frozen_before_official_dataset_values": true,
+    "network_access": false,
+    "path": "data_science_dominance/dab_cve_v1/cve_engine.py",
+    "post_hoc_retuning_permitted": false,
+    "sha256": "0ba9dfa4f583a8c5aad5b975b913dbf2ffa5e1ec2f04d6649067e0ab46967cff"
+  },
+  "dab_commit": "9a55e34271a2500a41cbc009e239edd94599e374",
+  "dab_repository": "ucbepic/DataAgentBench",
+  "execution_policy": {
+    "answers_sealed_before_validator_checkout": true,
+    "candidate_process_count": 1,
+    "cost_usd": 0,
+    "gcloud": false,
+    "merge_permitted": false,
+    "novelty_points": 0,
+    "paid_compute": false,
+    "validators_execute_once_each": true
+  },
+  "held_out_scope": [
+    "query_cve/query2",
+    "query_cve/query3",
+    "query_cve/query4",
+    "query_cve/query5",
+    "query_cve/query6",
+    "query_cve/query7",
+    "query_cve/query8",
+    "query_cve/query9",
+    "query_cve/query10"
+  ],
+  "logic_power_decision": {
+    "rejected": [
+      "additional USAspending variants because query1-10 are exposed",
+      "additional BookReview variants because query1-3 are exposed",
+      "StockIndex retuning because query2-3 are exposed"
+    ],
+    "selected_front": "CVE query2-10",
+    "selection_reason": "largest remaining fresh family with prior query1 success, explicit public corruption law, four heterogeneous data stores, and nine independent external validators"
+  },
+  "pre_data_evidence": {
+    "canonicalization_cases": 16384,
+    "canonicalization_failures": 0,
+    "functional_tests": 9,
+    "functional_failures": 0,
+    "stress_receipt_path": "data_science_dominance/dab_cve_v1/STRESS_RECEIPT.json",
+    "tests_sha256": "18557756c32cf4aadccdf7a1e5d026ff122b5143eaf6cc3f676d7838f9dbe7bc"
+  },
+  "prohibited_pre_activation_inputs": [
+    "query_cve/query2/query.json",
+    "query_cve/query2/validate.py",
+    "query_cve/query2/ground_truth.csv",
+    "query_cve/query3/query.json",
+    "query_cve/query3/validate.py",
+    "query_cve/query3/ground_truth.csv",
+    "query_cve/query4/query.json",
+    "query_cve/query4/validate.py",
+    "query_cve/query4/ground_truth.csv",
+    "query_cve/query5/query.json",
+    "query_cve/query5/validate.py",
+    "query_cve/query5/ground_truth.csv",
+    "query_cve/query6/query.json",
+    "query_cve/query6/validate.py",
+    "query_cve/query6/ground_truth.csv",
+    "query_cve/query7/query.json",
+    "query_cve/query7/validate.py",
+    "query_cve/query7/ground_truth.csv",
+    "query_cve/query8/query.json",
+    "query_cve/query8/validate.py",
+    "query_cve/query8/ground_truth.csv",
+    "query_cve/query9/query.json",
+    "query_cve/query9/validate.py",
+    "query_cve/query9/ground_truth.csv",
+    "query_cve/query10/query.json",
+    "query_cve/query10/validate.py",
+    "query_cve/query10/ground_truth.csv"
+  ],
+  "promotion_rule": {
+    "pass_9_of_9_points": 45,
+    "pass_7_or_8_points": 30,
+    "pass_5_or_6_points": 15,
+    "pass_0_to_4_points": 0,
+    "score_before": 465
+  },
+  "public_inputs_accessed": [
+    "query_cve/db_description.txt",
+    "query_cve/db_description_withhint.txt",
+    "query_cve/db_config.yaml",
+    "query_cve/query1/query.json",
+    "query_cve/query1/validate.py",
+    "query_cve/manual_querycode/corrupt.py",
+    "dataset_manifest.tsv"
+  ],
+  "schema": "data-science-dominance/cve-v1-freeze/1",
+  "source_base_sha": "4676c5500f9938ba59a77091f3d4e1870f2fb534",
+  "transport": {
+    "candidate_base64_sha256": "e8e65b79ff3e4a8162f4bf4ce87449936b8765425dbd36d36086b66ca1d9d624",
+    "candidate_gzip_sha256": "9369bcb380ed38134509f7f7cee5d2c5b9dc696c55215c074c225e14a404ab34",
+    "candidate_part_00_sha256": "0cd95cc95594aa0ea06f7159018a9f88a6de25edd8cfde9b59c6f166c70004bf",
+    "candidate_part_01_sha256": "d784253f98951e61eddec06e3ef7ed5836cdd7e5dccbf50ea5c8d9a0bffd4b47",
+    "tests_base64_sha256": "ab0b2be8f63f342d583069bec8eb8923b342f8454b9d7bd3d4a78c1e80028854",
+    "tests_gzip_sha256": "0ae46d8f65a9dc3792faeac5e054afecb6581b0ad957f9243c25a1908614f54d"
+  }
+}
