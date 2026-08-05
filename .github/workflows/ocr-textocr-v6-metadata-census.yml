@@ -1,0 +1,436 @@
+name: OCR TextOCR v6 frozen metadata census
+
+on:
+  push:
+    branches:
+      - agent/ocr-consensus-v6-textocr-freeze
+    paths:
+      - '.github/workflows/ocr-textocr-v6-metadata-census.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: ocr-textocr-v6-metadata-census-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CANDIDATE_ARTIFACT_ID: '8934627865'
+  CANDIDATE_ARTIFACT_DIGEST: 019f739abc302d54efced526f8e48bc2f2a4f4a7bcb5ff89c586f9781fc8fd5e
+  CANDIDATE_STABLE_SHA256: 96b35ec606a174e25c49089e099c917e88425385c46ba557dd594de506f349ca
+  SOURCE_FILE_SET_SHA256: 1314a496c908d18720ee7cddb80015211513ee1d8caf03a9a8f7dc0f4e1ff261
+  CANDIDATE_SOURCE_COMMIT: 1e79cfc4336644fe171f7855291218f24b26ae2e
+  TEXTOCR_REVISION: 2b1f8aab9fbba3b5be07e2cae9e3e9c43fe5487c
+  TEXTOCR_SOURCE_SHA256: f2d50b206923e4bdb70e9200e92b31bd8626acc37466bab8379fa48bb9c62823
+  TEXTOCR_SOURCE_BYTES: '6196529116'
+  TEXTOCR_URL: https://huggingface.co/datasets/Yesianrohn/OCR-Data/resolve/2b1f8aab9fbba3b5be07e2cae9e3e9c43fe5487c/data/TextOCR-00000-of-00001.parquet?download=true
+  GITHUB_TOKEN: ${{ github.token }}
+  PYTHONHASHSEED: '0'
+  OMP_THREAD_LIMIT: '1'
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  NUMEXPR_NUM_THREADS: '1'
+
+jobs:
+  census:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    outputs:
+      run-full: ${{ steps.gate.outputs.run_full }}
+      selected: ${{ steps.gate.outputs.selected }}
+      projected-accepted: ${{ steps.gate.outputs.projected_accepted }}
+      census-stable: ${{ steps.gate.outputs.census_stable }}
+      row-count: ${{ steps.gate.outputs.row_count }}
+    steps:
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+
+      - name: Install pinned census runtime without OCR binary
+        run: |
+          python -m pip install --disable-pip-version-check \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            scipy==1.17.1 \
+            threadpoolctl==3.6.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13 \
+            packaging==26.3 \
+            duckdb==1.5.4
+
+      - name: Recover and verify byte-frozen TextOCR candidate
+        run: |
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${CANDIDATE_ARTIFACT_ID}/zip" \
+            --output candidate.zip
+          echo "${CANDIDATE_ARTIFACT_DIGEST}  candidate.zip" | \
+            sha256sum --check --strict
+          mkdir candidate-artifact
+          unzip -q candidate.zip -d candidate-artifact
+          test -d candidate-artifact/frozen-textocr-v6-a
+          (
+            cd candidate-artifact/frozen-textocr-v6-a
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+
+      - name: Prove neutral-workdir source closure and census limits
+        run: |
+          candidate="${GITHUB_WORKSPACE}/candidate-artifact/frozen-textocr-v6-a"
+          work="${RUNNER_TEMP}/textocr-v6-census"
+          rm -rf "${work}"
+          mkdir -p "${work}"
+          cd "${work}"
+          PYTHONPATH="${candidate}/source" CANDIDATE_ROOT="${candidate}" \
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import duckdb
+          import ocr_real_risk_v1.numeric_consensus_candidate_v6_textocr as candidate_module
+          import ocr_real_risk_v1.textocr_adapter_v6 as adapter_module
+          import ocr_real_risk_v1.textocr_external_v6 as evaluator_module
+          from ocr_real_risk_v1.core import canonical_json, sha256_bytes, sha256_file
+          from ocr_real_risk_v1.numeric_consensus_candidate_v6_textocr import verify_manifest
+
+          root = Path(os.environ['CANDIDATE_ROOT']).resolve()
+          source = (root / 'source').resolve()
+          expected_paths = {
+              'candidate': source / (
+                  'ocr_real_risk_v1/numeric_consensus_candidate_v6_textocr.py'
+              ),
+              'adapter': source / 'ocr_real_risk_v1/textocr_adapter_v6.py',
+              'evaluator': source / 'ocr_real_risk_v1/textocr_external_v6.py',
+          }
+          observed_paths = {
+              'candidate': Path(candidate_module.__file__).resolve(),
+              'adapter': Path(adapter_module.__file__).resolve(),
+              'evaluator': Path(evaluator_module.__file__).resolve(),
+          }
+          assert observed_paths == expected_paths
+          manifest = json.loads((root / 'frozen_candidate.json').read_text())
+          assert verify_manifest(manifest)
+          assert manifest['candidate_id'] == 'numeric-consensus-v6-textocr'
+          assert manifest['stable_payload_sha256'] == \
+              os.environ['CANDIDATE_STABLE_SHA256']
+          assert manifest['source_commit'] == os.environ['CANDIDATE_SOURCE_COMMIT']
+          assert manifest['status'] == \
+              'FROZEN_BEFORE_TEXTOCR_FOOTER_ROWS_OR_IMAGES'
+          runtime = manifest['runtime']
+          assert runtime['source_file_count'] == 20
+          assert runtime['source_file_set_sha256'] == \
+              os.environ['SOURCE_FILE_SET_SHA256']
+          assert runtime['requirements'][-1] == 'duckdb==1.5.4'
+          assert duckdb.__version__ == '1.5.4'
+          declared = tuple(row['path'] for row in manifest['source_files'])
+          assert candidate_module.discover_source_files(source) == declared
+          assert runtime['source_file_set_sha256'] == sha256_bytes(
+              canonical_json(list(declared)).encode()
+          )
+          for row in manifest['source_files']:
+              assert sha256_file(source / row['path']) == row['sha256']
+          binding = manifest['external_source_binding']
+          assert binding['footer_rows_or_outcomes_opened_before_freeze'] is False
+          protocol = manifest['external_protocol']
+          assert protocol['census']['image_column_read'] is False
+          assert protocol['census']['columns'] == [
+              'texts', 'bboxes', 'polygons', 'num_text_regions'
+          ]
+          assert protocol['source_object'][
+              'full_download_only_after_census_power_gate'
+          ] is True
+          assert protocol['claim_limits']['external_certificate_claimed'] is False
+          decision = manifest['decision']
+          assert decision['candidate_frozen_before_textocr_opening'] is True
+          assert decision['ready_for_textocr_metadata_census'] is True
+          assert decision['ready_for_full_textocr_download'] is False
+          assert decision['full_download_requires_frozen_census_pass'] is True
+          assert decision['production_ready'] is False
+          print(json.dumps({
+              'candidate_id': manifest['candidate_id'],
+              'stable_payload_sha256': manifest['stable_payload_sha256'],
+              'source_file_count': runtime['source_file_count'],
+              'duckdb': duckdb.__version__,
+              'module_paths': {
+                  key: str(value) for key, value in observed_paths.items()
+              },
+              'footer_opened_before_freeze': False,
+          }, indent=2, sort_keys=True))
+          PY
+
+      - name: Execute frozen metadata-only census
+        run: |
+          candidate="${GITHUB_WORKSPACE}/candidate-artifact/frozen-textocr-v6-a"
+          work="${RUNNER_TEMP}/textocr-v6-census"
+          cd "${work}"
+          mkdir -p output
+          PYTHONPATH="${candidate}/source" \
+          python -m ocr_real_risk_v1.textocr_adapter_v6 \
+            --source-url "${TEXTOCR_URL}" \
+            --candidate-stable "${CANDIDATE_STABLE_SHA256}" \
+            --candidate-source-commit "${CANDIDATE_SOURCE_COMMIT}" \
+            --output output/textocr_v6_metadata_census.json \
+            | tee output/stdout.json
+          test ! -e textocr.parquet
+          test ! -e source.parquet
+          test ! -d images
+
+      - name: Independent schema, image-blindness, and power gates
+        id: gate
+        run: |
+          candidate="${GITHUB_WORKSPACE}/candidate-artifact/frozen-textocr-v6-a"
+          work="${RUNNER_TEMP}/textocr-v6-census"
+          cd "${work}"
+          PYTHONPATH="${candidate}/source" \
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          from ocr_real_risk_v1.sroie_natural_holdout import verify_stable_payload
+
+          root = Path('output')
+          path = root / 'textocr_v6_metadata_census.json'
+          report = json.loads(path.read_text())
+          assert verify_stable_payload(report, 'stable_payload_sha256')
+          assert report['schema'] == 'ocr-textocr-numeric-census/6'
+          assert report['adapter_schema'] == 'ocr-textocr-numeric-adapter/6'
+          dataset = report['dataset']
+          assert dataset['id'] == 'Yesianrohn/OCR-Data'
+          assert dataset['component'] == 'TextOCR'
+          assert dataset['revision'] == \
+              '2b1f8aab9fbba3b5be07e2cae9e3e9c43fe5487c'
+          assert dataset['source_path'] == \
+              'data/TextOCR-00000-of-00001.parquet'
+          assert dataset['source_sha256'] == \
+              'f2d50b206923e4bdb70e9200e92b31bd8626acc37466bab8379fa48bb9c62823'
+          assert dataset['source_size_bytes'] == 6196529116
+          binding = report['candidate_binding']
+          assert binding['stable_payload_sha256'] == \
+              '96b35ec606a174e25c49089e099c917e88425385c46ba557dd594de506f349ca'
+          assert binding['source_commit'] == \
+              '1e79cfc4336644fe171f7855291218f24b26ae2e'
+          schema = report['schema_fingerprint']
+          assert schema['image_column_read'] is False
+          assert schema['census_columns_only'] == [
+              'texts', 'bboxes', 'polygons', 'num_text_regions'
+          ]
+          assert set(schema['expected_columns']).issubset(set(schema['columns']))
+          selection = report['selection']
+          assert selection['one_risk_unit_per_image_row'] is True
+          assert selection['uses_image_bytes'] is False
+          assert selection['uses_ocr'] is False
+          assert selection['uses_candidate_output'] is False
+          assert selection['bbox_convention_resolved_against_polygon'] is True
+          census = report['census']
+          assert census['row_count'] > 0
+          assert census['selected_count'] == len(census['records'])
+          assert len(census['selected_record_set_sha256']) == 64
+          assert len({row['row_index'] for row in census['records']}) == \
+              census['selected_count']
+          for record in census['records']:
+              assert record['truth'].isdigit()
+              assert 4 <= len(record['truth']) <= 12
+              assert len(record['bbox_xyxy']) == 4
+              assert record['bbox_polygon_iou'] >= 0.5
+              assert record['bbox_convention'] in {
+                  'xyxy', 'xywh', 'polygon_8'
+              }
+              assert len(record['selection_rank_sha256']) == 64
+          power = report['power_gate']
+          selected = int(power['selected_available'])
+          projected = float(power['projected_accepted'])
+          run_full = bool(power['download_full_source_and_run_ocr'])
+          assert selected == census['selected_count']
+          if run_full:
+              assert selected >= 3000
+              assert projected >= 900
+              assert report['decision']['verdict'] == \
+                  'TEXTOCR_SCHEMA_AND_POWER_GATE_PASS'
+          else:
+              assert selected < 3000 or projected < 900
+              assert report['decision']['verdict'] == \
+                  'TEXTOCR_TERMINAL_NO_FULL_DOWNLOAD'
+          decision = report['decision']
+          assert decision[
+              'footer_and_metadata_columns_opened_after_candidate_freeze'
+          ] is True
+          assert decision['image_bytes_opened'] is False
+          assert decision['ocr_executed'] is False
+          assert decision['candidate_inference_executed'] is False
+          assert decision['external_certificate_claimed'] is False
+          assert decision['production_ready'] is False
+          assert report['constraints']['external_spend_usd'] == 0
+          assert report['constraints']['production_modified'] is False
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          (root / 'SHA256SUMS.txt').write_text(
+              f'{digest}  {path.name}\n', encoding='utf-8'
+          )
+          with Path(os.environ['GITHUB_OUTPUT']).open('a') as output:
+              output.write(f"run_full={'true' if run_full else 'false'}\n")
+              output.write(f"selected={selected}\n")
+              output.write(f"projected_accepted={projected}\n")
+              output.write(
+                  f"census_stable={report['stable_payload_sha256']}\n"
+              )
+              output.write(f"row_count={census['row_count']}\n")
+          print(json.dumps({
+              'schema_fingerprint': schema,
+              'census': {
+                  key: value for key, value in census.items()
+                  if key != 'records'
+              },
+              'power_gate': power,
+              'decision': decision,
+              'stable_payload_sha256': report['stable_payload_sha256'],
+              'file_sha256': digest,
+              'image_bytes_opened': False,
+          }, indent=2, sort_keys=True))
+          PY
+          (
+            cd output
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-textocr-v6-metadata-census
+          path: ${{ runner.temp }}/textocr-v6-census/output
+          if-no-files-found: error
+          retention-days: 90
+
+  terminal-no-full-download:
+    needs: census
+    if: ${{ needs.census.outputs.run-full == 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Emit terminal resource-saving decision
+        env:
+          SELECTED: ${{ needs.census.outputs.selected }}
+          PROJECTED_ACCEPTED: ${{ needs.census.outputs.projected-accepted }}
+          CENSUS_STABLE: ${{ needs.census.outputs.census-stable }}
+          ROW_COUNT: ${{ needs.census.outputs.row-count }}
+        run: |
+          mkdir terminal
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          report = {
+              'schema': 'ocr-textocr-v6-terminal-no-full-download/1',
+              'candidate_artifact_id': 8934627865,
+              'candidate_artifact_zip_sha256':
+                  '019f739abc302d54efced526f8e48bc2f2a4f4a7bcb5ff89c586f9781fc8fd5e',
+              'candidate_stable_payload_sha256':
+                  '96b35ec606a174e25c49089e099c917e88425385c46ba557dd594de506f349ca',
+              'census_stable_payload_sha256': os.environ['CENSUS_STABLE'],
+              'source_rows': int(os.environ['ROW_COUNT']),
+              'selected_available': int(os.environ['SELECTED']),
+              'projected_accepted': float(os.environ['PROJECTED_ACCEPTED']),
+              'minimum_selected_required': 3000,
+              'minimum_accepted_required': 900,
+              'full_source_bytes_avoided': 6196529116,
+              'full_source_downloaded': False,
+              'image_bytes_opened': False,
+              'ocr_executed': False,
+              'candidate_inference_executed': False,
+              'external_certificate_claimed': False,
+              'production_ready': False,
+              'automatic_production_change': False,
+              'verdict': 'TEXTOCR_TERMINAL_NO_FULL_DOWNLOAD',
+              'external_spend_usd': 0,
+          }
+          stable = dict(report)
+          report['stable_payload_sha256'] = hashlib.sha256(
+              json.dumps(stable, sort_keys=True, separators=(',', ':')).encode()
+          ).hexdigest()
+          path = Path('terminal/textocr_v6_terminal_no_full_download.json')
+          path.write_text(json.dumps(report, indent=2, sort_keys=True) + '\n')
+          Path('terminal/SHA256SUMS.txt').write_text(
+              f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n"
+          )
+          print(json.dumps(report, indent=2, sort_keys=True))
+          PY
+          (
+            cd terminal
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-textocr-v6-terminal-no-full-download
+          path: terminal
+          if-no-files-found: error
+          retention-days: 90
+
+  full-download-authorized:
+    needs: census
+    if: ${{ needs.census.outputs.run-full == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Record frozen authorization without downloading source
+        env:
+          SELECTED: ${{ needs.census.outputs.selected }}
+          PROJECTED_ACCEPTED: ${{ needs.census.outputs.projected-accepted }}
+          CENSUS_STABLE: ${{ needs.census.outputs.census-stable }}
+          ROW_COUNT: ${{ needs.census.outputs.row-count }}
+        run: |
+          mkdir authorization
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          report = {
+              'schema': 'ocr-textocr-v6-full-download-authorization/1',
+              'candidate_artifact_id': 8934627865,
+              'candidate_stable_payload_sha256':
+                  '96b35ec606a174e25c49089e099c917e88425385c46ba557dd594de506f349ca',
+              'census_stable_payload_sha256': os.environ['CENSUS_STABLE'],
+              'source_rows': int(os.environ['ROW_COUNT']),
+              'selected_available': int(os.environ['SELECTED']),
+              'projected_accepted': float(os.environ['PROJECTED_ACCEPTED']),
+              'source_sha256':
+                  'f2d50b206923e4bdb70e9200e92b31bd8626acc37466bab8379fa48bb9c62823',
+              'source_size_bytes': 6196529116,
+              'full_download_authorized_by_frozen_gate': True,
+              'full_source_downloaded_in_this_job': False,
+              'image_bytes_opened': False,
+              'ocr_executed': False,
+              'candidate_inference_executed': False,
+              'external_certificate_claimed': False,
+              'production_ready': False,
+              'automatic_production_change': False,
+              'external_spend_usd': 0,
+          }
+          stable = dict(report)
+          report['stable_payload_sha256'] = hashlib.sha256(
+              json.dumps(stable, sort_keys=True, separators=(',', ':')).encode()
+          ).hexdigest()
+          path = Path('authorization/textocr_v6_full_download_authorization.json')
+          path.write_text(json.dumps(report, indent=2, sort_keys=True) + '\n')
+          Path('authorization/SHA256SUMS.txt').write_text(
+              f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n"
+          )
+          print(json.dumps(report, indent=2, sort_keys=True))
+          PY
+          (
+            cd authorization
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-textocr-v6-full-download-authorization
+          path: authorization
+          if-no-files-found: error
+          retention-days: 90
