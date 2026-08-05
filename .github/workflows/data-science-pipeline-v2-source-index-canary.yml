@@ -1,0 +1,206 @@
+name: Data Science pipeline v2 — healthy official source-index canary
+
+on:
+  push:
+    branches:
+      - agent/data-science-canonical-pipeline-v2-acquisition
+    paths:
+      - '.github/workflows/data-science-pipeline-v2-source-index-canary.yml'
+
+permissions:
+  contents: read
+
+env:
+  BASE_OUT: /tmp/canonical-pipeline-v1
+  EVIDENCE_ROOT: acquisition-v2-index-evidence
+
+jobs:
+  healthy-source-index-canary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove one-shot workflow-only activation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_EVENT_NAME}" = push
+          test "${GITHUB_RUN_ATTEMPT}" = 1
+          test "$(git rev-parse HEAD^)" = e509f4b9ba16713ba5ee75a1028d48aa1e8ea483
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/data-science-pipeline-v2-source-index-canary.yml'
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Reconstruct exact pipeline and verify frozen contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash data_science_pipeline_v1/reconstruct.sh "$BASE_OUT"
+          PIPELINE_ROOT="$BASE_OUT/canonical_data_science_pipeline_v1"
+          bash data_science_pipeline_v2_acquisition/apply_overlay.sh "$PIPELINE_ROOT"
+          echo '3559a319f61f7fb69d7cb56d030f62c88d493b3301b17c74930ea03eef8585b9  data_science_pipeline_v2_acquisition/canary/oncae-open-data-index.json' | sha256sum -c -
+          echo 'afa3f5cabf892b4ae01e48f345b055066d85a89acfe15efa4c0e80938393cead  data_science_pipeline_v2_acquisition/canary/iaip-institution-360.json' | sha256sum -c -
+          mkdir -p "$EVIDENCE_ROOT"
+          cp data_science_pipeline_v2_acquisition/OBSTRUCTION_REPORT.json "$EVIDENCE_ROOT/prior-obstructions.json"
+          cp data_science_pipeline_v2_acquisition/SOURCE_MANIFEST.json "$EVIDENCE_ROOT/source-manifest.json"
+          echo "PIPELINE_ROOT=$PIPELINE_ROOT" >> "$GITHUB_ENV"
+
+      - name: Re-run complete regression suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PIPELINE_ROOT"
+          PYTHONPATH=src python -m unittest discover -s tests -v \
+            2>&1 | tee "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/tests.log"
+          grep -q 'Ran 30 tests' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/tests.log"
+          grep -q '^OK$' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/tests.log"
+          PYTHONPATH=src python -m compileall -q src tests
+
+      - name: Execute healthy official source-index canary once
+        shell: bash
+        run: |
+          set +e
+          cd "$PIPELINE_ROOT"
+          rm -rf "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/run"
+          PYTHONPATH=src python -m god_pipeline.cli acquisition-canary \
+            --root "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/run" \
+            "$GITHUB_WORKSPACE/data_science_pipeline_v2_acquisition/canary/oncae-open-data-index.json" \
+            "$GITHUB_WORKSPACE/data_science_pipeline_v2_acquisition/canary/iaip-institution-360.json" \
+            > "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/canary-output.json" \
+            2> "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/canary-stderr.log"
+          echo "$?" > "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/canary-exit-status.txt"
+          exit 0
+
+      - name: Adjudicate transport, preservation, semantics, and cost
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          from urllib.parse import unquote, urlparse
+
+          evidence = Path(os.environ['EVIDENCE_ROOT'])
+          run_root = evidence / 'run'
+          manifest_path = run_root / 'evidence' / 'manifest.json'
+          manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else None
+          exit_status = int((evidence / 'canary-exit-status.txt').read_text().strip()) if (evidence / 'canary-exit-status.txt').exists() else None
+
+          def digest(path: Path):
+              return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+
+          acquire = None
+          preserve = None
+          accepted = {}
+          quarantined = []
+          if manifest:
+              acquire = next((item for item in manifest.get('stage_records', []) if item['stage'] == 'acquire'), None)
+              preserve = next((item for item in manifest.get('stage_records', []) if item['stage'] == 'preserve_raw'), None)
+              for artifact in manifest.get('artifacts', []):
+                  if artifact.get('stage') == 'acquire' and artifact.get('state') == 'accepted':
+                      accepted[artifact['metadata']['request_id']] = artifact
+                  if artifact.get('state') == 'quarantined':
+                      quarantined.append(artifact)
+
+          semantic = {}
+          for request_id, artifact in accepted.items():
+              parsed = urlparse(artifact['uri'])
+              path = Path(unquote(parsed.path))
+              text = path.read_bytes().decode('utf-8', errors='replace').casefold()
+              challenge = any(token in text for token in ('cf-chl-', 'just a moment', 'challenge-platform'))
+              if request_id == 'oncae-open-data-index':
+                  semantic[request_id] = (
+                      'datos abiertos' in text
+                      and ('honducompras' in text or 'contrataciones' in text)
+                      and not challenge
+                  )
+              elif request_id == 'iaip-institution-360':
+                  semantic[request_id] = (
+                      'instituto hondure' in text
+                      and 'documentos publicados' in text
+                      and not challenge
+                  )
+
+          checks = {
+              'cli_exit_zero': exit_status == 0,
+              'manifest_exists': manifest is not None,
+              'pipeline_status_passed': bool(manifest and manifest.get('status') == 'passed'),
+              'two_stage_records': bool(manifest and len(manifest.get('stage_records', [])) == 2),
+              'acquire_passed': bool(acquire and acquire['status'] == 'passed'),
+              'requested_two': bool(acquire and acquire['metrics'].get('requested') == 2),
+              'downloaded_two': bool(acquire and acquire['metrics'].get('downloaded') == 2),
+              'zero_transport_errors': bool(acquire and all(acquire['metrics'].get(name) == 0 for name in ('http_errors', 'media_errors', 'hash_mismatches', 'size_errors'))),
+              'preserve_passed': bool(preserve and preserve['status'] == 'passed'),
+              'preserved_two': bool(preserve and preserve['counts'].get('accepted') == 2),
+              'zero_quarantine': len(quarantined) == 0,
+              'oncae_semantic_identity': semantic.get('oncae-open-data-index') is True,
+              'iaip_semantic_identity': semantic.get('iaip-institution-360') is True,
+              'external_cost_zero': bool(manifest and manifest.get('total_cost_usd') == 0.0),
+          }
+
+          files = []
+          if run_root.exists():
+              for path in sorted(item for item in run_root.rglob('*') if item.is_file()):
+                  files.append({'path': str(path.relative_to(run_root)), 'bytes': path.stat().st_size, 'sha256': digest(path)})
+
+          receipt = {
+              'schema': 'data-science-pipeline/healthy-source-index-canary/2',
+              'verdict': 'PASS' if all(checks.values()) else 'FAIL',
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_run_attempt': int(os.environ['GITHUB_RUN_ATTEMPT']),
+              'github_sha': os.environ['GITHUB_SHA'],
+              'checks': checks,
+              'semantic_checks': semantic,
+              'accepted_request_ids': sorted(accepted),
+              'quarantined_count': len(quarantined),
+              'source_artifact_obstructions_remain': True,
+              'mass_download_authorized': False,
+              'production_promotion_authorized': False,
+              'gcloud_used': False,
+              'paid_compute_used': False,
+              'external_cost_usd': 0.0 if manifest is None else manifest.get('total_cost_usd', 0.0),
+              'manifest_hash': None if manifest is None else manifest.get('manifest_hash'),
+              'ledger_head_hash': None if manifest is None else manifest.get('ledger_head_hash'),
+              'files': files,
+              'hashes': {
+                  'acquisition_source_sha256': '66bf6cebba06ac9c11e189759201d45dba64a7a98b2d265639c4c65e77da3a57',
+                  'oncae_contract_sha256': '3559a319f61f7fb69d7cb56d030f62c88d493b3301b17c74930ea03eef8585b9',
+                  'iaip_contract_sha256': 'afa3f5cabf892b4ae01e48f345b055066d85a89acfe15efa4c0e80938393cead',
+                  'prior_obstruction_report_sha256': digest(evidence / 'prior-obstructions.json'),
+                  'tests_log_sha256': digest(evidence / 'tests.log'),
+              },
+          }
+          payload = json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          (evidence / 'index-canary-receipt.json').write_text(payload)
+          (evidence / 'index-canary-receipt.sha256').write_text(hashlib.sha256(payload.encode()).hexdigest() + '  index-canary-receipt.json\n')
+          print(payload)
+          PY
+
+      - name: Upload complete immutable evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-pipeline-v2-source-index-canary
+          retention-days: 90
+          if-no-files-found: error
+          path: acquisition-v2-index-evidence/**
+
+      - name: Enforce source-index canary
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path('acquisition-v2-index-evidence/index-canary-receipt.json').read_text())
+          if receipt['verdict'] != 'PASS':
+              failed = [name for name, value in receipt['checks'].items() if not value]
+              raise SystemExit(f'source-index canary failed: {failed}; evidence preserved')
+          print('source-index canary: PASS — IAIP and ONCAE official pages acquired, semantically identified, preserved, and receipted')
+          PY
