@@ -87,12 +87,16 @@ class SemanticNumericResolverV4Tests(unittest.TestCase):
         self.assertEqual(decision.action, ResolutionAction.REPLACE)
         self.assertEqual(decision.output, "29,90")
 
-    def test_two_probes_can_confirm_baseline(self) -> None:
+    def test_same_engine_baseline_confirmation_does_not_clear_semantic_flag(self) -> None:
         decision = resolve_flagged_token(
             "29.90",
             (observation("a", "29.90"), observation("b", "29,90")),
         )
-        self.assertEqual(decision.action, ResolutionAction.KEEP)
+        self.assertEqual(decision.action, ResolutionAction.QUARANTINE)
+        self.assertEqual(
+            decision.reason_code,
+            "SEMANTIC_CONTRADICTION_NOT_CLEARED_BY_SAME_ENGINE_PROBES",
+        )
         self.assertEqual(decision.output, "29.90")
 
     def test_disagreement_or_duplicate_source_quarantines(self) -> None:
