@@ -2,14 +2,14 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 for pair in \
-  '08db725ae5a8234d105f1044ea5fa88d72cf6a93f3c6a31cb6928857975b0e5a candidate_part_00.b64' \
-  '5b2836869f1983e5fd0ff9b3b1d14e68f8ab360fc193b65333e46ba7b7d6aa91 candidate_part_01.b64' \
-  '40f2e1b097f862a192448ba1edb2950a56b83a57ee3ca263aa11c35f80435e0c candidate_part_02.b64' \
-  '4e595f705df75ff141bdc80a0bc1d0952cb1ed0a1ed1def526a93e454a60cce5 candidate_part_03.b64' \
-  '980dfd7be236d9db6cec5a9c666c2230bc7d566c2f435081c0bfb095c938a626 candidate_part_04.b64' \
-  'c4fab000b2a646ed56012764021b161b8926f358553914831e3ee9ec279e6d0b candidate_part_05.b64' \
-  '8b2e8485d41a4c060460c5319c84c391f14020f511ca8e70f7dcbeaa77abd973 candidate_part_06.b64' \
-  '7bd44d35ece8e57972790c03e1a540c58bf6dc8cd68781a2762251c63c951e6e candidate_part_07.b64'; do
+  '1501ab0c2e767682579cfc00fcb8bad4e30e7f6bb82c20870b83460d27d43462 candidate_part_00.b64' \
+  '85e9d417492d02e703797c87f1eaf951c623124c2723ede00823c6e4156ac023 candidate_part_01.b64' \
+  'e5f10569d852b5e31307fdffcc7a027322e78b33aec890af1c2990d4927c4f99 candidate_part_02.b64' \
+  '8bd6a451e341a755aaa17516cd29e47b6365b3be2b68f34c25a484abe67af1f6 candidate_part_03.b64' \
+  'ac4a0d5b0fbda116098d19d6ea9ffd8bf1ddce60f4f5d25e2d82a90879525620 candidate_part_04.b64' \
+  '2da228aac97fa8d03d7d3ebba7ae7c30f72335f08e31aa48ff3b54190c088ac4 candidate_part_05.b64' \
+  'c4b7038fbbb03081a86bc472bae69883ae9224d77748d10ca0650f57447d280c candidate_part_06.b64' \
+  'c6b70f39cfb0cbd44c59eeb6c177138c2b1f018dc0b46e80c2ebf639b72c369f candidate_part_07.b64'; do
   set -- $pair
   echo "$1  $ROOT/transport_exact/$2" | sha256sum -c -
 done
