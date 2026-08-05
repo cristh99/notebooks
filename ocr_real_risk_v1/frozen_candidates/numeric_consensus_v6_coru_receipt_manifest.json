@@ -1,0 +1,325 @@
+{
+  "candidate_id": "numeric-consensus-v6-coru-receipt",
+  "constraints": {
+    "external_spend_usd": 0,
+    "gcloud_used": false,
+    "gpu_used": false,
+    "paid_api_used": false,
+    "production_modified": false
+  },
+  "decision": {
+    "archive_open_requires_frozen_census_pass": true,
+    "automatic_production_change": false,
+    "candidate_frozen_before_coru_schema_opening": true,
+    "external_certificate_claimed": false,
+    "honduras_production_ready": false,
+    "production_ready": false,
+    "ready_for_coru_schema_and_power_census": true,
+    "ready_to_open_coru_test_archive": false,
+    "tenfold_reduction_claimed": false
+  },
+  "detector": {
+    "configuration": {
+      "guard_mode": "psm7_any",
+      "id": "broad-v2-conflict-ok-psm7_any",
+      "minimum_distinct_psm_votes": 2,
+      "psm_set": "broad",
+      "psms": [
+        3,
+        4,
+        6,
+        11,
+        12
+      ],
+      "reject_equal_length_conflict": false,
+      "uses_annotation_bbox_for_candidate_construction": false,
+      "uses_truth_for_candidate_construction": false
+    }
+  },
+  "development_evidence": {
+    "leave_one_shard_out_stability_pass": false,
+    "post_outcome_internal_only": true,
+    "wildreceipt_accepted": 472,
+    "wildreceipt_accepted_false": 0,
+    "wildreceipt_counterfactual_false": 0,
+    "wildreceipt_coverage_lower": 0.25052115409949227,
+    "wildreceipt_reduction_lower": 11.459606105150426,
+    "wildreceipt_selected": 1720
+  },
+  "digit_model": {
+    "artifact_id": 8917522937,
+    "artifact_zip_sha256": "080b0efd4b91a180a1a5c6acd767d72e0a8f286718e64eb90d8ec9d370d2dc17",
+    "candidate_id": "digit-forest-v3",
+    "candidate_stable_payload_sha256": "0f88d94af81e0f7921e654e452059d2075b07ee35bcffd83dd8b02ebdd9e93a1",
+    "model_file": "model/digit_forest.joblib",
+    "model_sha256": "53229915331c2bbea2454f9e7cb5768a26e9edb30de750747f4397f1ff4cf92c",
+    "threshold": 0.25,
+    "tree_count": 500
+  },
+  "external_protocol": {
+    "baseline": {
+      "annotation_geometry_used_only_for_scoring": true,
+      "engine": "Tesseract 5.3.4",
+      "input": "complete original receipt image",
+      "language": "eng",
+      "oem": 1,
+      "psm": 3
+    },
+    "claim_limits": {
+      "external_certificate_claimed": false,
+      "honduras_production_readiness_claimed": false,
+      "production_change_automatic": false,
+      "schema_census_is_not_external_validation": true
+    },
+    "component": "Receipt",
+    "counterfactual": {
+      "equal_length_single_digit_mutation": true,
+      "gate": "final accepted output must not equal mutation",
+      "generated_before_candidate_inference": true
+    },
+    "dataset": "abdoelsayed/CORU",
+    "detector": {
+      "configuration": {
+        "guard_mode": "psm7_any",
+        "id": "broad-v2-conflict-ok-psm7_any",
+        "minimum_distinct_psm_votes": 2,
+        "psm_set": "broad",
+        "psms": [
+          3,
+          4,
+          6,
+          11,
+          12
+        ],
+        "reject_equal_length_conflict": false,
+        "uses_annotation_bbox_for_candidate_construction": false,
+        "uses_truth_for_candidate_construction": false
+      },
+      "input": "complete original receipt image"
+    },
+    "digit_forest": {
+      "candidate_id": "digit-forest-v3",
+      "threshold": 0.25,
+      "tree_count": 500
+    },
+    "exact_gates": {
+      "alpha_per_leg_bonferroni": 0.0125,
+      "baseline_errors_must_be_positive": true,
+      "candidate_upper_must_not_exceed_baseline_lower_divided_by_10": true,
+      "counterfactual_maximum_upper": 0.01,
+      "family_alpha": 0.05,
+      "minimum_accepted": 900,
+      "minimum_coverage_lower": 0.25,
+      "minimum_selected": 3000,
+      "target_error_reduction": 10.0
+    },
+    "power_gate": {
+      "archive_download_requires_projected_accepts_at_least": 900,
+      "archive_download_requires_selected_at_least": 3000,
+      "expected_test_receipts_from_preexisting_protocol": 3700,
+      "planning_only_not_evidence": true,
+      "projected_accepts_if_rate_holds": 1015.3488372093024,
+      "wildreceipt_development_acceptance_rate": 0.2744186046511628
+    },
+    "protocol_id": "coru-receipt-v6-schema-first-numeric-v1",
+    "revision": "c3c4b97b232bbe03046c78a974f516d439c1124e",
+    "risk_unit": "one SHA-256-selected explicit 4-12 digit transcription per physical receipt image",
+    "runtime": {
+      "deterministic_threads": 1,
+      "image_archive_partitions_if_gate_passes": 12,
+      "neutral_workdir_import_required": true,
+      "source_closure_algorithm": "python-ast-local-import-closure-v1"
+    },
+    "schema_adapter": {
+      "accepted_format": "COCO images/annotations/categories",
+      "category_name_is_not_ocr_truth": true,
+      "one_numeric_risk_unit_per_image": true,
+      "requires_explicit_transcription_field": true,
+      "schema": "ocr-coru-receipt-schema-adapter/6",
+      "selection_completed_before_ocr": true,
+      "unknown_or_ambiguous_schema": "terminal_no_ocr"
+    },
+    "schema_files": {
+      "labels": {
+        "path": "Receipt/labels.txt",
+        "sha256": "4d7ee3c5720620f15791980c30514e110a89c64f40c6b1f9a296b2523ba46555",
+        "size_bytes": 31
+      },
+      "test_json": {
+        "path": "Receipt/test.json",
+        "sha256": "f9bd21061515ca79ce1ceecf0837faa8c1f418eaa406fc6d38c6eff012ee6ab7",
+        "size_bytes": 5022111
+      }
+    },
+    "selection": {
+      "deduplicate_after_archive_opening": "decoded image SHA-256",
+      "normalization": "ASCII digits after separator and currency removal; standalone years, repeated-digit junk, letters, and non-ASCII digits excluded",
+      "uses_candidate_output": false,
+      "uses_ocr": false
+    },
+    "selective_policy": {
+      "annotation_geometry_available_at_inference": false,
+      "base_union": "detector==forest with no equal-length conflict OR forest==gray==autocontrast",
+      "branch_1": "detector==gray==autocontrast and detector confidence>91.0",
+      "branch_1_threshold": 91.0,
+      "branch_2": "detector==forest==gray and detector confidence>=93.0",
+      "branch_2_threshold": 93.0,
+      "conflicting_outputs": "abstain",
+      "frozen_before_coru_schema_opening": true,
+      "name": "v6_post_outcome_gate_completion",
+      "thresholds_selected_on_opened_wildreceipt": true,
+      "truth_available_at_inference": false
+    },
+    "test_archive": {
+      "download_only_after_schema_and_power_gate": true,
+      "path": "Receipt/test.zip",
+      "sha256": "351d1c5a2ab1ef12399787679563fbc9922a8d18e0f6296e16d7db0e0a4f7f41",
+      "size_bytes": 1057581808
+    }
+  },
+  "external_source_binding": {
+    "component": "Receipt",
+    "dataset_id": "abdoelsayed/CORU",
+    "resolved_revision": "c3c4b97b232bbe03046c78a974f516d439c1124e",
+    "schema_or_outcomes_opened_before_freeze": false,
+    "source_seal_file": "coru_receipt_source_seal_v1.json",
+    "source_seal_file_sha256": "23b7a24cb4953d1ee6e446a75e90487374e3070cc39cd73801cab7e9902cf1a5",
+    "source_seal_stable_payload_sha256": "d97900ffadd1871f2062bb33f44dd69a10a2bcb298b187e079673037e87edeb3"
+  },
+  "runtime": {
+    "deterministic_threads": 1,
+    "requirements": [
+      "python==3.11",
+      "tesseract==5.3.4",
+      "Pillow==12.2.0",
+      "numpy==2.2.6",
+      "opencv-python-headless==4.10.0.84",
+      "scikit-learn==1.8.0",
+      "scipy==1.17.1",
+      "threadpoolctl==3.6.0",
+      "joblib==1.5.3",
+      "pyarrow==18.1.0",
+      "pytesseract==0.3.13",
+      "packaging==26.3"
+    ],
+    "requirements_file": "requirements.lock",
+    "requirements_sha256": "e4c3f9454dd27a13dd76f7a497be909a92c1c122ff76f390c8dfa00a0843069c",
+    "source_closure_algorithm": "python-ast-local-import-closure-v1",
+    "source_file_count": 19,
+    "source_file_set_sha256": "3f65f77d8b44dfb79f4d292cbc86a866f89fc7abfa51419b019989a5a30cb2bc"
+  },
+  "schema": "ocr-numeric-consensus-v6-coru-receipt-candidate/1",
+  "selective_policy": {
+    "development_artifact_id": 8931899829,
+    "development_artifact_zip_sha256": "76da23d700cba9e3bbacbaa9670aad8659383177220ed1053aba6a7d03fa7f03",
+    "development_lab_stable_payload_sha256": "2d31bf83f18d22f22b0f010a8ddec1773ce44d686893f3b2fd7b485598295a69",
+    "development_record_file": "wildreceipt_v6_development_record.json",
+    "development_record_file_sha256": "49838b196f96166de8c60f1db73de57199d7d97d5b10000870e5f079be88bf8d",
+    "development_record_stable_payload_sha256": "6dc760c9441a1e44da9dd6cd5a16ddf8dcfa5114d9750056269ef1ebbb2a3fe1",
+    "frozen_before_coru_schema_opening": true,
+    "name": "v6_post_outcome_gate_completion",
+    "threshold_1": 91.0,
+    "threshold_2": 93.0,
+    "thresholds_selected_after_wildreceipt_outcomes": true
+  },
+  "source_commit": "00c5d56512dd08baa91a2649c5529a82dc880059",
+  "source_files": [
+    {
+      "path": "ocr_real_risk_v1/__init__.py",
+      "sha256": "1cd68e0a02747c798f9d384c57b75684d44ee3d59dfcaa1696b2ad6db9de4384",
+      "size_bytes": 57
+    },
+    {
+      "path": "ocr_real_risk_v1/cord_consensus_detector_v4.py",
+      "sha256": "e2a5dc4fad9af4e4751f6afd650297ee3f7d7adf4a559eef193e734ceff9e422",
+      "size_bytes": 44167
+    },
+    {
+      "path": "ocr_real_risk_v1/cord_detector_crops_v4.py",
+      "sha256": "727528cf50f13856e710746689a272e0f8018401aeda4969614e8b371b326ab5",
+      "size_bytes": 18282
+    },
+    {
+      "path": "ocr_real_risk_v1/cord_natural_holdout.py",
+      "sha256": "e0383bf79fc1b9960c177f8ca61db5e4793a524ba0f9ddff7d7406100b6d97d2",
+      "size_bytes": 42737
+    },
+    {
+      "path": "ocr_real_risk_v1/cord_source_seal.py",
+      "sha256": "70f600d31920eb9e3adb664417ed35063e44332d45ed5d8cb0b30ac6a2a476fc",
+      "size_bytes": 4521
+    },
+    {
+      "path": "ocr_real_risk_v1/core.py",
+      "sha256": "23593784005eccf9136077d29c29f5f934b7650ab60924a83a2458db932718d0",
+      "size_bytes": 11262
+    },
+    {
+      "path": "ocr_real_risk_v1/coru_receipt_external_v6.py",
+      "sha256": "1c48861580a805e3016b62042d421c0d8f5b19731e28adc79cc6f4510eb6f368",
+      "size_bytes": 13957
+    },
+    {
+      "path": "ocr_real_risk_v1/coru_receipt_schema_adapter_v6.py",
+      "sha256": "8c701914fb4d6bb48cc9c21f3cb5b60d98324c358d1d8fe342f157623c5c4d89",
+      "size_bytes": 17808
+    },
+    {
+      "path": "ocr_real_risk_v1/coru_source_seal.py",
+      "sha256": "dc46d87c73a47674f8b3df5ed12568249a1703ca4e9b08047c5e742597656785",
+      "size_bytes": 5707
+    },
+    {
+      "path": "ocr_real_risk_v1/exact_bounds.py",
+      "sha256": "8eaf9ef1c9bcbca3ededbc9a248c3be6872f9131dd3173da82453eca26d29763",
+      "size_bytes": 3690
+    },
+    {
+      "path": "ocr_real_risk_v1/isolated_crop.py",
+      "sha256": "d8344ea2c57cc08e29bcb89e304a61218d5b4a6c5a72b45b2a55127326a0e992",
+      "size_bytes": 2168
+    },
+    {
+      "path": "ocr_real_risk_v1/numeric_consensus_candidate_v4.py",
+      "sha256": "a63b942026740651287c142a06d7940ff82aa06e971cf90eb69e15adf7614729",
+      "size_bytes": 16940
+    },
+    {
+      "path": "ocr_real_risk_v1/numeric_consensus_candidate_v6_coru.py",
+      "sha256": "5b1ff7808d7130a1355b3a856712a5166a93fb1260013e66da4d502abc36a8fe",
+      "size_bytes": 24370
+    },
+    {
+      "path": "ocr_real_risk_v1/numeric_digit_forest.py",
+      "sha256": "9df796379701098cab3e8dd99793f1635b53aa44114352a27d405fc59d85ef50",
+      "size_bytes": 32281
+    },
+    {
+      "path": "ocr_real_risk_v1/numeric_digit_forest_deterministic.py",
+      "sha256": "7f29776775d5ec5b790153b0a2d5318e3088288da4c53438220fa40a5c83c76e",
+      "size_bytes": 1223
+    },
+    {
+      "path": "ocr_real_risk_v1/pixel_digit_alignment.py",
+      "sha256": "09499a8891949fc487f55cf8b9e533d464ce71fb1a4bcc9fdbd353d61a80ec91",
+      "size_bytes": 15834
+    },
+    {
+      "path": "ocr_real_risk_v1/sroie_natural_holdout.py",
+      "sha256": "daf0c8ba59c184b0843f098a1981ab388bc63467b1e829931a9365b9516d212f",
+      "size_bytes": 30317
+    },
+    {
+      "path": "ocr_real_risk_v1/wildreceipt_v6_gate_completion_lab.py",
+      "sha256": "61648f34910e1346c0c9c74af08fca5cce779c1b4ca31b534b317899238b2276",
+      "size_bytes": 14056
+    },
+    {
+      "path": "ocr_real_risk_v1/wildreceipt_v6_selective_lab.py",
+      "sha256": "98c340441c502a32855095c106952d506d832e6d46cd6d03ffa2ce0cd553a190",
+      "size_bytes": 18522
+    }
+  ],
+  "stable_payload_sha256": "97a317c87a28556376588d708da5b8117e6da6095e8b093e4206061695b8e49b",
+  "status": "FROZEN_BEFORE_CORU_RECEIPT_SCHEMA_OR_IMAGE_OPENING"
+}
