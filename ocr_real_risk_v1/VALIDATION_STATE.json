@@ -1,0 +1,12 @@
+{
+  "candidate": "digit-forest-v3",
+  "external_dataset_opened": false,
+  "frozen": true,
+  "model_sha256": "e1e3d8a9e1ff12206d5127c14053221225eb539c88072e40b1444b86b751bcce",
+  "next_dataset": "CORD",
+  "next_protocol": "CORD_UNTOUCHED_VALIDATION_PROTOCOL_V1.md",
+  "production_ready": false,
+  "statistical_10x_certified": false,
+  "status": "AWAITING_UNTOUCHED_EXTERNAL_VALIDATION",
+  "threshold": 0.25
+}
