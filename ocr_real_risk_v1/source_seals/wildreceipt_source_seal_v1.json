@@ -1,0 +1,49 @@
+{
+  "annotations_opened": 0,
+  "dataset_id": "kaydee/wildreceipt",
+  "dataset_rows_read": 0,
+  "images_opened": 0,
+  "lineage": {
+    "mirror_declared_license": null,
+    "upstream_dataset": "WildReceipt",
+    "upstream_declared_license": "apache-2.0"
+  },
+  "object_count": 3,
+  "objects": [
+    {
+      "download_url": "https://huggingface.co/datasets/kaydee/wildreceipt/resolve/cedafaf3c8b0246c9fad68af29324d655715ad12/data/test-00000-of-00001.parquet?download=true",
+      "identity": {
+        "algorithm": "sha256",
+        "digest": "43254778a33b83ae65f9a152b2b559a043f4d4239c4d903b4aca315d129efca0"
+      },
+      "path": "data/test-00000-of-00001.parquet",
+      "size_bytes": 427468952
+    },
+    {
+      "download_url": "https://huggingface.co/datasets/kaydee/wildreceipt/resolve/cedafaf3c8b0246c9fad68af29324d655715ad12/data/train-00000-of-00002.parquet?download=true",
+      "identity": {
+        "algorithm": "sha256",
+        "digest": "f11bd09c7373df1726aa3fba02b6513c436809b3417c5b85a24cd0dd4226fc07"
+      },
+      "path": "data/train-00000-of-00002.parquet",
+      "size_bytes": 449790572
+    },
+    {
+      "download_url": "https://huggingface.co/datasets/kaydee/wildreceipt/resolve/cedafaf3c8b0246c9fad68af29324d655715ad12/data/train-00001-of-00002.parquet?download=true",
+      "identity": {
+        "algorithm": "sha256",
+        "digest": "e988eeff3ad994f77c1c0fed0a85675f5f132f7911cb5574e8439c2661b0cce7"
+      },
+      "path": "data/train-00001-of-00002.parquet",
+      "size_bytes": 490390793
+    }
+  ],
+  "ocr_executed": false,
+  "parquet_shards_downloaded": 0,
+  "purpose": "reserve an immutable external corpus before digit-forest-v4 development or threshold selection",
+  "repository_metadata_only": true,
+  "resolved_revision": "cedafaf3c8b0246c9fad68af29324d655715ad12",
+  "schema": "ocr-wildreceipt-source-seal/1",
+  "stable_payload_sha256": "7775f57d92aa293b05e45298179154f54a3ffec1adb73087434fe54a1aa731f5",
+  "total_source_bytes": 1367650317
+}
