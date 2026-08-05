@@ -37,8 +37,8 @@ from .wildreceipt_adapter import (
 )
 from .wildreceipt_source_seal import verify as verify_source_seal
 
-CANDIDATE_SCHEMA = "ocr-numeric-consensus-wildreceipt-candidate/6"
-CANDIDATE_ID = "numeric-consensus-v4-wildreceipt-schema-v3"
+CANDIDATE_SCHEMA = "ocr-numeric-consensus-wildreceipt-candidate/7"
+CANDIDATE_ID = "numeric-consensus-v4-wildreceipt-schema-v4"
 SCHEMA_DISCOVERY = {
     "workflow_run_id": 30991994931,
     "failure_stage": "outcome_blind_manifest_build_before_ocr",
@@ -91,6 +91,10 @@ SOURCE_FILES = (
     "ocr_real_risk_v1/sroie_natural_holdout.py",
     "ocr_real_risk_v1/cord_natural_holdout.py",
     "ocr_real_risk_v1/cord_consensus_detector_v4.py",
+    "ocr_real_risk_v1/cord_detector_crops_v4.py",
+    "ocr_real_risk_v1/coru_source_seal.py",
+    "ocr_real_risk_v1/numeric_consensus_candidate_v4.py",
+    "ocr_real_risk_v1/wildreceipt_source_seal.py",
     "ocr_real_risk_v1/wildreceipt_adapter.py",
     "ocr_real_risk_v1/wildreceipt_external.py",
     "ocr_real_risk_v1/numeric_consensus_candidate_v4_wildreceipt.py",
@@ -207,6 +211,8 @@ def external_protocol() -> dict[str, Any]:
             "source_shards": 3,
             "one_worker_per_source_shard": True,
             "same_candidate_bytes_and_runtime_in_every_worker": True,
+            "self_contained_source_bundle": True,
+            "neutral_workdir_import_required": True,
             "aggregate_recomputes_deduplication_and_all_exact_bounds": True,
         },
         "claim_limits": {

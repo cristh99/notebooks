@@ -88,6 +88,16 @@ class NumericConsensusCandidateV4WildReceiptTests(unittest.TestCase):
             "ocr_real_risk_v1/numeric_consensus_candidate_v4_wildreceipt.py",
             SOURCE_FILES,
         )
+        required_runtime_closure = {
+            "ocr_real_risk_v1/cord_detector_crops_v4.py",
+            "ocr_real_risk_v1/coru_source_seal.py",
+            "ocr_real_risk_v1/numeric_consensus_candidate_v4.py",
+            "ocr_real_risk_v1/wildreceipt_source_seal.py",
+        }
+        self.assertTrue(required_runtime_closure.issubset(set(SOURCE_FILES)))
+        protocol = external_protocol()
+        self.assertTrue(protocol["runtime"]["self_contained_source_bundle"])
+        self.assertTrue(protocol["runtime"]["neutral_workdir_import_required"])
         self.assertEqual(len(SOURCE_SEAL_STABLE_SHA256), 64)
         self.assertEqual(len(DATASET_REVISION), 40)
         self.assertEqual(len(SOURCE_OBJECTS), 3)
