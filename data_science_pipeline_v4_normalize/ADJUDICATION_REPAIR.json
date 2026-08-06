@@ -1,0 +1,13 @@
+{
+  "schema": "data-science-pipeline/normalize-adjudication-repair/1",
+  "invalid_run_id": 31062657764,
+  "invalid_artifact_id": 8952669318,
+  "invalid_artifact_zip_sha256": "0d962811c6416e6bbb39946fbb35158206bde63162631deeb95f31d7e821a3d1",
+  "normalizer_reexecuted": false,
+  "normalizer_changed": false,
+  "outputs_changed": false,
+  "root_cause": "The adjudicator called all() on a checks map containing external_cost_usd=0.0; Python truthiness classified the correct zero value as false.",
+  "repair": "Adjudicate external_cost_usd with equality to 0.0 and verify the already-sealed output files, counts, hashes and empty replay diff from artifact 8952669318.",
+  "allowed_scope": "adjudication only",
+  "post_result_retuning_permitted": false
+}
