@@ -1,13 +1,15 @@
 name: University Software Foundations Rocq runtime v1
 
 on:
-  push:
-    branches: [agent/university-software-foundations-rocq-v1]
   pull_request:
     paths:
       - '.github/workflows/university-software-foundations-rocq-v1.yml'
       - 'university_rocq_runtime_v1/**'
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -100,8 +102,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker run --rm -v "$PWD:/work" -w "/work/$LF_SERIAL_ROOT" "$ROCQ_IMAGE_REF" bash -c 'make -j1 V=' 2>&1 | tee reports/official-build-serial.log
-          docker run --rm -v "$PWD:/work" -w "/work/$LF_PARALLEL_ROOT" "$ROCQ_IMAGE_REF" bash -c 'make -j4 V=' 2>&1 | tee reports/official-build-parallel.log
+          (
+            set -o pipefail
+            docker run --rm -v "$PWD:/work" -w "/work/$LF_SERIAL_ROOT" "$ROCQ_IMAGE_REF" bash -c 'make -j1 V=' 2>&1 | tee reports/official-build-serial.log
+          ) &
+          SERIAL_PID=$!
+          (
+            set -o pipefail
+            docker run --rm -v "$PWD:/work" -w "/work/$LF_PARALLEL_ROOT" "$ROCQ_IMAGE_REF" bash -c 'make -j4 V=' 2>&1 | tee reports/official-build-parallel.log
+          ) &
+          PARALLEL_PID=$!
+          SERIAL_RC=0
+          PARALLEL_RC=0
+          wait "$SERIAL_PID" || SERIAL_RC=$?
+          wait "$PARALLEL_PID" || PARALLEL_RC=$?
+          test "$SERIAL_RC" -eq 0
+          test "$PARALLEL_RC" -eq 0
           SERIAL_VO_COUNT="$(find "$LF_SERIAL_ROOT" -type f -name '*.vo' | wc -l)"
           PARALLEL_VO_COUNT="$(find "$LF_PARALLEL_ROOT" -type f -name '*.vo' | wc -l)"
           test "$SERIAL_VO_COUNT" -gt 10
@@ -118,13 +134,38 @@ jobs:
             cp university_rocq_runtime_v1/NegativeControl.v "$root/NegativeControl.v"
             chmod a+rw "$root/UniversityRuntime.v" "$root/NegativeControl.v"
           done
-          docker run --rm -v "$PWD:/work" -w "/work/$LF_SERIAL_ROOT" "$ROCQ_IMAGE_REF" rocq compile -Q . LF UniversityRuntime.v 2>&1 | tee reports/runtime-serial.log
-          docker run --rm -v "$PWD:/work" -w "/work/$LF_PARALLEL_ROOT" "$ROCQ_IMAGE_REF" rocq compile -Q . LF UniversityRuntime.v 2>&1 | tee reports/runtime-parallel.log
-          if docker run --rm -v "$PWD:/work" -w "/work/$LF_SERIAL_ROOT" "$ROCQ_IMAGE_REF" rocq compile -Q . LF NegativeControl.v > reports/negative-serial.log 2>&1; then
-            echo 'Serial negative control unexpectedly compiled.' >&2; exit 1
+          (
+            set -o pipefail
+            docker run --rm -v "$PWD:/work" -w "/work/$LF_SERIAL_ROOT" "$ROCQ_IMAGE_REF" rocq compile -Q . LF UniversityRuntime.v 2>&1 | tee reports/runtime-serial.log
+          ) &
+          SERIAL_RUNTIME_PID=$!
+          (
+            set -o pipefail
+            docker run --rm -v "$PWD:/work" -w "/work/$LF_PARALLEL_ROOT" "$ROCQ_IMAGE_REF" rocq compile -Q . LF UniversityRuntime.v 2>&1 | tee reports/runtime-parallel.log
+          ) &
+          PARALLEL_RUNTIME_PID=$!
+          SERIAL_RUNTIME_RC=0
+          PARALLEL_RUNTIME_RC=0
+          wait "$SERIAL_RUNTIME_PID" || SERIAL_RUNTIME_RC=$?
+          wait "$PARALLEL_RUNTIME_PID" || PARALLEL_RUNTIME_RC=$?
+          test "$SERIAL_RUNTIME_RC" -eq 0
+          test "$PARALLEL_RUNTIME_RC" -eq 0
+
+          docker run --rm -v "$PWD:/work" -w "/work/$LF_SERIAL_ROOT" "$ROCQ_IMAGE_REF" rocq compile -Q . LF NegativeControl.v > reports/negative-serial.log 2>&1 &
+          NEGATIVE_SERIAL_PID=$!
+          docker run --rm -v "$PWD:/work" -w "/work/$LF_PARALLEL_ROOT" "$ROCQ_IMAGE_REF" rocq compile -Q . LF NegativeControl.v > reports/negative-parallel.log 2>&1 &
+          NEGATIVE_PARALLEL_PID=$!
+          NEGATIVE_SERIAL_RC=0
+          NEGATIVE_PARALLEL_RC=0
+          wait "$NEGATIVE_SERIAL_PID" || NEGATIVE_SERIAL_RC=$?
+          wait "$NEGATIVE_PARALLEL_PID" || NEGATIVE_PARALLEL_RC=$?
+          if [ "$NEGATIVE_SERIAL_RC" -eq 0 ]; then
+            echo 'Serial negative control unexpectedly compiled.' >&2
+            exit 1
           fi
-          if docker run --rm -v "$PWD:/work" -w "/work/$LF_PARALLEL_ROOT" "$ROCQ_IMAGE_REF" rocq compile -Q . LF NegativeControl.v > reports/negative-parallel.log 2>&1; then
-            echo 'Parallel negative control unexpectedly compiled.' >&2; exit 1
+          if [ "$NEGATIVE_PARALLEL_RC" -eq 0 ]; then
+            echo 'Parallel negative control unexpectedly compiled.' >&2
+            exit 1
           fi
           cmp reports/runtime-serial.log reports/runtime-parallel.log
 
