@@ -6,6 +6,9 @@ on:
       - agent/data-science-canonical-pipeline-v5-resolve-fix
     paths:
       - '.github/workflows/data-science-pipeline-v5-resolve-fix.yml'
+      - 'data_science_pipeline_v5_resolve/resolve_amounts_strict.py'
+      - 'data_science_pipeline_v5_resolve/resolve_runner_v3.py'
+      - 'data_science_pipeline_v5_resolve/test_resolve_amounts_regression.py'
 
 permissions:
   contents: read
@@ -147,10 +150,18 @@ jobs:
               'manifest_replay_identical': (root / 'output-a/resolve-manifest.json').read_bytes() == (root / 'output-b/resolve-manifest.json').read_bytes(),
               'source_hash_exact': manifest['upstream']['source_pdf_sha256'] == '5f278ec51106212a95a6f8c135cdfb8376724daab1e49b9ca0d3879543d11e85',
           }
+          passed = all(checks.values())
           output_hashes = {path.name: sha(path) for path in sorted(out.iterdir()) if path.is_file()}
           receipt = {
-              'schema': 'data-science-pipeline/resolve-regression-repair-receipt/1',
-              'verdict': 'PASS' if all(checks.values()) else 'FAIL',
+              'schema': 'data-science-pipeline/resolve-regression-repair-receipt/2',
+              'verdict': 'PASS_REGRESSION_ONLY' if passed else 'FAIL',
+              'technical_checks_passed': passed,
+              'scientific_gate_status': 'OPEN_REQUIRES_FRESH_DOCUMENT',
+              'promotion_credit': 0,
+              'same_document_reused_for_regression_only': True,
+              'post_result_retuning_permitted_for_same_document': False,
+              'document_retired_from_promotion': True,
+              'next_candidate_must_use_fresh_document': True,
               'github_run_id': int(os.environ['GITHUB_RUN_ID']),
               'github_sha': os.environ['GITHUB_SHA'],
               'frozen_v5_sha': os.environ['FROZEN_V5_SHA'],
@@ -162,7 +173,6 @@ jobs:
               'abstention_count': len(abstentions),
               'output_hashes': output_hashes,
               'upstream_artifact_zip_sha256': os.environ['UPSTREAM_ARTIFACT_SHA256'],
-              'post_result_retuning_permitted': False,
               'merge_authorized': False,
               'mass_processing_authorized': False,
               'external_cost_usd': 0.0,
@@ -171,7 +181,7 @@ jobs:
           (root / 'integration-receipt.json').write_text(payload)
           digest = hashlib.sha256(payload.encode()).hexdigest()
           (root / 'integration-receipt.sha256').write_text(f'{digest}  integration-receipt.json\n')
-          if receipt['verdict'] != 'PASS':
+          if not passed:
               raise SystemExit(json.dumps(checks, indent=2, sort_keys=True))
           PY
 
