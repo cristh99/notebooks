@@ -1,0 +1,291 @@
+name: Data Science pipeline v6 — fresh SESAL end-to-end gate
+
+on:
+  push:
+    branches:
+      - agent/data-science-canonical-pipeline-v6-fresh-sesal
+    paths:
+      - '.github/workflows/data-science-pipeline-v6-fresh-sesal.yml'
+
+permissions:
+  contents: read
+
+env:
+  BASE_OUT: /tmp/canonical-pipeline-v1
+  PIPELINE_ROOT: /tmp/canonical-pipeline-v1/canonical_data_science_pipeline_v1
+  EVIDENCE_ROOT: fresh-sesal-v6-evidence
+
+jobs:
+  fresh-sesal-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove workflow-only activation after fresh freeze
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_RUN_ATTEMPT}" = 1
+          test "$(git rev-parse HEAD^)" = 4c7e0f0b533f82a24463ff13d1bd25bd5113aa1b
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/data-science-pipeline-v6-fresh-sesal.yml'
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Install zero-cost OCR runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq poppler-utils tesseract-ocr tesseract-ocr-spa tesseract-ocr-eng
+          mkdir -p "$EVIDENCE_ROOT"
+          tesseract --version | head -n 5 > "$EVIDENCE_ROOT/tesseract-version.txt"
+          tesseract --list-langs 2>&1 | sort > "$EVIDENCE_ROOT/tesseract-languages.txt"
+          grep -qx spa "$EVIDENCE_ROOT/tesseract-languages.txt"
+          grep -qx eng "$EVIDENCE_ROOT/tesseract-languages.txt"
+
+      - name: Reconstruct canonical acquisition and extraction layers
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash data_science_pipeline_v1/reconstruct.sh "$BASE_OUT" 2>&1 | tee "$EVIDENCE_ROOT/reconstruct-v1.log"
+          bash data_science_pipeline_v2_acquisition/apply_overlay.sh "$PIPELINE_ROOT" 2>&1 | tee "$EVIDENCE_ROOT/apply-acquisition-v2.log"
+          bash data_science_pipeline_v3_extract/install_overlay.sh "$PIPELINE_ROOT" 2>&1 | tee "$EVIDENCE_ROOT/install-extract-v3.log"
+          cp data_science_pipeline_v6_fresh_sesal/FREEZE.json "$EVIDENCE_ROOT/FREEZE.json"
+          cp data_science_pipeline_v6_fresh_sesal/sesal-request.json "$EVIDENCE_ROOT/sesal-request.json"
+          cp data_science_pipeline_v6_fresh_sesal/extract-config.json "$EVIDENCE_ROOT/extract-config.json"
+
+      - name: Run 59 frozen tests and compile all stages
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PIPELINE_ROOT"
+          PYTHONPATH=src python -m unittest discover -s tests -v 2>&1 | tee "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/pipeline-tests.log"
+          grep -q 'Ran 40 tests' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/pipeline-tests.log"
+          grep -q '^OK$' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/pipeline-tests.log"
+          cd "$GITHUB_WORKSPACE/data_science_pipeline_v4_normalize"
+          python -m unittest -v test_normalize_ocr.py 2>&1 | tee "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/normalize-tests.log"
+          grep -q 'Ran 4 tests' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/normalize-tests.log"
+          cd "$GITHUB_WORKSPACE/data_science_pipeline_v5_resolve"
+          python -m unittest -v test_resolve_canonical.py test_resolve_runner_v2.py 2>&1 | tee "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/resolve-v5-tests.log"
+          grep -q 'Ran 9 tests' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/resolve-v5-tests.log"
+          cd "$GITHUB_WORKSPACE/data_science_pipeline_v6_fresh_sesal"
+          PYTHONPATH="$GITHUB_WORKSPACE/data_science_pipeline_v5_resolve:$GITHUB_WORKSPACE/data_science_pipeline_v6_fresh_sesal" \
+            python -m unittest -v test_fresh_resolver.py 2>&1 | tee "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/resolve-v6-tests.log"
+          grep -q 'Ran 6 tests' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/resolve-v6-tests.log"
+          grep -q '^OK$' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/resolve-v6-tests.log"
+          cd "$GITHUB_WORKSPACE"
+          PYTHONPATH=data_science_pipeline_v5_resolve:data_science_pipeline_v6_fresh_sesal \
+            python -m py_compile data_science_pipeline_v6_fresh_sesal/*.py
+          echo '59/59 PASS' > "$EVIDENCE_ROOT/test-summary.txt"
+
+      - name: Acquire and preserve fresh official SESAL PDF
+        shell: bash
+        run: |
+          set +e
+          cd "$PIPELINE_ROOT"
+          PYTHONPATH=src python -m god_pipeline.cli acquisition-canary \
+            --root "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/acquisition" \
+            "$GITHUB_WORKSPACE/data_science_pipeline_v6_fresh_sesal/sesal-request.json" \
+            > "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/acquisition-output.json" \
+            2> "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/acquisition-stderr.log"
+          echo "$?" > "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/acquisition-exit-status.txt"
+          exit 0
+
+      - name: Rasterize and OCR first three pages
+        shell: bash
+        run: |
+          set +e
+          cd "$PIPELINE_ROOT"
+          PYTHONPATH=src python -m god_pipeline.extract_canary \
+            --root "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/extraction" \
+            --acquisition-manifest "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/acquisition/evidence/manifest.json" \
+            --config "$GITHUB_WORKSPACE/data_science_pipeline_v6_fresh_sesal/extract-config.json" \
+            > "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/extraction-output.json" \
+            2> "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/extraction-stderr.log"
+          echo "$?" > "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/extraction-exit-status.txt"
+          exit 0
+
+      - name: Seal extraction receipt before downstream stages
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          root = Path('fresh-sesal-v6-evidence')
+          acq_path = root / 'acquisition/evidence/manifest.json'
+          ext_path = root / 'extraction/evidence/manifest.json'
+          acquisition = json.loads(acq_path.read_text())
+          extraction = json.loads(ext_path.read_text())
+          record = next(item for item in extraction['stage_records'] if item['stage'] == 'extract')
+          quarantined = [item for item in extraction['artifacts'] if item['state'] == 'quarantined']
+          checks = {
+              'acquisition_passed': acquisition['status'] == 'passed',
+              'extraction_passed': extraction['status'] == 'passed' and record['status'] == 'passed',
+              'pages_three': record['metrics']['pages_rasterized'] == 3 and record['metrics']['pages_ocr'] == 3,
+              'confidence_gate': record['metrics']['mean_confidence'] >= 55.0,
+              'recall_gate': record['metrics']['native_token_recall'] >= 0.55,
+              'tokens_six': record['metrics']['required_tokens_found'] == 6,
+              'quarantine_zero': not quarantined,
+              'cost_zero': record['metrics']['cost_usd'] == 0.0,
+          }
+          receipt = {
+              'schema': 'data-science-pipeline/fresh-sesal-extraction-receipt/1',
+              'verdict': 'PASS' if all(checks.values()) else 'FAIL',
+              'checks': checks,
+              'metrics': record['metrics'],
+              'source_pdf_sha256': next(item['sha256'] for item in acquisition['artifacts'] if item['stage'] == 'preserve_raw' and item['state'] == 'raw'),
+              'post_result_retuning_permitted': False,
+          }
+          payload = json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          target = root / 'extraction/external-receipt.json'
+          target.write_text(payload)
+          (root / 'extraction/external-receipt.sha256').write_text(hashlib.sha256(payload.encode()).hexdigest() + '  external-receipt.json\n')
+          if receipt['verdict'] != 'PASS':
+              raise SystemExit([key for key, value in checks.items() if not value])
+          PY
+
+      - name: Normalize twice with byte-identical replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          python data_science_pipeline_v6_fresh_sesal/normalize_fresh.py \
+            --extraction "$EVIDENCE_ROOT/extraction" --output "$EVIDENCE_ROOT/normalized-a" \
+            > "$EVIDENCE_ROOT/normalize-a.log"
+          python data_science_pipeline_v6_fresh_sesal/normalize_fresh.py \
+            --extraction "$EVIDENCE_ROOT/extraction" --output "$EVIDENCE_ROOT/normalized-b" \
+            > "$EVIDENCE_ROOT/normalize-b.log"
+          diff -qr "$EVIDENCE_ROOT/normalized-a" "$EVIDENCE_ROOT/normalized-b" | tee "$EVIDENCE_ROOT/normalize-replay-diff.log"
+          test ! -s "$EVIDENCE_ROOT/normalize-replay-diff.log"
+
+      - name: Resolve twice with strict money boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=data_science_pipeline_v5_resolve:data_science_pipeline_v6_fresh_sesal \
+            python data_science_pipeline_v6_fresh_sesal/resolve_fresh.py \
+            --normalized "$EVIDENCE_ROOT/normalized-a" --output "$EVIDENCE_ROOT/resolved-a" \
+            > "$EVIDENCE_ROOT/resolve-a.log"
+          PYTHONPATH=data_science_pipeline_v5_resolve:data_science_pipeline_v6_fresh_sesal \
+            python data_science_pipeline_v6_fresh_sesal/resolve_fresh.py \
+            --normalized "$EVIDENCE_ROOT/normalized-a" --output "$EVIDENCE_ROOT/resolved-b" \
+            > "$EVIDENCE_ROOT/resolve-b.log"
+          diff -qr "$EVIDENCE_ROOT/resolved-a" "$EVIDENCE_ROOT/resolved-b" | tee "$EVIDENCE_ROOT/resolve-replay-diff.log"
+          test ! -s "$EVIDENCE_ROOT/resolve-replay-diff.log"
+
+      - name: Independently adjudicate entire fresh chain
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root = Path(os.environ['EVIDENCE_ROOT'])
+          def load(path):
+              return json.loads(Path(path).read_text())
+          def rows(path):
+              path = Path(path)
+              return [json.loads(line) for line in path.read_text().splitlines() if line.strip()] if path.exists() else []
+          def sha(path):
+              path = Path(path)
+              return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+
+          acquisition = load(root / 'acquisition/evidence/manifest.json') if (root / 'acquisition/evidence/manifest.json').exists() else None
+          extraction = load(root / 'extraction/evidence/manifest.json') if (root / 'extraction/evidence/manifest.json').exists() else None
+          extraction_receipt = load(root / 'extraction/external-receipt.json') if (root / 'extraction/external-receipt.json').exists() else None
+          normalization = load(root / 'normalized-a/normalize-manifest.json') if (root / 'normalized-a/normalize-manifest.json').exists() else None
+          resolution = load(root / 'resolved-a/resolve-manifest.json') if (root / 'resolved-a/resolve-manifest.json').exists() else None
+          entities = rows(root / 'resolved-a/entities.jsonl')
+          legal = rows(root / 'resolved-a/legal_instruments.jsonl')
+          dates = rows(root / 'resolved-a/dates.jsonl')
+          amounts = rows(root / 'resolved-a/amounts.jsonl')
+          abstentions = rows(root / 'resolved-a/abstentions.jsonl')
+          entity_ids = {item['entity_id'] for item in entities}
+          legal_ids = {item['legal_id'] for item in legal}
+          false_amounts = [item for item in amounts if item['value'] in {2023.0, 2024.0} and item['surface_text'].strip().casefold() in {'l 2023', 'l 2024'}]
+          extraction_record = None if extraction is None else next((item for item in extraction['stage_records'] if item['stage'] == 'extract'), None)
+          normalize_boolean = {} if normalization is None else {k:v for k,v in normalization['checks'].items() if k != 'external_cost_usd'}
+          resolve_boolean = {} if resolution is None else {k:v for k,v in resolution['checks'].items() if k != 'external_cost_usd'}
+          checks = {
+              'tests_59_pass': (root / 'test-summary.txt').exists() and (root / 'test-summary.txt').read_text().strip() == '59/59 PASS',
+              'acquisition_pass': bool(acquisition and acquisition['status'] == 'passed'),
+              'extraction_pass': bool(extraction_receipt and extraction_receipt['verdict'] == 'PASS'),
+              'pages_three': bool(extraction_record and extraction_record['metrics']['pages_ocr'] == 3),
+              'normalize_pass': bool(normalization and all(normalize_boolean.values()) and normalization['checks']['external_cost_usd'] == 0.0),
+              'normalize_replay_identical': (root / 'normalize-replay-diff.log').exists() and not (root / 'normalize-replay-diff.log').read_bytes(),
+              'resolve_pass': bool(resolution and all(resolve_boolean.values()) and resolution['checks']['external_cost_usd'] == 0.0),
+              'resolve_replay_identical': (root / 'resolve-replay-diff.log').exists() and not (root / 'resolve-replay-diff.log').read_bytes(),
+              'oncae_resolved': 'hn:institution:oncae' in entity_ids,
+              'sesal_resolved': 'hn:institution:sesal' in entity_ids,
+              'august_2024_resolved': any(item['value'] == '2024-08' for item in dates),
+              'pcm_resolved': 'hn:pcm:053-2023' in legal_ids,
+              'fiscal_year_not_money': not false_amounts,
+              'amount_policy_closed': bool(amounts) or any(item['reason_code'] == 'NO_CURRENCY_QUALIFIED_AMOUNT' for item in abstentions),
+              'external_cost_zero': bool(extraction_record and extraction_record['metrics']['cost_usd'] == 0.0),
+          }
+          files = []
+          for folder in ('acquisition','extraction','normalized-a','resolved-a'):
+              base = root / folder
+              if base.exists():
+                  for path in sorted(item for item in base.rglob('*') if item.is_file()):
+                      files.append({'path': str(path.relative_to(root)), 'bytes': path.stat().st_size, 'sha256': sha(path)})
+          receipt = {
+              'schema': 'data-science-pipeline/fresh-sesal-end-to-end-receipt/1',
+              'verdict': 'PASS' if all(checks.values()) else 'FAIL',
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_sha': os.environ['GITHUB_SHA'],
+              'checks': checks,
+              'source_pdf_sha256': None if extraction_receipt is None else extraction_receipt['source_pdf_sha256'],
+              'extraction_metrics': None if extraction_record is None else extraction_record['metrics'],
+              'normalized_counts': None if normalization is None else normalization['row_counts'],
+              'resolved_counts': None if resolution is None else resolution['row_counts'],
+              'resolved_entity_ids': sorted(entity_ids),
+              'resolved_legal_ids': sorted(legal_ids),
+              'resolved_dates': sorted({item['value'] for item in dates}),
+              'resolved_amounts': amounts,
+              'abstentions': abstentions,
+              'post_result_retuning_permitted': False,
+              'merge_authorized': False,
+              'mass_processing_authorized': False,
+              'external_cost_usd': 0.0,
+              'gcloud_used': False,
+              'paid_compute_used': False,
+              'files': files,
+              'hashes': {
+                  'freeze_sha256': sha(root / 'FREEZE.json'),
+                  'acquisition_manifest_sha256': sha(root / 'acquisition/evidence/manifest.json'),
+                  'extraction_manifest_sha256': sha(root / 'extraction/evidence/manifest.json'),
+                  'normalize_manifest_sha256': sha(root / 'normalized-a/normalize-manifest.json'),
+                  'resolve_manifest_sha256': sha(root / 'resolved-a/resolve-manifest.json'),
+              },
+          }
+          payload = json.dumps(receipt, indent=2, sort_keys=True, ensure_ascii=False) + '\n'
+          (root / 'external-receipt.json').write_text(payload)
+          (root / 'external-receipt.sha256').write_text(hashlib.sha256(payload.encode()).hexdigest() + '  external-receipt.json\n')
+          print(payload)
+          PY
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: data-science-pipeline-v6-fresh-sesal
+          retention-days: 90
+          if-no-files-found: error
+          path: fresh-sesal-v6-evidence/**
+
+      - name: Enforce fresh end-to-end verdict
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path('fresh-sesal-v6-evidence/external-receipt.json').read_text())
+          if receipt['verdict'] != 'PASS':
+              raise SystemExit([key for key, value in receipt['checks'].items() if not value])
+          print('PASS: fresh SESAL document acquired, OCRed, normalized and resolved without the V5 money false positive')
+          PY
