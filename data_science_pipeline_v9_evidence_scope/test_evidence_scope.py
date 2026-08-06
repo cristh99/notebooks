@@ -5,6 +5,7 @@ import json
 import unittest
 
 from evidence_scope import (
+    ChannelValidation,
     ClaimRequirement,
     ClaimScope,
     EvidenceBundle,
@@ -13,29 +14,36 @@ from evidence_scope import (
     evaluate_bundle,
 )
 
+POLICY_SHA256 = hashlib.sha256(b"stage07-policy-v9").hexdigest()
+VALIDATOR_ID = "validator:test:stage07"
 
-def receipts(*channels: EvidenceChannel) -> dict[EvidenceChannel, str]:
+
+def validations(
+    observations: dict[EvidenceChannel, str],
+    *channels: EvidenceChannel,
+) -> dict[EvidenceChannel, ChannelValidation]:
     return {
-        channel: hashlib.sha256(f"validator:{channel.value}".encode()).hexdigest()
+        channel: ChannelValidation.issue(
+            channel=channel,
+            observation=observations[channel],
+            validator_id=VALIDATOR_ID,
+            policy_sha256=POLICY_SHA256,
+        )
         for channel in channels
     }
 
 
 class EvidenceScopePolicyTests(unittest.TestCase):
     def test_source_provenance_confirms_publisher_without_ocr_literal(self) -> None:
+        observations = {
+            EvidenceChannel.SOURCE_PROVENANCE: "host:oncae.gob.hn publisher:ONCAE",
+            EvidenceChannel.DOCUMENT_METADATA: "Guía para contratación directa SESAL agosto 2024",
+            EvidenceChannel.OCR_CONTENT: "Guía para contratación directa del sistema de salud",
+            EvidenceChannel.NATIVE_CONTROL: "Guía para contratación directa del sistema de salud",
+        }
         bundle = EvidenceBundle(
-            observations={
-                EvidenceChannel.SOURCE_PROVENANCE: "host:oncae.gob.hn publisher:ONCAE",
-                EvidenceChannel.DOCUMENT_METADATA: "Guía para contratación directa SESAL agosto 2024",
-                EvidenceChannel.OCR_CONTENT: "Guía para contratación directa del sistema de salud",
-                EvidenceChannel.NATIVE_CONTROL: "Guía para contratación directa del sistema de salud",
-            },
-            channel_receipts=receipts(
-                EvidenceChannel.SOURCE_PROVENANCE,
-                EvidenceChannel.DOCUMENT_METADATA,
-                EvidenceChannel.OCR_CONTENT,
-                EvidenceChannel.NATIVE_CONTROL,
-            ),
+            observations=observations,
+            channel_validations=validations(observations, *observations),
             processed_pages=(1, 2, 3),
             total_pages=27,
             partial_document=True,
@@ -56,9 +64,10 @@ class EvidenceScopePolicyTests(unittest.TestCase):
         self.assertEqual(result.claims[0].state, ResolutionState.MATCH_OFFICIAL)
 
     def test_unvalidated_provenance_cannot_confirm_official_identity(self) -> None:
+        observations = {EvidenceChannel.SOURCE_PROVENANCE: "publisher:ONCAE"}
         bundle = EvidenceBundle(
-            observations={EvidenceChannel.SOURCE_PROVENANCE: "publisher:ONCAE"},
-            channel_receipts={},
+            observations=observations,
+            channel_validations={},
             processed_pages=(1,),
             total_pages=1,
             partial_document=False,
@@ -83,22 +92,39 @@ class EvidenceScopePolicyTests(unittest.TestCase):
             (EvidenceChannel.SOURCE_PROVENANCE,),
         )
 
-    def test_invalid_validation_receipt_is_rejected(self) -> None:
-        with self.assertRaisesRegex(ValueError, "lowercase SHA-256"):
+    def test_forged_validation_receipt_is_rejected(self) -> None:
+        observation_sha256 = hashlib.sha256(b"PACC").hexdigest()
+        with self.assertRaisesRegex(ValueError, "does not bind"):
+            ChannelValidation(
+                channel=EvidenceChannel.OCR_CONTENT,
+                observation_sha256=observation_sha256,
+                validator_id=VALIDATOR_ID,
+                policy_sha256=POLICY_SHA256,
+                receipt_sha256="0" * 64,
+            )
+
+    def test_validation_must_bind_observed_text(self) -> None:
+        validation = ChannelValidation.issue(
+            channel=EvidenceChannel.OCR_CONTENT,
+            observation="PACC",
+            validator_id=VALIDATOR_ID,
+            policy_sha256=POLICY_SHA256,
+        )
+        with self.assertRaisesRegex(ValueError, "does not bind the observed"):
             EvidenceBundle(
-                observations={EvidenceChannel.OCR_CONTENT: "PACC"},
-                channel_receipts={EvidenceChannel.OCR_CONTENT: "trusted"},
+                observations={EvidenceChannel.OCR_CONTENT: "PACE"},
+                channel_validations={EvidenceChannel.OCR_CONTENT: validation},
                 processed_pages=(1,),
                 total_pages=1,
                 partial_document=False,
             )
 
-    def test_bundle_snapshots_observations_and_receipts(self) -> None:
+    def test_bundle_snapshots_observations_and_validations(self) -> None:
         observations = {EvidenceChannel.OCR_CONTENT: "PACC"}
-        validation = receipts(EvidenceChannel.OCR_CONTENT)
+        validation = validations(observations, EvidenceChannel.OCR_CONTENT)
         bundle = EvidenceBundle(
             observations=observations,
-            channel_receipts=validation,
+            channel_validations=validation,
             processed_pages=(1,),
             total_pages=1,
             partial_document=False,
@@ -147,19 +173,15 @@ class EvidenceScopePolicyTests(unittest.TestCase):
             )
 
     def test_metadata_only_sesal_is_candidate_not_content_identity(self) -> None:
+        observations = {
+            EvidenceChannel.SOURCE_PROVENANCE: "host:oncae.gob.hn publisher:ONCAE",
+            EvidenceChannel.DOCUMENT_METADATA: "GUIA PARA CONTRATACION DIRECTA SESAL AGOSTO 2024",
+            EvidenceChannel.OCR_CONTENT: "GUIA PARA CONTRATACION DIRECTA DEL SISTEMA DE SALUD",
+            EvidenceChannel.NATIVE_CONTROL: "GUIA PARA CONTRATACION DIRECTA DEL SISTEMA DE SALUD",
+        }
         bundle = EvidenceBundle(
-            observations={
-                EvidenceChannel.SOURCE_PROVENANCE: "host:oncae.gob.hn publisher:ONCAE",
-                EvidenceChannel.DOCUMENT_METADATA: "GUIA PARA CONTRATACION DIRECTA SESAL AGOSTO 2024",
-                EvidenceChannel.OCR_CONTENT: "GUIA PARA CONTRATACION DIRECTA DEL SISTEMA DE SALUD",
-                EvidenceChannel.NATIVE_CONTROL: "GUIA PARA CONTRATACION DIRECTA DEL SISTEMA DE SALUD",
-            },
-            channel_receipts=receipts(
-                EvidenceChannel.SOURCE_PROVENANCE,
-                EvidenceChannel.DOCUMENT_METADATA,
-                EvidenceChannel.OCR_CONTENT,
-                EvidenceChannel.NATIVE_CONTROL,
-            ),
+            observations=observations,
+            channel_validations=validations(observations, *observations),
             processed_pages=(1, 2, 3),
             total_pages=27,
             partial_document=True,
@@ -183,17 +205,14 @@ class EvidenceScopePolicyTests(unittest.TestCase):
         self.assertEqual(result.claims[0].reason_code, "METADATA_ONLY_NOT_CONTENT_IDENTITY")
 
     def test_native_token_missing_from_ocr_quarantines_candidate(self) -> None:
+        observations = {
+            EvidenceChannel.DOCUMENT_METADATA: "GUIA DE REGISTROS Y FLUJO DE PACC 2023",
+            EvidenceChannel.OCR_CONTENT: "DIAGRAMAS DE FLUJO DEL PACE",
+            EvidenceChannel.NATIVE_CONTROL: "DIAGRAMAS DE FLUJO DEL PACC",
+        }
         bundle = EvidenceBundle(
-            observations={
-                EvidenceChannel.DOCUMENT_METADATA: "GUIA DE REGISTROS Y FLUJO DE PACC 2023",
-                EvidenceChannel.OCR_CONTENT: "DIAGRAMAS DE FLUJO DEL PACE",
-                EvidenceChannel.NATIVE_CONTROL: "DIAGRAMAS DE FLUJO DEL PACC",
-            },
-            channel_receipts=receipts(
-                EvidenceChannel.DOCUMENT_METADATA,
-                EvidenceChannel.OCR_CONTENT,
-                EvidenceChannel.NATIVE_CONTROL,
-            ),
+            observations=observations,
+            channel_validations=validations(observations, *observations),
             processed_pages=(1, 2, 3),
             total_pages=15,
             partial_document=True,
@@ -217,17 +236,14 @@ class EvidenceScopePolicyTests(unittest.TestCase):
         self.assertEqual(result.claims[0].reason_code, "OCR_REQUIRED_TOKEN_MISSED")
 
     def test_partial_document_year_metadata_abstains_instead_of_failing_ocr(self) -> None:
+        observations = {
+            EvidenceChannel.DOCUMENT_METADATA: "CONCEPTOS BASICOS PACC ONCAE 2023",
+            EvidenceChannel.OCR_CONTENT: "CONCEPTOS BASICOS PACC",
+            EvidenceChannel.NATIVE_CONTROL: "CONCEPTOS BASICOS PACC",
+        }
         bundle = EvidenceBundle(
-            observations={
-                EvidenceChannel.DOCUMENT_METADATA: "CONCEPTOS BASICOS PACC ONCAE 2023",
-                EvidenceChannel.OCR_CONTENT: "CONCEPTOS BASICOS PACC",
-                EvidenceChannel.NATIVE_CONTROL: "CONCEPTOS BASICOS PACC",
-            },
-            channel_receipts=receipts(
-                EvidenceChannel.DOCUMENT_METADATA,
-                EvidenceChannel.OCR_CONTENT,
-                EvidenceChannel.NATIVE_CONTROL,
-            ),
+            observations=observations,
+            channel_validations=validations(observations, *observations),
             processed_pages=(1, 2, 3),
             total_pages=22,
             partial_document=True,
@@ -251,17 +267,14 @@ class EvidenceScopePolicyTests(unittest.TestCase):
         self.assertEqual(result.claims[0].reason_code, "PARTIAL_SCOPE_NOT_COVERED")
 
     def test_full_document_metadata_only_claim_is_not_confirmed(self) -> None:
+        observations = {
+            EvidenceChannel.DOCUMENT_METADATA: "CONCEPTOS BASICOS PACC ONCAE 2023",
+            EvidenceChannel.OCR_CONTENT: "CONCEPTOS BASICOS PACC",
+            EvidenceChannel.NATIVE_CONTROL: "CONCEPTOS BASICOS PACC",
+        }
         bundle = EvidenceBundle(
-            observations={
-                EvidenceChannel.DOCUMENT_METADATA: "CONCEPTOS BASICOS PACC ONCAE 2023",
-                EvidenceChannel.OCR_CONTENT: "CONCEPTOS BASICOS PACC",
-                EvidenceChannel.NATIVE_CONTROL: "CONCEPTOS BASICOS PACC",
-            },
-            channel_receipts=receipts(
-                EvidenceChannel.DOCUMENT_METADATA,
-                EvidenceChannel.OCR_CONTENT,
-                EvidenceChannel.NATIVE_CONTROL,
-            ),
+            observations=observations,
+            channel_validations=validations(observations, *observations),
             processed_pages=tuple(range(1, 23)),
             total_pages=22,
             partial_document=False,
@@ -285,17 +298,14 @@ class EvidenceScopePolicyTests(unittest.TestCase):
         self.assertEqual(result.claims[0].reason_code, "METADATA_ONLY_NOT_CONTENT_IDENTITY")
 
     def test_all_hard_claims_confirmed_pass_scoped(self) -> None:
+        observations = {
+            EvidenceChannel.SOURCE_PROVENANCE: "host:oncae.gob.hn publisher:ONCAE",
+            EvidenceChannel.OCR_CONTENT: "CONCEPTOS BASICOS PACC 2023",
+            EvidenceChannel.NATIVE_CONTROL: "CONCEPTOS BASICOS PACC 2023",
+        }
         bundle = EvidenceBundle(
-            observations={
-                EvidenceChannel.SOURCE_PROVENANCE: "host:oncae.gob.hn publisher:ONCAE",
-                EvidenceChannel.OCR_CONTENT: "CONCEPTOS BASICOS PACC 2023",
-                EvidenceChannel.NATIVE_CONTROL: "CONCEPTOS BASICOS PACC 2023",
-            },
-            channel_receipts=receipts(
-                EvidenceChannel.SOURCE_PROVENANCE,
-                EvidenceChannel.OCR_CONTENT,
-                EvidenceChannel.NATIVE_CONTROL,
-            ),
+            observations=observations,
+            channel_validations=validations(observations, *observations),
             processed_pages=(1, 2, 3),
             total_pages=3,
             partial_document=False,
@@ -337,12 +347,13 @@ class EvidenceScopePolicyTests(unittest.TestCase):
                 ResolutionState.MATCH_VALIDATED,
             ],
         )
-        self.assertEqual(len(result.channel_receipts), 3)
+        self.assertEqual(len(result.channel_validations), 3)
 
     def test_integrity_failure_quarantines_every_claim(self) -> None:
+        observations = {EvidenceChannel.OCR_CONTENT: "PACC 2023"}
         bundle = EvidenceBundle(
-            observations={EvidenceChannel.OCR_CONTENT: "PACC 2023"},
-            channel_receipts=receipts(EvidenceChannel.OCR_CONTENT),
+            observations=observations,
+            channel_validations=validations(observations, *observations),
             processed_pages=(1,),
             total_pages=1,
             partial_document=False,
@@ -365,15 +376,13 @@ class EvidenceScopePolicyTests(unittest.TestCase):
         self.assertEqual(result.claims[0].reason_code, "LINEAGE_HASH_MISMATCH")
 
     def test_receipt_serialization_is_deterministic(self) -> None:
+        observations = {
+            EvidenceChannel.SOURCE_PROVENANCE: "publisher:ONCAE host:oncae.gob.hn",
+            EvidenceChannel.OCR_CONTENT: "PACC",
+        }
         bundle = EvidenceBundle(
-            observations={
-                EvidenceChannel.SOURCE_PROVENANCE: "publisher:ONCAE host:oncae.gob.hn",
-                EvidenceChannel.OCR_CONTENT: "PACC",
-            },
-            channel_receipts=receipts(
-                EvidenceChannel.SOURCE_PROVENANCE,
-                EvidenceChannel.OCR_CONTENT,
-            ),
+            observations=observations,
+            channel_validations=validations(observations, *observations),
             processed_pages=(1,),
             total_pages=1,
             partial_document=False,
@@ -402,8 +411,10 @@ class EvidenceScopePolicyTests(unittest.TestCase):
         parsed = json.loads(first)
         self.assertEqual(parsed["verdict"], "PASS_SCOPED")
         self.assertEqual(
-            parsed["schema"], "data-science-pipeline/evidence-scope-receipt/2"
+            parsed["schema"], "data-science-pipeline/evidence-scope-receipt/3"
         )
+        for validation in parsed["channel_validations"].values():
+            self.assertEqual(validation["schema"], "data-science-pipeline/channel-validation/1")
 
 
 if __name__ == "__main__":
