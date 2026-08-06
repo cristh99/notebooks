@@ -1,0 +1,21 @@
+{
+  "schema": "university-cs1200-deep/source-lock/1",
+  "coordination_id": "COORD-2026-08-06-PARALLEL-V2",
+  "official_repository": "Harvard-CS-1200/2026-Spring",
+  "official_commit": "0b967fe320ecf2141a6f3b8165d3d096c99fb3ac",
+  "official_tree": "de8ba1477998a406b2d747bd680a8728b40435b0",
+  "expected": {
+    "lecture_pdfs": 23,
+    "sre_pdfs": 14,
+    "pset_directories": 11,
+    "pset_pdfs": 11
+  },
+  "parallel_groups": [
+    "psets_0_3",
+    "psets_4_7",
+    "psets_8_10",
+    "lectures_sre"
+  ],
+  "scope_status": "PASS_SCOPED_SOURCE_INVENTORY_ONLY",
+  "cost_usd": 0
+}

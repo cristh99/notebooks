@@ -1,0 +1,184 @@
+name: University Harvard CS1200 deep audit v1
+
+on:
+  push:
+    branches:
+      - agent/university-harvard-cs1200-deep-v1
+  pull_request:
+    paths:
+      - '.github/workflows/university-cs1200-deep-v1.yml'
+      - 'university_cs1200_deep_v1/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout audit capsule
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Verify frozen contract and audit code
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reports
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          lock = json.loads(Path('university_cs1200_deep_v1/SOURCE_LOCK.json').read_text())
+          assert lock['coordination_id'] == 'COORD-2026-08-06-PARALLEL-V2'
+          assert lock['official_repository'] == 'Harvard-CS-1200/2026-Spring'
+          assert lock['official_commit'] == '0b967fe320ecf2141a6f3b8165d3d096c99fb3ac'
+          assert lock['official_tree'] == 'de8ba1477998a406b2d747bd680a8728b40435b0'
+          assert lock['expected'] == {
+              'lecture_pdfs': 23,
+              'sre_pdfs': 14,
+              'pset_directories': 11,
+              'pset_pdfs': 11,
+          }
+          assert lock['parallel_groups'] == [
+              'psets_0_3', 'psets_4_7', 'psets_8_10', 'lectures_sre'
+          ]
+          print(json.dumps(lock, indent=2, sort_keys=True))
+          PY
+          python -m py_compile university_cs1200_deep_v1/audit_cs1200.py
+          sha256sum \
+            university_cs1200_deep_v1/SOURCE_LOCK.json \
+            university_cs1200_deep_v1/README.md \
+            university_cs1200_deep_v1/audit_cs1200.py \
+            > reports/capsule-source-sha256.txt
+
+      - name: Acquire two independent frozen source trees
+        shell: bash
+        run: |
+          set -euo pipefail
+          COMMIT='0b967fe320ecf2141a6f3b8165d3d096c99fb3ac'
+          TREE='de8ba1477998a406b2d747bd680a8728b40435b0'
+          for destination in official-cs1200-primary official-cs1200-replay; do
+            git init -q "$destination"
+            git -C "$destination" remote add origin https://github.com/Harvard-CS-1200/2026-Spring.git
+            git -C "$destination" fetch -q --depth=1 origin "$COMMIT"
+            git -C "$destination" checkout -q --detach FETCH_HEAD
+            test "$(git -C "$destination" rev-parse HEAD)" = "$COMMIT"
+            test "$(git -C "$destination" rev-parse 'HEAD^{tree}')" = "$TREE"
+          done
+          printf '%s\n' \
+            'repository=Harvard-CS-1200/2026-Spring' \
+            "commit=$COMMIT" \
+            "tree=$TREE" \
+            > reports/official-source-binding.txt
+
+      - name: Run four-lane primary and clean replay audits in parallel
+        shell: bash
+        run: |
+          set -euo pipefail
+          python university_cs1200_deep_v1/audit_cs1200.py \
+            --repo official-cs1200-primary \
+            --out reports/primary \
+            --workers 4 \
+            > reports/primary-console.log 2>&1 &
+          PRIMARY_PID=$!
+          python university_cs1200_deep_v1/audit_cs1200.py \
+            --repo official-cs1200-replay \
+            --out reports/replay \
+            --workers 4 \
+            > reports/replay-console.log 2>&1 &
+          REPLAY_PID=$!
+          PRIMARY_RC=0
+          REPLAY_RC=0
+          wait "$PRIMARY_PID" || PRIMARY_RC=$?
+          wait "$REPLAY_PID" || REPLAY_RC=$?
+          cat reports/primary-console.log
+          cat reports/replay-console.log
+          test "$PRIMARY_RC" -eq 0
+          test "$REPLAY_RC" -eq 0
+
+      - name: Require deterministic scientific replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp reports/primary/manifest.json reports/replay/manifest.json
+          cmp reports/primary/scientific.json reports/replay/scientific.json
+          cmp reports/primary/scientific.sha256 reports/replay/scientific.sha256
+          printf '%s\n' \
+            'PRIMARY_PASS' \
+            'CLEAN_REPLAY_PASS' \
+            'SCIENTIFIC_PAYLOAD_IDENTICAL' \
+            > reports/replay-status.txt
+
+      - name: Emit scoped receipt and verify evidence ledger
+        shell: bash
+        env:
+          EVENT_SHA: ${{ github.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          primary_path = Path('reports/primary/scientific.json')
+          replay_path = Path('reports/replay/scientific.json')
+          primary = json.loads(primary_path.read_text())
+          replay = json.loads(replay_path.read_text())
+          assert primary == replay
+          assert primary['status'] == 'PASS_SCOPED_SOURCE_INVENTORY'
+          counts = primary['summary']['counts']
+          receipt = {
+              'schema': 'university-cs1200-deep/receipt/1',
+              'status': 'PASS_SCOPED_SOURCE_INVENTORY',
+              'coordination_id': 'COORD-2026-08-06-PARALLEL-V2',
+              'repository': 'cristh99/notebooks',
+              'event_sha': os.environ['EVENT_SHA'],
+              'head_sha': os.environ['HEAD_SHA'],
+              'official_repository': 'Harvard-CS-1200/2026-Spring',
+              'official_commit': '0b967fe320ecf2141a6f3b8165d3d096c99fb3ac',
+              'official_tree': 'de8ba1477998a406b2d747bd680a8728b40435b0',
+              'manifest_sha256': primary['manifest_sha256'],
+              'scientific_sha256': hashlib.sha256(primary_path.read_bytes()).hexdigest(),
+              'clean_replay_identical': primary_path.read_bytes() == replay_path.read_bytes(),
+              'parallel_lanes': ['psets_0_3', 'psets_4_7', 'psets_8_10', 'lectures_sre'],
+              'counts': counts,
+              'gates': primary['gates'],
+              'public_test_files': primary['summary']['test_files'],
+              'syntax_failures': primary['summary']['syntax_failures'],
+              'problem_sets_solved': 0,
+              'course_complete': False,
+              'cost_usd': 0,
+              'scope_boundary': primary['scope_boundary'],
+              'next_gate': (
+                  'Resolve and independently replay public problem-set obligations '
+                  'with every attempted failure retained in the denominator.'
+              ),
+          }
+          receipt_path = Path('reports/receipt.json')
+          receipt_path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          digest = hashlib.sha256(receipt_path.read_bytes()).hexdigest()
+          Path('reports/receipt.sha256').write_text(f'{digest}  receipt.json\n')
+          print(json.dumps(receipt, indent=2, sort_keys=True))
+          PY
+          find university_cs1200_deep_v1 reports \
+            .github/workflows/university-cs1200-deep-v1.yml \
+            -type f ! -name SHA256SUMS -print0 \
+            | sort -z | xargs -0 sha256sum > reports/SHA256SUMS
+          sha256sum -c reports/SHA256SUMS
+
+      - name: Upload CS1200 audit evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: university-cs1200-deep-v1-evidence
+          path: |
+            university_cs1200_deep_v1/
+            reports/
