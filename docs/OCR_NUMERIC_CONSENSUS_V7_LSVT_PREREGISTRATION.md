@@ -19,7 +19,7 @@ Exact policy source SHA-256:
 - exact bytes: `8,979,134,697`;
 - SHA-256:
   `44d4e6822060bbd3c11b933675d91ac7da4e944645bee7a080529f0232823c8b`;
-- upstream license: CC BY-NC-ND 3.0; research and non-commercial use only;
+- upstream license: CC-BY-NC-ND-3.0; research and non-commercial use only;
 - source images must not be redistributed.
 
 Before freeze, only repository object metadata may be read. The first
@@ -47,6 +47,16 @@ If and only if power passes:
 - candidate and baseline wall time measured;
 - a 10× speed claim requires candidate/baseline wall-time ratio <= `0.1`;
 - one execution, no post-outcome retuning.
+
+## Mechanical runner repair — no scientific credit
+
+The first two hosted-runner attempts ended before `checkout`: GitHub did not
+acquire an `ubuntu-24.04` runner and executed zero workflow steps. After both
+terminal infrastructure failures, the workflow changed only the runner label
+to `ubuntu-22.04` and enabled same-branch concurrency cancellation. No source,
+sample, policy, model, threshold, quality gate, speed gate, or outcome changed;
+no LSVT footer, row, transcription, geometry, image byte, OCR output, or
+benchmark outcome had been opened.
 
 ## Constraints
 
