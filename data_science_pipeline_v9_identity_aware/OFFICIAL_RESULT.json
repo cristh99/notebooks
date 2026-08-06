@@ -1,0 +1,58 @@
+{
+  "schema": "data-science-pipeline/v9-official-result/1",
+  "verdict": "BLOCKED_NO_NATIVE_ORACLE",
+  "github": {
+    "run_id": 31083632461,
+    "head_sha": "97f5a28085adbc5958f297be8677567966dbff87",
+    "artifact_id": 8960505637,
+    "artifact_name": "data-science-pipeline-v9-identity-aware-resolution",
+    "artifact_zip_sha256": "c281d6f543a68d47aec53d80164950d458dbe2baee09a1ccb5d4d9ba2dbe0481"
+  },
+  "verification": {
+    "workflow_conclusion": "success",
+    "tests": "23/23 PASS",
+    "source_binding": "PASS",
+    "pdf_acquisition": "PASS",
+    "ocr_ensemble": "PASS",
+    "candidate_replay": "PASS",
+    "candidate_sealed_before_oracle": true,
+    "oracle_replay": "PASS",
+    "adjudication_replay": "PASS"
+  },
+  "source": {
+    "landing_url": "https://oncae.gob.hn/2026/07/14/circular-oncae-004-2026/",
+    "pdf_url": "https://oncae.gob.hn/wp-content/uploads/2026/07/Circular-ONCAE-004-2026.pdf",
+    "pdf_bytes": 722182,
+    "pdf_sha256": "fab8ceb9227affffccd50413ded8946c70ea8d746a35ac07162bdccf6dbded96"
+  },
+  "candidate": {
+    "facts": 3,
+    "circular_id": "ONCAE-004-2026",
+    "document_date": "2026-07-13",
+    "institution": "hn:institution:oncae",
+    "native_text_used": false,
+    "minimum_support": 2
+  },
+  "oracle": {
+    "type": "native_pdf_text",
+    "non_whitespace_characters": 0,
+    "facts": 0,
+    "status": "BLOCKED_NO_NATIVE_ORACLE"
+  },
+  "interpretation": {
+    "operational_pipeline_passed": true,
+    "scientific_credit": 0,
+    "reason": "The official PDF is image-only, so the preregistered native-text oracle had no independent text to adjudicate the sealed OCR candidate.",
+    "candidate_facts_promoted": false,
+    "same_document_reuse_for_promotion_permitted": false,
+    "next_gate": "Use an independent non-Tesseract OCR oracle on a different fresh official document, with protocol and thresholds frozen before opening its PDF bytes."
+  },
+  "controls": {
+    "external_cost_usd": 0.0,
+    "gcloud_used": false,
+    "paid_compute_used": false,
+    "production_modified": false,
+    "merge_authorized": false,
+    "mass_processing_authorized": false
+  }
+}
