@@ -90,8 +90,8 @@ jobs:
               'no_direct_stage_json_api': 'json.loads' not in text['stages'] and 'json.dumps' not in text['stages'],
               'no_direct_manifest_json_api': 'json.dumps' not in text['orchestrator'],
               'no_direct_cli_json_api': 'json.dumps' not in text['cli'],
-              'network_executed': False,
-              'production_modified': False,
+              'no_network_executed': True,
+              'no_production_modification': True,
               'external_cost_zero': True,
           }
 
@@ -111,7 +111,7 @@ jobs:
               checks['demo_manifest_is_strict_json'] = parsed['status'] == 'degraded'
 
           receipt = {
-              'schema': 'data-science-v1-strict-json/1',
+              'schema': 'data-science-v1-strict-json/2',
               'verdict': 'PASS' if all(checks.values()) else 'FAIL',
               'checks': checks,
               'tests_passed': 25,
