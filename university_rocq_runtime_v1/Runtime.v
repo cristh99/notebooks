@@ -52,34 +52,34 @@ Qed.
 
 Inductive runtime_expr : Type :=
   | RNum (n : nat)
-  | RPlus (left right : runtime_expr).
+  | RPlus (lhs rhs : runtime_expr).
 
 Fixpoint runtime_eval (e : runtime_expr) : nat :=
   match e with
   | RNum n => n
-  | RPlus left right => runtime_eval left + runtime_eval right
+  | RPlus lhs rhs => runtime_eval lhs + runtime_eval rhs
   end.
 
 Fixpoint runtime_fold_constants (e : runtime_expr) : runtime_expr :=
   match e with
   | RNum n => RNum n
-  | RPlus left right =>
-      match runtime_fold_constants left, runtime_fold_constants right with
+  | RPlus lhs rhs =>
+      match runtime_fold_constants lhs, runtime_fold_constants rhs with
       | RNum n, RNum m => RNum (n + m)
-      | left', right' => RPlus left' right'
+      | lhs', rhs' => RPlus lhs' rhs'
       end
   end.
 
 Theorem runtime_fold_constants_sound : forall e,
   runtime_eval (runtime_fold_constants e) = runtime_eval e.
 Proof.
-  induction e as [n | left IHleft right IHright].
+  induction e as [n | lhs IHlhs rhs IHrhs].
   - reflexivity.
   - simpl.
-    remember (runtime_fold_constants left) as left' eqn:Hleft.
-    remember (runtime_fold_constants right) as right' eqn:Hright.
-    destruct left'; destruct right'; simpl in *; rewrite <- IHleft, <- IHright;
-      rewrite Hleft, Hright; reflexivity.
+    remember (runtime_fold_constants lhs) as lhs' eqn:Hlhs.
+    remember (runtime_fold_constants rhs) as rhs' eqn:Hrhs.
+    destruct lhs'; destruct rhs'; simpl in *; rewrite <- IHlhs, <- IHrhs;
+      rewrite Hlhs, Hrhs; reflexivity.
 Qed.
 
 Definition runtime_assertion := nat -> Prop.
