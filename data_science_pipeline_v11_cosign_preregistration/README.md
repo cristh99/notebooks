@@ -17,3 +17,7 @@ Stage 08.
 After a green signed-receipt run, the only legitimate next step is one bounded
 resolution and full-document evaluation of the still-unopened official ONCAE
 candidate. Keep the branch and PR draft and unmerged.
+
+Infrastructure note: a minimal OIDC-availability probe on the isolated technical
+base is used only to distinguish event registration from the full trust workflow;
+it does not access or evaluate the preregistered document.
