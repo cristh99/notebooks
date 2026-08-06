@@ -19,7 +19,7 @@ Lane E exact candidates only
         ↓
 Lane V validator/trust evidence
         ↓
-PR #135 single arbiter
+Notion-governed single arbiter pointer
 ```
 
 Lane E cannot emit a canonical entity decision. It cannot rewrite Normalize, use fuzzy similarity, or bypass the single arbiter.
@@ -87,10 +87,20 @@ Candidate rows may contain OCR surface text and entity display names in a privat
 
 ## Validator/arbiter boundary
 
-Lane E intentionally does not forge or synthesize validator evidence. Lane V must attach an authorized signed validation to the exact observation/policy/channel before PR #135 can decide anything. The current arbiter implementation still has integration work to reconcile its dataclass with the frozen envelope (`span_start`, `span_end`, `bbox`, resolver policy binding and evidence-channel representation); Lane E does not patch the arbiter-owned branch.
+Lane E intentionally does not forge or synthesize validator evidence. Lane V must attach an authorized signed validation to the exact observation/policy/channel before the Notion-governed arbiter can decide anything. Lane E does not patch either arbiter branch.
+
+At the 2026-08-06 15:59 Honduras coordination cut, Notion still names draft PR `#135` as the single arbiter. A newer GitHub draft `#138` exists as a **technical successor** that states it consumes canonical Lane E/Lane M receipts without numeric reclassification, but that succession is not yet authoritative until its owner reconciles it in Notion.
+
+## Technical compatibility with draft #138
+
+The public `#138` contract requires, among other things, exact event-universe equality, per-event source-record SHA-256 equality, trust/self-hash validation and a final event envelope containing `event_id`, `process_id`, `buyer_id`, `supplier_id`, date/amount/currency, event/amount/date roles, procurement method, bid count, resolution state and lineage.
+
+Lane E v1 deliberately does **not** manufacture that event envelope. Its current output is document/OCR-line candidate evidence and commitments. It does not have an authoritative `event_id/process_id` binding or the amount/date half of the event. Therefore a direct Lane E→`#138` adapter is **BLOCKED_MISSING_EVENT_BINDING**, not an invitation to infer or synthesize missing event fields.
+
+A compatible downstream assembler must bind Lane E candidates plus Lane M candidates to an already governed event universe and source-record hashes, then attach Lane V trust evidence. That assembler belongs to the single arbiter/integration owner, not Lane E.
 
 ## Promotion boundary
 
 Software-only candidate construction. It does not establish external entity-resolution accuracy, provider identity, beneficial ownership, payment, legality, intent, corruption or production readiness.
 
-Next scientific gate: exact-byte regression execution, then Lane V validator evidence + PR #135 arbiter binding, then a fresh preregistered document/registry evaluation without post-result retuning.
+Next gate for Lane E: exact-byte regression execution. After that, remain blocked on authorized Lane V/event-universe binding and the Notion-governed single arbiter; only then may a fresh preregistered document/registry evaluation proceed without post-result retuning.
