@@ -179,6 +179,8 @@ def validate_payload(payload: dict[str, object]) -> dict[str, bool]:
     require(trust.get("expected_base_branch") == EXPECTED_BASE_BRANCH, "base branch mismatch")
     require(set(trust.get("allowed_ref_patterns", [])) == EXPECTED_REF_PATTERNS, "ref pattern mismatch")
     require(trust.get("workflow_path") == EXPECTED_WORKFLOW_PATH, "workflow path mismatch")
+    require(set(trust.get("allowed_workflow_ref_sources", [])) == {"head_branch", "pull_request_merge_ref"}, "workflow ref source mismatch")
+    require(set(trust.get("allowed_workflow_sha_sources", [])) == {"github_sha", "pull_request_head_sha"}, "workflow sha source mismatch")
     require(
         trust.get("certificate_identity_regexp") == EXPECTED_CERT_IDENTITY_REGEXP,
         "certificate identity regexp mismatch",
