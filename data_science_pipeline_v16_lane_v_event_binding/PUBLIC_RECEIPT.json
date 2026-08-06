@@ -1,0 +1,39 @@
+{
+  "buyer_id_commitment_sha256": "5182d8b720239c32a651eccc29852fc76b4295a90b1dae8c0fb32e112f00cd2b",
+  "claim_limit": "Real official structured-source interface canary only; no OCR/entity/numeric accuracy, causal, wrongdoing, production, or scientific promotion claim.",
+  "contract_id_commitment_sha256": "86b5c248bef58c75edbfb0c1d6229eaefa1945590ff7106b5d88550ec9d5d413",
+  "coordination_id": "COORD-2026-08-06-PARALLEL-V2",
+  "event_id": "oncae-contract:dfc461437dfdbb764bce45990ce792584e5316c8553d4d26c05f2cfce934a292",
+  "event_universe_sha256": "15fbe238a765abd2735402ce24dd057c0fce2b23788baab0a838060eb17102cd",
+  "external_cost_usd": "0.00",
+  "external_real_data_evaluations": 0,
+  "external_trust_verified": false,
+  "forbidden_private_fields": [
+    "buyer_id",
+    "process_id",
+    "supplier_id"
+  ],
+  "lane_e_receipt_sha256": "ca032559292fb20b3837d84317c190b7e566479954b357134735f0fcc274e03e",
+  "lane_m_receipt_sha256": "767f1921999f85ef8e0a5833ab28a18080395ab94a9f21e0614acffc20794ee9",
+  "outputs": [
+    {
+      "code": "EXTERNAL_TRUST_EVIDENCE_MISSING",
+      "event_id": "oncae-contract:dfc461437dfdbb764bce45990ce792584e5316c8553d4d26c05f2cfce934a292",
+      "source_record_sha256": "e797e74ff1e9c68790c7c1b462e7cfda38b4ba37d1938e54e34d1d80164ecb65",
+      "status": "CANDIDATE_REVIEW"
+    }
+  ],
+  "private_fields_exported": false,
+  "process_id_commitment_sha256": "9e35182dd3360b61a857ad2e6d0ee8b176ea3c03bed8f637769dfb5e8cbe3461",
+  "production_modified": false,
+  "receipt_sha256": "074129088bbc5864d5f94da142c5628c1120e821a46bdedd2c8d4821d08b2c8b",
+  "same_source_record_binding": true,
+  "same_universe_binding": true,
+  "schema": "data-science-pipeline/lane-v-public-receipt/1",
+  "scientific_promotion_credit": 0,
+  "source_record_sha256": "e797e74ff1e9c68790c7c1b462e7cfda38b4ba37d1938e54e34d1d80164ecb65",
+  "source_release_sha256": "d9863f2d933a1067491300ed16184895c888665db5e0a63162e17bf1a1f395f5",
+  "stage08_unblocked": false,
+  "supplier_id_commitment_sha256": "859e3c345afdae77109357018f11dc9cbbf3a4fda029ab888576a60ba06a8e30",
+  "verdict": "PASS_EVENT_BINDING_CANARY_FAIL_CLOSED_NO_TRUST"
+}
