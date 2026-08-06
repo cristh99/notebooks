@@ -27,6 +27,7 @@ Opened TextOCR replay remains development-only: `110/4,674` accepted, one false 
 - immutable revision: `2b1f8aab9fbba3b5be07e2cae9e3e9c43fe5487c`;
 - object: `data/openvino-00000-of-00001.parquet`;
 - exact bytes: `65,751,927,475`;
+- declared rows for this exact LFS object: `207,790`;
 - SHA-256: `5413c6ffb4f8047977db9dba520453976f48eed91b5477d06e7f62258a2ba09c`;
 - repository metadata only may be read before freeze;
 - upstream image terms must be reviewed before any full image download.
@@ -39,7 +40,7 @@ The image column is forbidden in both stages.
 
 ### Stage A — texts-only upper bound
 
-Read only `texts` and row index. Count image rows containing at least one frozen-scope 4–12 digit transcription. This is an upper bound: geometry validation can remove candidates but cannot create a candidate absent from the text list.
+Read only `texts` and row index. Require exactly `207,790` rows, then count image rows containing at least one frozen-scope 4–12 digit transcription. This is an upper bound: geometry validation can remove candidates but cannot create a candidate absent from the text list.
 
 If the upper bound cannot satisfy both conditions, the corpus/version closes without reading geometry:
 
@@ -50,7 +51,7 @@ The second condition requires at least `16,997` selectable rows.
 
 ### Stage B — exact geometry census
 
-Run only if Stage A can pass. Read only `texts`, `bboxes`, `polygons`, and `num_text_regions`; apply the byte-identical TextOCR v6 deterministic geometry/selection code; select at most one risk unit per image row; then adjudicate the same frozen power thresholds exactly.
+Run only if Stage A can pass. Require the second scan to contain exactly `207,790` rows; read only `texts`, `bboxes`, `polygons`, and `num_text_regions`; apply the byte-identical TextOCR v6 deterministic geometry/selection code; select at most one risk unit per image row; then adjudicate the same frozen power thresholds exactly.
 
 Passing the metadata gate makes the corpus eligible only for a separately preregistered full external workflow after artifact audit and license review. This metadata workflow never authorizes or downloads images, never runs OCR, and never creates a scientific verdict.
 
