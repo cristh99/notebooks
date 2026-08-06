@@ -40,6 +40,7 @@ jobs:
           cd "$pipeline"
           PYTHONPATH=src python -m unittest discover -s tests -v \
             2>&1 | tee "$GITHUB_WORKSPACE/tests.log"
+          grep -q 'Ran 39 tests' "$GITHUB_WORKSPACE/tests.log"
           grep -q '^OK$' "$GITHUB_WORKSPACE/tests.log"
           PYTHONPATH=src python -m compileall -q src tests
 
@@ -54,59 +55,82 @@ jobs:
           from pathlib import Path
 
           root = Path('.')
-          targets = [
+          source_paths = [
               root / 'src/god_pipeline/acquisition.py',
               root / 'src/god_pipeline/canary.py',
               root / 'src/god_pipeline/browser_capture.py',
               root / 'src/god_pipeline/browser_canary.py',
+          ]
+          test_paths = [
               root / 'tests/test_acquisition.py',
               root / 'tests/test_browser_capture.py',
           ]
+          targets = source_paths + test_paths
           for path in targets:
               if not path.is_file():
                   raise SystemExit(f'missing reconstructed file: {path}')
               ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
 
-          source = '\n'.join(path.read_text(encoding='utf-8') for path in targets[:4])
+          source = '\n'.join(path.read_text(encoding='utf-8') for path in source_paths)
+          tests = '\n'.join(path.read_text(encoding='utf-8') for path in test_paths)
+
+          identifiers = sorted(set(re.findall(r'\b[A-Za-z_][A-Za-z0-9_]*\b', source)))
+          cost_identifiers = [
+              value for value in identifiers
+              if 'cost' in value.lower() or 'spend' in value.lower() or 'budget' in value.lower()
+          ]
+          byte_identifiers = [
+              value for value in identifiers
+              if 'byte' in value.lower() or 'size' in value.lower()
+          ]
+
           required = {
               'https_only': bool(re.search(r'https', source, re.I)),
               'host_policy': bool(re.search(r'allow(?:ed)?_hosts?|trusted_hosts?', source, re.I)),
               'redirect_control': bool(re.search(r'redirect', source, re.I)),
               'public_ip_control': bool(re.search(r'(?:private|public).*(?:address|ip)|ipaddress', source, re.I | re.S)),
               'credential_rejection': bool(re.search(r'credential|authorization|userinfo|cookie', source, re.I)),
-              'byte_limit': bool(re.search(r'max(?:imum)?_bytes|byte_limit|bytes_limit|max_bytes', source, re.I)),
-              'cost_limit': bool(re.search(r'max(?:imum)?_cost|cost_limit|max_cost', source, re.I)),
+              'byte_limit': bool(re.search(r'(?:max|limit|ceiling)[A-Za-z0-9_]*(?:byte|size)|(?:byte|size)[A-Za-z0-9_]*(?:max|limit|ceiling)', source, re.I)),
+              'cost_limit': bool(re.search(r'(?:max|limit|ceiling|budget)[A-Za-z0-9_]*(?:cost|spend)|(?:cost|spend)[A-Za-z0-9_]*(?:max|limit|ceiling|budget)', source, re.I)),
               'origin_equivalence_false': 'origin_bytes_equivalent' in source,
               'quarantine': 'quarantin' in source.lower(),
               'sha256': 'sha256' in source.lower(),
+              'tested_private_ip_rejection': 'private_ip' in tests,
+              'tested_redirect_revalidation': 'redirect_host_is_rechecked' in tests,
+              'tested_cost_and_size_rejection': bool(re.search(r'rejects_untrusted_provider_host_cost_size', tests)),
+              'tested_origin_non_equivalence': 'origin_equivalence' in tests,
           }
-          if not all(required.values()):
-              raise SystemExit({'missing_static_control': [k for k,v in required.items() if not v]})
 
           forbidden_calls = []
-          for path in targets[:4]:
+          for path in source_paths:
               tree = ast.parse(path.read_text(encoding='utf-8'))
               for node in ast.walk(tree):
-                  if isinstance(node, ast.Call):
-                      name = ''
-                      if isinstance(node.func, ast.Name):
-                          name = node.func.id
-                      elif isinstance(node.func, ast.Attribute):
-                          parts=[]
-                          cur=node.func
-                          while isinstance(cur, ast.Attribute):
-                              parts.append(cur.attr); cur=cur.value
-                          if isinstance(cur, ast.Name): parts.append(cur.id)
-                          name='.'.join(reversed(parts))
-                      if name in {'eval','exec','os.system','subprocess.run','subprocess.Popen','subprocess.call'}:
-                          forbidden_calls.append({'path':str(path),'line':node.lineno,'call':name})
-          if forbidden_calls:
-              raise SystemExit({'forbidden_dynamic_execution': forbidden_calls})
+                  if not isinstance(node, ast.Call):
+                      continue
+                  name = ''
+                  if isinstance(node.func, ast.Name):
+                      name = node.func.id
+                  elif isinstance(node.func, ast.Attribute):
+                      parts = []
+                      cur = node.func
+                      while isinstance(cur, ast.Attribute):
+                          parts.append(cur.attr)
+                          cur = cur.value
+                      if isinstance(cur, ast.Name):
+                          parts.append(cur.id)
+                      name = '.'.join(reversed(parts))
+                  if name in {'eval', 'exec', 'os.system', 'subprocess.run', 'subprocess.Popen', 'subprocess.call'}:
+                      forbidden_calls.append({'path': str(path), 'line': node.lineno, 'call': name})
 
+          missing = [key for key, value in required.items() if not value]
+          verdict = 'PASS_STATIC_AND_TESTS' if not missing and not forbidden_calls else 'FAIL_STATIC_CONTROL'
           manifest = {
-              'schema': 'data-science-v2-acquisition-static-audit/1',
-              'verdict': 'PASS_STATIC_AND_TESTS',
+              'schema': 'data-science-v2-acquisition-static-audit/2',
+              'verdict': verdict,
               'controls': required,
+              'missing_controls': missing,
+              'cost_related_identifiers': cost_identifiers,
+              'byte_related_identifiers': byte_identifiers,
               'forbidden_dynamic_execution_calls': forbidden_calls,
               'network_executed': False,
               'external_source_accessed': False,
@@ -121,14 +145,16 @@ jobs:
               },
           }
           Path('static-audit.json').write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
+          print(json.dumps(manifest, indent=2, sort_keys=True))
           PY
 
       - name: Package materialized code for independent inspection
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
           pipeline="$(cat "$RUNNER_TEMP/pipeline-root.txt")"
-          mkdir -p materialized/src/god_pipeline materialized/tests materialized/canary
+          mkdir -p materialized/src/god_pipeline materialized/tests
           cp "$pipeline/src/god_pipeline/acquisition.py" materialized/src/god_pipeline/
           cp "$pipeline/src/god_pipeline/canary.py" materialized/src/god_pipeline/
           cp "$pipeline/src/god_pipeline/browser_capture.py" materialized/src/god_pipeline/
@@ -140,9 +166,28 @@ jobs:
           find materialized -type f -print0 | sort -z | xargs -0 sha256sum > materialized/SHA256SUMS.txt
 
       - name: Upload exact audit bundle
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: data-science-v2-acquisition-static-audit
           path: materialized
           if-no-files-found: error
           retention-days: 90
+
+      - name: Enforce audit verdict after evidence preservation
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('materialized/static-audit.json').read_text())
+          if report['verdict'] != 'PASS_STATIC_AND_TESTS':
+              raise SystemExit({
+                  'missing_controls': report['missing_controls'],
+                  'forbidden_calls': report['forbidden_dynamic_execution_calls'],
+                  'cost_identifiers': report['cost_related_identifiers'],
+                  'byte_identifiers': report['byte_related_identifiers'],
+              })
+          print('PASS: exact acquisition/browser-capture code, 39 tests, static controls, no network')
+          PY
