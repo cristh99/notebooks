@@ -1,0 +1,49 @@
+{
+  "schema": "data-science-pipeline/resolve-official-result/1",
+  "verdict": "FAIL",
+  "run_id": 31063323232,
+  "job_id": 92495702222,
+  "artifact_id": 8952908711,
+  "artifact_zip_sha256": "0b5a771eab0994e894c5398cb6d3538bf6c96e6cf952bf0bd7e83d9fbae490e2",
+  "resolved": {
+    "entities": [
+      "hn:country:honduras",
+      "hn:government:republic",
+      "hn:institution:oncae",
+      "hn:organization:cich",
+      "hn:organization:educredito"
+    ],
+    "dates": ["2024-11"],
+    "legal_instruments": [
+      "hn:decree:62-2023",
+      "hn:legal:presupuesto-general-2024",
+      "hn:legal:reglamento-ley-contratacion-estado"
+    ],
+    "contacts": ["+504-2209-5355"]
+  },
+  "failure": {
+    "type": "false_positive_amount",
+    "surface_text": "L 2024",
+    "value": 2024.0,
+    "currency": "HNL",
+    "source_context": "... EJERCICIO FISCAL 2024 ...",
+    "root_cause": "The currency regex lacked a negative alphanumeric lookbehind and matched the final L in FISCAL as a currency marker.",
+    "promotion_credit": 0
+  },
+  "other_checks": {
+    "replay_byte_identical": true,
+    "entity_collisions": 0,
+    "mention_lineage_complete": true,
+    "external_cost_usd": 0.0,
+    "tests": "9/9 PASS"
+  },
+  "controls": {
+    "post_result_retuning_permitted_for_same_document": false,
+    "document_retired_from_promotion": true,
+    "next_candidate_must_use_fresh_document": true,
+    "merge_authorized": false,
+    "gcloud_used": false,
+    "paid_compute_used": false,
+    "novelty_points": 0
+  }
+}
