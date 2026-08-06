@@ -1,0 +1,320 @@
+name: OCR COCO-Text v7 freeze and metadata census
+
+on:
+  push:
+    branches:
+      - agent/ocr-consensus-v7-cocotext-preregistered
+    paths:
+      - '.github/workflows/ocr-cocotext-v7-freeze-census.yml'
+      - 'ocr_real_risk_v1/numeric_consensus_policy_v7.py'
+      - 'ocr_real_risk_v1/test_numeric_consensus_policy_v7.py'
+      - 'ocr_real_risk_v1/textocr_v7_development_replay.py'
+      - 'ocr_real_risk_v1/cocotext_source_seal_v7.py'
+      - 'ocr_real_risk_v1/ocrdata_adapter_v7.py'
+      - 'ocr_real_risk_v1/numeric_consensus_candidate_v7_cocotext.py'
+      - 'ocr_real_risk_v1/run_records/textocr_v7_development_diagnostic.json'
+      - 'docs/OCR_NUMERIC_CONSENSUS_V7_PREREGISTRATION.md'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: ocr-cocotext-v7-freeze-census-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  V6_CANDIDATE_ARTIFACT_ID: '8934627865'
+  V6_CANDIDATE_ARTIFACT_SHA256: 019f739abc302d54efced526f8e48bc2f2a4f4a7bcb5ff89c586f9781fc8fd5e
+  V6_CANDIDATE_STABLE_SHA256: 96b35ec606a174e25c49089e099c917e88425385c46ba557dd594de506f349ca
+  TEXTOCR_TERMINAL_ARTIFACT_ID: '8961886770'
+  TEXTOCR_TERMINAL_ARTIFACT_SHA256: 899732a43cfc7f3889d441a8a639993eef58bc2e21d250e51a3a6c93f1b47921
+  DEVELOPMENT_DIAGNOSTIC_STABLE_SHA256: 2e1ac87773d387c27c0d8a8649eb03f39739b8275f3b34a71654a0c81f67cb79
+  COCOTEXT_REVISION: 2b1f8aab9fbba3b5be07e2cae9e3e9c43fe5487c
+  COCOTEXT_PATH: data/cocotext-00000-of-00001.parquet
+  COCOTEXT_SOURCE_SHA256: 562176cbb803bb7aa140a4537701ef53ebb86e396c8927f9b160227ac49efd48
+  COCOTEXT_SOURCE_BYTES: '2223323062'
+  COCOTEXT_URL: https://huggingface.co/datasets/Yesianrohn/OCR-Data/resolve/2b1f8aab9fbba3b5be07e2cae9e3e9c43fe5487c/data/cocotext-00000-of-00001.parquet?download=true
+  PYTHONHASHSEED: '0'
+  OMP_THREAD_LIMIT: '1'
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  NUMEXPR_NUM_THREADS: '1'
+
+jobs:
+  freeze-census:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+
+      - name: Install pinned metadata and frozen-source runtime
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            scipy==1.17.1 \
+            threadpoolctl==3.6.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13 \
+            packaging==26.3 \
+            duckdb==1.5.4
+
+      - name: Verify v7 policy and source compilation
+        run: |
+          set -euo pipefail
+          python -m unittest -v \
+            ocr_real_risk_v1.test_numeric_consensus_policy_v7
+          python -m compileall -q \
+            ocr_real_risk_v1/numeric_consensus_policy_v7.py \
+            ocr_real_risk_v1/textocr_v7_development_replay.py \
+            ocr_real_risk_v1/cocotext_source_seal_v7.py \
+            ocr_real_risk_v1/ocrdata_adapter_v7.py \
+            ocr_real_risk_v1/numeric_consensus_candidate_v7_cocotext.py
+
+      - name: Replay opened TextOCR development evidence without credit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/textocr-terminal"
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${TEXTOCR_TERMINAL_ARTIFACT_ID}/zip" \
+            --output "$RUNNER_TEMP/textocr-terminal.zip"
+          echo "${TEXTOCR_TERMINAL_ARTIFACT_SHA256}  $RUNNER_TEMP/textocr-terminal.zip" \
+            | sha256sum --check --strict
+          unzip -q "$RUNNER_TEMP/textocr-terminal.zip" \
+            -d "$RUNNER_TEMP/textocr-terminal"
+          python -m ocr_real_risk_v1.textocr_v7_development_replay \
+            "$RUNNER_TEMP/textocr-terminal" \
+            --output "$RUNNER_TEMP/textocr-v7-development-replay.json"
+          cmp \
+            "$RUNNER_TEMP/textocr-v7-development-replay.json" \
+            ocr_real_risk_v1/run_records/textocr_v7_development_diagnostic.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(
+              Path("ocr_real_risk_v1/run_records/textocr_v7_development_diagnostic.json").read_text()
+          )
+          assert report["stable_payload_sha256"] == \
+              "2e1ac87773d387c27c0d8a8649eb03f39739b8275f3b34a71654a0c81f67cb79"
+          assert report["limitations"]["scientific_credit"] is False
+          assert report["v7_opened_development_diagnostic"] == {
+              "acceptance_decisions_changed_from_v6": 107,
+              "acceptance_rate_over_selected": 110 / 4674,
+              "accepted": 110,
+              "counterfactual_outputs": 0,
+              "false_accepted": 1,
+              "probability_threshold_0_25_effective_in_source": True,
+              "truth_length_oracle_removed_in_source": True,
+          }
+          PY
+
+      - name: Seal exact COCO-Text source from repository metadata only
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/v7-evidence"
+          python -m ocr_real_risk_v1.cocotext_source_seal_v7 \
+            --output "$RUNNER_TEMP/v7-evidence/cocotext_source_seal_v7.json"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          path = Path(os.environ["RUNNER_TEMP"]) / "v7-evidence/cocotext_source_seal_v7.json"
+          report = json.loads(path.read_text())
+          assert report["resolved_revision"] == \
+              "2b1f8aab9fbba3b5be07e2cae9e3e9c43fe5487c"
+          assert report["source_object"]["path"] == \
+              "data/cocotext-00000-of-00001.parquet"
+          assert report["source_object"]["size_bytes"] == 2223323062
+          assert report["source_object"]["sha256"] == \
+              "562176cbb803bb7aa140a4537701ef53ebb86e396c8927f9b160227ac49efd48"
+          assert report["repository_metadata_only"] is True
+          assert report["parquet_footer_read"] is False
+          assert report["outcomes_opened"] is False
+          PY
+
+      - name: Recover byte-frozen v6 model provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/v6-candidate"
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${V6_CANDIDATE_ARTIFACT_ID}/zip" \
+            --output "$RUNNER_TEMP/v6-candidate.zip"
+          echo "${V6_CANDIDATE_ARTIFACT_SHA256}  $RUNNER_TEMP/v6-candidate.zip" \
+            | sha256sum --check --strict
+          unzip -q "$RUNNER_TEMP/v6-candidate.zip" \
+            -d "$RUNNER_TEMP/v6-candidate"
+          test -d "$RUNNER_TEMP/v6-candidate/frozen-textocr-v6-a"
+          (
+            cd "$RUNNER_TEMP/v6-candidate/frozen-textocr-v6-a"
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+
+      - name: Freeze v7 before COCO-Text footer, rows, or images
+        run: |
+          set -euo pipefail
+          python -m ocr_real_risk_v1.numeric_consensus_candidate_v7_cocotext build \
+            --repository-root "$GITHUB_WORKSPACE" \
+            --v6-candidate-root "$RUNNER_TEMP/v6-candidate/frozen-textocr-v6-a" \
+            --source-seal "$RUNNER_TEMP/v7-evidence/cocotext_source_seal_v7.json" \
+            --development-diagnostic \
+              "$GITHUB_WORKSPACE/ocr_real_risk_v1/run_records/textocr_v7_development_diagnostic.json" \
+            --source-commit "$GITHUB_SHA" \
+            --output-dir "$RUNNER_TEMP/frozen-cocotext-v7" \
+            > "$RUNNER_TEMP/v7-evidence/frozen_candidate_stdout.json"
+          PYTHONPATH="$RUNNER_TEMP/frozen-cocotext-v7/source" \
+            python -m ocr_real_risk_v1.numeric_consensus_candidate_v7_cocotext \
+              verify "$RUNNER_TEMP/frozen-cocotext-v7" \
+              > "$RUNNER_TEMP/v7-evidence/frozen_candidate_verify.json"
+          (
+            cd "$RUNNER_TEMP/frozen-cocotext-v7"
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+
+      - name: Execute metadata-only census with image column excluded
+        run: |
+          set -euo pipefail
+          candidate="$RUNNER_TEMP/frozen-cocotext-v7"
+          stable="$(
+            python -c 'import json,sys; print(json.load(open(sys.argv[1]))["stable_payload_sha256"])' \
+              "$candidate/frozen_candidate.json"
+          )"
+          PYTHONPATH="$candidate/source" \
+            python -m ocr_real_risk_v1.ocrdata_adapter_v7 \
+              --source-url "$COCOTEXT_URL" \
+              --candidate-stable "$stable" \
+              --candidate-source-commit "$GITHUB_SHA" \
+              --output "$RUNNER_TEMP/v7-evidence/cocotext_v7_metadata_census.json" \
+              | tee "$RUNNER_TEMP/v7-evidence/cocotext_v7_census_stdout.json"
+          test ! -e cocotext.parquet
+          test ! -e source.parquet
+          test ! -d images
+
+      - name: Independently adjudicate census and create terminal receipt
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          evidence = Path(os.environ["RUNNER_TEMP"]) / "v7-evidence"
+          census_path = evidence / "cocotext_v7_metadata_census.json"
+          report = json.loads(census_path.read_text())
+          stable = dict(report)
+          observed = stable.pop("stable_payload_sha256")
+          payload = json.dumps(
+              stable, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+          ).encode()
+          assert hashlib.sha256(payload).hexdigest() == observed
+          assert report["schema"] == "ocr-cocotext-numeric-census/7"
+          assert report["adapter_schema"] == "ocr-cocotext-numeric-adapter/7"
+          dataset = report["dataset"]
+          assert dataset["component"] == "cocotext"
+          assert dataset["revision"] == \
+              "2b1f8aab9fbba3b5be07e2cae9e3e9c43fe5487c"
+          assert dataset["source_path"] == \
+              "data/cocotext-00000-of-00001.parquet"
+          assert dataset["source_sha256"] == \
+              "562176cbb803bb7aa140a4537701ef53ebb86e396c8927f9b160227ac49efd48"
+          assert dataset["source_size_bytes"] == 2223323062
+          schema = report["schema_fingerprint"]
+          assert schema["image_column_read"] is False
+          assert schema["census_columns_only"] == [
+              "texts", "bboxes", "polygons", "num_text_regions"
+          ]
+          assert report["selection"]["uses_image_bytes"] is False
+          assert report["selection"]["uses_ocr"] is False
+          census = report["census"]
+          assert census["selected_count"] == len(census["records"])
+          assert len({row["row_index"] for row in census["records"]}) == \
+              census["selected_count"]
+          power = report["power_gate"]
+          run_full = bool(power["download_full_source_and_run_ocr"])
+          expected = (
+              power["selected_available"] >= 5000
+              and power["projected_accepted"] >= 400
+          )
+          assert run_full == expected
+          expected_verdict = (
+              "COCOTEXT_V7_SCHEMA_AND_POWER_GATE_PASS"
+              if run_full
+              else "COCOTEXT_V7_TERMINAL_NO_FULL_DOWNLOAD"
+          )
+          assert report["decision"]["verdict"] == expected_verdict
+          assert report["decision"]["image_bytes_opened"] is False
+          assert report["decision"]["ocr_executed"] is False
+          assert report["constraints"]["external_spend_usd"] == 0
+
+          terminal = {
+              "schema": "ocr-cocotext-v7-census-terminal/1",
+              "status": (
+                  "READY_FOR_SEPARATE_FULL_EXTERNAL_GATE"
+                  if run_full
+                  else "TERMINAL_NO_FULL_DOWNLOAD_INSUFFICIENT_POWER"
+              ),
+              "scientific_verdict": "UNKNOWN_NO_IMAGE_OUTCOMES_OPENED",
+              "run_full_external_next": run_full,
+              "selected_available": power["selected_available"],
+              "projected_verified_claims": power["projected_accepted"],
+              "minimum_selected": power["minimum_selected"],
+              "minimum_projected_verified_claims": power["minimum_accepted"],
+              "census_stable_payload_sha256": observed,
+              "census_file_sha256": hashlib.sha256(
+                  census_path.read_bytes()
+              ).hexdigest(),
+              "candidate_source_commit": os.environ["GITHUB_SHA"],
+              "image_bytes_opened": False,
+              "ocr_executed": False,
+              "external_spend_usd": 0,
+              "automatic_production_change": False,
+          }
+          encoded = (
+              json.dumps(terminal, indent=2, sort_keys=True) + "\n"
+          ).encode()
+          (evidence / "cocotext_v7_census_terminal.json").write_bytes(encoded)
+          files = sorted(path for path in evidence.iterdir() if path.is_file())
+          with (evidence / "SHA256SUMS.txt").open("w") as handle:
+              for path in files:
+                  handle.write(
+                      f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n"
+                  )
+          print(json.dumps(terminal, indent=2, sort_keys=True))
+          PY
+          (
+            cd "$RUNNER_TEMP/v7-evidence"
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+
+      - name: Upload frozen candidate and terminal census evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-cocotext-v7-freeze-census
+          path: |
+            ${{ runner.temp }}/frozen-cocotext-v7
+            ${{ runner.temp }}/v7-evidence
+          if-no-files-found: error
+          retention-days: 90

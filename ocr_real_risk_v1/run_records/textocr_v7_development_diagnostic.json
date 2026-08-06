@@ -1,0 +1,43 @@
+{
+  "constraints": {
+    "external_spend_usd": 0,
+    "gcloud_used": false,
+    "gpu_used": false,
+    "paid_api_used": false,
+    "production_modified": false
+  },
+  "limitations": {
+    "fresh_untouched_corpus_required": true,
+    "production_credit": false,
+    "scientific_credit": false,
+    "textocr_outcomes_opened_before_v7": true,
+    "truth_length_oracle_cases_missing_downstream_channels": 337
+  },
+  "schema": "ocr-textocr-v7-development-replay/1",
+  "source": {
+    "partition_reports": 12,
+    "selected_observations": 4674,
+    "terminal_aggregate_sha256": "2bfb3a50a148ccad8c56a001c5dffe1e9d4240f4e63ebf9778c66d4ce3a1ad2e",
+    "terminal_artifact_id": 8961886770,
+    "terminal_artifact_zip_sha256": "899732a43cfc7f3889d441a8a639993eef58bc2e21d250e51a3a6c93f1b47921",
+    "terminal_run_record_sha256": "0fdf7c30d052fc697fca45436915388bccfb4817bf5c07773490be8af5ee1ecb",
+    "unique_encoded_image_sha256": 4674
+  },
+  "stable_payload_sha256": "2e1ac87773d387c27c0d8a8649eb03f39739b8275f3b34a71654a0c81f67cb79",
+  "v6_terminal": {
+    "accepted": 217,
+    "accepted_below_declared_probability_0_25": 79,
+    "counterfactual_outputs": 114,
+    "false_accepted": 3,
+    "truth_length_oracle_abstentions": 337
+  },
+  "v7_opened_development_diagnostic": {
+    "acceptance_decisions_changed_from_v6": 107,
+    "acceptance_rate_over_selected": 0.0235344458707745,
+    "accepted": 110,
+    "counterfactual_outputs": 0,
+    "false_accepted": 1,
+    "probability_threshold_0_25_effective_in_source": true,
+    "truth_length_oracle_removed_in_source": true
+  }
+}
