@@ -1,0 +1,73 @@
+{
+  "candidate_commit": "fe8865e9182f8ef62babcc1bdda0ac4c107cebfd",
+  "constraints": {
+    "annotations_used_at_inference": false,
+    "external_spend_usd": 0.0,
+    "gcloud_used": false,
+    "github_actions_used": false,
+    "gpu_used": false,
+    "paid_api_used": false,
+    "production_modified": false,
+    "significance_look_performed": false
+  },
+  "evaluated": {
+    "file_sha256": "d9e8ec5d80423741bddd738d6d44ff4d5d3e260cba8cd4777566120d356a2fcf",
+    "metrics": {
+      "accepted": 1,
+      "baseline_errors": 1,
+      "evaluated": 3,
+      "false_replacements": 0,
+      "false_semantic_flags": 2,
+      "final_errors_among_accepted": 0,
+      "flags": 3,
+      "quarantined": 2,
+      "selective_coverage": 0.3333333333333333,
+      "unresolved": 0
+    },
+    "stable_payload_sha256": "c255464a47f8d058b0887f97343b12fd19244faeaea826c72ec1928398819cae"
+  },
+  "flags": [
+    {
+      "action": "QUARANTINE",
+      "baseline": "1190",
+      "baseline_correct": true,
+      "decision_sha256": "8d10553834bf8895e1a7bf066227b7038b9b0b6299b6e56b27ca14e6e13ba106",
+      "reason": "PIXEL_VIEWS_DO_NOT_PRODUCE_RIVAL",
+      "rival": "1490",
+      "stem": "X51007339095",
+      "truth": "1190",
+      "truth_text": "11.90"
+    },
+    {
+      "action": "QUARANTINE",
+      "baseline": "3744",
+      "baseline_correct": true,
+      "decision_sha256": "edf68daf2c2ba02c85926c4939e8b2a722cd2b51676e854c190a4ef7349f8652",
+      "reason": "PIXEL_VIEWS_DO_NOT_PRODUCE_RIVAL",
+      "rival": "3745",
+      "stem": "X51007135247",
+      "truth": "3744",
+      "truth_text": "37.44"
+    },
+    {
+      "action": "REPLACE",
+      "baseline": "1180",
+      "baseline_correct": false,
+      "decision_sha256": "d924156457345d470317f1d90a0d60c422b81fa2bf274f248b5e8bc438bc2524",
+      "final_correct_if_accepted": true,
+      "reason": "SEMANTIC_RIVAL_CONFIRMED_BY_TWO_PIXEL_VIEWS",
+      "rival": "1190",
+      "stem": "X51007103578",
+      "truth": "1190",
+      "truth_text": "11.90"
+    }
+  ],
+  "schema": "ocr-v4-2-untouched-batch8-evidence/1",
+  "sealed": {
+    "file_sha256": "da93eb6610fa7ba2925118d775939baa2805ea74c14b0f07e24b4da6c090103c",
+    "metrics": {"images":30,"quarantines":2,"replacements":1,"semantic_flags":3},
+    "stable_payload_sha256": "018b6e58a1b12a3f7f2ca31a2d57af2946f5a4fb613f8aebcf5763d82434b01c",
+    "timing": {"candidate_runtime_ratio_warm":1.0012086129493372,"full_page_tesseract_seconds":38.233380688998295,"selective_pixel_seconds":0.03327177299979667,"semantic_trigger_seconds":0.012937585997860879}
+  },
+  "status": "POST_SEAL_EVALUATION_ACCUMULATION_ONLY"
+}
