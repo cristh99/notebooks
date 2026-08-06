@@ -24,8 +24,6 @@ concurrency:
 
 env:
   PREDECESSOR_RUN_ID: '31122749467'
-  PREDECESSOR_ARTIFACT_ID: '8974218596'
-  PREDECESSOR_ARTIFACT_SHA256: 7a0671b214d02276ae0e14689915fbd2800dddf95847317b7fb1745e9e6b3361
   PREDECESSOR_CANDIDATE_STABLE: 33d14875f0d2f9681ced662e452a5f28943ecb65e30a9242663d6a472034da9d
   PREDECESSOR_SOURCE_COMMIT: 74bb1fffb71fb4da78995b1417235cf04db34639
   DEVELOPMENT_STABLE: 2e1ac87773d387c27c0d8a8649eb03f39739b8275f3b34a71654a0c81f67cb79
@@ -49,6 +47,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 1
+          persist-credentials: false
 
       - name: Confirm public standard runner and free disk
         run: |
