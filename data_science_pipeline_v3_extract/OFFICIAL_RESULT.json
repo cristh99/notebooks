@@ -1,0 +1,60 @@
+{
+  "schema": "data-science-pipeline/oncae-extract-official-result/1",
+  "verdict": "PASS",
+  "source": {
+    "institution": "ONCAE",
+    "title": "GUIA PARA LA MODALIDAD DE CONTRATACION DIRECTA",
+    "url": "https://oncae.gob.hn/wp-content/uploads/2024/11/GUIA-PARA-LA-MODALIDAD-DE-CONTRATACION-DIRECTA-1.pdf",
+    "bytes": 435413,
+    "sha256": "5f278ec51106212a95a6f8c135cdfb8376724daab1e49b9ca0d3879543d11e85",
+    "total_pages": 27
+  },
+  "declared_scope": {
+    "processed_pages": 3,
+    "partial_document": true
+  },
+  "metrics": {
+    "pages_rasterized": 3,
+    "pages_ocr": 3,
+    "mean_confidence": 75.56900401413496,
+    "native_token_recall": 0.7887205387205386,
+    "required_tokens_found": 5,
+    "required_tokens_expected": 5,
+    "quarantined": 0,
+    "external_cost_usd": 0.0
+  },
+  "page_metrics": [
+    {"page": 1, "mean_confidence": 81.20866564150944, "native_token_recall": 0.6388888888888888, "word_count": 53},
+    {"page": 2, "mean_confidence": 73.60313891941392, "native_token_recall": 0.8939393939393939, "word_count": 273},
+    {"page": 3, "mean_confidence": 71.89520748148149, "native_token_recall": 0.8333333333333334, "word_count": 135}
+  ],
+  "quality": {
+    "rasterization_mandatory": true,
+    "native_text_non_authoritative": true,
+    "required_tokens": ["ONCAE", "CONTRATACION", "DIRECTA", "NOVIEMBRE", "2024"],
+    "all_checks_passed": true,
+    "tests": "40/40 PASS"
+  },
+  "github": {
+    "run_id": 31062120497,
+    "job_id": 92492070257,
+    "commit": "a4f8e32fde6a7c7f83fa3e8c6ddfcb744e3bdc11",
+    "artifact_id": 8952494053,
+    "artifact_zip_sha256": "e838bf457f1f83f9b547b52c4b6c3e9e28ff9357615a5ecfc2a09ccc3c27f692",
+    "artifact_size_bytes": 1484592
+  },
+  "evidence_hashes": {
+    "acquisition_manifest_sha256": "a6de97747360e13bc228283ec0a88b670209289c5a4696b59ec8a7ed595ae31a",
+    "extraction_manifest_sha256": "bb864c44a10ded7e35f2ce188fc139780454955d198783fbc1e8dbf94feb6436",
+    "document_manifest_sha256": "d27d086166f1e3e9444d2e26429f2b7622bc868c0cf888ed24f43fd63a157569",
+    "combined_ocr_sha256": "980ace178f4b66be1f9c23bc7d284d611b502fd3d041ee121134ac385551dbd2"
+  },
+  "controls": {
+    "post_result_retuning_permitted": false,
+    "mass_processing_authorized": false,
+    "merge_authorized": false,
+    "gcloud_used": false,
+    "paid_compute_used": false,
+    "novelty_points": 0
+  }
+}
