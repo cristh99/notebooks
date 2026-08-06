@@ -129,12 +129,21 @@ jobs:
           set -euo pipefail
           docker run --rm -v "$PWD:/work" -w "/work/$LF_SERIAL_ROOT" \
             "$ROCQ_IMAGE_REF" bash -c \
-            'rocq makefile -f _CoqProject -o CoqMakefile.runtime && make -f CoqMakefile.runtime -j1' \
+            'rocq makefile -f _CoqProject . -o CoqMakefile.runtime && make -f CoqMakefile.runtime -j1' \
             2>&1 | tee reports/official-build-serial.log
           docker run --rm -v "$PWD:/work" -w "/work/$LF_PARALLEL_ROOT" \
             "$ROCQ_IMAGE_REF" bash -c \
-            'rocq makefile -f _CoqProject -o CoqMakefile.runtime && make -f CoqMakefile.runtime -j4' \
+            'rocq makefile -f _CoqProject . -o CoqMakefile.runtime && make -f CoqMakefile.runtime -j4' \
             2>&1 | tee reports/official-build-parallel.log
+          SERIAL_VO_COUNT="$(find "$LF_SERIAL_ROOT" -type f -name '*.vo' | wc -l)"
+          PARALLEL_VO_COUNT="$(find "$LF_PARALLEL_ROOT" -type f -name '*.vo' | wc -l)"
+          test "$SERIAL_VO_COUNT" -gt 10
+          test "$PARALLEL_VO_COUNT" -gt 10
+          test "$SERIAL_VO_COUNT" -eq "$PARALLEL_VO_COUNT"
+          printf '%s\n' \
+            "serial_vo_count=$SERIAL_VO_COUNT" \
+            "parallel_vo_count=$PARALLEL_VO_COUNT" \
+            > reports/official-build-counts.txt
 
       - name: Compile scoped proofs, reject invalid proofs and reconcile outputs
         shell: bash
