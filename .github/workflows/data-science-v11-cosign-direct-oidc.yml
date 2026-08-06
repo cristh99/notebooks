@@ -1,0 +1,456 @@
+name: Data Science v11 — direct OIDC Cosign preregistration
+
+on:
+  push:
+    branches:
+      - agent/data-science-v11-cosign-direct-oidc
+    paths:
+      - '.github/workflows/data-science-v11-cosign-direct-oidc.yml'
+      - 'data_science_pipeline_v11_cosign_preregistration/**'
+  pull_request:
+    branches:
+      - agent/data-science-v11-oidc-bootstrap-base
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/data-science-v11-cosign-direct-oidc.yml'
+      - 'data_science_pipeline_v11_cosign_preregistration/**'
+  workflow_dispatch:
+
+concurrency:
+  group: data-science-v11-cosign-direct-oidc
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  COMPONENT: data_science_pipeline_v11_cosign_preregistration
+  SUBJECT: data_science_pipeline_v11_cosign_preregistration/PREREGISTRATION.json
+  EVIDENCE_ROOT: data-science-v11-cosign-evidence
+  EXPECTED_REPOSITORY: cristh99/notebooks
+  EXPECTED_REPOSITORY_ID: '616013328'
+  EXPECTED_OWNER_ID: '87334928'
+  EXPECTED_HEAD_BRANCH: agent/data-science-v11-cosign-direct-oidc
+  EXPECTED_BASE_BRANCH: agent/data-science-v11-oidc-bootstrap-base
+  EXPECTED_WORKFLOW_PATH: .github/workflows/data-science-v11-cosign-direct-oidc.yml
+  EXPECTED_CERTIFICATE_IDENTITY_REGEXP: '^https://github\.com/cristh99/notebooks/\.github/workflows/data-science-v11-cosign-direct-oidc\.yml@(refs/heads/agent/data-science-v11-cosign-direct-oidc|refs/pull/[0-9]+/merge)$'
+  OIDC_ISSUER: https://token.actions.githubusercontent.com
+  OIDC_AUDIENCE: sigstore
+  COSIGN_VERSION: 3.0.6
+  COSIGN_SHA256: c956e5dfcac53d52bcf058360d579472f0c1d2d9b69f55209e256fe7783f4c74
+
+jobs:
+  sign-preregistration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Enforce frozen preregistration contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "$EXPECTED_REPOSITORY"
+          case "$GITHUB_EVENT_NAME" in
+            push|workflow_dispatch)
+              test "$GITHUB_REF" = "refs/heads/$EXPECTED_HEAD_BRANCH"
+              ;;
+            pull_request)
+              test "$GITHUB_HEAD_REF" = "$EXPECTED_HEAD_BRANCH"
+              test "$GITHUB_BASE_REF" = "$EXPECTED_BASE_BRANCH"
+              [[ "$GITHUB_REF" =~ ^refs/pull/[0-9]+/merge$ ]]
+              ;;
+            *) exit 1 ;;
+          esac
+          mkdir -p "$EVIDENCE_ROOT"
+          python3 "$COMPONENT/verify.py" \
+            --output "$EVIDENCE_ROOT/local-receipt.json" \
+            | tee "$EVIDENCE_ROOT/local-verification.log"
+          sha256sum \
+            "$SUBJECT" \
+            "$COMPONENT/FREEZE.json" \
+            "$COMPONENT/verify.py" \
+            "$COMPONENT/verify_static.py" \
+            "$COMPONENT/test_static.py" \
+            > "$EVIDENCE_ROOT/source-sha256.txt"
+
+      - name: Request and validate GitHub OIDC token
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}"
+          test -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}"
+
+          token_response="$(
+            curl --fail --silent --show-error \
+              -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+              "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${OIDC_AUDIENCE}"
+          )"
+          oidc_token="$(
+            printf '%s' "$token_response" \
+              | python3 -c 'import json,sys; value=json.load(sys.stdin).get("value",""); assert value; print(value)'
+          )"
+          echo "::add-mask::$oidc_token"
+          printf '%s' "$oidc_token" > "$RUNNER_TEMP/oidc-token.jwt"
+
+          python3 - <<'PY'
+          import base64
+          import hashlib
+          import json
+          import os
+          import time
+          from pathlib import Path
+
+          token_path = Path(os.environ["RUNNER_TEMP"]) / "oidc-token.jwt"
+          token = token_path.read_text()
+          parts = token.split(".")
+          if len(parts) != 3:
+              raise SystemExit("OIDC token is not a JWT")
+
+          def decode(part: str) -> dict:
+              padding = "=" * (-len(part) % 4)
+              return json.loads(base64.urlsafe_b64decode(part + padding))
+
+          header = decode(parts[0])
+          claims = decode(parts[1])
+          audience = claims.get("aud")
+          if isinstance(audience, list):
+              audience_ok = os.environ["OIDC_AUDIENCE"] in audience
+          else:
+              audience_ok = audience == os.environ["OIDC_AUDIENCE"]
+
+          branch_ref = f"refs/heads/{os.environ['EXPECTED_HEAD_BRANCH']}"
+          branch_workflow_ref = (
+              f"{os.environ['EXPECTED_REPOSITORY']}/{os.environ['EXPECTED_WORKFLOW_PATH']}"
+              f"@{branch_ref}"
+          )
+          current_workflow_ref = (
+              f"{os.environ['EXPECTED_REPOSITORY']}/{os.environ['EXPECTED_WORKFLOW_PATH']}"
+              f"@{os.environ['GITHUB_REF']}"
+          )
+          event_payload = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
+          pull_head_sha = str(
+              event_payload.get("pull_request", {}).get("head", {}).get("sha", "")
+          )
+          old_branch_subject = f"repo:{os.environ['EXPECTED_REPOSITORY']}:ref:{branch_ref}"
+          immutable_branch_subject = (
+              "repo:cristh99@87334928/notebooks@616013328:"
+              f"ref:{branch_ref}"
+          )
+          old_pr_subject = f"repo:{os.environ['EXPECTED_REPOSITORY']}:pull_request"
+          immutable_pr_subject = "repo:cristh99@87334928/notebooks@616013328:pull_request"
+          event = claims.get("event_name")
+          if event in {"push", "workflow_dispatch"}:
+              event_binding_ok = (
+                  claims.get("ref") == branch_ref
+                  and claims.get("workflow_ref") == branch_workflow_ref
+                  and claims.get("sub") in {old_branch_subject, immutable_branch_subject}
+              )
+          elif event == "pull_request":
+              ref = str(claims.get("ref", ""))
+              event_binding_ok = (
+                  bool(__import__("re").fullmatch(r"refs/pull/[0-9]+/merge", ref))
+                  and claims.get("workflow_ref") in {branch_workflow_ref, current_workflow_ref}
+                  and claims.get("workflow_sha") in {os.environ["GITHUB_SHA"], pull_head_sha}
+                  and bool(pull_head_sha)
+                  and claims.get("head_ref") == os.environ["EXPECTED_HEAD_BRANCH"]
+                  and claims.get("base_ref") == os.environ["EXPECTED_BASE_BRANCH"]
+                  and claims.get("sub") in {old_pr_subject, immutable_pr_subject}
+              )
+          else:
+              event_binding_ok = False
+          now = int(time.time())
+
+          checks = {
+              "algorithm_rs256": header.get("alg") == "RS256",
+              "key_id_present": bool(header.get("kid")),
+              "issuer_exact": claims.get("iss") == os.environ["OIDC_ISSUER"],
+              "audience_exact": audience_ok,
+              "repository_exact": claims.get("repository") == os.environ["EXPECTED_REPOSITORY"],
+              "repository_id_exact": str(claims.get("repository_id")) == os.environ["EXPECTED_REPOSITORY_ID"],
+              "owner_id_exact": str(claims.get("repository_owner_id")) == os.environ["EXPECTED_OWNER_ID"],
+              "repository_visibility_public": claims.get("repository_visibility") == "public",
+              "event_binding_exact": event_binding_ok,
+              "sha_exact": claims.get("sha") == os.environ["GITHUB_SHA"],
+              "workflow_sha_exact": (
+                  claims.get("workflow_sha") == os.environ["GITHUB_SHA"]
+                  if event in {"push", "workflow_dispatch"}
+                  else claims.get("workflow_sha") in {os.environ["GITHUB_SHA"], pull_head_sha}
+              ),
+              "runner_environment_github_hosted": claims.get("runner_environment") == "github-hosted",
+              "event_allowed": claims.get("event_name") in {"push", "pull_request", "workflow_dispatch"},
+              "jti_present": bool(claims.get("jti")),
+              "time_window_valid": (
+                  int(claims.get("nbf", 0)) <= now
+                  and int(claims.get("iat", 0)) <= now
+                  and int(claims.get("exp", 0)) > now
+              ),
+          }
+          if not all(checks.values()):
+              raise SystemExit(json.dumps(checks, sort_keys=True))
+
+          safe_claims = {
+              "schema": "data-science-pipeline/github-oidc-safe-claims/1",
+              "header": {
+                  "alg": header["alg"],
+                  "kid": header["kid"],
+                  "typ": header.get("typ"),
+              },
+              "claims": {
+                  key: claims.get(key)
+                  for key in (
+                      "iss",
+                      "aud",
+                      "sub",
+                      "repository",
+                      "repository_id",
+                      "repository_owner",
+                      "repository_owner_id",
+                      "repository_visibility",
+                      "ref",
+                      "ref_type",
+                      "head_ref",
+                      "base_ref",
+                      "sha",
+                      "workflow",
+                      "workflow_ref",
+                      "workflow_sha",
+                      "job_workflow_ref",
+                      "job_workflow_sha",
+                      "run_id",
+                      "run_number",
+                      "run_attempt",
+                      "runner_environment",
+                      "event_name",
+                      "actor",
+                      "actor_id",
+                      "jti",
+                      "iat",
+                      "nbf",
+                      "exp",
+                  )
+              },
+              "checks": checks,
+              "jwt_sha256": hashlib.sha256(token.encode()).hexdigest(),
+              "token_redacted": True,
+          }
+          payload = json.dumps(
+              safe_claims,
+              ensure_ascii=False,
+              sort_keys=True,
+              separators=(",", ":"),
+          ) + "\n"
+          root = Path(os.environ["EVIDENCE_ROOT"])
+          (root / "oidc-safe-claims.json").write_text(payload)
+          (root / "oidc-safe-claims.sha256").write_text(
+              hashlib.sha256(payload.encode()).hexdigest()
+              + "  oidc-safe-claims.json\n"
+          )
+          workflow_sha = str(claims["workflow_sha"])
+          if not __import__("re").fullmatch(r"[0-9a-f]{40}", workflow_sha):
+              raise SystemExit("workflow_sha is not a commit SHA")
+          workflow_ref = str(claims["workflow_ref"])
+          if workflow_ref not in {branch_workflow_ref, current_workflow_ref}:
+              raise SystemExit("workflow_ref outside frozen alternatives")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as handle:
+              handle.write(f"OIDC_WORKFLOW_SHA={workflow_sha}\n")
+              handle.write(f"OIDC_WORKFLOW_REF={workflow_ref}\n")
+          PY
+
+      - name: Install pinned Cosign binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          cosign_path="$RUNNER_TEMP/cosign"
+          curl --fail --location --silent --show-error \
+            "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" \
+            --output "$cosign_path"
+          printf '%s  %s\n' "$COSIGN_SHA256" "$cosign_path" | sha256sum --check
+          chmod 0755 "$cosign_path"
+          "$cosign_path" version > "$EVIDENCE_ROOT/cosign-version.txt"
+
+      - name: Sign preregistration record with explicit OIDC token
+        shell: bash
+        run: |
+          set -euo pipefail
+          oidc_token="$(cat "$RUNNER_TEMP/oidc-token.jwt")"
+          echo "::add-mask::$oidc_token"
+          "$RUNNER_TEMP/cosign" sign-blob \
+            --yes \
+            --identity-token "$oidc_token" \
+            --bundle "$EVIDENCE_ROOT/preregistration.sigstore.json" \
+            "$SUBJECT" \
+            > "$EVIDENCE_ROOT/sign.stdout" \
+            2> "$EVIDENCE_ROOT/sign.stderr"
+          rm -f "$RUNNER_TEMP/oidc-token.jwt"
+
+      - name: Verify exact GitHub workflow identity and transparency bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/cosign" verify-blob "$SUBJECT" \
+            --bundle "$EVIDENCE_ROOT/preregistration.sigstore.json" \
+            --certificate-identity-regexp "$EXPECTED_CERTIFICATE_IDENTITY_REGEXP" \
+            --certificate-oidc-issuer "$OIDC_ISSUER" \
+            --certificate-github-workflow-repository "$EXPECTED_REPOSITORY" \
+            --certificate-github-workflow-sha "$OIDC_WORKFLOW_SHA" \
+            --certificate-github-workflow-trigger "$GITHUB_EVENT_NAME" \
+            > "$EVIDENCE_ROOT/verify.stdout" \
+            2> "$EVIDENCE_ROOT/verify.stderr"
+
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ["EVIDENCE_ROOT"])
+          subject = Path(os.environ["SUBJECT"])
+          bundle_path = root / "preregistration.sigstore.json"
+          bundle = json.loads(bundle_path.read_text())
+          verification_material = bundle.get("verificationMaterial", {})
+          tlog_entries = verification_material.get("tlogEntries", [])
+          content = bundle.get("messageSignature") or bundle.get("dsseEnvelope")
+
+          bundle_checks = {
+              "bundle_media_type_sigstore": str(bundle.get("mediaType", "")).startswith(
+                  "application/vnd.dev.sigstore.bundle+json"
+              ),
+              "verification_material_present": bool(verification_material),
+              "transparency_log_entry_present": isinstance(tlog_entries, list)
+              and len(tlog_entries) >= 1,
+              "signed_content_present": bool(content),
+              "cosign_verify_stdout_nonempty": (root / "verify.stdout").stat().st_size > 0,
+              "identity_token_deleted": not (
+                  Path(os.environ["RUNNER_TEMP"]) / "oidc-token.jwt"
+              ).exists(),
+          }
+          if not all(bundle_checks.values()):
+              raise SystemExit(json.dumps(bundle_checks, sort_keys=True))
+
+          preregistration = json.loads(subject.read_text())
+          source = preregistration["source_selection"]
+          controls = preregistration["execution_controls"]
+          boundary = preregistration["claim_boundary"]
+
+          def sha(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          receipt = {
+              "schema": "data-science-pipeline/cosign-oidc-preregistration-external-receipt/1",
+              "verdict": "PASS_COSIGN_OIDC_PREREGISTRATION_RECORD",
+              "github_run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "github_run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+              "github_sha": os.environ["GITHUB_SHA"],
+              "github_ref": os.environ["GITHUB_REF"],
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "workflow_path": os.environ["EXPECTED_WORKFLOW_PATH"],
+              "oidc_workflow_ref": os.environ["OIDC_WORKFLOW_REF"],
+              "oidc_workflow_sha": os.environ["OIDC_WORKFLOW_SHA"],
+              "certificate_identity_regexp": os.environ["EXPECTED_CERTIFICATE_IDENTITY_REGEXP"],
+              "oidc_issuer": os.environ["OIDC_ISSUER"],
+              "oidc_audience": os.environ["OIDC_AUDIENCE"],
+              "subject_sha256": sha(subject),
+              "local_receipt_sha256": sha(root / "local-receipt.json"),
+              "oidc_safe_claims_sha256": sha(root / "oidc-safe-claims.json"),
+              "sigstore_bundle_sha256": sha(bundle_path),
+              "cosign_verification_stdout_sha256": sha(root / "verify.stdout"),
+              "cryptographic_checks": {
+                  "explicit_github_oidc_token_requested": True,
+                  "oidc_safe_claims_validated": True,
+                  "cosign_binary_sha256_exact": True,
+                  "sigstore_bundle_signature_verified": True,
+                  "certificate_identity_regexp_exact": True,
+                  "certificate_oidc_issuer_exact": True,
+                  "github_workflow_repository_exact": True,
+                  "github_workflow_sha_exact": True,
+                  "github_workflow_trigger_exact": True,
+                  **bundle_checks,
+              },
+              "preregistration_declarations": {
+                  "document_content_accessed_before_freeze": source[
+                      "document_content_accessed_before_freeze"
+                  ],
+                  "pdf_url_resolved_before_freeze": source[
+                      "pdf_url_resolved_before_freeze"
+                  ],
+                  "pdf_bytes_downloaded_before_freeze": source[
+                      "pdf_bytes_downloaded_before_freeze"
+                  ],
+                  "actual_external_evaluations": controls[
+                      "actual_external_evaluations"
+                  ],
+                  "stage08_unblocked": controls["stage08_unblocked"],
+                  "external_cost_usd": controls["external_cost_usd"],
+                  "production_modified": controls["production_modified"],
+              },
+              "signature_scope": {
+                  "establishes": boundary["signature_establishes"],
+                  "does_not_establish": boundary["signature_does_not_establish"],
+              },
+              "external_cost_usd": 0.0,
+              "production_modified": False,
+              "scientific_promotion_credit": 0,
+              "fresh_external_document_still_required": True,
+              "next_gate": "resolve_and_evaluate_fresh_full_document_once",
+          }
+          payload = json.dumps(
+              receipt,
+              ensure_ascii=False,
+              sort_keys=True,
+              separators=(",", ":"),
+          ) + "\n"
+          (root / "external-receipt.json").write_text(payload)
+          (root / "external-receipt.sha256").write_text(
+              hashlib.sha256(payload.encode()).hexdigest()
+              + "  external-receipt.json\n"
+          )
+          PY
+
+      - name: Retain Cosign evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-v11-cosign-preregistration
+          path: data-science-v11-cosign-evidence
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce terminal receipt
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("data-science-v11-cosign-evidence/external-receipt.json")
+          if not path.exists():
+              raise SystemExit("external receipt missing")
+          receipt = json.loads(path.read_text())
+          if receipt["verdict"] != "PASS_COSIGN_OIDC_PREREGISTRATION_RECORD":
+              raise SystemExit(receipt)
+          if not all(receipt["cryptographic_checks"].values()):
+              raise SystemExit(receipt["cryptographic_checks"])
+          declarations = receipt["preregistration_declarations"]
+          expected = {
+              "actual_external_evaluations": 0,
+              "document_content_accessed_before_freeze": False,
+              "external_cost_usd": 0.0,
+              "pdf_bytes_downloaded_before_freeze": False,
+              "pdf_url_resolved_before_freeze": False,
+              "production_modified": False,
+              "stage08_unblocked": False,
+          }
+          if declarations != expected:
+              raise SystemExit(declarations)
+          print("PASS_COSIGN_OIDC_PREREGISTRATION_RECORD")
+          PY
