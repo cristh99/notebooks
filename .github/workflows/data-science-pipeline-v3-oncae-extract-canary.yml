@@ -1,0 +1,258 @@
+name: Data Science pipeline v3 — ONCAE OCR extraction canary
+
+on:
+  push:
+    branches:
+      - agent/data-science-canonical-pipeline-v3-extract
+    paths:
+      - '.github/workflows/data-science-pipeline-v3-oncae-extract-canary.yml'
+
+permissions:
+  contents: read
+
+env:
+  BASE_OUT: /tmp/canonical-pipeline-v1
+  PIPELINE_ROOT: /tmp/canonical-pipeline-v1/canonical_data_science_pipeline_v1
+  EVIDENCE_ROOT: extraction-v3-evidence
+
+jobs:
+  oncae-extract-canary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove workflow-only activation after frozen source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_EVENT_NAME}" = push
+          test "${GITHUB_RUN_ATTEMPT}" = 1
+          test "$(git rev-parse HEAD^)" = 92876e55ba15f2aeec519095b0ef32a2571a2a95
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/data-science-pipeline-v3-oncae-extract-canary.yml'
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned system OCR dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq poppler-utils tesseract-ocr tesseract-ocr-spa tesseract-ocr-eng
+          mkdir -p "$EVIDENCE_ROOT"
+          pdfinfo -v 2>&1 | head -n 2 | tee "$EVIDENCE_ROOT/pdfinfo-version.txt"
+          pdftoppm -v 2>&1 | head -n 2 | tee "$EVIDENCE_ROOT/pdftoppm-version.txt"
+          tesseract --version | head -n 5 | tee "$EVIDENCE_ROOT/tesseract-version.txt"
+          tesseract --list-langs 2>&1 | sort | tee "$EVIDENCE_ROOT/tesseract-languages.txt"
+          grep -qx spa "$EVIDENCE_ROOT/tesseract-languages.txt"
+          grep -qx eng "$EVIDENCE_ROOT/tesseract-languages.txt"
+
+      - name: Reconstruct canonical pipeline and install extraction v3
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash data_science_pipeline_v1/reconstruct.sh "$BASE_OUT" 2>&1 | tee "$EVIDENCE_ROOT/reconstruct-v1.log"
+          bash data_science_pipeline_v2_acquisition/apply_overlay.sh "$PIPELINE_ROOT" 2>&1 | tee "$EVIDENCE_ROOT/apply-acquisition-v2.log"
+          bash data_science_pipeline_v3_extract/install_overlay.sh "$PIPELINE_ROOT" 2>&1 | tee "$EVIDENCE_ROOT/install-extract-v3.log"
+          cp data_science_pipeline_v3_extract/FREEZE.json "$EVIDENCE_ROOT/FREEZE.json"
+          cp data_science_pipeline_v3_extract/oncae-guide-request.json "$EVIDENCE_ROOT/oncae-guide-request.json"
+          cp data_science_pipeline_v3_extract/extract-config.json "$EVIDENCE_ROOT/extract-config.json"
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          root = Path('data_science_pipeline_v3_extract')
+          files = {}
+          for rel in (
+              'src/god_pipeline/extract.py',
+              'src/god_pipeline/extract_canary.py',
+              'tests/test_extract.py',
+              'oncae-guide-request.json',
+              'extract-config.json',
+              'FREEZE.json',
+          ):
+              path = root / rel
+              files[rel] = {'bytes': path.stat().st_size, 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
+          Path('extraction-v3-evidence/source-manifest.json').write_text(
+              json.dumps({'schema':'data-science-pipeline/extract-source-manifest/1','files':files}, indent=2, sort_keys=True) + '\n'
+          )
+          PY
+
+      - name: Run complete regression and extraction test suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PIPELINE_ROOT"
+          PYTHONPATH=src python -m unittest discover -s tests -v 2>&1 | tee "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/tests.log"
+          grep -q 'Ran 40 tests' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/tests.log"
+          grep -q '^OK$' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/tests.log"
+          PYTHONPATH=src python -m compileall -q src tests
+          python -m pip freeze | sort > "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/pip-freeze.txt"
+
+      - name: Acquire and preserve official ONCAE PDF once
+        shell: bash
+        run: |
+          set +e
+          cd "$PIPELINE_ROOT"
+          rm -rf "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/acquisition"
+          PYTHONPATH=src python -m god_pipeline.cli acquisition-canary \
+            --root "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/acquisition" \
+            "$GITHUB_WORKSPACE/data_science_pipeline_v3_extract/oncae-guide-request.json" \
+            > "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/acquisition-output.json" \
+            2> "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/acquisition-stderr.log"
+          echo "$?" > "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/acquisition-exit-status.txt"
+          exit 0
+
+      - name: Rasterize and OCR declared pages once
+        shell: bash
+        run: |
+          set +e
+          cd "$PIPELINE_ROOT"
+          rm -rf "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/extract"
+          PYTHONPATH=src python -m god_pipeline.extract_canary \
+            --root "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/extract" \
+            --acquisition-manifest "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/acquisition/evidence/manifest.json" \
+            --config "$GITHUB_WORKSPACE/data_science_pipeline_v3_extract/extract-config.json" \
+            > "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/extract-output.json" \
+            2> "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/extract-stderr.log"
+          echo "$?" > "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/extract-exit-status.txt"
+          exit 0
+
+      - name: Independently adjudicate acquisition, OCR, semantics and lineage
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          from urllib.parse import unquote, urlparse
+
+          evidence = Path(os.environ['EVIDENCE_ROOT'])
+          acquisition_path = evidence / 'acquisition/evidence/manifest.json'
+          extract_path = evidence / 'extract/evidence/manifest.json'
+          acquisition = json.loads(acquisition_path.read_text()) if acquisition_path.exists() else None
+          extraction = json.loads(extract_path.read_text()) if extract_path.exists() else None
+
+          def sha(path):
+              path = Path(path)
+              return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+
+          def artifact_path(artifact):
+              return Path(unquote(urlparse(artifact['uri']).path))
+
+          acquisition_records = [] if acquisition is None else acquisition.get('stage_records', [])
+          acquisition_artifacts = [] if acquisition is None else acquisition.get('artifacts', [])
+          raw_pdfs = [x for x in acquisition_artifacts if x.get('stage') == 'preserve_raw' and x.get('state') == 'raw' and x.get('media_type') == 'application/pdf']
+          extraction_records = [] if extraction is None else extraction.get('stage_records', [])
+          extraction_artifacts = [] if extraction is None else extraction.get('artifacts', [])
+          extract_record = next((x for x in extraction_records if x.get('stage') == 'extract'), None)
+          document_manifests = [x for x in extraction_artifacts if x.get('schema_version') == 'ocr-document-manifest/1' and x.get('state') == 'accepted']
+          quarantined = [x for x in extraction_artifacts if x.get('state') == 'quarantined']
+          document_manifest = None
+          if len(document_manifests) == 1:
+              path = artifact_path(document_manifests[0])
+              if path.exists():
+                  document_manifest = json.loads(path.read_text())
+
+          acquisition_ok = bool(acquisition and acquisition.get('status') == 'passed' and len(raw_pdfs) == 1)
+          extraction_ok = bool(extraction and extraction.get('status') == 'passed' and extract_record and extract_record.get('status') == 'passed')
+          metrics = {} if extract_record is None else extract_record.get('metrics', {})
+          checks = {
+              'tests_40_pass': (evidence / 'tests.log').exists() and 'Ran 40 tests' in (evidence / 'tests.log').read_text() and '\nOK\n' in ('\n' + (evidence / 'tests.log').read_text() + '\n'),
+              'acquisition_manifest_exists': acquisition is not None,
+              'acquisition_passed': acquisition_ok,
+              'one_raw_pdf': len(raw_pdfs) == 1,
+              'raw_pdf_magic': len(raw_pdfs) == 1 and artifact_path(raw_pdfs[0]).exists() and artifact_path(raw_pdfs[0]).read_bytes()[:5] == b'%PDF-',
+              'extraction_manifest_exists': extraction is not None,
+              'extraction_passed': extraction_ok,
+              'pages_rasterized_three': metrics.get('pages_rasterized') == 3,
+              'pages_ocr_three': metrics.get('pages_ocr') == 3,
+              'mean_confidence_gate': float(metrics.get('mean_confidence', 0.0)) >= 55.0,
+              'native_recall_gate': float(metrics.get('native_token_recall', 0.0)) >= 0.55,
+              'required_tokens_five': metrics.get('required_tokens_found') == 5,
+              'cost_zero': float(metrics.get('cost_usd', -1.0)) == 0.0,
+              'zero_extract_quarantine': len(quarantined) == 0,
+              'one_document_manifest': len(document_manifests) == 1 and document_manifest is not None,
+              'total_pages_27': bool(document_manifest and document_manifest.get('total_pdf_pages') == 27),
+              'processed_pages_three': bool(document_manifest and document_manifest.get('processed_pages') == 3),
+              'partial_declared': bool(document_manifest and document_manifest.get('partial_document') is True),
+              'rasterization_mandatory': bool(document_manifest and document_manifest.get('rasterization_mandatory') is True),
+              'native_non_authoritative': bool(document_manifest and document_manifest.get('native_text_non_authoritative') is True),
+              'page_evidence_three': bool(document_manifest and len(document_manifest.get('pages', [])) == 3),
+              'exact_parent_lineage': bool(len(raw_pdfs) == 1 and document_manifests and document_manifests[0].get('parent_ids') == [raw_pdfs[0].get('artifact_id')]),
+          }
+
+          if not acquisition_ok:
+              verdict = 'OBSTRUCTION'
+          elif not extraction_ok or quarantined:
+              verdict = 'QUARANTINE'
+          elif all(checks.values()):
+              verdict = 'PASS'
+          else:
+              verdict = 'FAIL'
+
+          files = []
+          for root_name in ('acquisition', 'extract'):
+              root = evidence / root_name
+              if root.exists():
+                  for path in sorted(x for x in root.rglob('*') if x.is_file()):
+                      files.append({'path': str(path.relative_to(evidence)), 'bytes': path.stat().st_size, 'sha256': sha(path)})
+
+          receipt = {
+              'schema': 'data-science-pipeline/oncae-extract-external-receipt/1',
+              'verdict': verdict,
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_run_attempt': int(os.environ['GITHUB_RUN_ATTEMPT']),
+              'github_sha': os.environ['GITHUB_SHA'],
+              'source_url': 'https://oncae.gob.hn/wp-content/uploads/2024/11/GUIA-PARA-LA-MODALIDAD-DE-CONTRATACION-DIRECTA-1.pdf',
+              'checks': checks,
+              'metrics': metrics,
+              'acquisition_status': None if acquisition is None else acquisition.get('status'),
+              'extraction_status': None if extraction is None else extraction.get('status'),
+              'extraction_quarantine_count': len(quarantined),
+              'document_manifest': document_manifest,
+              'post_result_retuning_permitted': False,
+              'mass_processing_authorized': False,
+              'merge_authorized': False,
+              'external_cost_usd': 0.0,
+              'gcloud_used': False,
+              'paid_compute_used': False,
+              'files': files,
+              'hashes': {
+                  'source_manifest_sha256': sha(evidence / 'source-manifest.json'),
+                  'freeze_sha256': sha(evidence / 'FREEZE.json'),
+                  'tests_log_sha256': sha(evidence / 'tests.log'),
+                  'acquisition_manifest_sha256': sha(acquisition_path),
+                  'extraction_manifest_sha256': sha(extract_path),
+              },
+          }
+          payload = json.dumps(receipt, indent=2, sort_keys=True, ensure_ascii=False) + '\n'
+          (evidence / 'external-receipt.json').write_text(payload)
+          (evidence / 'external-receipt.sha256').write_text(hashlib.sha256(payload.encode()).hexdigest() + '  external-receipt.json\n')
+          print(payload)
+          PY
+
+      - name: Upload complete immutable extraction evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-pipeline-v3-oncae-extract-canary
+          retention-days: 90
+          if-no-files-found: error
+          path: extraction-v3-evidence/**
+
+      - name: Enforce frozen extraction verdict
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path('extraction-v3-evidence/external-receipt.json').read_text())
+          if receipt['verdict'] != 'PASS':
+              failed = [name for name, value in receipt['checks'].items() if not value]
+              raise SystemExit(f"ONCAE extraction gate: {receipt['verdict']}; failed={failed}; evidence preserved; no retuning")
+          print('ONCAE extraction gate: PASS — 3/3 pages rasterized, OCRed, semantically verified and lineage-sealed')
+          PY
