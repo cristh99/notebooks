@@ -14,11 +14,13 @@
     "partial_scope_absence_returns_not_evaluable": true,
     "hard_unconfirmed_claims_force_abstention": true,
     "integrity_failure_quarantines": true,
-    "deterministic_receipt_required": true
+    "deterministic_receipt_required": true,
+    "unvalidated_channels_cannot_confirm": true,
+    "observation_snapshot_is_immutable": true
   },
-  "source_sha256": "fb253f9658d18e1496b8db9385ba43e8476a1ec832ecc1427cdf4c8befe72016",
-  "tests_sha256": "a3138a25313d5dda8caebe41282f3ed1c404dd8f3dd8604ad8f5d2294e97b048",
-  "expected_tests": 8,
+  "source_sha256": "57e11e9e12b01c0d734ec681424710d55376ffe64af326b32abf5351166741a7",
+  "tests_sha256": "7c2cc0509725ddee9c54cb6049948bf9c5202e3d0cdd91715ef52e8525c461f3",
+  "expected_tests": 10,
   "controls": {
     "network_required": false,
     "external_cost_usd": 0.0,
