@@ -58,6 +58,10 @@ sample, policy, model, threshold, quality gate, speed gate, or outcome changed;
 no LSVT footer, row, transcription, geometry, image byte, OCR output, or
 benchmark outcome had been opened.
 
+The final execution trigger is an explicit Git ref update because the preceding
+GitHub App contents commits created the files but emitted no new workflow run.
+This trigger changes documentation only and carries no scientific credit.
+
 ## Constraints
 
 External spend `USD 0`; no GCloud, GPU, paid OCR API, commercial use,
