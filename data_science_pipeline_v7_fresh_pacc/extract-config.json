@@ -1,0 +1,9 @@
+{
+  "max_pages": 3,
+  "dpi": 200,
+  "languages": "spa+eng",
+  "psm": 6,
+  "min_mean_confidence": 55.0,
+  "min_native_token_recall": 0.55,
+  "required_tokens": ["PACC"]
+}
