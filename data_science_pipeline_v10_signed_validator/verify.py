@@ -9,7 +9,6 @@ import sys
 import unittest
 from pathlib import Path
 
-from adversarial_replay import run as run_adversarial
 
 ROOT = Path(__file__).resolve().parent
 UPSTREAM = Path(
@@ -40,6 +39,7 @@ def main() -> int:
     )
     sys.path.insert(0, str(UPSTREAM))
     sys.path.insert(0, str(ROOT))
+    from adversarial_replay import run as run_adversarial
 
     checks = {
         "upstream_source_hash_exact": sha256(UPSTREAM / "evidence_scope.py")
