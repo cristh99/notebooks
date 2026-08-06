@@ -14,7 +14,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent
 MODELS = ROOT / "models"
-SOLVER_OPTIONS = ("-explicit", "-epsilon", "1e-12", "-absolute")
+SOLVER_OPTIONS = ("-explicit", "-epsilon", "1e-10", "-absolute")
 RESULT_RE = re.compile(
     r"^Result(?:\s+\([^)]*\))?:\s*"
     r"([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)",
