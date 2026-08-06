@@ -81,6 +81,9 @@ class TrustRegistry:
         ids = [entry.validator_id for entry in entries]
         if len(ids) != len(set(ids)):
             raise ValueError("validator_id values must be unique")
+        public_keys = [entry.public_key_sha256 for entry in entries]
+        if len(public_keys) != len(set(public_keys)):
+            raise ValueError("Ed25519 public keys must be unique across validator IDs")
         object.__setattr__(self, "entries", entries)
 
     def sha256(self) -> str:
