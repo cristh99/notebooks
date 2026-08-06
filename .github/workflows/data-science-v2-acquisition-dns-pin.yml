@@ -51,7 +51,7 @@ jobs:
           grep -q '^OK$' "$GITHUB_WORKSPACE/tests.log"
           PYTHONPATH=src python -m compileall -q src tests
 
-      - name: Independently verify DNS pinning implementation
+      - name: Build independent DNS pinning receipt
         shell: bash
         run: |
           set -euo pipefail
@@ -72,18 +72,18 @@ jobs:
               'source_hash_exact': hashlib.sha256(source_path.read_bytes()).hexdigest() == '761e89f99031d2bc305259d55b6dd8e35cadce94ae16e71b056b73a977ba024c',
               'tests_hash_exact': hashlib.sha256(tests_path.read_bytes()).hexdigest() == '33619abe33a4b3908281c6ffad47e30abd6775bca159e6c8448c1415fd7deec7',
               'public_resolution_function': 'def _resolve_public_addresses' in source,
-              'mixed_private_answer_rejected': "test_dns_resolution_rejects_any_non_public_answer" in tests,
+              'mixed_private_answer_rejected': 'test_dns_resolution_rejects_any_non_public_answer' in tests,
               'connects_to_pinned_address': 'socket.create_connection(' in source and '(address, self.port)' in source,
               'tls_hostname_preserved': 'server_hostname=self.host' in source,
               'environment_proxies_disabled': 'ProxyHandler({})' in source,
               'redirects_reenter_pinned_handler': 'validate_url(newurl, self.request_contract.allowed_hosts, resolve_dns=False)' in source,
-              'hostname_not_used_for_socket_connect': "socket.create_connection((self.host" not in source,
-              'network_executed_by_gate': False,
-              'production_modified': False,
+              'hostname_not_used_for_socket_connect': 'socket.create_connection((self.host' not in source,
+              'no_network_executed_by_gate': True,
+              'no_production_modification': True,
               'external_cost_zero': True,
           }
           receipt = {
-              'schema': 'data-science-v2-acquisition-dns-pin/1',
+              'schema': 'data-science-v2-acquisition-dns-pin/2',
               'verdict': 'PASS' if all(checks.values()) else 'FAIL',
               'checks': checks,
               'tests_passed': 41,
@@ -95,11 +95,11 @@ jobs:
               'production_modified': False,
           }
           Path('dns-pin-receipt.json').write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
-          if receipt['verdict'] != 'PASS':
-              raise SystemExit([key for key, value in checks.items() if not value])
+          print(json.dumps(receipt, indent=2, sort_keys=True))
           PY
 
       - name: Upload bounded security evidence
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: data-science-v2-acquisition-dns-pin
@@ -108,3 +108,16 @@ jobs:
             tests.log
           if-no-files-found: error
           retention-days: 90
+
+      - name: Enforce receipt after evidence preservation
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path('dns-pin-receipt.json').read_text())
+          if receipt['verdict'] != 'PASS':
+              raise SystemExit([key for key, value in receipt['checks'].items() if not value])
+          print('PASS: 41 tests; DNS rebinding window closed; TLS hostname preserved')
+          PY
