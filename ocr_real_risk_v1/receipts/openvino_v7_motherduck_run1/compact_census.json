@@ -1,0 +1,130 @@
+{
+  "adapter_schema": "ocr-openvino-numeric-adapter/7",
+  "candidate_binding": {
+    "source_commit": "fa20f6d210fa8be7272178b1f152e38b2d583637",
+    "stable_payload_sha256": "160a3e79c6075a6741a1a6365b0c833115bfc6e156176cb4cb5744b1189119cd"
+  },
+  "constraints": {
+    "external_spend_usd": 0,
+    "gcloud_used": false,
+    "gpu_used": false,
+    "paid_api_used": false,
+    "production_modified": false
+  },
+  "dataset": {
+    "component": "openvino",
+    "expected_row_count": 207790,
+    "id": "Yesianrohn/OCR-Data",
+    "revision": "2b1f8aab9fbba3b5be07e2cae9e3e9c43fe5487c",
+    "source_path": "data/openvino-00000-of-00001.parquet",
+    "source_sha256": "5413c6ffb4f8047977db9dba520453976f48eed91b5477d06e7f62258a2ba09c",
+    "source_size_bytes": 65751927475,
+    "source_url": "https://huggingface.co/datasets/Yesianrohn/OCR-Data/resolve/2b1f8aab9fbba3b5be07e2cae9e3e9c43fe5487c/data/openvino-00000-of-00001.parquet?download=true"
+  },
+  "decision": {
+    "automatic_production_change": false,
+    "candidate_inference_executed": false,
+    "external_certificate_claimed": false,
+    "footer_and_metadata_columns_opened_after_candidate_freeze": true,
+    "image_bytes_opened": false,
+    "license_review_required_before_full_image_download": true,
+    "ocr_executed": false,
+    "production_ready": false,
+    "verdict": "OPENVINO_V7_SCHEMA_AND_POWER_GATE_PASS"
+  },
+  "exact_census": {
+    "counts": {
+      "annotations_outside_numeric_scope": 2535785,
+      "annotations_total": 2571610,
+      "numeric_annotations_in_scope": 35825,
+      "rows_total": 207790,
+      "rows_with_selected_numeric_candidate": 20629,
+      "rows_without_numeric_candidate": 187161,
+      "unique_numeric_candidates": 35303
+    },
+    "row_count": 207790,
+    "selected_bbox_conventions": {
+      "xyxy": 20629
+    },
+    "selected_count": 20629,
+    "selected_record_set_sha256": "35ad9e1e43d81ef826f10a04659f77cacf13b987360e83625b52edcd7e223870",
+    "selected_truth_length_distribution": {
+      "10": 647,
+      "11": 170,
+      "12": 41,
+      "4": 11162,
+      "5": 3522,
+      "6": 2132,
+      "7": 1010,
+      "8": 1747,
+      "9": 198
+    }
+  },
+  "power_gate": {
+    "decision_basis": "exact_geometry_census",
+    "decision_is_conclusive": true,
+    "decision_is_exact": true,
+    "development_acceptance_fraction": "110/4674",
+    "development_acceptance_rate": 0.0235344458707745,
+    "development_source": "opened TextOCR v6; no scientific credit",
+    "full_image_download_authorized": false,
+    "metadata_power_pass": true,
+    "minimum_accepted": 400,
+    "minimum_selected": 5000,
+    "ocr_authorized": false,
+    "power_pass": true,
+    "projected_accepted": 485.49208386820715,
+    "projected_accepted_pass": true,
+    "required_selected_for_projected_accepted": 16997,
+    "selected_available": 20629,
+    "selected_pass": true,
+    "separate_full_gate_eligible_after_license_review": true
+  },
+  "schema": "ocr-openvino-numeric-census/7",
+  "schema_fingerprint": {
+    "columns": [
+      "image",
+      "texts",
+      "bboxes",
+      "polygons",
+      "num_text_regions"
+    ],
+    "expected_columns": [
+      "image",
+      "texts",
+      "bboxes",
+      "polygons",
+      "num_text_regions"
+    ],
+    "geometry_columns_read": true,
+    "image_column_read": false,
+    "stage_a_columns_only": [
+      "texts"
+    ],
+    "stage_b_columns_only": [
+      "texts",
+      "bboxes",
+      "polygons",
+      "num_text_regions"
+    ]
+  },
+  "selection": {
+    "one_risk_unit_per_image_row": true,
+    "stage_a_is_upper_bound_only": true,
+    "stage_b_uses_byte_identical_textocr_v6_geometry_selection": true,
+    "uses_candidate_output": false,
+    "uses_image_bytes": false,
+    "uses_ocr": false
+  },
+  "stable_payload_sha256": "f88ef6b533def1bfe47ede75ae46b238d0759380e553d790ad7ec5cab510e1d4",
+  "stage_a_texts_only_upper_bound": {
+    "exact_geometry_stage_required": true,
+    "minimum_projected_verified": 400,
+    "minimum_selected": 5000,
+    "numeric_annotations_in_scope": 35825,
+    "projected_verified_upper_bound": 485.49208386820715,
+    "required_selected_for_projected_verified": 16997,
+    "row_count": 207790,
+    "selected_upper_bound": 20629
+  }
+}

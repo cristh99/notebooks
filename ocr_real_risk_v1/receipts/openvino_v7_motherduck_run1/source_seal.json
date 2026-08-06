@@ -1,0 +1,32 @@
+{
+  "bounding_boxes_opened": 0,
+  "candidate_inference_executed": false,
+  "component": "openvino",
+  "dataset_id": "Yesianrohn/OCR-Data",
+  "dataset_rows_read": 0,
+  "images_opened": 0,
+  "license_review": {
+    "full_image_download_requires_review": true,
+    "mirror_declared": "apache-2.0",
+    "upstream_terms_independently_resolved": false
+  },
+  "ocr_executed": false,
+  "outcomes_opened": false,
+  "parquet_bytes_downloaded": 0,
+  "parquet_footer_read": false,
+  "polygons_opened": 0,
+  "purpose": "reserve one immutable independent OpenVINO OCR-Data corpus before footer access, metadata census, image access, OCR, or inference",
+  "repository_metadata_only": true,
+  "resolved_revision": "2b1f8aab9fbba3b5be07e2cae9e3e9c43fe5487c",
+  "schema": "ocr-openvino-source-seal/7",
+  "source_object": {
+    "declared_rows": 207790,
+    "declared_rows_source_commit": "90b74416d90c8f2647d4f5289ecdedc178cc2b97",
+    "download_url": "https://huggingface.co/datasets/Yesianrohn/OCR-Data/resolve/2b1f8aab9fbba3b5be07e2cae9e3e9c43fe5487c/data/openvino-00000-of-00001.parquet?download=true",
+    "path": "data/openvino-00000-of-00001.parquet",
+    "sha256": "5413c6ffb4f8047977db9dba520453976f48eed91b5477d06e7f62258a2ba09c",
+    "size_bytes": 65751927475
+  },
+  "stable_payload_sha256": "3c1192c6a0dc420c4b9de66e4c5f0a2a916339286aa6f28b2e39ba28531ee089",
+  "texts_opened": 0
+}

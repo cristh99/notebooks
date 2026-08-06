@@ -1,0 +1,60 @@
+{
+  "artifacts": [
+    {
+      "base64_chars": 940,
+      "gzip_bytes": 703,
+      "gzip_sha256": "e58b90858ecf75a82063d9ea50d7c69229e4ebc276b16554e73833b991697803",
+      "name": "OPENVINO_V7_SOURCE_SEAL",
+      "raw_bytes": 1374,
+      "raw_sha256": "e56957f37fcef7ff952c1f5cda7f0a4a837453e3a8904c6477c27e67ee40d67b"
+    },
+    {
+      "base64_chars": 2336,
+      "gzip_bytes": 1752,
+      "gzip_sha256": "e400eab0b40c69e64e46eff7dd86b218cfb779954908f3baa15045edf11ea841",
+      "name": "OPENVINO_V7_CANDIDATE",
+      "raw_bytes": 3661,
+      "raw_sha256": "a37486cb35446fd7ed453f6105fc6435264474cd083bad33ee5bd9062e598239"
+    },
+    {
+      "base64_chars": 2076,
+      "gzip_bytes": 1556,
+      "gzip_sha256": "43103c415c23405820496f48bdcf47e8de3bfbacf8f16a71734eb94366204770",
+      "name": "OPENVINO_V7_COMPACT_CENSUS",
+      "raw_bytes": 4175,
+      "raw_sha256": "1a98f1a009758515e02f496bef37d623614e3a3cffae48aa847ed8a88edfee7b"
+    },
+    {
+      "base64_chars": 1084,
+      "gzip_bytes": 813,
+      "gzip_sha256": "6daa9c333f34202b0e237aa7d34f335c5c4552895fe1ce353b7516e11f952483",
+      "name": "OPENVINO_V7_TERMINAL",
+      "raw_bytes": 1479,
+      "raw_sha256": "4db7b8d3ca3dd403e3d46f94ae6ca46da6d7c9e880e448b70ce38e357c0561b2"
+    }
+  ],
+  "candidate_stable_payload_sha256": "160a3e79c6075a6741a1a6365b0c833115bfc6e156176cb4cb5744b1189119cd",
+  "census_file_sha256": "88fa61d1b483c04632304721c89d83415069f766c6a086e23f12f8adb7806742",
+  "census_stable_payload_sha256": "f88ef6b533def1bfe47ede75ae46b238d0759380e553d790ad7ec5cab510e1d4",
+  "census_wall_seconds": 231.4257206916809,
+  "external_spend_usd": 0,
+  "full_image_download_authorized": false,
+  "gcloud_used": false,
+  "gpu_used": false,
+  "metadata_power_pass": true,
+  "ocr_authorized": false,
+  "paid_api_used": false,
+  "production_modified": false,
+  "projected_verified_claims": 485.49208386820715,
+  "rows_scanned": 207790,
+  "schema": "ocr-openvino-v7-motherduck-run/1",
+  "scientific_verdict": "UNKNOWN_NO_IMAGE_OUTCOMES_OPENED",
+  "selected_or_upper_bound": 20629,
+  "selected_record_set_sha256": "35ad9e1e43d81ef826f10a04659f77cacf13b987360e83625b52edcd7e223870",
+  "separate_full_gate_eligible_after_license_review": true,
+  "source_seal_stable_payload_sha256": "3c1192c6a0dc420c4b9de66e4c5f0a2a916339286aa6f28b2e39ba28531ee089",
+  "stable_payload_sha256": "641678a95bceaadc5e4799985cf6993033eb3118a8f6615082c44e7594e75f6b",
+  "status": "READY_FOR_LICENSE_REVIEW_AND_SEPARATE_FULL_GATE",
+  "terminal_stable_payload_sha256": "bf94a65f0c157f6a8aeebbb7916a827282191550452794590722039728a64b4f",
+  "total_wall_seconds": 232.7043113708496
+}
