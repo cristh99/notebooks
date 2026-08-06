@@ -1,0 +1,156 @@
+name: Data Science v8 ensemble formula hygiene
+
+on:
+  push:
+    branches:
+      - agent/data-science-v8-ensemble-formula-hygiene
+    paths:
+      - '.github/workflows/data-science-v8-ensemble-hygiene.yml'
+      - 'data_science_pipeline_v8_ocr_ensemble/src/god_pipeline/ensemble_extract.py'
+      - 'data_science_pipeline_v8_ocr_ensemble/tests/test_ensemble_extract.py'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: data-science-v8-ensemble-formula-hygiene-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  repair-and-verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+
+      - name: Apply exact frozen formula and regression tests
+        id: patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          source = Path('data_science_pipeline_v8_ocr_ensemble/src/god_pipeline/ensemble_extract.py')
+          text = source.read_text(encoding='utf-8')
+          old_formula = '+ min(max(word_count, 0), 1000) / 1000.0'
+          new_formula = '+ max(word_count, 0) / (1.0 + max(word_count, 0))'
+          if old_formula in text:
+              text = text.replace(old_formula, new_formula, 1)
+          elif new_formula not in text:
+              raise SystemExit('candidate_score formula is neither the known defect nor the frozen formula')
+          old_rule = 'highest mean_confidence + 20*native_token_recall + bounded word_count; lexical name tie-break'
+          new_rule = 'highest mean_confidence + 20*native_token_recall + word_count/(1+word_count); lexical name tie-break'
+          if old_rule in text:
+              text = text.replace(old_rule, new_rule, 1)
+          elif new_rule not in text:
+              raise SystemExit('selection rule text is not bound to the frozen formula')
+          source.write_text(text, encoding='utf-8')
+
+          test_path = Path('data_science_pipeline_v8_ocr_ensemble/tests/test_ensemble_extract.py')
+          tests = test_path.read_text(encoding='utf-8')
+          marker = '    def test_deterministic_archive(self):\n'
+          exact_test = '''    def test_candidate_score_matches_frozen_formula(self):
+        metrics = {"mean_confidence": 92.1039, "native_token_recall": 1.0}
+        expected = 92.1039 + 20.0 + 167 / 168
+        self.assertAlmostEqual(candidate_score(metrics, 167), expected, places=12)
+        self.assertEqual(candidate_score({}, -5), 0.0)
+        self.assertLess(candidate_score({}, 10**9), 1.0)
+
+'''
+          if 'def test_candidate_score_matches_frozen_formula' not in tests:
+              if marker not in tests:
+                  raise SystemExit('test insertion marker missing')
+              tests = tests.replace(marker, exact_test + marker, 1)
+          test_path.write_text(tests, encoding='utf-8')
+          PY
+
+          if git diff --quiet -- \
+            data_science_pipeline_v8_ocr_ensemble/src/god_pipeline/ensemble_extract.py \
+            data_science_pipeline_v8_ocr_ensemble/tests/test_ensemble_extract.py; then
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add \
+              data_science_pipeline_v8_ocr_ensemble/src/god_pipeline/ensemble_extract.py \
+              data_science_pipeline_v8_ocr_ensemble/tests/test_ensemble_extract.py
+            git commit -m 'Align legacy v8 ensemble score with frozen formula'
+            git push origin HEAD
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Reconstruct and test legacy implementation without OCR
+        if: steps.patch.outputs.changed == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="$RUNNER_TEMP/canonical-pipeline-v1"
+          pipeline="$base/canonical_data_science_pipeline_v1"
+          bash data_science_pipeline_v1/reconstruct.sh "$base"
+          bash data_science_pipeline_v2_acquisition/apply_overlay.sh "$pipeline"
+          bash data_science_pipeline_v3_extract/install_overlay.sh "$pipeline"
+          bash data_science_pipeline_v8_ocr_ensemble/install_overlay.sh "$pipeline"
+          cd "$pipeline"
+          PYTHONPATH=src python -m unittest discover -s tests -p 'test_ensemble_extract.py' -v \
+            2>&1 | tee "$GITHUB_WORKSPACE/v8-ensemble-hygiene-tests.log"
+          grep -q 'Ran 3 tests' "$GITHUB_WORKSPACE/v8-ensemble-hygiene-tests.log"
+          grep -q '^OK$' "$GITHUB_WORKSPACE/v8-ensemble-hygiene-tests.log"
+          PYTHONPATH=src python - <<'PY'
+          from god_pipeline.ensemble_extract import candidate_score
+          metrics = {'mean_confidence': 92.1039, 'native_token_recall': 1.0}
+          expected = 92.1039 + 20.0 + 167 / 168
+          assert abs(candidate_score(metrics, 167) - expected) < 1e-12
+          assert candidate_score({}, -5) == 0.0
+          assert 0.0 <= candidate_score({}, 10**9) < 1.0
+          PY
+
+      - name: Record bounded maintenance receipt
+        if: steps.patch.outputs.changed == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          source = Path('data_science_pipeline_v8_ocr_ensemble/src/god_pipeline/ensemble_extract.py')
+          tests = Path('data_science_pipeline_v8_ocr_ensemble/tests/test_ensemble_extract.py')
+          receipt = {
+              'schema': 'data-science-v8-ensemble-formula-hygiene/1',
+              'verdict': 'PASS_SOFTWARE_HYGIENE_ONLY',
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_sha': os.environ['GITHUB_SHA'],
+              'frozen_formula': 'mean_confidence + 20*native_token_recall + word_count/(1+word_count)',
+              'legacy_formula_aligned': True,
+              'tests_passed': 3,
+              'scientific_credit': 0,
+              'document_reused': False,
+              'document_bytes_opened': False,
+              'ocr_executed': False,
+              'post_result_retuning': False,
+              'production_modified': False,
+              'external_cost_usd': 0.0,
+              'source_sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
+              'tests_sha256': hashlib.sha256(tests.read_bytes()).hexdigest(),
+          }
+          payload = json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          Path('evidence/receipt.json').write_text(payload, encoding='utf-8')
+          Path('evidence/receipt.sha256').write_text(
+              f"{hashlib.sha256(payload.encode()).hexdigest()}  receipt.json\n",
+              encoding='utf-8',
+          )
+          PY
+
+      - name: Upload maintenance evidence
+        if: steps.patch.outputs.changed == 'false'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-v8-ensemble-formula-hygiene
+          path: |
+            evidence
+            v8-ensemble-hygiene-tests.log
+          if-no-files-found: error
+          retention-days: 90
