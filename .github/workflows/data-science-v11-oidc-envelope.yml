@@ -1,0 +1,155 @@
+name: Data Science v11 — OIDC preregistration envelope
+
+on:
+  pull_request:
+    branches:
+      - agent/data-science-v11-envelope-bootstrap-base
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'data_science_pipeline_v11_oidc_envelope/**'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: data-science-v11-oidc-envelope
+  cancel-in-progress: true
+
+env:
+  COMPONENT: data_science_pipeline_v11_oidc_envelope
+  SUBJECT: data_science_pipeline_v11_oidc_envelope/ENVELOPE.json
+  ORIGINAL_PATH: data_science_pipeline_v11_cosign_preregistration/PREREGISTRATION.json
+  ORIGINAL_COMMIT: 53e172b88095ea771912964e957c23f9446c3660
+  ORIGINAL_BLOB: 73fc2696b943634b172c014b42c698ac72b3dd8e
+  EVIDENCE_ROOT: data-science-v11-oidc-envelope-evidence
+  OIDC_AUDIENCE: sigstore
+  OIDC_ISSUER: https://token.actions.githubusercontent.com
+  CERTIFICATE_IDENTITY_REGEXP: '^https://github\.com/cristh99/notebooks/\.github/workflows/data-science-v11-oidc-envelope\.yml@(refs/heads/agent/data-science-v11-envelope-bootstrap-base|refs/heads/agent/data-science-v11-oidc-envelope|refs/pull/[0-9]+/merge)$'
+  COSIGN_VERSION: 3.0.6
+  COSIGN_SHA256: c956e5dfcac53d52bcf058360d579472f0c1d2d9b69f55209e256fe7783f4c74
+
+jobs:
+  sign-envelope:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact PR merge
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify frozen envelope and original Git object
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "cristh99/notebooks"
+          test "$GITHUB_EVENT_NAME" = "pull_request"
+          test "$GITHUB_HEAD_REF" = "agent/data-science-v11-oidc-envelope"
+          test "$GITHUB_BASE_REF" = "agent/data-science-v11-envelope-bootstrap-base"
+          [[ "$GITHUB_REF" =~ ^refs/pull/[0-9]+/merge$ ]]
+          mkdir -p "$EVIDENCE_ROOT"
+          python3 -m unittest -v "$COMPONENT/test_envelope.py" \
+            |& tee "$EVIDENCE_ROOT/tests.log"
+          python3 "$COMPONENT/verify_envelope.py" static \
+            --output "$EVIDENCE_ROOT/local-receipt.json"
+          git cat-file -e "$ORIGINAL_COMMIT^{commit}"
+          test "$(git rev-parse "$ORIGINAL_COMMIT:$ORIGINAL_PATH")" = "$ORIGINAL_BLOB"
+          test "$(git hash-object "$ORIGINAL_PATH")" = "$ORIGINAL_BLOB"
+          git merge-base --is-ancestor "$ORIGINAL_COMMIT" "${{ github.event.pull_request.head.sha }}"
+          sha256sum "$SUBJECT" "$ORIGINAL_PATH" \
+            "$COMPONENT/verify_envelope.py" "$COMPONENT/test_envelope.py" \
+            > "$EVIDENCE_ROOT/source-sha256.txt"
+
+      - name: Request and validate GitHub OIDC identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}"
+          test -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}"
+          response="$(curl --fail --silent --show-error \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${OIDC_AUDIENCE}")"
+          token="$(printf '%s' "$response" | python3 -c \
+            'import json,sys; v=json.load(sys.stdin).get("value",""); assert v; print(v)')"
+          echo "::add-mask::$token"
+          printf '%s' "$token" > "$RUNNER_TEMP/oidc-token.jwt"
+          python3 "$COMPONENT/verify_envelope.py" oidc \
+            --token "$RUNNER_TEMP/oidc-token.jwt" \
+            --event "$GITHUB_EVENT_PATH" \
+            --output "$EVIDENCE_ROOT/oidc-safe-claims.json" \
+            --github-env "$GITHUB_ENV"
+
+      - name: Install pinned Cosign
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --silent --show-error \
+            "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" \
+            --output "$RUNNER_TEMP/cosign"
+          printf '%s  %s\n' "$COSIGN_SHA256" "$RUNNER_TEMP/cosign" | sha256sum --check
+          chmod 0755 "$RUNNER_TEMP/cosign"
+          "$RUNNER_TEMP/cosign" version > "$EVIDENCE_ROOT/cosign-version.txt"
+
+      - name: Sign and verify envelope
+        shell: bash
+        run: |
+          set -euo pipefail
+          token="$(cat "$RUNNER_TEMP/oidc-token.jwt")"
+          echo "::add-mask::$token"
+          "$RUNNER_TEMP/cosign" sign-blob --yes \
+            --identity-token "$token" \
+            --bundle "$EVIDENCE_ROOT/envelope.sigstore.json" \
+            "$SUBJECT" > "$EVIDENCE_ROOT/sign.stdout" 2> "$EVIDENCE_ROOT/sign.stderr"
+          rm -f "$RUNNER_TEMP/oidc-token.jwt"
+          "$RUNNER_TEMP/cosign" verify-blob "$SUBJECT" \
+            --bundle "$EVIDENCE_ROOT/envelope.sigstore.json" \
+            --certificate-identity-regexp "$CERTIFICATE_IDENTITY_REGEXP" \
+            --certificate-oidc-issuer "$OIDC_ISSUER" \
+            --certificate-github-workflow-repository "$GITHUB_REPOSITORY" \
+            --certificate-github-workflow-sha "$OIDC_WORKFLOW_SHA" \
+            --certificate-github-workflow-trigger "$GITHUB_EVENT_NAME" \
+            > "$EVIDENCE_ROOT/verify.stdout" 2> "$EVIDENCE_ROOT/verify.stderr"
+          python3 "$COMPONENT/verify_envelope.py" finalize \
+            --bundle "$EVIDENCE_ROOT/envelope.sigstore.json" \
+            --verify-output "$EVIDENCE_ROOT/verify.stdout" \
+            --claims "$EVIDENCE_ROOT/oidc-safe-claims.json" \
+            --local-receipt "$EVIDENCE_ROOT/local-receipt.json" \
+            --original "$ORIGINAL_PATH" \
+            --output "$EVIDENCE_ROOT/external-receipt.json"
+          sha256sum "$EVIDENCE_ROOT/external-receipt.json" \
+            > "$EVIDENCE_ROOT/external-receipt.sha256"
+
+      - name: Retain evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-v11-oidc-envelope
+          path: data-science-v11-oidc-envelope-evidence
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce terminal receipt
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path("data-science-v11-oidc-envelope-evidence/external-receipt.json")
+          if not path.exists():
+              raise SystemExit("external receipt missing")
+          receipt = json.loads(path.read_text())
+          if receipt["verdict"] != "PASS_OIDC_ENVELOPE_SIGNATURE":
+              raise SystemExit(receipt)
+          if not all(receipt["cryptographic_checks"].values()):
+              raise SystemExit(receipt["cryptographic_checks"])
+          if receipt["external_document_evaluations"] != 0:
+              raise SystemExit(receipt)
+          if receipt["stage08_unblocked"] is not False:
+              raise SystemExit(receipt)
+          print("PASS_OIDC_ENVELOPE_SIGNATURE")
+          PY
