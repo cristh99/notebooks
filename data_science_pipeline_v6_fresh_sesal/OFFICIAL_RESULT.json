@@ -1,0 +1,41 @@
+{
+  "schema": "data-science-pipeline/fresh-sesal-official-result/1",
+  "verdict": "QUARANTINE",
+  "run_id": 31063822080,
+  "job_id": 92497227474,
+  "artifact_id": 8953111495,
+  "artifact_zip_sha256": "ddf7c57a5069d73acf138a06038ff94a090421966a29f6f04fc448e1595f607e",
+  "source": {
+    "url": "https://oncae.gob.hn/wp-content/uploads/2024/05/GUIA-PARA-CONTRATACION-DIRECTA-SESAL-AGOSTO-2024.pdf",
+    "bytes": 408968,
+    "sha256": "bf8860cd7e895b1cb2c86735638ddbdf7839538df844727a0938274b498785a7"
+  },
+  "tests": "59/59 PASS",
+  "extraction": {
+    "pages_rasterized": 3,
+    "pages_ocr": 3,
+    "mean_confidence": 76.32376612322268,
+    "native_token_recall": 0.9508196721311475,
+    "required_tokens_found": 5,
+    "required_tokens_expected": 6,
+    "missing_tokens": ["SESAL"],
+    "quarantine_reason": "required tokens missing: ['SESAL']"
+  },
+  "finding": {
+    "type": "overconstrained_identity_gate",
+    "detail": "The public page and filename described the document as SESAL, but the first three PDF pages identify the emergency health-system guide without the literal token SESAL. OCR quality passed; identity policy failed.",
+    "ocr_quality_failure": false,
+    "downstream_executed": false
+  },
+  "controls": {
+    "document_retired_from_promotion": true,
+    "same_document_retuning_permitted": false,
+    "next_gate_requires_fresh_document": true,
+    "merge_authorized": false,
+    "mass_processing_authorized": false,
+    "external_cost_usd": 0.0,
+    "gcloud_used": false,
+    "paid_compute_used": false,
+    "novelty_points": 0
+  }
+}
