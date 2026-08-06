@@ -10,6 +10,7 @@ from typing import Any, Mapping
 from .core import canonical_json, sha256_bytes, sha256_file
 from .numeric_consensus_policy_v7 import policy_manifest
 from .openvino_source_seal_v7 import (
+    SOURCE_DECLARED_ROWS,
     SOURCE_PATH,
     SOURCE_SHA256,
     SOURCE_SIZE_BYTES,
@@ -149,6 +150,7 @@ def build(
         source_seal.get("outcomes_opened") is not False
         or source.get("path") != SOURCE_PATH
         or source.get("size_bytes") != SOURCE_SIZE_BYTES
+        or source.get("declared_rows") != SOURCE_DECLARED_ROWS
         or source.get("sha256") != SOURCE_SHA256
     ):
         raise RuntimeError("OpenVINO source binding mismatch")
@@ -202,7 +204,7 @@ def build(
                 "stage_b": "exact geometry census only when stage A can pass",
                 "minimum_selected": 5000,
                 "minimum_projected_verified": 400,
-                "expected_source_rows": 207_790,
+                "expected_source_rows": SOURCE_DECLARED_ROWS,
                 "development_acceptance_rate": 110 / 4674,
                 "image_column_forbidden": True,
                 "full_image_download_authorized_in_this_gate": False,
@@ -250,7 +252,7 @@ def verify(root: Path) -> dict[str, Any]:
     if not policy["forest_threshold_is_effective"]:
         raise RuntimeError("probability threshold is ineffective")
     power_gate = manifest["metadata_power_gate"]
-    if power_gate.get("expected_source_rows") != 207_790:
+    if power_gate.get("expected_source_rows") != SOURCE_DECLARED_ROWS:
         raise RuntimeError("OpenVINO expected row count changed")
     if not power_gate["image_column_forbidden"]:
         raise RuntimeError("image bytes were not forbidden in power gate")
