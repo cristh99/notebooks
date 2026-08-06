@@ -111,14 +111,16 @@ jobs:
           IMAGE_DIGEST="${IMAGE_REF##*@}"
           test "$IMAGE_DIGEST" = 'sha256:787ea5569c9bf40e03a2255224365cb2fb0ae4a446fc60565dd61b1656d1699d'
           echo "ROCQ_IMAGE_DIGEST=$IMAGE_DIGEST" >> "$GITHUB_ENV"
+          echo "ROCQ_IMAGE_REF=$IMAGE_REF" >> "$GITHUB_ENV"
           printf '%s\n' \
             'image=rocq/rocq-prover:9.0' \
             "repo_digest=$IMAGE_REF" \
             "digest=$IMAGE_DIGEST" \
-            'activation=eval opam env --switch=$COMPILER --set-switch' \
+            'entrypoint=opam exec --' \
+            'compiler=rocq compile' \
+            'makefile_generator=rocq makefile' \
             > reports/container-binding.txt
-          docker run --rm rocq/rocq-prover:9.0 bash -lc \
-            'eval "$(opam env --switch="$COMPILER" --set-switch)" && coqc --version' \
+          docker run --rm "$IMAGE_REF" rocq --version \
             2>&1 | tee reports/rocq-version.log
 
       - name: Build official volume serially and independently in parallel
@@ -126,12 +128,12 @@ jobs:
         run: |
           set -euo pipefail
           docker run --rm -v "$PWD:/work" -w "/work/$LF_SERIAL_ROOT" \
-            rocq/rocq-prover:9.0 bash -lc \
-            'eval "$(opam env --switch="$COMPILER" --set-switch)" && make -j1' \
+            "$ROCQ_IMAGE_REF" bash -c \
+            'rocq makefile -f _CoqProject -o CoqMakefile.runtime && make -f CoqMakefile.runtime -j1' \
             2>&1 | tee reports/official-build-serial.log
           docker run --rm -v "$PWD:/work" -w "/work/$LF_PARALLEL_ROOT" \
-            rocq/rocq-prover:9.0 bash -lc \
-            'eval "$(opam env --switch="$COMPILER" --set-switch)" && make -j4' \
+            "$ROCQ_IMAGE_REF" bash -c \
+            'rocq makefile -f _CoqProject -o CoqMakefile.runtime && make -f CoqMakefile.runtime -j4' \
             2>&1 | tee reports/official-build-parallel.log
 
       - name: Compile scoped proofs, reject invalid proofs and reconcile outputs
@@ -144,22 +146,18 @@ jobs:
             chmod a+rw "$root/UniversityRuntime.v" "$root/NegativeControl.v"
           done
           docker run --rm -v "$PWD:/work" -w "/work/$LF_SERIAL_ROOT" \
-            rocq/rocq-prover:9.0 bash -lc \
-            'eval "$(opam env --switch="$COMPILER" --set-switch)" && coqc -Q . LF UniversityRuntime.v' \
+            "$ROCQ_IMAGE_REF" rocq compile -Q . LF UniversityRuntime.v \
             2>&1 | tee reports/runtime-serial.log
           docker run --rm -v "$PWD:/work" -w "/work/$LF_PARALLEL_ROOT" \
-            rocq/rocq-prover:9.0 bash -lc \
-            'eval "$(opam env --switch="$COMPILER" --set-switch)" && coqc -Q . LF UniversityRuntime.v' \
+            "$ROCQ_IMAGE_REF" rocq compile -Q . LF UniversityRuntime.v \
             2>&1 | tee reports/runtime-parallel.log
           if docker run --rm -v "$PWD:/work" -w "/work/$LF_SERIAL_ROOT" \
-              rocq/rocq-prover:9.0 bash -lc \
-              'eval "$(opam env --switch="$COMPILER" --set-switch)" && coqc -Q . LF NegativeControl.v' \
+              "$ROCQ_IMAGE_REF" rocq compile -Q . LF NegativeControl.v \
               > reports/negative-serial.log 2>&1; then
             echo 'Serial negative control unexpectedly compiled.' >&2; exit 1
           fi
           if docker run --rm -v "$PWD:/work" -w "/work/$LF_PARALLEL_ROOT" \
-              rocq/rocq-prover:9.0 bash -lc \
-              'eval "$(opam env --switch="$COMPILER" --set-switch)" && coqc -Q . LF NegativeControl.v' \
+              "$ROCQ_IMAGE_REF" rocq compile -Q . LF NegativeControl.v \
               > reports/negative-parallel.log 2>&1; then
             echo 'Parallel negative control unexpectedly compiled.' >&2; exit 1
           fi
