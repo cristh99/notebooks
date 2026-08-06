@@ -3,7 +3,7 @@
   "expected": {
     "node_verifier": "PASS",
     "ordinary_tamper": "REJECTED",
-    "python_tests": "27/27 PASS",
+    "python_tests": "28/28 PASS",
     "python_verifier": "PASS",
     "rehashed_semantic_forgery": "REJECTED",
     "scenario_matrix": "72/72 PASS"
@@ -16,16 +16,18 @@
     "private_source_exports": 0,
     "private_workspace_urls": 0
   },
-  "public_receipt_sha256": "cf9328807097884c37a2ff0652ed4475f961212ed692c0a32320f78fab26b12e",
-  "schema": "byzantine-open-world-power-v1/public-clean-room-binding/1",
+  "maintenance_scope": "Invalid, stale, poisoned, revoked, unauthorized, or evaluator-rejected observations cannot mark an otherwise independent candidate root/dependency as already seen.",
+  "public_receipt_sha256": "3744e4dd855bd8a8fe6991c5ada6bc38500eec4c7b1cd01c999de62376d47af5",
+  "schema": "byzantine-open-world-power-v1/public-clean-room-binding/2",
+  "scientific_credit": 0,
   "source_sha256": {
     "byzantine_open_world_power_v1/__init__.py": "3225566049a694c4152ef9ba9a545c137b46843d43cd884ed5bcc9eae8b9e89d",
-    "byzantine_open_world_power_v1/engine.py": "1c4321c514e0a348d47c4903e38f7f6f6266d9678aba9ef77afdd95e3efa9aeb",
+    "byzantine_open_world_power_v1/engine.py": "4b25903b373c7aab8387183c92a41cd3e7c96008c0ebcfd5b3b20b49b40913f7",
     "byzantine_open_world_power_v1/fixtures.py": "fd8b00d59df6d15d5f012365c80aedd44a035f0e4831b2f6dabb1aaad7229484",
     "byzantine_open_world_power_v1/replay.py": "a0da41abbf12ef63f8877d2c66f292bc81187a8de422944381df0219f83f7547",
     "byzantine_open_world_power_v1/verify.js": "6da2345c9ce450fe42b00d4d13a8b6eb0065fbd2117d50609acdb5156b259b07",
     "byzantine_open_world_power_v1/verify.py": "a7eff1146a850cc30359849cf534b5dcfb8bc0ef777adf02014f2f0b95ffabf3",
     "contract.json": "f1b5b4ade6be4844a5d13a06f8d70881e18ac5dedad681f89750cdb02c0cadea",
-    "tests/test_replay.py": "e4c830d0595d4dd86cae647b203fb1cd56550e638444b7eb5130a94b2f5ea964"
+    "tests/test_replay.py": "57abe01e507604f42fcf251c8a03b8ab7fbf64a1ba9d8b77dbd4ae8cb94f5ed1"
   }
 }
