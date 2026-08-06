@@ -16,11 +16,13 @@
     "integrity_failure_quarantines": true,
     "deterministic_receipt_required": true,
     "unvalidated_channels_cannot_confirm": true,
-    "observation_snapshot_is_immutable": true
+    "observation_snapshot_is_immutable": true,
+    "channel_validation_requires_sha256_receipt": true,
+    "claim_scope_enforces_channel_roles": true
   },
-  "source_sha256": "57e11e9e12b01c0d734ec681424710d55376ffe64af326b32abf5351166741a7",
-  "tests_sha256": "7c2cc0509725ddee9c54cb6049948bf9c5202e3d0cdd91715ef52e8525c461f3",
-  "expected_tests": 10,
+  "source_sha256": "70fc59039ecc7444549c67811ea56792a1ec873294eff1b79c85aeff76cc8e2a",
+  "tests_sha256": "0327c6ce4da20c16699e48b526c597b940fbe04003aba75b655e4632125fd0ce",
+  "expected_tests": 14,
   "controls": {
     "network_required": false,
     "external_cost_usd": 0.0,
