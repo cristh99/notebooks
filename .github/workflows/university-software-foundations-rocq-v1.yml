@@ -1,0 +1,342 @@
+name: University Software Foundations Rocq runtime v1
+
+on:
+  push:
+    branches:
+      - agent/university-software-foundations-rocq-v1
+  pull_request:
+    paths:
+      - '.github/workflows/university-software-foundations-rocq-v1.yml'
+      - 'university_rocq_runtime_v1/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Verify scoped source contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reports lf-serial lf-parallel
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          lock = json.loads(Path('university_rocq_runtime_v1/SOURCE_LOCK.json').read_text())
+          assert lock['official_site'] == 'https://softwarefoundations.cis.upenn.edu/'
+          assert lock['volume'] == 'Logical Foundations'
+          assert lock['volume_version'] == '7.0'
+          assert lock['minimum_rocq_coq'] == '9.0.0'
+          assert lock['source_url'].endswith('/lf.tgz')
+          assert lock['container_image'] == 'rocq/rocq-prover:9.0.0'
+          assert lock['serial_jobs'] == 1
+          assert lock['parallel_jobs'] == 4
+          print(json.dumps(lock, indent=2, sort_keys=True))
+          PY
+          if grep -nE '(^|[[:space:]])(Admitted|admit)([[:space:].]|$)|^[[:space:]]*(Axiom|Parameter)[[:space:]]' \
+              university_rocq_runtime_v1/Runtime.v; then
+            echo 'Scoped runtime contains a forbidden placeholder or declaration.' >&2
+            exit 1
+          fi
+
+      - name: Acquire and bind official Logical Foundations 7.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 \
+            https://softwarefoundations.cis.upenn.edu/current/lf-current/lf.tgz \
+            -o lf.tgz
+          SOURCE_SHA="$(sha256sum lf.tgz | awk '{print $1}')"
+          SOURCE_BYTES="$(stat -c '%s' lf.tgz)"
+          python - "$SOURCE_SHA" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          lock = json.loads(Path('university_rocq_runtime_v1/SOURCE_LOCK.json').read_text())
+          observed = sys.argv[1]
+          expected = lock['source_sha256']
+          if expected != 'DISCOVERY_PENDING' and observed != expected:
+              raise SystemExit(f'Source SHA mismatch: expected {expected}, observed {observed}')
+          PY
+          tar tzf lf.tgz > reports/tar-members.txt
+          tar xzf lf.tgz -C lf-serial
+          tar xzf lf.tgz -C lf-parallel
+          python - "$SOURCE_SHA" "$SOURCE_BYTES" <<'PY'
+          import hashlib
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          def choose_root(base: Path) -> Path:
+              candidates = []
+              for project in base.rglob('_CoqProject'):
+                  if (project.parent / 'Makefile').exists():
+                      candidates.append(project.parent)
+              if not candidates:
+                  raise SystemExit(f'No Makefile + _CoqProject root under {base}')
+              return min(candidates, key=lambda path: (len(path.parts), str(path)))
+
+          def source_manifest(root: Path) -> list[dict[str, str]]:
+              rows = []
+              for path in sorted(root.rglob('*')):
+                  if path.is_file():
+                      rows.append({
+                          'path': path.relative_to(root).as_posix(),
+                          'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+                      })
+              return rows
+
+          serial_root = choose_root(Path('lf-serial'))
+          parallel_root = choose_root(Path('lf-parallel'))
+          serial_manifest = source_manifest(serial_root)
+          parallel_manifest = source_manifest(parallel_root)
+          if serial_manifest != parallel_manifest:
+              raise SystemExit('Independent source extractions differ')
+          Path('reports/prebuild-source-manifest.json').write_text(
+              json.dumps(serial_manifest, indent=2, sort_keys=True) + '\n'
+          )
+          discovery = {
+              'schema': 'university-software-foundations-rocq/source-discovery/1',
+              'source_sha256': sys.argv[1],
+              'source_bytes': int(sys.argv[2]),
+              'serial_root': serial_root.as_posix(),
+              'parallel_root': parallel_root.as_posix(),
+              'source_file_count': len(serial_manifest),
+          }
+          Path('reports/source-discovery.json').write_text(
+              json.dumps(discovery, indent=2, sort_keys=True) + '\n'
+          )
+          with Path(os.environ['GITHUB_ENV']).open('a') as handle:
+              handle.write(f'LF_SERIAL_ROOT={serial_root.as_posix()}\n')
+              handle.write(f'LF_PARALLEL_ROOT={parallel_root.as_posix()}\n')
+              handle.write(f'LF_SOURCE_SHA256={sys.argv[1]}\n')
+          PY
+          printf '%s\n' \
+            "source_sha256=$SOURCE_SHA" \
+            "source_bytes=$SOURCE_BYTES" \
+            > reports/source-binding.txt
+
+      - name: Bind Rocq 9.0.0 container
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull rocq/rocq-prover:9.0.0
+          IMAGE_REF="$(docker image inspect --format '{{index .RepoDigests 0}}' rocq/rocq-prover:9.0.0)"
+          test -n "$IMAGE_REF"
+          IMAGE_DIGEST="${IMAGE_REF##*@}"
+          python - "$IMAGE_DIGEST" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          lock = json.loads(Path('university_rocq_runtime_v1/SOURCE_LOCK.json').read_text())
+          observed = sys.argv[1]
+          expected = lock['container_digest']
+          if expected != 'DISCOVERY_PENDING' and observed != expected:
+              raise SystemExit(f'Container digest mismatch: expected {expected}, observed {observed}')
+          PY
+          echo "ROCQ_IMAGE_DIGEST=$IMAGE_DIGEST" >> "$GITHUB_ENV"
+          printf '%s\n' \
+            'image=rocq/rocq-prover:9.0.0' \
+            "repo_digest=$IMAGE_REF" \
+            "digest=$IMAGE_DIGEST" \
+            > reports/container-binding.txt
+
+      - name: Build official volume serially
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --user 0:0 --entrypoint bash \
+            -v "$PWD:/work" \
+            -w "/work/$LF_SERIAL_ROOT" \
+            rocq/rocq-prover:9.0.0 \
+            -lc 'coqc --version && make -j1' \
+            2>&1 | tee reports/official-build-serial.log
+
+      - name: Build official volume in parallel
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --user 0:0 --entrypoint bash \
+            -v "$PWD:/work" \
+            -w "/work/$LF_PARALLEL_ROOT" \
+            rocq/rocq-prover:9.0.0 \
+            -lc 'coqc --version && make -j4' \
+            2>&1 | tee reports/official-build-parallel.log
+
+      - name: Compile scoped proofs and reject negative controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp university_rocq_runtime_v1/Runtime.v "$LF_SERIAL_ROOT/UniversityRuntime.v"
+          cp university_rocq_runtime_v1/Runtime.v "$LF_PARALLEL_ROOT/UniversityRuntime.v"
+          cp university_rocq_runtime_v1/NegativeControl.v "$LF_SERIAL_ROOT/NegativeControl.v"
+          cp university_rocq_runtime_v1/NegativeControl.v "$LF_PARALLEL_ROOT/NegativeControl.v"
+
+          docker run --rm --user 0:0 --entrypoint bash \
+            -v "$PWD:/work" \
+            -w "/work/$LF_SERIAL_ROOT" \
+            rocq/rocq-prover:9.0.0 \
+            -lc 'coqc -Q . LF UniversityRuntime.v' \
+            2>&1 | tee reports/runtime-serial.log
+          docker run --rm --user 0:0 --entrypoint bash \
+            -v "$PWD:/work" \
+            -w "/work/$LF_PARALLEL_ROOT" \
+            rocq/rocq-prover:9.0.0 \
+            -lc 'coqc -Q . LF UniversityRuntime.v' \
+            2>&1 | tee reports/runtime-parallel.log
+
+          if docker run --rm --user 0:0 --entrypoint bash \
+              -v "$PWD:/work" \
+              -w "/work/$LF_SERIAL_ROOT" \
+              rocq/rocq-prover:9.0.0 \
+              -lc 'coqc -Q . LF NegativeControl.v' \
+              > reports/negative-serial.log 2>&1; then
+            echo 'Serial negative control unexpectedly compiled.' >&2
+            exit 1
+          fi
+          if docker run --rm --user 0:0 --entrypoint bash \
+              -v "$PWD:/work" \
+              -w "/work/$LF_PARALLEL_ROOT" \
+              rocq/rocq-prover:9.0.0 \
+              -lc 'coqc -Q . LF NegativeControl.v' \
+              > reports/negative-parallel.log 2>&1; then
+            echo 'Parallel negative control unexpectedly compiled.' >&2
+            exit 1
+          fi
+
+          cmp reports/runtime-serial.log reports/runtime-parallel.log
+          printf '%s\n' \
+            'SERIAL_RUNTIME_PASS' \
+            'PARALLEL_RUNTIME_PASS' \
+            'NEGATIVE_CONTROLS_REJECTED_2_OF_2' \
+            'ASSUMPTION_OUTPUT_IDENTICAL' \
+            > reports/runtime-status.txt
+
+      - name: Reconcile build outputs and instructional placeholders
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          serial_root = Path(__import__('os').environ['LF_SERIAL_ROOT'])
+          parallel_root = Path(__import__('os').environ['LF_PARALLEL_ROOT'])
+
+          def names(root: Path, suffix: str) -> list[str]:
+              return sorted(
+                  path.relative_to(root).as_posix()
+                  for path in root.rglob(f'*{suffix}')
+              )
+
+          serial_vo = names(serial_root, '.vo')
+          parallel_vo = names(parallel_root, '.vo')
+          if serial_vo != parallel_vo:
+              raise SystemExit('Serial and parallel builds produced different .vo inventories')
+
+          official_v = [
+              path for path in serial_root.rglob('*.v')
+              if path.name not in {'UniversityRuntime.v', 'NegativeControl.v'}
+          ]
+          placeholder_pattern = re.compile(r'\b(Admitted|admit)\b')
+          placeholder_count = 0
+          for path in official_v:
+              placeholder_count += len(placeholder_pattern.findall(path.read_text(errors='replace')))
+
+          report = {
+              'schema': 'university-software-foundations-rocq/build-reconciliation/1',
+              'official_v_files': len(official_v),
+              'compiled_vo_files': len(serial_vo),
+              'serial_parallel_vo_inventory_equal': True,
+              'official_instructional_placeholder_occurrences': placeholder_count,
+              'scoped_runtime_placeholder_occurrences': 0,
+              'negative_controls_rejected': 2,
+              'assumption_output_identical': True,
+          }
+          Path('reports/build-reconciliation.json').write_text(
+              json.dumps(report, indent=2, sort_keys=True) + '\n'
+          )
+          PY
+
+      - name: Emit discovery or final proof-carrying receipt
+        shell: bash
+        env:
+          EVENT_SHA: ${{ github.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          lock = json.loads(Path('university_rocq_runtime_v1/SOURCE_LOCK.json').read_text())
+          source = json.loads(Path('reports/source-discovery.json').read_text())
+          reconciliation = json.loads(Path('reports/build-reconciliation.json').read_text())
+          image_digest = os.environ['ROCQ_IMAGE_DIGEST']
+          pinned = (
+              lock['source_sha256'] != 'DISCOVERY_PENDING'
+              and lock['container_digest'] != 'DISCOVERY_PENDING'
+              and lock['source_sha256'] == source['source_sha256']
+              and lock['container_digest'] == image_digest
+          )
+          status = (
+              'PASS_SCOPED_ROCQ_RUNTIME'
+              if pinned
+              else 'PASS_DISCOVERY_REQUIRES_PINNING'
+          )
+          receipt = {
+              'schema': 'university-software-foundations-rocq/receipt/1',
+              'status': status,
+              'repository': 'cristh99/notebooks',
+              'event_sha': os.environ['EVENT_SHA'],
+              'head_sha': os.environ['HEAD_SHA'],
+              'source_sha256': source['source_sha256'],
+              'container_digest': image_digest,
+              'official_volume': 'Logical Foundations 7.0',
+              'official_serial_build': True,
+              'official_parallel_build': True,
+              'scoped_runtime_serial': True,
+              'scoped_runtime_parallel': True,
+              'negative_controls_rejected': reconciliation['negative_controls_rejected'],
+              'serial_parallel_vo_inventory_equal': reconciliation['serial_parallel_vo_inventory_equal'],
+              'assumption_output_identical': reconciliation['assumption_output_identical'],
+              'official_instructional_placeholder_occurrences': reconciliation['official_instructional_placeholder_occurrences'],
+              'scope_boundary': (
+                  'Real Rocq kernel execution and serial/parallel official-volume builds; '
+                  'not completion of every official exercise or full course mastery.'
+              ),
+          }
+          path = Path('reports/receipt.json')
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path('reports/receipt.sha256').write_text(f'{digest}  receipt.json\n')
+          print(json.dumps(receipt, indent=2, sort_keys=True))
+          PY
+          find university_rocq_runtime_v1 reports -type f \
+            ! -name SHA256SUMS -print0 \
+            | sort -z \
+            | xargs -0 sha256sum > reports/SHA256SUMS
+          sha256sum lf.tgz >> reports/SHA256SUMS
+          sha256sum -c reports/SHA256SUMS
+
+      - name: Upload Rocq runtime evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: university-software-foundations-rocq-v1-evidence
+          path: |
+            university_rocq_runtime_v1/
+            reports/
+            lf.tgz
