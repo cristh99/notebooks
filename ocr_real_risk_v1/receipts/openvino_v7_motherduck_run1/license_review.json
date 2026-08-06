@@ -1,0 +1,138 @@
+{
+  "allowed_actions": [
+    "preserve_and_audit_metadata_receipts",
+    "metadata_only_schema_text_geometry_analysis",
+    "prepare_unexecuted_provenance_reconstruction_code_and_tests",
+    "request_row_to_image_id_mapping_and_explicit_license_documentation"
+  ],
+  "coordination_lane": "COORD-2026-08-06-PARALLEL-V2",
+  "date": "2026-08-06",
+  "decision": "BLOCKED_MISSING_PER_IMAGE_ATTRIBUTION_PROVENANCE",
+  "exact_source_binding": {
+    "bytes": 65751927475,
+    "component": "openvino",
+    "dataset": "Yesianrohn/OCR-Data",
+    "path": "data/openvino-00000-of-00001.parquet",
+    "revision": "2b1f8aab9fbba3b5be07e2cae9e3e9c43fe5487c",
+    "rows": 207790,
+    "selected_metadata_rows": 20629,
+    "selected_record_set_sha256": "35ad9e1e43d81ef826f10a04659f77cacf13b987360e83625b52edcd7e223870",
+    "sha256": "5413c6ffb4f8047977db9dba520453976f48eed91b5477d06e7f62258a2ba09c"
+  },
+  "legal_characterization": "Operational fail-closed compliance decision; not a legal opinion.",
+  "preferred_remediation": "Reconstruct the population from exact OpenVINO annotations joined to official Open Images image metadata; exclude unverifiable rows, seal an attribution/exclusion ledger, and re-check power before any image download.",
+  "prohibited_actions": [
+    "download_or_decode_embedded_image_bytes",
+    "view_or_hash_decoded_pixels",
+    "run_ocr_or_candidate_inference",
+    "run_quality_or_speed_gate",
+    "redistribute_embedded_images",
+    "claim_apache_2_0_supersedes_upstream_per_image_terms",
+    "merge_pr_129",
+    "claim_quality_speed_10x_or_production_pass"
+  ],
+  "pull_request": 129,
+  "reasoning": [
+    "The mirror's aggregate Apache-2.0 declaration does not independently establish the license status or attribution requirements of every embedded upstream image.",
+    "The mirror omits identifiers and attribution fields required to reconcile its rows to official Open Images per-image license metadata.",
+    "The specific license for the OpenVINO text-annotation package was not established in the primary materials reviewed.",
+    "The available evidence is therefore insufficient to authorize image access or a full OCR benchmark."
+  ],
+  "repository": "cristh99/notebooks",
+  "schema": "ocr-openvino-v7-license-review/1",
+  "scientific_state": {
+    "full_external_gate_authorized": false,
+    "full_image_download_authorized": false,
+    "metadata_schema_power_gate": "PASS",
+    "ocr_authorized": false,
+    "scientific_verdict": "UNKNOWN_NO_IMAGE_OUTCOMES_OPENED"
+  },
+  "scope": "Embedded image bytes and full external OCR evaluation for the exact OpenVINO split in Yesianrohn/OCR-Data",
+  "sources": [
+    {
+      "supports": [
+        "embedded raw image bytes",
+        "mirror schema",
+        "aggregate Apache-2.0 declaration",
+        "openvino split identity"
+      ],
+      "title": "Yesianrohn/OCR-Data",
+      "url": "https://huggingface.co/datasets/Yesianrohn/OCR-Data"
+    },
+    {
+      "supports": [
+        "annotations CC BY 4.0",
+        "images listed CC BY 2.0",
+        "per-image verification disclaimer"
+      ],
+      "title": "Open Images V5 - Description",
+      "url": "https://storage.googleapis.com/openimages/web/factsfigures_v5.html"
+    },
+    {
+      "supports": [
+        "official per-image provenance and attribution fields"
+      ],
+      "title": "Open Images V5 - Download",
+      "url": "https://storage.googleapis.com/openimages/web/download_v5.html"
+    },
+    {
+      "supports": [
+        "upstream dataset identity",
+        "207790 images",
+        "2571610 text instances",
+        "annotation distribution location"
+      ],
+      "title": "Open Images V5 Text Annotation and Yet Another Mask Text Spotter",
+      "url": "https://arxiv.org/abs/2106.12326"
+    },
+    {
+      "supports": [
+        "upstream annotation distribution"
+      ],
+      "title": "OpenVINO open_images_v5_text distribution",
+      "url": "https://storage.openvinotoolkit.org/repositories/openvino_training_extensions/datasets/open_images_v5_text/"
+    }
+  ],
+  "stable_payload_sha256": "b3c9203495a010cd70e497cef35e198bd4f9f7f7cff3f55bd3da68df4d7d5e63",
+  "unblock_conditions": [
+    "deterministic_row_to_official_open_images_image_id_mapping_with_hash",
+    "complete_per_image_attribution_ledger",
+    "per_image_license_verification_and_exception_policy",
+    "independent_license_confirmation_for_openvino_text_annotations",
+    "encoded_byte_and_decoded_pixel_deduplication",
+    "separate_preregistered_full_gate_with_frozen_v7_policy",
+    "terminal_artifact_and_independent_audit_before_claim"
+  ],
+  "verified_evidence": {
+    "mirror_declares_apache_2_0": true,
+    "mirror_embeds_raw_image_bytes": true,
+    "mirror_has_open_images_image_id": false,
+    "mirror_has_original_landing_url": false,
+    "mirror_has_per_image_author": false,
+    "mirror_has_per_image_license": false,
+    "mirror_schema_fields": [
+      "image",
+      "texts",
+      "bboxes",
+      "polygons",
+      "num_text_regions"
+    ],
+    "official_image_metadata_fields": [
+      "ImageID",
+      "OriginalURL",
+      "OriginalLandingURL",
+      "License",
+      "AuthorProfileURL",
+      "Author",
+      "Title",
+      "OriginalSize",
+      "OriginalMD5",
+      "Thumbnail300KURL",
+      "Rotation"
+    ],
+    "official_open_images_annotation_license": "CC BY 4.0",
+    "official_open_images_images_listed_license": "CC BY 2.0",
+    "official_open_images_requires_user_per_image_verification": true,
+    "specific_openvino_text_annotation_license_independently_verified": false
+  }
+}
