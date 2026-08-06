@@ -1,0 +1,50 @@
+{
+  "schema": "data-science-pipeline/fresh-pacc-v7-official-result/1",
+  "verdict": "QUARANTINE",
+  "run_id": 31064253661,
+  "job_id": 92498531797,
+  "artifact_id": 8953262071,
+  "artifact_zip_sha256": "0967d3d03428abdbb7ba6ca4d37b5dc026848e235c482ea39359e810d67cb7d1",
+  "source": {
+    "url": "https://oncae.gob.hn/wp-content/uploads/2024/05/GUIA-DE-REGISTROS-Y-FLUJO-DE-PACC-2023.pdf",
+    "bytes": 1434492,
+    "sha256": "98a57e2306bb8f4632dfdadba6be813306f9c322b00ff8275a57460447a891c8"
+  },
+  "tests": "64/64 PASS",
+  "extraction": {
+    "pages_rasterized": 3,
+    "pages_ocr": 3,
+    "mean_confidence": 56.41052924074074,
+    "native_token_recall": 0.7485380116959064,
+    "required_tokens_found": 0,
+    "required_tokens_expected": 1,
+    "missing_tokens": ["PACC"],
+    "identity_hits": {"institution": [], "title": [], "year": ["2023"]}
+  },
+  "finding": {
+    "type": "single_strategy_ocr_failure",
+    "detail": "At 200 DPI with PSM 6, the color slide cover was nearly unreadable and PACC was transcribed as PACE. The official page title was correct, but the OCR evidence did not satisfy the frozen semantic gate.",
+    "observed_examples": [
+      "page 1: OE / ANE",
+      "page 2: Diagramas de flujo ... del PACE ... HonauCompras / 2023",
+      "page 3: ON A="
+    ],
+    "downstream_executed": false,
+    "promotion_credit": 0
+  },
+  "engineering_consequence": {
+    "document_retired_from_promotion": true,
+    "next_candidate": "multi-strategy OCR with higher-DPI sparse-text pass and deterministic selection",
+    "same_document_can_be_used_for_engineering_only": true,
+    "fresh_document_required_for_external_claim": true
+  },
+  "controls": {
+    "post_result_retuning_permitted_for_same_document": false,
+    "merge_authorized": false,
+    "mass_processing_authorized": false,
+    "external_cost_usd": 0.0,
+    "gcloud_used": false,
+    "paid_compute_used": false,
+    "novelty_points": 0
+  }
+}
