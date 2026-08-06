@@ -1,0 +1,42 @@
+{
+  "candidate_commit": "fe8865e9182f8ef62babcc1bdda0ac4c107cebfd",
+  "constraints": {
+    "annotations_opened": false,
+    "annotations_used_at_inference": false,
+    "external_spend_usd": 0.0,
+    "gcloud_used": false,
+    "github_actions_used": false,
+    "gpu_used": false,
+    "paid_api_used": false,
+    "production_modified": false,
+    "significance_look_performed": false
+  },
+  "decision": {
+    "candidate_modified": false,
+    "production_promotion": false,
+    "verdict": "NO_FLAGS_ACCUMULATION_ONLY"
+  },
+  "execution": {
+    "bank_warm_invocations": 10,
+    "decision_equivalence": "same frozen candidate, same presealed ordered images, no annotations opened",
+    "mode": "CHUNKED_AFTER_MONOLITHIC_CONTAINER_TIMEOUT"
+  },
+  "metrics": {
+    "images": 30,
+    "quarantines": 0,
+    "replacements": 0,
+    "semantic_flags": 0
+  },
+  "schema": "ocr-v4-2-untouched-batch7-evidence/1",
+  "sealed_file_sha256": "9f31cbd7808b9501a82fa7fbf97cbdfd531f0ccc33f6c2a97edbc541f02bf317",
+  "sealed_stable_payload_sha256": "7d9ff5a508c263df48ff6582cd4f903d4501f628fdbe811dc977fd88e9f6f727",
+  "status": "DECISIONS_SEALED_NO_ANNOTATIONS_REQUIRED",
+  "timing": {
+    "bank_warm_seconds_first": 2.63383302200009,
+    "bank_warm_seconds_total": 26.843649676000496,
+    "candidate_runtime_ratio_warm": 1.0001819793133389,
+    "full_page_tesseract_seconds": 60.485083704002136,
+    "selective_pixel_seconds": 0.0,
+    "semantic_trigger_seconds": 0.011007033999703708
+  }
+}
