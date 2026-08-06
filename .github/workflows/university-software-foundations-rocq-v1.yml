@@ -36,6 +36,8 @@ jobs:
           assert lock['minimum_rocq_coq'] == '9.0.0'
           assert lock['source_url'].endswith('/lf.tgz')
           assert lock['container_image'] == 'rocq/rocq-prover:9.0'
+          assert lock['source_sha256'] == '3721c1f9a25243251a30e3be9b861707c8e1ab4ba2d1e5374ca8ef36f8dcf130'
+          assert lock['container_digest'] == 'sha256:787ea5569c9bf40e03a2255224365cb2fb0ae4a446fc60565dd61b1656d1699d'
           assert lock['serial_jobs'] == 1
           assert lock['parallel_jobs'] == 4
           print(json.dumps(lock, indent=2, sort_keys=True))
@@ -63,12 +65,13 @@ jobs:
           lock = json.loads(Path('university_rocq_runtime_v1/SOURCE_LOCK.json').read_text())
           observed = sys.argv[1]
           expected = lock['source_sha256']
-          if expected != 'DISCOVERY_PENDING' and observed != expected:
+          if observed != expected:
               raise SystemExit(f'Source SHA mismatch: expected {expected}, observed {observed}')
           PY
           tar tzf lf.tgz > reports/tar-members.txt
           tar xzf lf.tgz -C lf-serial
           tar xzf lf.tgz -C lf-parallel
+          chmod -R a+rwX lf-serial lf-parallel
           python - "$SOURCE_SHA" "$SOURCE_BYTES" <<'PY'
           import hashlib
           import json
@@ -141,7 +144,7 @@ jobs:
           lock = json.loads(Path('university_rocq_runtime_v1/SOURCE_LOCK.json').read_text())
           observed = sys.argv[1]
           expected = lock['container_digest']
-          if expected != 'DISCOVERY_PENDING' and observed != expected:
+          if observed != expected:
               raise SystemExit(f'Container digest mismatch: expected {expected}, observed {observed}')
           PY
           echo "ROCQ_IMAGE_DIGEST=$IMAGE_DIGEST" >> "$GITHUB_ENV"
@@ -149,28 +152,29 @@ jobs:
             'image=rocq/rocq-prover:9.0' \
             "repo_digest=$IMAGE_REF" \
             "digest=$IMAGE_DIGEST" \
+            'entrypoint=opam exec --' \
             > reports/container-binding.txt
 
       - name: Build official volume serially
         shell: bash
         run: |
           set -euo pipefail
-          docker run --rm --user 0:0 --entrypoint bash \
+          docker run --rm \
             -v "$PWD:/work" \
             -w "/work/$LF_SERIAL_ROOT" \
             rocq/rocq-prover:9.0 \
-            -lc 'coqc --version && make -j1' \
+            bash -lc 'coqc --version && make -j1' \
             2>&1 | tee reports/official-build-serial.log
 
       - name: Build official volume in parallel
         shell: bash
         run: |
           set -euo pipefail
-          docker run --rm --user 0:0 --entrypoint bash \
+          docker run --rm \
             -v "$PWD:/work" \
             -w "/work/$LF_PARALLEL_ROOT" \
             rocq/rocq-prover:9.0 \
-            -lc 'coqc --version && make -j4' \
+            bash -lc 'coqc --version && make -j4' \
             2>&1 | tee reports/official-build-parallel.log
 
       - name: Compile scoped proofs and reject negative controls
@@ -181,34 +185,36 @@ jobs:
           cp university_rocq_runtime_v1/Runtime.v "$LF_PARALLEL_ROOT/UniversityRuntime.v"
           cp university_rocq_runtime_v1/NegativeControl.v "$LF_SERIAL_ROOT/NegativeControl.v"
           cp university_rocq_runtime_v1/NegativeControl.v "$LF_PARALLEL_ROOT/NegativeControl.v"
+          chmod a+rw "$LF_SERIAL_ROOT/UniversityRuntime.v" "$LF_PARALLEL_ROOT/UniversityRuntime.v" \
+            "$LF_SERIAL_ROOT/NegativeControl.v" "$LF_PARALLEL_ROOT/NegativeControl.v"
 
-          docker run --rm --user 0:0 --entrypoint bash \
+          docker run --rm \
             -v "$PWD:/work" \
             -w "/work/$LF_SERIAL_ROOT" \
             rocq/rocq-prover:9.0 \
-            -lc 'coqc -Q . LF UniversityRuntime.v' \
+            bash -lc 'coqc -Q . LF UniversityRuntime.v' \
             2>&1 | tee reports/runtime-serial.log
-          docker run --rm --user 0:0 --entrypoint bash \
+          docker run --rm \
             -v "$PWD:/work" \
             -w "/work/$LF_PARALLEL_ROOT" \
             rocq/rocq-prover:9.0 \
-            -lc 'coqc -Q . LF UniversityRuntime.v' \
+            bash -lc 'coqc -Q . LF UniversityRuntime.v' \
             2>&1 | tee reports/runtime-parallel.log
 
-          if docker run --rm --user 0:0 --entrypoint bash \
+          if docker run --rm \
               -v "$PWD:/work" \
               -w "/work/$LF_SERIAL_ROOT" \
               rocq/rocq-prover:9.0 \
-              -lc 'coqc -Q . LF NegativeControl.v' \
+              bash -lc 'coqc -Q . LF NegativeControl.v' \
               > reports/negative-serial.log 2>&1; then
             echo 'Serial negative control unexpectedly compiled.' >&2
             exit 1
           fi
-          if docker run --rm --user 0:0 --entrypoint bash \
+          if docker run --rm \
               -v "$PWD:/work" \
               -w "/work/$LF_PARALLEL_ROOT" \
               rocq/rocq-prover:9.0 \
-              -lc 'coqc -Q . LF NegativeControl.v' \
+              bash -lc 'coqc -Q . LF NegativeControl.v' \
               > reports/negative-parallel.log 2>&1; then
             echo 'Parallel negative control unexpectedly compiled.' >&2
             exit 1
@@ -269,7 +275,7 @@ jobs:
           )
           PY
 
-      - name: Emit discovery or final proof-carrying receipt
+      - name: Emit proof-carrying receipt
         shell: bash
         env:
           EVENT_SHA: ${{ github.sha }}
@@ -287,19 +293,14 @@ jobs:
           reconciliation = json.loads(Path('reports/build-reconciliation.json').read_text())
           image_digest = os.environ['ROCQ_IMAGE_DIGEST']
           pinned = (
-              lock['source_sha256'] != 'DISCOVERY_PENDING'
-              and lock['container_digest'] != 'DISCOVERY_PENDING'
-              and lock['source_sha256'] == source['source_sha256']
+              lock['source_sha256'] == source['source_sha256']
               and lock['container_digest'] == image_digest
           )
-          status = (
-              'PASS_SCOPED_ROCQ_RUNTIME'
-              if pinned
-              else 'PASS_DISCOVERY_REQUIRES_PINNING'
-          )
+          if not pinned:
+              raise SystemExit('Pinned source or container digest does not match the executed runtime')
           receipt = {
               'schema': 'university-software-foundations-rocq/receipt/1',
-              'status': status,
+              'status': 'PASS_SCOPED_ROCQ_RUNTIME',
               'repository': 'cristh99/notebooks',
               'event_sha': os.environ['EVENT_SHA'],
               'head_sha': os.environ['HEAD_SHA'],
