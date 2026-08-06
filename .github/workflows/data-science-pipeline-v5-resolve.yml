@@ -1,0 +1,199 @@
+name: Data Science pipeline v5 — evidence-bound resolution gate
+
+on:
+  push:
+    branches:
+      - agent/data-science-canonical-pipeline-v5-resolve
+    paths:
+      - '.github/workflows/data-science-pipeline-v5-resolve.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  EVIDENCE_ROOT: resolution-v5-evidence
+  UPSTREAM_ARTIFACT_ID: '8952699633'
+  UPSTREAM_ARTIFACT_SHA256: 3c2aa0e8551b559ab2540f61a13a1aef3d69d6efec64437721d574f1d38be2d8
+
+jobs:
+  resolve-replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove workflow-only activation after freeze
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_RUN_ATTEMPT}" = 1
+          test "$(git rev-parse HEAD^)" = 138f5a2e30d2f84468cc95617555e37e4b1ffc4a
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/data-science-pipeline-v5-resolve.yml'
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Run frozen unit, abstention and collision tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_ROOT"
+          cd data_science_pipeline_v5_resolve
+          python -m unittest -v test_resolve_canonical.py test_resolve_runner_v2.py \
+            2>&1 | tee "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/unit-tests.log"
+          grep -q 'Ran 9 tests' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/unit-tests.log"
+          grep -q '^OK$' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/unit-tests.log"
+          python -m py_compile resolve_canonical.py resolve_runner.py resolve_runner_v2.py test_resolve_canonical.py test_resolve_runner_v2.py
+          cp FREEZE.json "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/FREEZE.json"
+
+      - name: Download exact sealed canonical normalization artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api -H 'Accept: application/vnd.github+json' \
+            "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${UPSTREAM_ARTIFACT_ID}/zip" \
+            > "$EVIDENCE_ROOT/upstream.zip"
+          echo "${UPSTREAM_ARTIFACT_SHA256}  $EVIDENCE_ROOT/upstream.zip" | sha256sum -c -
+          mkdir -p "$EVIDENCE_ROOT/upstream"
+          unzip -q "$EVIDENCE_ROOT/upstream.zip" -d "$EVIDENCE_ROOT/upstream"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path('resolution-v5-evidence/upstream/repaired-receipt.json').read_text())
+          assert receipt['verdict'] == 'PASS'
+          assert receipt['sealed_source_artifact_id'] == 8952669318
+          assert receipt['row_counts'] == {'documents': 1, 'pages': 3, 'lines': 99, 'words': 461}
+          PY
+
+      - name: Resolve twice and require byte-identical replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          python data_science_pipeline_v5_resolve/resolve_runner_v2.py \
+            --bundle "$EVIDENCE_ROOT/upstream" \
+            --output "$EVIDENCE_ROOT/output-a" \
+            > "$EVIDENCE_ROOT/resolve-a.log"
+          python data_science_pipeline_v5_resolve/resolve_runner_v2.py \
+            --bundle "$EVIDENCE_ROOT/upstream" \
+            --output "$EVIDENCE_ROOT/output-b" \
+            > "$EVIDENCE_ROOT/resolve-b.log"
+          diff -qr "$EVIDENCE_ROOT/output-a" "$EVIDENCE_ROOT/output-b" | tee "$EVIDENCE_ROOT/replay-diff.log"
+          test ! -s "$EVIDENCE_ROOT/replay-diff.log"
+
+      - name: Independently adjudicate resolution, abstention and lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+
+          root = Path(os.environ['EVIDENCE_ROOT'])
+          out = root / 'output-a'
+          manifest = json.loads((out / 'resolve-manifest.json').read_text())
+          def rows(name):
+              path = out / name
+              return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+          def sha(path):
+              return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+          entities = rows('entities.jsonl')
+          mentions = rows('entity_mentions.jsonl')
+          collisions = rows('entity_collisions.jsonl')
+          dates = rows('dates.jsonl')
+          legal = rows('legal_instruments.jsonl')
+          legal_mentions = rows('legal_mentions.jsonl')
+          contacts = rows('contacts.jsonl')
+          amounts = rows('amounts.jsonl')
+          abstentions = rows('abstentions.jsonl')
+          entity_ids = {row['entity_id'] for row in entities}
+          legal_ids = {row['legal_id'] for row in legal}
+          required_entities = {
+              'hn:institution:oncae',
+              'hn:organization:cich',
+              'hn:organization:educredito',
+              'hn:country:honduras',
+              'hn:government:republic',
+          }
+          required_legal = {
+              'hn:legal:reglamento-ley-contratacion-estado',
+              'hn:legal:presupuesto-general-2024',
+              'hn:decree:62-2023',
+          }
+          internal_boolean_checks = {
+              key: value for key, value in manifest['checks'].items() if key != 'external_cost_usd'
+          }
+          checks = {
+              'schema_exact': manifest['schema'] == 'data-science-pipeline/resolved-canonical-bundle/1',
+              'all_boolean_internal_checks': all(internal_boolean_checks.values()),
+              'zero_cost_exact': manifest['checks']['external_cost_usd'] == 0.0,
+              'required_entities_resolved': required_entities <= entity_ids,
+              'month_year_resolved': any(row['value'] == '2024-11' for row in dates),
+              'required_legal_resolved': required_legal <= legal_ids,
+              'phone_resolved': any(row['canonical_value'] == '+504-2209-5355' for row in contacts),
+              'no_amount_hallucination': amounts == [],
+              'amount_abstention': any(row['reason_code'] == 'NO_CURRENCY_QUALIFIED_AMOUNT' for row in abstentions),
+              'zero_entity_collisions': collisions == [],
+              'mention_lineage_complete': all(row.get('line_ids') and row.get('lineage_parent_sha256') for row in mentions + legal_mentions),
+              'replay_byte_identical': not (root / 'replay-diff.log').read_bytes(),
+              'manifest_replay_identical': (root / 'output-a/resolve-manifest.json').read_bytes() == (root / 'output-b/resolve-manifest.json').read_bytes(),
+              'source_hash_exact': manifest['upstream']['source_pdf_sha256'] == '5f278ec51106212a95a6f8c135cdfb8376724daab1e49b9ca0d3879543d11e85',
+          }
+          output_hashes = {
+              path.name: sha(path)
+              for path in sorted(out.iterdir())
+              if path.is_file()
+          }
+          receipt = {
+              'schema': 'data-science-pipeline/resolve-integration-receipt/1',
+              'verdict': 'PASS' if all(checks.values()) else 'FAIL',
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_sha': os.environ['GITHUB_SHA'],
+              'checks': checks,
+              'row_counts': manifest['row_counts'],
+              'resolved_entity_ids': sorted(entity_ids),
+              'resolved_legal_ids': sorted(legal_ids),
+              'resolved_dates': sorted({row['value'] for row in dates}),
+              'resolved_contacts': sorted({row['canonical_value'] for row in contacts}),
+              'amount_count': len(amounts),
+              'abstention_count': len(abstentions),
+              'output_hashes': output_hashes,
+              'upstream_artifact_zip_sha256': os.environ['UPSTREAM_ARTIFACT_SHA256'],
+              'post_result_retuning_permitted': False,
+              'merge_authorized': False,
+              'mass_processing_authorized': False,
+              'external_cost_usd': 0.0,
+              'gcloud_used': False,
+              'paid_compute_used': False,
+          }
+          payload = json.dumps(receipt, indent=2, sort_keys=True, ensure_ascii=False) + '\n'
+          (root / 'integration-receipt.json').write_text(payload)
+          (root / 'integration-receipt.sha256').write_text(hashlib.sha256(payload.encode()).hexdigest() + '  integration-receipt.json\n')
+          print(payload)
+          PY
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: data-science-pipeline-v5-resolve
+          retention-days: 90
+          if-no-files-found: error
+          path: resolution-v5-evidence/**
+
+      - name: Enforce resolution verdict
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path('resolution-v5-evidence/integration-receipt.json').read_text())
+          if receipt['verdict'] != 'PASS':
+              raise SystemExit([name for name, passed in receipt['checks'].items() if not passed])
+          print('PASS: entities, date, legal instruments and phone resolved with exact spans; money abstained')
+          PY
