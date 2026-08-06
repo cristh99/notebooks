@@ -6,11 +6,11 @@ on:
   pull_request:
     paths:
       - '.github/workflows/university-software-foundations-rocq-v1.yml'
-      - 'university_rocq_runtime_v1/**'
+      - 'university_software_foundations_blind_v1/**'
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  group: blind-lf-v1-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 permissions:
@@ -23,71 +23,67 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
-      - name: Freeze source and runtime contracts
+      - name: Verify immutable preregistration and implementation capsules
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p reports lf-serial lf-parallel
+          mkdir -p reports frozen regenerated lf-primary lf-replay
+          echo 'ca18047f818e9a0c6725a1d9e40001adce817bdd0662005ce01054565a71404b  university_software_foundations_blind_v1/preregistration-frozen.tar.gz' | sha256sum -c -
+          echo 'a2c561c0360fcb7e51e9411112f43bc3a3252c1e1db72af9bb0f9a9835594592  university_software_foundations_blind_v1/implementation-v1.tar.gz' | sha256sum -c -
+          tar xzf university_software_foundations_blind_v1/preregistration-frozen.tar.gz -C frozen
+          tar xzf university_software_foundations_blind_v1/implementation-v1.tar.gz
+          (cd frozen && sha256sum -c university_software_foundations_blind_v1/SHA256SUMS)
+          test -f university_software_foundations_blind_v1/BlindEarly.v
+          test -f university_software_foundations_blind_v1/BlindProof.v
+          test -f university_software_foundations_blind_v1/BlindSemantics.v
+          test -f university_software_foundations_blind_v1/BlindAutomation.v
+          test -f university_software_foundations_blind_v1/BlindNegativeControl.v
           python - <<'PY'
           import json
           from pathlib import Path
-          lock = json.loads(Path('university_rocq_runtime_v1/SOURCE_LOCK.json').read_text())
-          expected = {
-              'official_site': 'https://softwarefoundations.cis.upenn.edu/',
-              'volume': 'Logical Foundations',
-              'volume_version': '7.0',
-              'minimum_rocq_coq': '9.0.0',
-              'source_sha256': '3721c1f9a25243251a30e3be9b861707c8e1ab4ba2d1e5374ca8ef36f8dcf130',
-              'container_image': 'rocq/rocq-prover:9.0',
-              'container_digest': 'sha256:787ea5569c9bf40e03a2255224365cb2fb0ae4a446fc60565dd61b1656d1699d',
-              'serial_jobs': 1,
-              'parallel_jobs': 4,
-          }
-          for key, value in expected.items():
-              assert lock[key] == value, (key, lock[key], value)
-          print(json.dumps(lock, indent=2, sort_keys=True))
+          root = Path('frozen/university_software_foundations_blind_v1')
+          prereg = json.loads((root / 'PREREGISTRATION.json').read_text())
+          selected = json.loads((root / 'SELECTED.json').read_text())
+          lock = json.loads((root / 'SOURCE_LOCK.json').read_text())
+          assert prereg['status'] == 'FROZEN_BEFORE_TARGET_REVEAL'
+          assert prereg['denominator'] == 18
+          assert prereg['proof_policy']['preapproved_axioms'] == []
+          assert prereg['proof_policy']['target_replacement'] is False
+          assert selected['target_count'] == 18
+          assert selected['no_replacement'] is True
+          assert len(selected['targets']) == 18
+          assert len({t['target_id'] for t in selected['targets']}) == 18
+          assert lock['source_sha256'] == '3721c1f9a25243251a30e3be9b861707c8e1ab4ba2d1e5374ca8ef36f8dcf130'
+          print(json.dumps({
+              'status': prereg['status'],
+              'denominator': prereg['denominator'],
+              'selection_seed': selected['selection_seed'],
+              'target_ids': [t['target_id'] for t in selected['targets']],
+          }, indent=2, sort_keys=True))
           PY
-          if grep -nE '(^|[[:space:]])(Admitted|admit)([[:space:].]|$)|^[[:space:]]*(Axiom|Parameter)[[:space:]]' university_rocq_runtime_v1/Runtime.v; then
-            echo 'Scoped runtime contains a forbidden placeholder or declaration.' >&2
+          if grep -RniE '(^|[[:space:]])(Admitted|admit)([[:space:].]|$)|^[[:space:]]*(Axiom|Parameter)[[:space:]]' university_software_foundations_blind_v1/Blind*.v; then
+            echo 'Forbidden placeholder or declaration in blind proofs.' >&2
             exit 1
           fi
 
-      - name: Acquire two independent official source trees
+      - name: Acquire official Logical Foundations source and reproduce selection
         shell: bash
         run: |
           set -euo pipefail
           curl -fL --retry 3 https://softwarefoundations.cis.upenn.edu/current/lf-current/lf.tgz -o lf.tgz
           echo '3721c1f9a25243251a30e3be9b861707c8e1ab4ba2d1e5374ca8ef36f8dcf130  lf.tgz' | sha256sum -c -
-          tar tzf lf.tgz > reports/tar-members.txt
-          tar xzf lf.tgz -C lf-serial
-          tar xzf lf.tgz -C lf-parallel
-          chmod -R a+rwX lf-serial lf-parallel
-          test -f lf-serial/lf/Makefile
-          test -f lf-parallel/lf/Makefile
-          python - <<'PY'
-          import hashlib, json
-          from pathlib import Path
-          def manifest(root):
-              return [{'path': p.relative_to(root).as_posix(), 'sha256': hashlib.sha256(p.read_bytes()).hexdigest()}
-                      for p in sorted(root.rglob('*')) if p.is_file()]
-          left = manifest(Path('lf-serial/lf'))
-          right = manifest(Path('lf-parallel/lf'))
-          if left != right:
-              raise SystemExit('Independent source extractions differ')
-          Path('reports/prebuild-source-manifest.json').write_text(json.dumps(left, indent=2, sort_keys=True) + '\n')
-          Path('reports/source-discovery.json').write_text(json.dumps({
-              'schema': 'university-software-foundations-rocq/source-discovery/1',
-              'source_sha256': '3721c1f9a25243251a30e3be9b861707c8e1ab4ba2d1e5374ca8ef36f8dcf130',
-              'source_bytes': Path('lf.tgz').stat().st_size,
-              'source_file_count': len(left),
-              'serial_root': 'lf-serial/lf',
-              'parallel_root': 'lf-parallel/lf',
-          }, indent=2, sort_keys=True) + '\n')
-          PY
-          echo 'LF_SERIAL_ROOT=lf-serial/lf' >> "$GITHUB_ENV"
-          echo 'LF_PARALLEL_ROOT=lf-parallel/lf' >> "$GITHUB_ENV"
+          tar xzf lf.tgz -C lf-primary
+          tar xzf lf.tgz -C lf-replay
+          chmod -R a+rwX lf-primary lf-replay
+          test -f lf-primary/lf/Makefile
+          test -f lf-replay/lf/Makefile
+          python frozen/university_software_foundations_blind_v1/select_blind_targets.py lf-primary/lf regenerated
+          cmp frozen/university_software_foundations_blind_v1/INVENTORY.json regenerated/INVENTORY.json
+          cmp frozen/university_software_foundations_blind_v1/SELECTED.json regenerated/SELECTED.json
+          echo 'LF_PRIMARY=lf-primary/lf' >> "$GITHUB_ENV"
+          echo 'LF_REPLAY=lf-replay/lf' >> "$GITHUB_ENV"
 
-      - name: Bind and smoke-test pinned Rocq image
+      - name: Bind pinned Rocq kernel
         shell: bash
         run: |
           set -euo pipefail
@@ -96,82 +92,123 @@ jobs:
           IMAGE_DIGEST="${IMAGE_REF##*@}"
           test "$IMAGE_DIGEST" = 'sha256:787ea5569c9bf40e03a2255224365cb2fb0ae4a446fc60565dd61b1656d1699d'
           echo "ROCQ_IMAGE_REF=$IMAGE_REF" >> "$GITHUB_ENV"
-          echo "ROCQ_IMAGE_DIGEST=$IMAGE_DIGEST" >> "$GITHUB_ENV"
           printf '%s\n' "repo_digest=$IMAGE_REF" "digest=$IMAGE_DIGEST" > reports/container-binding.txt
           docker run --rm "$IMAGE_REF" rocq --version 2>&1 | tee reports/rocq-version.log
 
-      - name: Build the official volume serially and in parallel
+      - name: Build two independent official source trees concurrently
         shell: bash
         run: |
           set -euo pipefail
           (
             set -o pipefail
-            docker run --rm -v "$PWD:/work" -w "/work/$LF_SERIAL_ROOT" "$ROCQ_IMAGE_REF" bash -c 'make -j1 V=' 2>&1 | tee reports/official-build-serial.log
+            docker run --rm -v "$PWD:/work" -w "/work/$LF_PRIMARY" "$ROCQ_IMAGE_REF" bash -c 'make -j4 V=' 2>&1 | tee reports/official-build-primary.log
           ) &
-          SERIAL_PID=$!
+          P1=$!
           (
             set -o pipefail
-            docker run --rm -v "$PWD:/work" -w "/work/$LF_PARALLEL_ROOT" "$ROCQ_IMAGE_REF" bash -c 'make -j4 V=' 2>&1 | tee reports/official-build-parallel.log
+            docker run --rm -v "$PWD:/work" -w "/work/$LF_REPLAY" "$ROCQ_IMAGE_REF" bash -c 'make -j4 V=' 2>&1 | tee reports/official-build-replay.log
           ) &
-          PARALLEL_PID=$!
-          SERIAL_RC=0
-          PARALLEL_RC=0
-          wait "$SERIAL_PID" || SERIAL_RC=$?
-          wait "$PARALLEL_PID" || PARALLEL_RC=$?
-          test "$SERIAL_RC" -eq 0
-          test "$PARALLEL_RC" -eq 0
-          SERIAL_VO_COUNT="$(find "$LF_SERIAL_ROOT" -type f -name '*.vo' | wc -l)"
-          PARALLEL_VO_COUNT="$(find "$LF_PARALLEL_ROOT" -type f -name '*.vo' | wc -l)"
-          test "$SERIAL_VO_COUNT" -gt 10
-          test "$PARALLEL_VO_COUNT" -gt 10
-          test "$SERIAL_VO_COUNT" -eq "$PARALLEL_VO_COUNT"
-          printf '%s\n' "serial_vo_count=$SERIAL_VO_COUNT" "parallel_vo_count=$PARALLEL_VO_COUNT" > reports/official-build-counts.txt
+          P2=$!
+          R1=0; R2=0
+          wait "$P1" || R1=$?
+          wait "$P2" || R2=$?
+          printf '%s\n' "primary_rc=$R1" "replay_rc=$R2" > reports/official-build-status.txt
+          test "$R1" -eq 0
+          test "$R2" -eq 0
+          C1="$(find "$LF_PRIMARY" -type f -name '*.vo' | wc -l)"
+          C2="$(find "$LF_REPLAY" -type f -name '*.vo' | wc -l)"
+          test "$C1" -eq 40
+          test "$C2" -eq 40
+          printf '%s\n' "primary_official_vo=$C1" "replay_official_vo=$C2" > reports/official-build-counts.txt
 
-      - name: Compile scoped proofs and reject invalid proofs
+      - name: Compile the fixed 18 targets in four parallel groups
         shell: bash
         run: |
           set -euo pipefail
-          for root in "$LF_SERIAL_ROOT" "$LF_PARALLEL_ROOT"; do
-            cp university_rocq_runtime_v1/Runtime.v "$root/UniversityRuntime.v"
-            cp university_rocq_runtime_v1/NegativeControl.v "$root/NegativeControl.v"
-            chmod a+rw "$root/UniversityRuntime.v" "$root/NegativeControl.v"
+          GROUPS=(BlindEarly BlindProof BlindSemantics BlindAutomation)
+          PIDS=()
+          for group in "${GROUPS[@]}"; do
+            cp "university_software_foundations_blind_v1/${group}.v" "$LF_PRIMARY/${group}.v"
+            chmod a+rw "$LF_PRIMARY/${group}.v"
+            (
+              set -o pipefail
+              docker run --rm -v "$PWD:/work" -w "/work/$LF_PRIMARY" "$ROCQ_IMAGE_REF" rocq compile -Q . LF "${group}.v" 2>&1 | tee "reports/compile-${group}.log"
+            ) &
+            PIDS+=("$!")
           done
-          (
-            set -o pipefail
-            docker run --rm -v "$PWD:/work" -w "/work/$LF_SERIAL_ROOT" "$ROCQ_IMAGE_REF" rocq compile -Q . LF UniversityRuntime.v 2>&1 | tee reports/runtime-serial.log
-          ) &
-          SERIAL_RUNTIME_PID=$!
-          (
-            set -o pipefail
-            docker run --rm -v "$PWD:/work" -w "/work/$LF_PARALLEL_ROOT" "$ROCQ_IMAGE_REF" rocq compile -Q . LF UniversityRuntime.v 2>&1 | tee reports/runtime-parallel.log
-          ) &
-          PARALLEL_RUNTIME_PID=$!
-          SERIAL_RUNTIME_RC=0
-          PARALLEL_RUNTIME_RC=0
-          wait "$SERIAL_RUNTIME_PID" || SERIAL_RUNTIME_RC=$?
-          wait "$PARALLEL_RUNTIME_PID" || PARALLEL_RUNTIME_RC=$?
-          test "$SERIAL_RUNTIME_RC" -eq 0
-          test "$PARALLEL_RUNTIME_RC" -eq 0
+          STATUS=0
+          for i in "${!GROUPS[@]}"; do
+            RC=0
+            wait "${PIDS[$i]}" || RC=$?
+            printf '%s=%s\n' "${GROUPS[$i]}" "$RC" | tee -a reports/primary-status.txt
+            if [ "$RC" -ne 0 ]; then STATUS=1; fi
+          done
+          exit "$STATUS"
 
-          docker run --rm -v "$PWD:/work" -w "/work/$LF_SERIAL_ROOT" "$ROCQ_IMAGE_REF" rocq compile -Q . LF NegativeControl.v > reports/negative-serial.log 2>&1 &
-          NEGATIVE_SERIAL_PID=$!
-          docker run --rm -v "$PWD:/work" -w "/work/$LF_PARALLEL_ROOT" "$ROCQ_IMAGE_REF" rocq compile -Q . LF NegativeControl.v > reports/negative-parallel.log 2>&1 &
-          NEGATIVE_PARALLEL_PID=$!
-          NEGATIVE_SERIAL_RC=0
-          NEGATIVE_PARALLEL_RC=0
-          wait "$NEGATIVE_SERIAL_PID" || NEGATIVE_SERIAL_RC=$?
-          wait "$NEGATIVE_PARALLEL_PID" || NEGATIVE_PARALLEL_RC=$?
-          if [ "$NEGATIVE_SERIAL_RC" -eq 0 ]; then
-            echo 'Serial negative control unexpectedly compiled.' >&2
-            exit 1
-          fi
-          if [ "$NEGATIVE_PARALLEL_RC" -eq 0 ]; then
-            echo 'Parallel negative control unexpectedly compiled.' >&2
-            exit 1
-          fi
-          cmp reports/runtime-serial.log reports/runtime-parallel.log
+      - name: Enforce zero-assumption and fixed-denominator gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED=(6 6 3 3)
+          GROUPS=(BlindEarly BlindProof BlindSemantics BlindAutomation)
+          TOTAL=0
+          for i in "${!GROUPS[@]}"; do
+            LOG="reports/compile-${GROUPS[$i]}.log"
+            if grep -Hn '^Axioms:$' "$LOG"; then
+              echo "Axiom dependency in ${GROUPS[$i]}." >&2
+              exit 1
+            fi
+            COUNT="$(grep -c 'Closed under the global context' "$LOG")"
+            test "$COUNT" -eq "${EXPECTED[$i]}"
+            TOTAL=$((TOTAL + COUNT))
+          done
+          test "$TOTAL" -eq 18
+          printf '%s\n' "denominator=18" "closed_targets=$TOTAL" "axiom_dependencies=0" > reports/assumption-gate.txt
 
-      - name: Reconcile outputs and emit proof-carrying receipt
+      - name: Reject a false mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp university_software_foundations_blind_v1/BlindNegativeControl.v "$LF_PRIMARY/BlindNegativeControl.v"
+          chmod a+rw "$LF_PRIMARY/BlindNegativeControl.v"
+          RC=0
+          docker run --rm -v "$PWD:/work" -w "/work/$LF_PRIMARY" "$ROCQ_IMAGE_REF" rocq compile -Q . LF BlindNegativeControl.v > reports/negative-control.log 2>&1 || RC=$?
+          test "$RC" -ne 0
+          grep -Eq 'Error:|Unable to unify|not convertible' reports/negative-control.log
+          echo 'negative_control_rejected=1' > reports/negative-control-status.txt
+
+      - name: Replay all 18 targets from the second clean extraction
+        shell: bash
+        run: |
+          set -euo pipefail
+          GROUPS=(BlindEarly BlindProof BlindSemantics BlindAutomation)
+          PIDS=()
+          for group in "${GROUPS[@]}"; do
+            cp "university_software_foundations_blind_v1/${group}.v" "$LF_REPLAY/${group}.v"
+            chmod a+rw "$LF_REPLAY/${group}.v"
+            (
+              set -o pipefail
+              docker run --rm -v "$PWD:/work" -w "/work/$LF_REPLAY" "$ROCQ_IMAGE_REF" rocq compile -Q . LF "${group}.v" 2>&1 | tee "reports/replay-${group}.log"
+            ) &
+            PIDS+=("$!")
+          done
+          STATUS=0
+          for i in "${!GROUPS[@]}"; do
+            RC=0
+            wait "${PIDS[$i]}" || RC=$?
+            printf '%s=%s\n' "${GROUPS[$i]}" "$RC" | tee -a reports/replay-status.txt
+            if [ "$RC" -ne 0 ]; then STATUS=1; fi
+          done
+          test "$STATUS" -eq 0
+          for group in "${GROUPS[@]}"; do
+            cmp "reports/compile-${group}.log" "reports/replay-${group}.log"
+          done
+          TOTAL="$(grep -h 'Closed under the global context' reports/replay-*.log | wc -l)"
+          test "$TOTAL" -eq 18
+          if grep -Hn '^Axioms:$' reports/replay-*.log; then exit 1; fi
+          printf '%s\n' "replay_closed_targets=$TOTAL" "replay_axiom_dependencies=0" > reports/replay-gate.txt
+
+      - name: Emit blind assessment receipt and complete hash ledger
         shell: bash
         env:
           EVENT_SHA: ${{ github.sha }}
@@ -179,60 +216,62 @@ jobs:
         run: |
           set -euo pipefail
           python - <<'PY'
-          import hashlib, json, os, re
+          import hashlib, json, os
           from pathlib import Path
-          serial, parallel = Path('lf-serial/lf'), Path('lf-parallel/lf')
-          def names(root, suffix):
-              return sorted(p.relative_to(root).as_posix() for p in root.rglob(f'*{suffix}'))
-          serial_vo, parallel_vo = names(serial, '.vo'), names(parallel, '.vo')
-          if serial_vo != parallel_vo:
-              raise SystemExit('Serial and parallel .vo inventories differ')
-          official = [p for p in serial.rglob('*.v') if p.name not in {'UniversityRuntime.v', 'NegativeControl.v'}]
-          placeholders = sum(len(re.findall(r'\b(?:Admitted|admit)\b', p.read_text(errors='replace'))) for p in official)
-          reconciliation = {
-              'schema': 'university-software-foundations-rocq/build-reconciliation/1',
-              'official_v_files': len(official),
-              'compiled_vo_files': len(serial_vo),
-              'serial_parallel_vo_inventory_equal': True,
-              'official_instructional_placeholder_occurrences': placeholders,
-              'scoped_runtime_placeholder_occurrences': 0,
-              'negative_controls_rejected': 2,
-              'assumption_output_identical': True,
-          }
-          Path('reports/build-reconciliation.json').write_text(json.dumps(reconciliation, indent=2, sort_keys=True) + '\n')
+          selected = json.loads(Path('frozen/university_software_foundations_blind_v1/SELECTED.json').read_text())
+          targets = [{
+              'target_id': t['target_id'],
+              'file': t['file'],
+              'exercise_name': t['exercise_name'],
+              'target_name': t['target_name'],
+              'stars': t['stars'],
+              'stratum': t['stratum'],
+              'statement_sha256': t['statement_sha256'],
+              'status': 'PASS',
+              'assumptions': [],
+              'primary_compile': True,
+              'clean_replay': True,
+          } for t in selected['targets']]
           receipt = {
-              'schema': 'university-software-foundations-rocq/receipt/1',
-              'status': 'PASS_SCOPED_ROCQ_RUNTIME',
+              'schema': 'university-software-foundations-blind/receipt/1',
+              'status': 'PASS_18_OF_18_BLIND_STRATIFIED',
+              'assessment_id': 'university-software-foundations-blind-v1',
               'repository': 'cristh99/notebooks',
               'event_sha': os.environ['EVENT_SHA'],
               'head_sha': os.environ['HEAD_SHA'],
-              'source_sha256': '3721c1f9a25243251a30e3be9b861707c8e1ab4ba2d1e5374ca8ef36f8dcf130',
+              'preregistration_commit': 'd4b1e21889e1d17323130d88ebc5d7fb7f069f7a',
+              'preregistration_archive_sha256': 'ca18047f818e9a0c6725a1d9e40001adce817bdd0662005ce01054565a71404b',
+              'implementation_archive_sha256': 'a2c561c0360fcb7e51e9411112f43bc3a3252c1e1db72af9bb0f9a9835594592',
+              'source_sha256': selected['source_sha256'],
               'container_digest': 'sha256:787ea5569c9bf40e03a2255224365cb2fb0ae4a446fc60565dd61b1656d1699d',
-              'official_volume': 'Logical Foundations 7.0',
-              'official_serial_build': True,
-              'official_parallel_build': True,
-              'scoped_runtime_serial': True,
-              'scoped_runtime_parallel': True,
-              'negative_controls_rejected': 2,
-              'serial_parallel_vo_inventory_equal': True,
-              'assumption_output_identical': True,
-              'official_instructional_placeholder_occurrences': placeholders,
-              'scope_boundary': 'Real Rocq kernel execution and serial/parallel official-volume builds; not completion of every official exercise or full course mastery.',
+              'denominator': 18,
+              'passed': 18,
+              'failed': 0,
+              'target_replacement': False,
+              'preapproved_axioms': [],
+              'negative_controls_rejected': 1,
+              'clean_replay': True,
+              'targets': targets,
+              'scope_boundary': 'Fixed blind sample only; not completion of Logical Foundations, a course, or a university curriculum.',
           }
-          path = Path('reports/receipt.json')
-          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
-          Path('reports/receipt.sha256').write_text(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  receipt.json\n")
-          print(json.dumps(receipt, indent=2, sort_keys=True))
+          out = Path('reports/blind-receipt.json')
+          out.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          Path('reports/blind-receipt.sha256').write_text(f"{hashlib.sha256(out.read_bytes()).hexdigest()}  blind-receipt.json\n")
+          print(json.dumps({k: receipt[k] for k in ['status','denominator','passed','failed','clean_replay']}, indent=2))
           PY
-          find university_rocq_runtime_v1 reports -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > reports/SHA256SUMS
-          sha256sum lf.tgz >> reports/SHA256SUMS
-          sha256sum -c reports/SHA256SUMS
+          find university_software_foundations_blind_v1 frozen regenerated reports -type f ! -name BLIND_SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > reports/BLIND_SHA256SUMS
+          sha256sum lf.tgz >> reports/BLIND_SHA256SUMS
+          sha256sum -c reports/BLIND_SHA256SUMS
 
-      - name: Upload Rocq runtime evidence
+      - name: Upload blind assessment evidence and diagnostics
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: university-software-foundations-rocq-v1-evidence
+          name: university-software-foundations-blind-v1-evidence
+          if-no-files-found: error
           path: |
-            university_rocq_runtime_v1/
+            university_software_foundations_blind_v1/
+            frozen/
+            regenerated/
             reports/
             lf.tgz
