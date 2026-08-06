@@ -1,0 +1,7 @@
+coordination_id=COORD-2026-08-06-PARALLEL-V2
+purpose=trigger_exact_pr_carrier_after_base_registration
+behavioral_change=false
+external_real_data_evaluations=0
+external_cost_usd=0.00
+production_modified=false
+stage08_unblocked=false
