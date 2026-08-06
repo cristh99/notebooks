@@ -1,0 +1,50 @@
+{
+  "schema": "data-science-pipeline/oncae-extract-freeze/1",
+  "base_branch": "agent/data-science-canonical-pipeline-v2-acquisition",
+  "base_commit_at_branch_creation": "76151f266743ea021ef66f5abd66c0d5dfd8c144",
+  "source": {
+    "institution": "ONCAE",
+    "title": "GUIA PARA LA MODALIDAD DE CONTRATACION DIRECTA",
+    "url": "https://oncae.gob.hn/wp-content/uploads/2024/11/GUIA-PARA-LA-MODALIDAD-DE-CONTRATACION-DIRECTA-1.pdf",
+    "expected_total_pages": 27,
+    "official_domain": "oncae.gob.hn"
+  },
+  "declared_scope": {
+    "processed_pages": 3,
+    "partial_document_must_be_true": true,
+    "rasterization_mandatory": true,
+    "native_text_is_non_authoritative_control": true
+  },
+  "quality_gate": {
+    "dpi": 200,
+    "languages": "spa+eng",
+    "psm": 6,
+    "minimum_mean_confidence": 55.0,
+    "minimum_native_token_recall": 0.55,
+    "required_tokens": ["ONCAE", "CONTRATACION", "DIRECTA", "NOVIEMBRE", "2024"],
+    "empty_pages_allowed": 0,
+    "external_cost_usd": 0.0
+  },
+  "evidence_contract": [
+    "original PDF and acquisition receipt",
+    "raw immutable artifact",
+    "PNG raster for every processed page",
+    "OCR text and Tesseract TSV per page",
+    "word coordinates and confidence layout per page",
+    "non-authoritative native-text control per page",
+    "document OCR text and manifest",
+    "hash-chained ledger and final receipt"
+  ],
+  "frozen_before_external_result": true,
+  "post_result_retuning_permitted": false,
+  "mass_processing_authorized": false,
+  "merge_authorized": false,
+  "gcloud_used": false,
+  "paid_compute_used": false,
+  "novelty_points": 0,
+  "verdicts": {
+    "PASS": "all acquisition, preservation, OCR and semantic gates pass",
+    "QUARANTINE": "bytes were acquired but extraction quality or semantics fail",
+    "OBSTRUCTION": "the official PDF could not be safely acquired or required tools were unavailable"
+  }
+}

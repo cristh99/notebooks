@@ -1,0 +1,11 @@
+{
+  "request_id": "oncae-direct-contracting-guide-2024",
+  "url": "https://oncae.gob.hn/wp-content/uploads/2024/11/GUIA-PARA-LA-MODALIDAD-DE-CONTRATACION-DIRECTA-1.pdf",
+  "allowed_hosts": ["oncae.gob.hn"],
+  "expected_media_types": ["application/pdf"],
+  "min_bytes": 50000,
+  "max_bytes": 20000000,
+  "timeout_seconds": 60,
+  "max_redirects": 3,
+  "headers": {"Accept": "application/pdf"}
+}
