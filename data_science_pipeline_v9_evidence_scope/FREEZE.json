@@ -22,7 +22,7 @@
     "validation_receipt_binds_channel_observation_validator_policy": true
   },
   "source_sha256": "0f8aba8fd709bf9f5ac24ec9ca9bee6e40c1a397efa1f97679c80fa9392b7135",
-  "tests_sha256": "d77c1506521e7108bf1d3302c9eb04a6b4d40983bbcf237df848039d1232abb2",
+  "tests_sha256": "51ac02776b35370db970dae10897966e09b38eb114d3223d2d0c614dbba0fcbf",
   "expected_tests": 15,
   "controls": {
     "network_required": false,
