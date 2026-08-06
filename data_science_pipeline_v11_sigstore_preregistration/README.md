@@ -22,7 +22,9 @@ Verification pins:
 - GitHub-hosted runner;
 - subject SHA-256.
 
-This removes the need to place a private signing key in the repository.
+This removes the need to place a private signing key in the repository. The signed
+record still contains declarations made by this workflow; Sigstore does not prove that
+those declarations are factually true outside the workflow boundary.
 
 ## Static verification
 
@@ -36,9 +38,11 @@ and confirms zero document-content access and zero external evaluations.
 
 ## Boundary
 
-The attestation proves subject integrity, ordering and GitHub workflow identity. It does
-not prove that the user-controlled predicate is true without reviewing the trusted
-workflow, nor does it prove document authenticity, OCR quality, resolver accuracy,
+The attestation proves subject integrity, the signer workflow identity, repository/ref/
+commit provenance, and that the preregistration record existed at the attested commit.
+It does not prove actual pre-commit non-access, evaluation count or cost, and it does not
+prove that the user-controlled predicate is true without reviewing the trusted workflow.
+It also does not prove document authenticity, OCR quality, resolver accuracy,
 beneficial ownership, payment, legality, intent or corruption.
 
 Stage 08 remains blocked until the attested preregistration is followed by one fresh,

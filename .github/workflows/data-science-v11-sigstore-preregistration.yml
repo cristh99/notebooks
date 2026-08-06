@@ -9,6 +9,10 @@ on:
       - 'data_science_pipeline_v11_sigstore_preregistration/**'
   workflow_dispatch:
 
+concurrency:
+  group: data-science-v11-sigstore-preregistration
+  cancel-in-progress: true
+
 permissions:
   contents: read
   id-token: write
@@ -80,10 +84,12 @@ jobs:
           receipt = json.loads(Path(
               "sigstore-preregistration-v11-evidence/static-receipt.json"
           ).read_text())
-          assert receipt["verdict"] == "PASS_PREREGISTRATION_SOFTWARE_ONLY"
+          assert receipt["verdict"] == "PASS_PREREGISTRATION_RECORD_SOFTWARE_ONLY"
           assert receipt["github_attestation_created"] is False
-          assert receipt["checks"]["document_content_unopened"] is True
-          assert receipt["checks"]["external_evaluations_zero"] is True
+          assert all(receipt["software_checks"].values())
+          declarations = receipt["preregistration_declarations"]
+          assert declarations["document_content_accessed_before_freeze"] is False
+          assert declarations["actual_external_evaluations"] == 0
           PY
           sha256sum \
             "$SUBJECT" \
@@ -139,6 +145,9 @@ jobs:
           results = json.loads((root / "verification.json").read_text())
           assert isinstance(results, list) and results
           predicate = json.loads(predicate_path.read_text())
+          preregistration = json.loads(subject.read_text())
+          source_record = preregistration["source_selection"]
+          control_record = preregistration["execution_controls"]
           subject_sha = hashlib.sha256(subject.read_bytes()).hexdigest()
           matches = []
           for result in results:
@@ -159,8 +168,8 @@ jobs:
               return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
           receipt = {
-              "schema": "data-science-pipeline/sigstore-preregistration-external-receipt/1",
-              "verdict": "PASS_SIGSTORE_PREREGISTRATION",
+              "schema": "data-science-pipeline/sigstore-preregistration-external-receipt/2",
+              "verdict": "PASS_SIGSTORE_ATTESTATION_OF_PREREGISTRATION_RECORD",
               "github_run_id": int(os.environ["GITHUB_RUN_ID"]),
               "github_run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
               "github_sha": os.environ["GITHUB_SHA"],
@@ -174,7 +183,7 @@ jobs:
               "verification_sha256": sha(root / "verification.json"),
               "attestation_id": os.environ.get("ATTESTATION_ID", ""),
               "attestation_url": os.environ.get("ATTESTATION_URL", ""),
-              "checks": {
+              "cryptographic_checks": {
                   "sigstore_signature_verified": True,
                   "oidc_issuer_exact": True,
                   "repository_exact": True,
@@ -185,15 +194,24 @@ jobs:
                   "predicate_type_exact": True,
                   "predicate_exact": True,
                   "subject_digest_exact": True,
-                  "document_content_unopened": True,
-                  "external_evaluations_zero": True,
-                  "stage08_blocked": True,
-                  "zero_cost_exact": True,
               },
-              "external_cost_usd": 0.0,
-              "production_modified": False,
-              "scientific_promotion_credit": 0,
-              "fresh_external_document_still_required": True,
+              "preregistration_declarations": {
+                  "document_content_accessed_before_freeze": source_record["document_content_accessed_before_freeze"],
+                  "pdf_url_resolved_before_freeze": source_record["pdf_url_resolved_before_freeze"],
+                  "pdf_bytes_downloaded_before_freeze": source_record["pdf_bytes_downloaded_before_freeze"],
+                  "actual_external_evaluations": control_record["actual_external_evaluations"],
+                  "stage08_unblocked": control_record["stage08_unblocked"],
+                  "external_cost_usd": control_record["external_cost_usd"],
+                  "production_modified": control_record["production_modified"],
+              },
+              "attestation_scope": {
+                  "establishes": predicate["claim_boundary"]["attestation_establishes"],
+                  "does_not_establish": predicate["claim_boundary"]["attestation_does_not_establish"],
+              },
+              "attestation_workflow_external_cost_usd": 0.0,
+              "production_modified_by_attestation_workflow": False,
+              "scientific_promotion_credit_awarded": 0,
+              "next_gate": "fresh_full_document_single_execution",
           }
           payload = json.dumps(
               receipt,
@@ -229,9 +247,20 @@ jobs:
           if not path.exists():
               raise SystemExit("external receipt missing")
           receipt = json.loads(path.read_text())
-          if receipt["verdict"] != "PASS_SIGSTORE_PREREGISTRATION":
+          if receipt["verdict"] != "PASS_SIGSTORE_ATTESTATION_OF_PREREGISTRATION_RECORD":
               raise SystemExit(receipt)
-          if not all(receipt["checks"].values()):
-              raise SystemExit(receipt["checks"])
-          print("PASS_SIGSTORE_PREREGISTRATION")
+          if not all(receipt["cryptographic_checks"].values()):
+              raise SystemExit(receipt["cryptographic_checks"])
+          declarations = receipt["preregistration_declarations"]
+          if declarations != {
+              "actual_external_evaluations": 0,
+              "document_content_accessed_before_freeze": False,
+              "external_cost_usd": 0.0,
+              "pdf_bytes_downloaded_before_freeze": False,
+              "pdf_url_resolved_before_freeze": False,
+              "production_modified": False,
+              "stage08_unblocked": False,
+          }:
+              raise SystemExit(declarations)
+          print("PASS_SIGSTORE_ATTESTATION_OF_PREREGISTRATION_RECORD")
           PY

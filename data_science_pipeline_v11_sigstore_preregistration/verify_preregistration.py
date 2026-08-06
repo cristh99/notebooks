@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import copy
 import json
 import re
 from datetime import datetime
@@ -20,6 +19,17 @@ EXPECTED_PAGE_TITLE = "Manual de usuario para compras por catálogo electrónico
 EXPECTED_DOWNLOAD_LABEL = "Manual de usuario Catálogo Electrónico Abril 2016"
 EXPECTED_CONTENT_ALL = ("CATALOGO", "ELECTRONICO")
 EXPECTED_CONTENT_ANY = ("MANUAL", "USUARIO")
+EXPECTED_OCR_CANDIDATES = {
+    "auto_300_psm3": (300, 3),
+    "balanced_300_psm6": (300, 6),
+    "sparse_300_psm11": (300, 11),
+}
+EXPECTED_RETIRED_HASHES = {
+    "5f278ec51106212a95a6f8c135cdfb8376724daab1e49b9ca0d3879543d11e85",
+    "bf8860cd7e895b1cb2c86735638ddbdf7839538df844727a0938274b498785a7",
+    "98a57e2306bb8f4632dfdadba6be813306f9c322b00ff8275a57460447a891c8",
+    "c540e5e96140f3d0cb5d9f2115facac7bb39699e0a2f8f014045867a957f1b06",
+}
 REQUIRED_TERMINALS = {
     "MATCH_OFFICIAL",
     "MATCH_VALIDATED",
@@ -108,9 +118,10 @@ def validate_payload(payload: dict[str, object]) -> dict[str, bool]:
     freshness = payload.get("freshness")
     _require(isinstance(freshness, dict), "freshness missing")
     retired_hashes = freshness.get("retired_source_sha256")
-    _require(isinstance(retired_hashes, list) and len(retired_hashes) >= 4, "retired hashes incomplete")
+    _require(isinstance(retired_hashes, list), "retired hashes missing")
     _require(all(_SHA256.fullmatch(str(item)) for item in retired_hashes), "retired hash invalid")
     _require(len(retired_hashes) == len(set(retired_hashes)), "retired hashes duplicate")
+    _require(set(retired_hashes) == EXPECTED_RETIRED_HASHES, "retired hash set mismatch")
     _require(freshness.get("candidate_not_previously_opened") is True, "freshness not asserted")
     _require(freshness.get("reuse_for_promotion_forbidden") is True, "reuse guard missing")
 
@@ -152,10 +163,12 @@ def validate_payload(payload: dict[str, object]) -> dict[str, bool]:
 
     candidates = evaluation.get("ocr_candidates")
     _require(isinstance(candidates, list) and len(candidates) == 3, "OCR candidate set mismatch")
-    candidate_names = [item.get("name") for item in candidates]
-    _require(len(candidate_names) == len(set(candidate_names)), "OCR candidate names duplicate")
-    _require(all(item.get("dpi") == 300 for item in candidates), "all OCR candidates must use 300 DPI")
-    _require({item.get("psm") for item in candidates} == {3, 6, 11}, "PSM set mismatch")
+    candidate_map = {
+        str(item.get("name")): (item.get("dpi"), item.get("psm"))
+        for item in candidates
+    }
+    _require(len(candidate_map) == len(candidates), "OCR candidate names duplicate")
+    _require(candidate_map == EXPECTED_OCR_CANDIDATES, "OCR candidate definitions mismatch")
     _require(evaluation.get("ocr_languages") == "spa+eng", "OCR languages mismatch")
     _require(
         evaluation.get("candidate_score")
@@ -211,6 +224,8 @@ def validate_payload(payload: dict[str, object]) -> dict[str, bool]:
         "metadata_only_selection": True,
         "content_unopened": True,
         "freshness_guarded": True,
+        "retired_hash_set_exact": True,
+        "ocr_candidate_set_exact": True,
         "channel_authority_scoped": True,
         "full_document_required": True,
         "single_execution_frozen": True,

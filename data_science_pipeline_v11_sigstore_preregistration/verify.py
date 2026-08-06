@@ -20,6 +20,26 @@ FILES = {
     "workflow": HERE.parent / ".github/workflows/data-science-v11-sigstore-preregistration.yml",
 }
 PREDICATE_TYPE = "https://github.com/cristh99/notebooks/attestations/data-science-preregistration/v1"
+EXPECTED_ATTESTATION_ESTABLISHES = {
+    "subject_digest",
+    "signer_workflow_identity",
+    "source_repository_ref_and_digest",
+    "preregistration_record_present_at_attested_commit",
+}
+EXPECTED_ATTESTATION_DOES_NOT_ESTABLISH = {
+    "predicate_truth_without_trusted_workflow_review",
+    "actual_precommit_document_nonaccess",
+    "actual_external_evaluation_count_before_commit",
+    "actual_cost_before_commit",
+    "document_authenticity",
+    "resolver_accuracy",
+    "ocr_quality",
+    "beneficial_ownership",
+    "payment",
+    "legality",
+    "intent",
+    "corruption",
+}
 
 
 def sha256(path: Path) -> str:
@@ -67,6 +87,16 @@ def verify(output: Path) -> dict[str, object]:
     predicate = json.loads(FILES["predicate"].read_text(encoding="utf-8"))
     require(FILES["predicate"].read_bytes() == canonical_bytes(predicate), "predicate not canonical")
     require(predicate["predicate_type"] == PREDICATE_TYPE, "predicate type mismatch")
+    require(
+        set(predicate["claim_boundary"]["attestation_establishes"])
+        == EXPECTED_ATTESTATION_ESTABLISHES,
+        "attestation establishes boundary mismatch",
+    )
+    require(
+        set(predicate["claim_boundary"]["attestation_does_not_establish"])
+        == EXPECTED_ATTESTATION_DOES_NOT_ESTABLISH,
+        "attestation limitation boundary mismatch",
+    )
     require(predicate["subject"]["sha256"] == actual_hashes["preregistration"], "predicate subject mismatch")
     require(
         predicate["implementation"]["preregistration_verifier_sha256"] == actual_hashes["verifier"],
@@ -91,20 +121,29 @@ def verify(output: Path) -> dict[str, object]:
     for path in (FILES["verifier"], FILES["tests"], HERE / "verify.py"):
         py_compile.compile(str(path), doraise=True)
 
+    preregistration = json.loads(FILES["preregistration"].read_text(encoding="utf-8"))
+    source = preregistration["source_selection"]
+    controls = preregistration["execution_controls"]
     receipt = {
-        "schema": "data-science-pipeline/sigstore-preregistration-local-receipt/1",
-        "verdict": "PASS_PREREGISTRATION_SOFTWARE_ONLY",
-        "checks": {
+        "schema": "data-science-pipeline/sigstore-preregistration-local-receipt/2",
+        "verdict": "PASS_PREREGISTRATION_RECORD_SOFTWARE_ONLY",
+        "software_checks": {
             "preregistration_policy_pass": True,
             "file_hashes_exact": True,
             "predicate_bound_to_subject": True,
+            "predicate_claim_boundary_honest": True,
             "action_pin_exact": True,
             "tests_pass": True,
             "compile_pass": True,
-            "document_content_unopened": True,
-            "external_evaluations_zero": True,
-            "stage08_blocked": True,
-            "zero_cost_exact": True,
+        },
+        "preregistration_declarations": {
+            "document_content_accessed_before_freeze": source["document_content_accessed_before_freeze"],
+            "pdf_url_resolved_before_freeze": source["pdf_url_resolved_before_freeze"],
+            "pdf_bytes_downloaded_before_freeze": source["pdf_bytes_downloaded_before_freeze"],
+            "actual_external_evaluations": controls["actual_external_evaluations"],
+            "stage08_unblocked": controls["stage08_unblocked"],
+            "external_cost_usd": controls["external_cost_usd"],
+            "production_modified": controls["production_modified"],
         },
         "file_sha256": actual_hashes,
         "predicate_type": PREDICATE_TYPE,
@@ -114,8 +153,8 @@ def verify(output: Path) -> dict[str, object]:
         "actions_attest_commit_sha": freeze["actions"]["attest_commit_sha"],
         "github_attestation_created": False,
         "fresh_external_document_still_required": True,
-        "external_cost_usd": 0.0,
-        "production_modified": False,
+        "local_verification_external_cost_usd": 0.0,
+        "production_modified_by_local_verifier": False,
         "scientific_promotion_credit": 0,
     }
     output.parent.mkdir(parents=True, exist_ok=True)

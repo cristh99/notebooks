@@ -11,6 +11,7 @@ from verify_preregistration import canonical_bytes, validate_file, validate_payl
 
 HERE = Path(__file__).resolve().parent
 BASE = json.loads((HERE / "PREREGISTRATION.json").read_text(encoding="utf-8"))
+PREDICATE = json.loads((HERE / "PREDICATE.json").read_text(encoding="utf-8"))
 
 
 class PreregistrationTests(unittest.TestCase):
@@ -88,6 +89,26 @@ class PreregistrationTests(unittest.TestCase):
             path.write_text(json.dumps(BASE, indent=2, ensure_ascii=False), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "canonical JSON"):
                 validate_file(path)
+
+    def test_ocr_candidate_definitions_are_exact(self) -> None:
+        payload = self.mutated()
+        payload["evaluation_contract"]["ocr_candidates"][0]["name"] = "renamed_candidate"
+        with self.assertRaisesRegex(ValueError, "OCR candidate definitions"):
+            validate_payload(payload)
+
+    def test_retired_hash_set_is_exact(self) -> None:
+        payload = self.mutated()
+        payload["freshness"]["retired_source_sha256"][0] = "0" * 64
+        with self.assertRaisesRegex(ValueError, "retired hash set"):
+            validate_payload(payload)
+
+    def test_attestation_boundary_does_not_claim_actual_nonaccess(self) -> None:
+        establishes = set(PREDICATE["claim_boundary"]["attestation_establishes"])
+        does_not = set(PREDICATE["claim_boundary"]["attestation_does_not_establish"])
+        self.assertIn("preregistration_record_present_at_attested_commit", establishes)
+        self.assertNotIn("preregistration_ordering_before_document_access", establishes)
+        self.assertIn("actual_precommit_document_nonaccess", does_not)
+        self.assertIn("actual_external_evaluation_count_before_commit", does_not)
 
 
 if __name__ == "__main__":
