@@ -1,0 +1,116 @@
+name: Knowledge Graph Public Runner
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 08 * * *"
+  push:
+    branches:
+      - main
+      - agent/knowledge-graph-public-runner
+    paths:
+      - knowledge_graph_runner/**
+      - .github/workflows/knowledge-graph-public-runner.yml
+  pull_request:
+    paths:
+      - knowledge_graph_runner/**
+      - .github/workflows/knowledge-graph-public-runner.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: knowledge-graph-public-runner-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Verify portable graph runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Verify Python
+        run: python3 --version
+      - name: Reconstruct audited portable runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p knowledge_graph_runner/runtime
+          cat \
+            knowledge_graph_runner/vendor/kg_runner.part1.b64 \
+            knowledge_graph_runner/vendor/kg_runner.part2.b64 \
+            knowledge_graph_runner/vendor/kg_runner.part3.b64 \
+            knowledge_graph_runner/vendor/kg_runner.part4a.b64 \
+            knowledge_graph_runner/vendor/kg_runner.part4b.b64 \
+            knowledge_graph_runner/vendor/kg_runner.part5.b64 \
+            | tr -d '\n\r' \
+            | base64 --decode > /tmp/kg_runner.zip
+          unzip -q /tmp/kg_runner.zip -d knowledge_graph_runner/runtime
+          cp knowledge_graph_runner/public_runner.py knowledge_graph_runner/runtime/
+          python3 -m py_compile \
+            knowledge_graph_runner/runtime/kg_portable.py \
+            knowledge_graph_runner/runtime/public_runner.py
+      - name: Run deterministic offline self-test
+        working-directory: knowledge_graph_runner/runtime
+        run: python3 kg_portable.py selftest
+
+  sync:
+    name: Sync visible Notion graph and write receipt
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      NOTION_GRAPH_TOKEN: ${{ secrets.NOTION_GRAPH_TOKEN }}
+      NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+      KG_CONTENT_MODE: none
+      KG_MAX_OBJECTS: "100000"
+    steps:
+      - name: Check Notion credential without disclosure
+        id: auth
+        shell: bash
+        run: |
+          if [[ -n "${NOTION_GRAPH_TOKEN:-${NOTION_TOKEN:-}}" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "Credential: present." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "Status: BLOCKED_NO_SECRET." >> "$GITHUB_STEP_SUMMARY"
+            echo "Create the repository secret NOTION_GRAPH_TOKEN to activate daily sync." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Checkout
+        if: steps.auth.outputs.available == 'true'
+        uses: actions/checkout@v4
+      - name: Verify Python
+        if: steps.auth.outputs.available == 'true'
+        run: python3 --version
+      - name: Reconstruct runtime
+        if: steps.auth.outputs.available == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p knowledge_graph_runner/runtime
+          cat \
+            knowledge_graph_runner/vendor/kg_runner.part1.b64 \
+            knowledge_graph_runner/vendor/kg_runner.part2.b64 \
+            knowledge_graph_runner/vendor/kg_runner.part3.b64 \
+            knowledge_graph_runner/vendor/kg_runner.part4a.b64 \
+            knowledge_graph_runner/vendor/kg_runner.part4b.b64 \
+            knowledge_graph_runner/vendor/kg_runner.part5.b64 \
+            | tr -d '\n\r' \
+            | base64 --decode > /tmp/kg_runner.zip
+          unzip -q /tmp/kg_runner.zip -d knowledge_graph_runner/runtime
+          cp knowledge_graph_runner/public_runner.py knowledge_graph_runner/runtime/
+      - name: Build graph and write Notion receipt
+        if: steps.auth.outputs.available == 'true'
+        working-directory: knowledge_graph_runner/runtime
+        run: python3 public_runner.py
+      - name: Confirm privacy and cost boundary
+        if: always()
+        shell: bash
+        run: |
+          rm -rf knowledge_graph_runner/runtime/output /tmp/kg_runner.zip
+          echo "No private graph artifact was uploaded or committed." >> "$GITHUB_STEP_SUMMARY"
+          echo "Additional cost configured by this workflow: USD 0." >> "$GITHUB_STEP_SUMMARY"
