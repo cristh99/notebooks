@@ -18,7 +18,7 @@ permissions:
 
 concurrency:
   group: ocr-lsvt-v7-freeze-census-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   PRIOR_CANDIDATE_ARTIFACT_ID: '8974218596'
@@ -39,7 +39,7 @@ env:
 
 jobs:
   freeze-census:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
