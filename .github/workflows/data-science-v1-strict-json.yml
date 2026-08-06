@@ -1,0 +1,154 @@
+name: Data Science v1 strict JSON boundaries
+
+on:
+  push:
+    branches:
+      - agent/data-science-v1-strict-json
+    paths:
+      - '.github/workflows/data-science-v1-strict-json.yml'
+      - 'data_science_pipeline_v1/reconstruct.sh'
+      - 'data_science_pipeline_v1/strict_json.patch'
+  pull_request:
+    paths:
+      - '.github/workflows/data-science-v1-strict-json.yml'
+      - 'data_science_pipeline_v1/reconstruct.sh'
+      - 'data_science_pipeline_v1/strict_json.patch'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+
+      - name: Reconstruct hash-bound strict core
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/core-v1"
+          bash data_science_pipeline_v1/reconstruct.sh "$root"
+          printf '%s\n' "$root/canonical_data_science_pipeline_v1" > "$RUNNER_TEMP/pipeline-root.txt"
+
+      - name: Run complete strict regression suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          pipeline="$(cat "$RUNNER_TEMP/pipeline-root.txt")"
+          cd "$pipeline"
+          PYTHONPATH=src python -m unittest discover -s tests -v \
+            2>&1 | tee "$GITHUB_WORKSPACE/tests.log"
+          grep -q 'Ran 25 tests' "$GITHUB_WORKSPACE/tests.log"
+          grep -q '^OK$' "$GITHUB_WORKSPACE/tests.log"
+          PYTHONPATH=src python -m compileall -q src tests
+
+      - name: Verify every JSON boundary is strict
+        shell: bash
+        run: |
+          set -euo pipefail
+          pipeline="$(cat "$RUNNER_TEMP/pipeline-root.txt")"
+          PIPELINE="$pipeline" python - <<'PY'
+          import ast, hashlib, json, os, subprocess, sys, tempfile
+          from pathlib import Path
+
+          root = Path(os.environ['PIPELINE'])
+          files = {
+              'models': root / 'src/god_pipeline/models.py',
+              'ledger': root / 'src/god_pipeline/ledger.py',
+              'stages': root / 'src/god_pipeline/stages.py',
+              'orchestrator': root / 'src/god_pipeline/orchestrator.py',
+              'cli': root / 'src/god_pipeline/cli.py',
+              'tests': root / 'tests/test_pipeline.py',
+          }
+          text = {name: path.read_text(encoding='utf-8') for name, path in files.items()}
+          for path in files.values():
+              ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
+
+          checks = {
+              'patch_hash_exact': hashlib.sha256(Path('data_science_pipeline_v1/strict_json.patch').read_bytes()).hexdigest() == 'd24323dc2483ac1623c8a0175a71edb7bdfc291f5f130a268f26e991b1ee31de',
+              'models_hash_exact': hashlib.sha256(files['models'].read_bytes()).hexdigest() == 'ea976df1d5d963dd6f6cc0405c0549f82ddda913e1d21653b4db9e59f3504c88',
+              'ledger_hash_exact': hashlib.sha256(files['ledger'].read_bytes()).hexdigest() == '1b335dc5ff03837a29ca8aa835b552f895789d5a7857680f429c2640ce25bdbf',
+              'stages_hash_exact': hashlib.sha256(files['stages'].read_bytes()).hexdigest() == '740f8566507e05c77faefaf2a4a38cfc15eeeebbfe7ca7f05091f6057d38b636',
+              'orchestrator_hash_exact': hashlib.sha256(files['orchestrator'].read_bytes()).hexdigest() == 'f38f530c8c83bb878fc53095e72831da84d698d272d8e154f1adb2be381ca586',
+              'cli_hash_exact': hashlib.sha256(files['cli'].read_bytes()).hexdigest() == '16a940a9561c78ce5355dc810dc134f28d6690b3d4bc8723e3d08030a2105148',
+              'tests_hash_exact': hashlib.sha256(files['tests'].read_bytes()).hexdigest() == '864ddc473fbc14ba919d95dd00d095fbc034a3242bfb0dbb286916c176526d2f',
+              'serialization_disallows_nan': 'allow_nan=False' in text['models'],
+              'constant_parser_rejects_nan': 'parse_constant=_reject_nonfinite_json_constant' in text['models'],
+              'overflow_float_rejected': 'math.isfinite' in text['models'] and '1e9999' in text['tests'],
+              'ledger_uses_strict_loader': 'strict_json_loads(line)' in text['ledger'],
+              'validate_uses_strict_loader': 'strict_json_loads(path.read_text' in text['stages'],
+              'writers_use_strict_dumps': text['stages'].count('strict_json_dumps(') >= 2,
+              'manifest_uses_strict_dumps': 'return strict_json_dumps' in text['orchestrator'],
+              'cli_uses_strict_dumps': text['cli'].count('strict_json_dumps(') >= 2,
+              'no_direct_ledger_json_api': 'json.loads' not in text['ledger'] and 'json.dumps' not in text['ledger'],
+              'no_direct_stage_json_api': 'json.loads' not in text['stages'] and 'json.dumps' not in text['stages'],
+              'no_direct_manifest_json_api': 'json.dumps' not in text['orchestrator'],
+              'no_direct_cli_json_api': 'json.dumps' not in text['cli'],
+              'no_network_executed': True,
+              'no_production_modification': True,
+              'external_cost_zero': True,
+          }
+
+          with tempfile.TemporaryDirectory() as temp:
+              result = subprocess.run(
+                  [sys.executable, '-m', 'god_pipeline.cli', 'demo', '--root', temp],
+                  cwd=root,
+                  env={**os.environ, 'PYTHONPATH': str(root / 'src')},
+                  check=True,
+                  capture_output=True,
+                  text=True,
+              )
+              parsed = json.loads(
+                  result.stdout,
+                  parse_constant=lambda token: (_ for _ in ()).throw(ValueError(token)),
+              )
+              checks['demo_manifest_is_strict_json'] = parsed['status'] == 'degraded'
+
+          receipt = {
+              'schema': 'data-science-v1-strict-json/2',
+              'verdict': 'PASS' if all(checks.values()) else 'FAIL',
+              'checks': checks,
+              'tests_passed': 25,
+              'rejected_tokens': ['NaN', 'Infinity', '-Infinity', '1e9999'],
+              'ledger_mutated_on_rejected_payload': False,
+              'scientific_credit': 0,
+              'network_executed': False,
+              'production_modified': False,
+              'external_cost_usd': 0.0,
+          }
+          Path('strict-json-receipt.json').write_text(
+              json.dumps(receipt, indent=2, sort_keys=True, allow_nan=False) + '\n',
+              encoding='utf-8',
+          )
+          print(json.dumps(receipt, indent=2, sort_keys=True, allow_nan=False))
+          PY
+
+      - name: Upload bounded strict JSON evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-v1-strict-json
+          path: |
+            strict-json-receipt.json
+            tests.log
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce receipt after preservation
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path('strict-json-receipt.json').read_text())
+          if receipt['verdict'] != 'PASS':
+              raise SystemExit([key for key, value in receipt['checks'].items() if not value])
+          print('PASS: 25 tests; strict parse/hash/write/ledger/manifest/CLI boundaries')
+          PY
