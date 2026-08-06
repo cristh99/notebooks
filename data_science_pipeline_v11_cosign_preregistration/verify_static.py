@@ -16,18 +16,23 @@ EXPECTED_PAGE_URL = (
 )
 EXPECTED_PAGE_TITLE = "Manual de usuario para compras por catálogo electrónico"
 EXPECTED_DOWNLOAD_LABEL = "Manual de usuario Catálogo Electrónico Abril 2016"
-EXPECTED_REF = "refs/heads/agent/data-science-v11-cosign-direct-oidc"
-EXPECTED_WORKFLOW_REF = (
-    "cristh99/notebooks/.github/workflows/data-science-v11-cosign-direct-oidc.yml"
-    "@refs/heads/agent/data-science-v11-cosign-direct-oidc"
+EXPECTED_HEAD_BRANCH = "agent/data-science-v11-cosign-direct-oidc"
+EXPECTED_BASE_BRANCH = "agent/data-science-v10-signed-validator-registry"
+EXPECTED_WORKFLOW_PATH = ".github/workflows/data-science-v11-cosign-direct-oidc.yml"
+EXPECTED_REF_PATTERNS = {
+    r"refs/heads/agent/data-science-v11-cosign-direct-oidc",
+    r"refs/pull/[0-9]+/merge",
+}
+EXPECTED_CERT_IDENTITY_REGEXP = (
+    r"^https://github\.com/cristh99/notebooks/\.github/workflows/"
+    r"data-science-v11-cosign-direct-oidc\.yml@"
+    r"(refs/heads/agent/data-science-v11-cosign-direct-oidc|refs/pull/[0-9]+/merge)$"
 )
-EXPECTED_CERT_IDENTITY = (
-    "https://github.com/cristh99/notebooks/.github/workflows/"
-    "data-science-v11-cosign-direct-oidc.yml"
-    "@refs/heads/agent/data-science-v11-cosign-direct-oidc"
-)
+EXPECTED_EVENTS = {"push", "pull_request", "workflow_dispatch"}
 EXPECTED_SUBJECTS = {
+    "repo:cristh99/notebooks:pull_request",
     "repo:cristh99/notebooks:ref:refs/heads/agent/data-science-v11-cosign-direct-oidc",
+    "repo:cristh99@87334928/notebooks@616013328:pull_request",
     "repo:cristh99@87334928/notebooks@616013328:ref:refs/heads/agent/data-science-v11-cosign-direct-oidc",
 }
 EXPECTED_RETIRED_HASHES = {
@@ -169,11 +174,14 @@ def validate_payload(payload: dict[str, object]) -> dict[str, bool]:
     require(trust.get("repository_id") == "616013328", "repository id mismatch")
     require(trust.get("repository_owner_id") == "87334928", "owner id mismatch")
     require(trust.get("repository_visibility") == "public", "visibility mismatch")
-    require(trust.get("ref") == EXPECTED_REF, "ref mismatch")
-    require(trust.get("workflow_ref") == EXPECTED_WORKFLOW_REF, "workflow ref mismatch")
+    require(set(trust.get("allowed_events", [])) == EXPECTED_EVENTS, "event set mismatch")
+    require(trust.get("expected_head_branch") == EXPECTED_HEAD_BRANCH, "head branch mismatch")
+    require(trust.get("expected_base_branch") == EXPECTED_BASE_BRANCH, "base branch mismatch")
+    require(set(trust.get("allowed_ref_patterns", [])) == EXPECTED_REF_PATTERNS, "ref pattern mismatch")
+    require(trust.get("workflow_path") == EXPECTED_WORKFLOW_PATH, "workflow path mismatch")
     require(
-        trust.get("certificate_identity") == EXPECTED_CERT_IDENTITY,
-        "certificate identity mismatch",
+        trust.get("certificate_identity_regexp") == EXPECTED_CERT_IDENTITY_REGEXP,
+        "certificate identity regexp mismatch",
     )
     require(set(trust.get("allowed_oidc_subjects", [])) == EXPECTED_SUBJECTS, "subject set mismatch")
     require(trust.get("github_hosted_runner_required") is True, "hosted runner guard missing")
