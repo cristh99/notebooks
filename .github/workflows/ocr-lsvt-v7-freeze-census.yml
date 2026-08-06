@@ -1,0 +1,274 @@
+name: OCR LSVT v7 freeze and metadata census
+
+on:
+  push:
+    branches:
+      - agent/ocr-consensus-v7-lsvt-preregistered
+    paths:
+      - '.github/workflows/ocr-lsvt-v7-freeze-census.yml'
+      - 'ocr_real_risk_v1/lsvt_source_seal_v7.py'
+      - 'ocr_real_risk_v1/lsvt_adapter_v7.py'
+      - 'ocr_real_risk_v1/numeric_consensus_candidate_v7_lsvt.py'
+      - 'docs/OCR_NUMERIC_CONSENSUS_V7_LSVT_PREREGISTRATION.md'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: ocr-lsvt-v7-freeze-census-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PRIOR_CANDIDATE_ARTIFACT_ID: '8974218596'
+  PRIOR_CANDIDATE_ARTIFACT_SHA256: 7a0671b214d02276ae0e14689915fbd2800dddf95847317b7fb1745e9e6b3361
+  PRIOR_CANDIDATE_STABLE_SHA256: 33d14875f0d2f9681ced662e452a5f28943ecb65e30a9242663d6a472034da9d
+  POLICY_SOURCE_SHA256: 5b37aa3ac9f349e708624e815dab97e2ab1eaaac4a905499de15aa3513862b2d
+  LSVT_REVISION: 2b1f8aab9fbba3b5be07e2cae9e3e9c43fe5487c
+  LSVT_PATH: data/LSVT-00000-of-00001.parquet
+  LSVT_SOURCE_SHA256: 44d4e6822060bbd3c11b933675d91ac7da4e944645bee7a080529f0232823c8b
+  LSVT_SOURCE_BYTES: '8979134697'
+  LSVT_URL: https://huggingface.co/datasets/Yesianrohn/OCR-Data/resolve/2b1f8aab9fbba3b5be07e2cae9e3e9c43fe5487c/data/LSVT-00000-of-00001.parquet?download=true
+  PYTHONHASHSEED: '0'
+  OMP_THREAD_LIMIT: '1'
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  NUMEXPR_NUM_THREADS: '1'
+
+jobs:
+  freeze-census:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+
+      - name: Install pinned metadata runtime
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            scipy==1.17.1 \
+            threadpoolctl==3.6.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13 \
+            packaging==26.3 \
+            duckdb==1.5.4
+
+      - name: Prove frozen v7 policy is unchanged
+        run: |
+          set -euo pipefail
+          echo "${POLICY_SOURCE_SHA256}  ocr_real_risk_v1/numeric_consensus_policy_v7.py" \
+            | sha256sum --check --strict
+          python -m unittest -v \
+            ocr_real_risk_v1.test_numeric_consensus_policy_v7
+          python -m compileall -q \
+            ocr_real_risk_v1/lsvt_source_seal_v7.py \
+            ocr_real_risk_v1/lsvt_adapter_v7.py \
+            ocr_real_risk_v1/numeric_consensus_candidate_v7_lsvt.py
+
+      - name: Seal exact LSVT source from repository metadata only
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/lsvt-v7-evidence"
+          python -m ocr_real_risk_v1.lsvt_source_seal_v7 \
+            --output "$RUNNER_TEMP/lsvt-v7-evidence/lsvt_source_seal_v7.json"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          report = json.loads(
+              (Path(os.environ["RUNNER_TEMP"]) / "lsvt-v7-evidence/lsvt_source_seal_v7.json").read_text()
+          )
+          assert report["resolved_revision"] == os.environ["LSVT_REVISION"]
+          assert report["source_object"]["path"] == os.environ["LSVT_PATH"]
+          assert report["source_object"]["size_bytes"] == int(os.environ["LSVT_SOURCE_BYTES"])
+          assert report["source_object"]["sha256"] == os.environ["LSVT_SOURCE_SHA256"]
+          assert report["repository_metadata_only"] is True
+          assert report["parquet_footer_read"] is False
+          assert report["outcomes_opened"] is False
+          assert report["licenses"]["commercial_use_forbidden"] is True
+          PY
+
+      - name: Recover and verify prior frozen v7 behavioral authority
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/prior-v7"
+          curl --fail --location --retry 5 --retry-all-errors \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${PRIOR_CANDIDATE_ARTIFACT_ID}/zip" \
+            --output "$RUNNER_TEMP/prior-v7.zip"
+          echo "${PRIOR_CANDIDATE_ARTIFACT_SHA256}  $RUNNER_TEMP/prior-v7.zip" \
+            | sha256sum --check --strict
+          unzip -q "$RUNNER_TEMP/prior-v7.zip" -d "$RUNNER_TEMP/prior-v7"
+          test -d "$RUNNER_TEMP/prior-v7/frozen-cocotext-v7"
+          (
+            cd "$RUNNER_TEMP/prior-v7/frozen-cocotext-v7"
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          root = Path(os.environ["RUNNER_TEMP"]) / "prior-v7/frozen-cocotext-v7"
+          candidate = json.loads((root / "frozen_candidate.json").read_text())
+          assert candidate["stable_payload_sha256"] == os.environ["PRIOR_CANDIDATE_STABLE_SHA256"]
+          assert candidate["policy"]["forest_threshold_is_effective"] is True
+          assert candidate["policy"]["annotation_text_length_used_at_inference"] is False
+          PY
+
+      - name: Freeze identical v7 behavior before LSVT footer, rows, or images
+        run: |
+          set -euo pipefail
+          python -m ocr_real_risk_v1.numeric_consensus_candidate_v7_lsvt build \
+            --repository-root "$GITHUB_WORKSPACE" \
+            --prior-candidate-root "$RUNNER_TEMP/prior-v7/frozen-cocotext-v7" \
+            --source-seal "$RUNNER_TEMP/lsvt-v7-evidence/lsvt_source_seal_v7.json" \
+            --source-commit "$GITHUB_SHA" \
+            --output-dir "$RUNNER_TEMP/frozen-lsvt-v7" \
+            > "$RUNNER_TEMP/lsvt-v7-evidence/frozen_candidate_stdout.json"
+          PYTHONPATH="$RUNNER_TEMP/frozen-lsvt-v7/source" \
+            python -m ocr_real_risk_v1.numeric_consensus_candidate_v7_lsvt \
+              verify "$RUNNER_TEMP/frozen-lsvt-v7" \
+              > "$RUNNER_TEMP/lsvt-v7-evidence/frozen_candidate_verify.json"
+          (
+            cd "$RUNNER_TEMP/frozen-lsvt-v7"
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+
+      - name: Execute LSVT metadata-only census with image column excluded
+        run: |
+          set -euo pipefail
+          candidate="$RUNNER_TEMP/frozen-lsvt-v7"
+          stable="$(
+            python -c 'import json,sys; print(json.load(open(sys.argv[1]))["stable_payload_sha256"])' \
+              "$candidate/frozen_candidate.json"
+          )"
+          PYTHONPATH="$candidate/source" \
+            python -m ocr_real_risk_v1.lsvt_adapter_v7 \
+              --source-url "$LSVT_URL" \
+              --candidate-stable "$stable" \
+              --candidate-source-commit "$GITHUB_SHA" \
+              --output "$RUNNER_TEMP/lsvt-v7-evidence/lsvt_v7_metadata_census.json" \
+              | tee "$RUNNER_TEMP/lsvt-v7-evidence/lsvt_v7_census_stdout.json"
+          test ! -e lsvt.parquet
+          test ! -e source.parquet
+          test ! -d images
+
+      - name: Independently adjudicate power and create terminal receipt
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          evidence = Path(os.environ["RUNNER_TEMP"]) / "lsvt-v7-evidence"
+          census_path = evidence / "lsvt_v7_metadata_census.json"
+          report = json.loads(census_path.read_text())
+          stable = dict(report)
+          observed = stable.pop("stable_payload_sha256")
+          encoded = json.dumps(
+              stable, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+          ).encode()
+          assert hashlib.sha256(encoded).hexdigest() == observed
+          assert report["schema"] == "ocr-lsvt-numeric-census/7"
+          assert report["adapter_schema"] == "ocr-lsvt-numeric-adapter/7"
+          dataset = report["dataset"]
+          assert dataset["component"] == "LSVT"
+          assert dataset["revision"] == os.environ["LSVT_REVISION"]
+          assert dataset["source_path"] == os.environ["LSVT_PATH"]
+          assert dataset["source_sha256"] == os.environ["LSVT_SOURCE_SHA256"]
+          assert dataset["source_size_bytes"] == int(os.environ["LSVT_SOURCE_BYTES"])
+          assert dataset["commercial_use_forbidden"] is True
+          schema = report["schema_fingerprint"]
+          assert schema["image_column_read"] is False
+          assert schema["census_columns_only"] == [
+              "texts", "bboxes", "polygons", "num_text_regions"
+          ]
+          assert report["selection"]["uses_image_bytes"] is False
+          assert report["selection"]["uses_ocr"] is False
+          census = report["census"]
+          assert census["selected_count"] == len(census["records"])
+          assert len({row["row_index"] for row in census["records"]}) == census["selected_count"]
+          power = report["power_gate"]
+          run_full = bool(power["download_full_source_and_run_ocr"])
+          expected = (
+              power["selected_available"] >= 5000
+              and power["projected_accepted"] >= 400
+          )
+          assert run_full == expected
+          expected_verdict = (
+              "LSVT_V7_SCHEMA_AND_POWER_GATE_PASS"
+              if run_full
+              else "LSVT_V7_TERMINAL_NO_FULL_DOWNLOAD"
+          )
+          assert report["decision"]["verdict"] == expected_verdict
+          assert report["decision"]["image_bytes_opened"] is False
+          assert report["decision"]["ocr_executed"] is False
+          assert report["constraints"]["external_spend_usd"] == 0
+          assert report["constraints"]["commercial_use"] is False
+
+          terminal = {
+              "schema": "ocr-lsvt-v7-census-terminal/1",
+              "status": (
+                  "READY_FOR_SEPARATE_FULL_EXTERNAL_GATE"
+                  if run_full
+                  else "TERMINAL_NO_FULL_DOWNLOAD_INSUFFICIENT_POWER"
+              ),
+              "scientific_verdict": "UNKNOWN_NO_IMAGE_OUTCOMES_OPENED",
+              "run_full_external_next": run_full,
+              "selected_available": power["selected_available"],
+              "projected_verified_claims": power["projected_accepted"],
+              "minimum_selected": power["minimum_selected"],
+              "minimum_projected_verified_claims": power["minimum_accepted"],
+              "census_stable_payload_sha256": observed,
+              "census_file_sha256": hashlib.sha256(census_path.read_bytes()).hexdigest(),
+              "candidate_source_commit": os.environ["GITHUB_SHA"],
+              "image_bytes_opened": False,
+              "ocr_executed": False,
+              "external_spend_usd": 0,
+              "commercial_use": False,
+              "source_images_redistributed": False,
+              "automatic_production_change": False,
+          }
+          payload = (json.dumps(terminal, indent=2, sort_keys=True) + "\n").encode()
+          (evidence / "lsvt_v7_census_terminal.json").write_bytes(payload)
+          files = sorted(path for path in evidence.iterdir() if path.is_file())
+          with (evidence / "SHA256SUMS.txt").open("w") as handle:
+              for path in files:
+                  handle.write(
+                      f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n"
+                  )
+          print(json.dumps(terminal, indent=2, sort_keys=True))
+          PY
+          (
+            cd "$RUNNER_TEMP/lsvt-v7-evidence"
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+
+      - name: Upload frozen candidate and terminal LSVT census evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-lsvt-v7-freeze-census
+          path: |
+            ${{ runner.temp }}/frozen-lsvt-v7
+            ${{ runner.temp }}/lsvt-v7-evidence
+          if-no-files-found: error
+          retention-days: 90
