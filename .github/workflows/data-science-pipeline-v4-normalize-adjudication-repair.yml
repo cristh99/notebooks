@@ -1,0 +1,134 @@
+name: Data Science pipeline v4 — normalize adjudication repair
+
+on:
+  push:
+    branches:
+      - agent/data-science-canonical-pipeline-v4-normalize
+    paths:
+      - '.github/workflows/data-science-pipeline-v4-normalize-adjudication-repair.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  EVIDENCE_ROOT: normalization-v4-repaired-evidence
+  SEALED_ARTIFACT_ID: '8952669318'
+  SEALED_ARTIFACT_SHA256: 0d962811c6416e6bbb39946fbb35158206bde63162631deeb95f31d7e821a3d1
+
+jobs:
+  adjudicate-sealed-output:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove workflow-only activation after repair freeze
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_RUN_ATTEMPT}" = 1
+          test "$(git rev-parse HEAD^)" = e8de843972af0aa237f41dd64e2a9bdc34f31ba4
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/data-science-pipeline-v4-normalize-adjudication-repair.yml'
+
+      - name: Download exact sealed failed-adjudication artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_ROOT/sealed"
+          gh api -H 'Accept: application/vnd.github+json' \
+            "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${SEALED_ARTIFACT_ID}/zip" \
+            > "$EVIDENCE_ROOT/sealed.zip"
+          echo "${SEALED_ARTIFACT_SHA256}  $EVIDENCE_ROOT/sealed.zip" | sha256sum -c -
+          unzip -q "$EVIDENCE_ROOT/sealed.zip" -d "$EVIDENCE_ROOT/sealed"
+          cp data_science_pipeline_v4_normalize/ADJUDICATION_REPAIR.json "$EVIDENCE_ROOT/ADJUDICATION_REPAIR.json"
+
+      - name: Repair adjudication without executing normalizer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+
+          root = Path(os.environ['EVIDENCE_ROOT'])
+          sealed = root / 'sealed'
+          old_receipt = json.loads((sealed / 'external-receipt.json').read_text())
+          manifest = json.loads((sealed / 'output-a/normalize-manifest.json').read_text())
+          expected_counts = {'documents': 1, 'pages': 3, 'lines': 99, 'words': 461}
+          expected_hashes = {
+              'documents.jsonl': '1d17d77d6f9709217db2fa31b4eab68d4f38cca6e5a80cce1161678c05a2421c',
+              'pages.jsonl': '83f321fb1128d155352d0b8ea32214458147ab0b3fb4a263bc8c74c7d4ae8eda',
+              'lines.jsonl': '61c1fa88cd6a3970c2d77a4bfd7d8886eb56870ab25d05b4cf998674d94205a9',
+              'words.jsonl': '1c4c3a87c03821093a80812cf727766be01abd06d9d61259da7ca0ae95cdbacf',
+          }
+          def sha(path):
+              return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+          internal_boolean_checks = {
+              key: value for key, value in manifest['checks'].items() if key != 'external_cost_usd'
+          }
+          checks = {
+              'old_failure_is_only_truthiness_bug': old_receipt['verdict'] == 'FAIL' and [k for k,v in old_receipt['checks'].items() if not v] == ['all_internal_checks'],
+              'normalizer_not_executed_in_repair': True,
+              'schema_exact': manifest['schema'] == 'data-science-pipeline/normalized-ocr-bundle/1',
+              'row_counts_exact': manifest['row_counts'] == expected_counts,
+              'all_boolean_internal_checks': all(internal_boolean_checks.values()),
+              'zero_cost_exact': manifest['checks']['external_cost_usd'] == 0.0,
+              'output_hashes_a_exact': all(sha(sealed / 'output-a' / name) == digest for name, digest in expected_hashes.items()),
+              'output_hashes_b_exact': all(sha(sealed / 'output-b' / name) == digest for name, digest in expected_hashes.items()),
+              'replay_diff_empty': not (sealed / 'replay-diff.log').read_bytes(),
+              'manifests_byte_identical': (sealed / 'output-a/normalize-manifest.json').read_bytes() == (sealed / 'output-b/normalize-manifest.json').read_bytes(),
+              'upstream_artifact_exact': manifest['upstream']['artifact_id'] == 8952494053,
+              'source_hash_exact': manifest['upstream']['source_sha256'] == '5f278ec51106212a95a6f8c135cdfb8376724daab1e49b9ca0d3879543d11e85',
+          }
+          receipt = {
+              'schema': 'data-science-pipeline/normalize-repaired-external-receipt/1',
+              'verdict': 'PASS' if all(checks.values()) else 'FAIL',
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_sha': os.environ['GITHUB_SHA'],
+              'sealed_source_run_id': 31062657764,
+              'sealed_source_artifact_id': 8952669318,
+              'sealed_source_artifact_zip_sha256': os.environ['SEALED_ARTIFACT_SHA256'],
+              'checks': checks,
+              'row_counts': manifest['row_counts'],
+              'output_hashes': expected_hashes,
+              'normalize_manifest_sha256': sha(sealed / 'output-a/normalize-manifest.json'),
+              'repair_scope': 'adjudication only',
+              'normalizer_reexecuted': False,
+              'normalizer_changed': False,
+              'outputs_changed': False,
+              'post_result_retuning_permitted': False,
+              'external_cost_usd': 0.0,
+              'gcloud_used': False,
+              'paid_compute_used': False,
+              'merge_authorized': False,
+          }
+          payload = json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          (root / 'repaired-receipt.json').write_text(payload)
+          (root / 'repaired-receipt.sha256').write_text(hashlib.sha256(payload.encode()).hexdigest() + '  repaired-receipt.json\n')
+          print(payload)
+          PY
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: data-science-pipeline-v4-normalize-adjudication-repair
+          retention-days: 90
+          if-no-files-found: error
+          path: normalization-v4-repaired-evidence/**
+
+      - name: Enforce repaired verdict
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path('normalization-v4-repaired-evidence/repaired-receipt.json').read_text())
+          if receipt['verdict'] != 'PASS':
+              raise SystemExit([k for k,v in receipt['checks'].items() if not v])
+          print('PASS: sealed normalization output adjudicated without re-execution or retuning')
+          PY

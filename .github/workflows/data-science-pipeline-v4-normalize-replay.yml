@@ -1,0 +1,163 @@
+name: Data Science pipeline v4 — deterministic OCR normalization replay
+
+on:
+  push:
+    branches:
+      - agent/data-science-canonical-pipeline-v4-normalize
+    paths:
+      - '.github/workflows/data-science-pipeline-v4-normalize-replay.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  EVIDENCE_ROOT: normalization-v4-evidence
+  UPSTREAM_ARTIFACT_ID: '8952494053'
+  UPSTREAM_ARTIFACT_SHA256: e838bf457f1f83f9b547b52c4b6c3e9e28ff9357615a5ecfc2a09ccc3c27f692
+
+jobs:
+  normalize-replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Prove workflow-only activation after frozen normalizer
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_RUN_ATTEMPT}" = 1
+          test "$(git rev-parse HEAD^)" = bc7da1846fe199c545a53ed720d420b8c0f554db
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/data-science-pipeline-v4-normalize-replay.yml'
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Run frozen unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_ROOT"
+          cd data_science_pipeline_v4_normalize
+          python -m unittest -v test_normalize_ocr.py 2>&1 | tee "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/unit-tests.log"
+          grep -q 'Ran 4 tests' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/unit-tests.log"
+          grep -q '^OK$' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/unit-tests.log"
+          python -m py_compile normalize_ocr.py test_normalize_ocr.py
+          cp FREEZE.json "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/FREEZE.json"
+
+      - name: Download and verify immutable upstream extraction artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api \
+            -H 'Accept: application/vnd.github+json' \
+            "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${UPSTREAM_ARTIFACT_ID}/zip" \
+            > "$EVIDENCE_ROOT/upstream.zip"
+          echo "${UPSTREAM_ARTIFACT_SHA256}  $EVIDENCE_ROOT/upstream.zip" | sha256sum -c -
+          mkdir -p "$EVIDENCE_ROOT/upstream"
+          unzip -q "$EVIDENCE_ROOT/upstream.zip" -d "$EVIDENCE_ROOT/upstream"
+          test -f "$EVIDENCE_ROOT/upstream/external-receipt.json"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path('normalization-v4-evidence/upstream/external-receipt.json').read_text())
+          assert receipt['verdict'] == 'PASS'
+          assert receipt['github_run_id'] == 31062120497
+          assert receipt['document_manifest']['source_sha256'] == '5f278ec51106212a95a6f8c135cdfb8376724daab1e49b9ca0d3879543d11e85'
+          PY
+
+      - name: Normalize twice and require byte-identical replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          python data_science_pipeline_v4_normalize/normalize_ocr.py \
+            --bundle "$EVIDENCE_ROOT/upstream" \
+            --output "$EVIDENCE_ROOT/output-a" \
+            > "$EVIDENCE_ROOT/normalize-a.log"
+          python data_science_pipeline_v4_normalize/normalize_ocr.py \
+            --bundle "$EVIDENCE_ROOT/upstream" \
+            --output "$EVIDENCE_ROOT/output-b" \
+            > "$EVIDENCE_ROOT/normalize-b.log"
+          diff -qr "$EVIDENCE_ROOT/output-a" "$EVIDENCE_ROOT/output-b" | tee "$EVIDENCE_ROOT/replay-diff.log"
+          test ! -s "$EVIDENCE_ROOT/replay-diff.log"
+
+      - name: Independently adjudicate schemas, cardinality, hashes and lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+
+          root = Path(os.environ['EVIDENCE_ROOT'])
+          output = root / 'output-a'
+          manifest_path = output / 'normalize-manifest.json'
+          manifest = json.loads(manifest_path.read_text())
+          expected_counts = {'documents': 1, 'pages': 3, 'lines': 99, 'words': 461}
+          expected_hashes = {
+              'documents.jsonl': '1d17d77d6f9709217db2fa31b4eab68d4f38cca6e5a80cce1161678c05a2421c',
+              'pages.jsonl': '83f321fb1128d155352d0b8ea32214458147ab0b3fb4a263bc8c74c7d4ae8eda',
+              'lines.jsonl': '61c1fa88cd6a3970c2d77a4bfd7d8886eb56870ab25d05b4cf998674d94205a9',
+              'words.jsonl': '1c4c3a87c03821093a80812cf727766be01abd06d9d61259da7ca0ae95cdbacf',
+          }
+          def sha(path):
+              return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+          checks = {
+              'schema_exact': manifest['schema'] == 'data-science-pipeline/normalized-ocr-bundle/1',
+              'row_counts_exact': manifest['row_counts'] == expected_counts,
+              'all_internal_checks': all(manifest['checks'].values()),
+              'upstream_run_exact': manifest['upstream']['run_id'] == 31062120497,
+              'upstream_artifact_exact': manifest['upstream']['artifact_id'] == 8952494053,
+              'source_hash_exact': manifest['upstream']['source_sha256'] == '5f278ec51106212a95a6f8c135cdfb8376724daab1e49b9ca0d3879543d11e85',
+              'output_hashes_exact': all(sha(output / name) == digest for name, digest in expected_hashes.items()),
+              'replay_byte_identical': not (root / 'replay-diff.log').read_bytes(),
+              'external_cost_zero': manifest['checks']['external_cost_usd'] == 0.0,
+          }
+          receipt = {
+              'schema': 'data-science-pipeline/normalize-external-receipt/1',
+              'verdict': 'PASS' if all(checks.values()) else 'FAIL',
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_sha': os.environ['GITHUB_SHA'],
+              'checks': checks,
+              'row_counts': manifest['row_counts'],
+              'output_hashes': expected_hashes,
+              'normalize_manifest_sha256': sha(manifest_path),
+              'upstream_artifact_zip_sha256': os.environ['UPSTREAM_ARTIFACT_SHA256'],
+              'post_result_retuning_permitted': False,
+              'merge_authorized': False,
+              'mass_processing_authorized': False,
+              'external_cost_usd': 0.0,
+              'gcloud_used': False,
+              'paid_compute_used': False,
+          }
+          payload = json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          (root / 'external-receipt.json').write_text(payload)
+          (root / 'external-receipt.sha256').write_text(hashlib.sha256(payload.encode()).hexdigest() + '  external-receipt.json\n')
+          print(payload)
+          PY
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: data-science-pipeline-v4-normalize-replay
+          retention-days: 90
+          if-no-files-found: error
+          path: normalization-v4-evidence/**
+
+      - name: Enforce normalization verdict
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path('normalization-v4-evidence/external-receipt.json').read_text())
+          if receipt['verdict'] != 'PASS':
+              raise SystemExit([name for name, passed in receipt['checks'].items() if not passed])
+          print('PASS: 1 document, 3 pages, 99 lines and 461 words normalized with byte-identical replay')
+          PY

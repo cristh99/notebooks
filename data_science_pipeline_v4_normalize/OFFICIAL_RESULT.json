@@ -1,0 +1,51 @@
+{
+  "schema": "data-science-pipeline/normalize-official-result/1",
+  "verdict": "PASS",
+  "upstream": {
+    "extract_run_id": 31062120497,
+    "extract_artifact_id": 8952494053,
+    "extract_artifact_zip_sha256": "e838bf457f1f83f9b547b52c4b6c3e9e28ff9357615a5ecfc2a09ccc3c27f692",
+    "source_pdf_sha256": "5f278ec51106212a95a6f8c135cdfb8376724daab1e49b9ca0d3879543d11e85"
+  },
+  "normalization": {
+    "sealed_run_id": 31062657764,
+    "sealed_artifact_id": 8952669318,
+    "sealed_artifact_zip_sha256": "0d962811c6416e6bbb39946fbb35158206bde63162631deeb95f31d7e821a3d1",
+    "repaired_adjudication_run_id": 31062746599,
+    "repaired_adjudication_artifact_id": 8952699633,
+    "repaired_adjudication_artifact_zip_sha256": "3c2aa0e8551b559ab2540f61a13a1aef3d69d6efec64437721d574f1d38be2d8",
+    "normalizer_reexecuted_during_repair": false,
+    "normalizer_changed_during_repair": false,
+    "outputs_changed_during_repair": false
+  },
+  "row_counts": {
+    "documents": 1,
+    "pages": 3,
+    "lines": 99,
+    "words": 461
+  },
+  "output_hashes": {
+    "documents.jsonl": "1d17d77d6f9709217db2fa31b4eab68d4f38cca6e5a80cce1161678c05a2421c",
+    "pages.jsonl": "83f321fb1128d155352d0b8ea32214458147ab0b3fb4a263bc8c74c7d4ae8eda",
+    "lines.jsonl": "61c1fa88cd6a3970c2d77a4bfd7d8886eb56870ab25d05b4cf998674d94205a9",
+    "words.jsonl": "1c4c3a87c03821093a80812cf727766be01abd06d9d61259da7ca0ae95cdbacf",
+    "normalize_manifest_sha256": "6d7002087414d4e4c76f10d16392808bd50eff60d9c8816599aa0cccab69dc9d"
+  },
+  "checks": {
+    "all_upstream_hashes_verified": true,
+    "cardinality_reconciled": true,
+    "word_keys_unique": true,
+    "coordinates_within_raster": true,
+    "confidence_ranges_valid": true,
+    "byte_identical_replay": true,
+    "external_cost_usd": 0.0
+  },
+  "controls": {
+    "post_result_retuning_permitted": false,
+    "merge_authorized": false,
+    "mass_processing_authorized": false,
+    "gcloud_used": false,
+    "paid_compute_used": false,
+    "novelty_points": 0
+  }
+}
