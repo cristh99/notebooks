@@ -16,7 +16,7 @@ concurrency:
 
 env:
   PYTHONHASHSEED: '0'
-  EXPECTED_RECEIPT_SHA256: cf9328807097884c37a2ff0652ed4475f961212ed692c0a32320f78fab26b12e
+  EXPECTED_RECEIPT_SHA256: 3744e4dd855bd8a8fe6991c5ada6bc38500eec4c7b1cd01c999de62376d47af5
 
 jobs:
   clean-room-replay:
@@ -75,6 +75,25 @@ jobs:
           if actual != expected:
               raise SystemExit(f'receipt mismatch: {actual} != {expected}')
           print(json.dumps({'status': 'PASS', 'receipt_sha256': actual}, sort_keys=True))
+          PY
+
+      - name: Verify public binding matches replayed sources and receipt
+        working-directory: byzantine_open_world_power_v1_public
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          binding = json.loads(Path('PUBLIC_CLEAN_ROOM_BINDING.json').read_text())
+          receipt = json.loads(Path('reports/receipt.json').read_text())
+          if binding['public_receipt_sha256'] != receipt['sha256']:
+              raise SystemExit('binding receipt mismatch')
+          if binding['expected']['python_tests'] != '28/28 PASS':
+              raise SystemExit('binding test count mismatch')
+          for relative, expected in binding['source_sha256'].items():
+              actual = hashlib.sha256(Path(relative).read_bytes()).hexdigest()
+              if actual != expected:
+                  raise SystemExit(f'binding source mismatch: {relative}')
+          print(json.dumps({'status':'PASS','binding_schema':binding['schema']},sort_keys=True))
           PY
 
       - name: Upload public replay evidence
