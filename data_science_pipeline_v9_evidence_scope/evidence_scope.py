@@ -9,7 +9,8 @@ from enum import Enum
 from types import MappingProxyType
 from typing import Mapping, Sequence
 
-SCHEMA = "data-science-pipeline/evidence-scope-receipt/1"
+SCHEMA = "data-science-pipeline/evidence-scope-receipt/2"
+_SHA256_RE = re.compile(r"[0-9a-f]{64}")
 
 
 class EvidenceChannel(str, Enum):
@@ -17,6 +18,11 @@ class EvidenceChannel(str, Enum):
     DOCUMENT_METADATA = "document_metadata"
     OCR_CONTENT = "ocr_content"
     NATIVE_CONTROL = "native_control"
+
+
+class ClaimScope(str, Enum):
+    SOURCE_IDENTITY = "source_identity"
+    DOCUMENT_CONTENT = "document_content"
 
 
 class ResolutionState(str, Enum):
@@ -28,9 +34,38 @@ class ResolutionState(str, Enum):
     QUARANTINED = "QUARANTINED"
 
 
+_ALLOWED_CHANNELS: Mapping[
+    ClaimScope,
+    Mapping[str, frozenset[EvidenceChannel]],
+] = MappingProxyType(
+    {
+        ClaimScope.SOURCE_IDENTITY: MappingProxyType(
+            {
+                "confirmation": frozenset(
+                    {
+                        EvidenceChannel.SOURCE_PROVENANCE,
+                        EvidenceChannel.OCR_CONTENT,
+                    }
+                ),
+                "diagnostic": frozenset({EvidenceChannel.NATIVE_CONTROL}),
+                "metadata": frozenset({EvidenceChannel.DOCUMENT_METADATA}),
+            }
+        ),
+        ClaimScope.DOCUMENT_CONTENT: MappingProxyType(
+            {
+                "confirmation": frozenset({EvidenceChannel.OCR_CONTENT}),
+                "diagnostic": frozenset({EvidenceChannel.NATIVE_CONTROL}),
+                "metadata": frozenset({EvidenceChannel.DOCUMENT_METADATA}),
+            }
+        ),
+    }
+)
+
+
 @dataclass(frozen=True)
 class ClaimRequirement:
     claim_id: str
+    scope: ClaimScope
     tokens: tuple[str, ...]
     confirmation_channels: tuple[EvidenceChannel, ...]
     hard: bool
@@ -41,27 +76,43 @@ class ClaimRequirement:
     def __post_init__(self) -> None:
         if not self.claim_id.strip():
             raise ValueError("claim_id must not be blank")
+        if not isinstance(self.scope, ClaimScope):
+            raise TypeError("scope must be a ClaimScope")
         if not self.tokens:
             raise ValueError("tokens must not be empty")
+        normalized_tokens = tuple(normalize_text(token) for token in self.tokens)
+        if any(not token for token in normalized_tokens):
+            raise ValueError("tokens must contain alphanumeric content")
+        if len(set(normalized_tokens)) != len(normalized_tokens):
+            raise ValueError("tokens must be unique after normalization")
         if not self.confirmation_channels:
             raise ValueError("confirmation_channels must not be empty")
         if self.match_mode not in {"all", "any"}:
             raise ValueError("match_mode must be 'all' or 'any'")
-        if len(set(self.tokens)) != len(self.tokens):
-            raise ValueError("tokens must be unique")
-        channels = (
-            *self.confirmation_channels,
-            *self.diagnostic_channels,
-            *self.metadata_channels,
-        )
-        if any(not isinstance(channel, EvidenceChannel) for channel in channels):
-            raise TypeError("all evidence channels must be EvidenceChannel values")
+
+        groups = {
+            "confirmation": self.confirmation_channels,
+            "diagnostic": self.diagnostic_channels,
+            "metadata": self.metadata_channels,
+        }
+        allowed = _ALLOWED_CHANNELS[self.scope]
+        for group_name, channels in groups.items():
+            if len(set(channels)) != len(channels):
+                raise ValueError(f"{group_name}_channels must be unique")
+            if any(not isinstance(channel, EvidenceChannel) for channel in channels):
+                raise TypeError("all evidence channels must be EvidenceChannel values")
+            disallowed = set(channels) - allowed[group_name]
+            if disallowed:
+                names = sorted(channel.value for channel in disallowed)
+                raise ValueError(
+                    f"{self.scope.value} cannot use {names} as {group_name} evidence"
+                )
 
 
 @dataclass(frozen=True)
 class EvidenceBundle:
     observations: Mapping[EvidenceChannel, str]
-    validated_channels: frozenset[EvidenceChannel]
+    channel_receipts: Mapping[EvidenceChannel, str]
     processed_pages: tuple[int, ...]
     total_pages: int
     partial_document: bool
@@ -70,27 +121,29 @@ class EvidenceBundle:
 
     def __post_init__(self) -> None:
         observation_snapshot = dict(self.observations)
-        if any(
-            not isinstance(channel, EvidenceChannel)
-            for channel in observation_snapshot
-        ):
+        receipt_snapshot = dict(self.channel_receipts)
+        if any(not isinstance(channel, EvidenceChannel) for channel in observation_snapshot):
             raise TypeError("observation keys must be EvidenceChannel values")
         if any(not isinstance(text, str) for text in observation_snapshot.values()):
             raise TypeError("observation values must be strings")
-        validated_snapshot = frozenset(self.validated_channels)
-        if any(
-            not isinstance(channel, EvidenceChannel)
-            for channel in validated_snapshot
-        ):
-            raise TypeError("validated_channels must contain EvidenceChannel values")
-        if not validated_snapshot.issubset(observation_snapshot):
-            raise ValueError("validated channel has no observation")
+        if any(not isinstance(channel, EvidenceChannel) for channel in receipt_snapshot):
+            raise TypeError("receipt keys must be EvidenceChannel values")
+        if not set(receipt_snapshot).issubset(observation_snapshot):
+            raise ValueError("validated channel receipt has no observation")
+        for digest in receipt_snapshot.values():
+            if not isinstance(digest, str) or _SHA256_RE.fullmatch(digest) is None:
+                raise ValueError("channel receipts must be lowercase SHA-256 digests")
+
         object.__setattr__(
             self,
             "observations",
             MappingProxyType(observation_snapshot),
         )
-        object.__setattr__(self, "validated_channels", validated_snapshot)
+        object.__setattr__(
+            self,
+            "channel_receipts",
+            MappingProxyType(receipt_snapshot),
+        )
 
         if self.total_pages <= 0:
             raise ValueError("total_pages must be positive")
@@ -107,20 +160,27 @@ class EvidenceBundle:
         if not self.integrity_ok and self.integrity_reason == "INTEGRITY_OK":
             raise ValueError("integrity failure requires a reason code")
 
+    @property
+    def validated_channels(self) -> frozenset[EvidenceChannel]:
+        return frozenset(self.channel_receipts)
+
 
 @dataclass(frozen=True)
 class ClaimDecision:
     claim_id: str
+    scope: ClaimScope
     state: ResolutionState
     reason_code: str
     hard: bool
     matched_tokens: tuple[str, ...]
     supporting_channels: tuple[EvidenceChannel, ...]
     metadata_channels: tuple[EvidenceChannel, ...]
+    unvalidated_observed_channels: tuple[EvidenceChannel, ...]
 
     def to_dict(self) -> dict[str, object]:
         return {
             "claim_id": self.claim_id,
+            "scope": self.scope.value,
             "state": self.state.value,
             "reason_code": self.reason_code,
             "hard": self.hard,
@@ -131,6 +191,9 @@ class ClaimDecision:
             "metadata_channels": [
                 channel.value for channel in self.metadata_channels
             ],
+            "unvalidated_observed_channels": [
+                channel.value for channel in self.unvalidated_observed_channels
+            ],
         }
 
 
@@ -138,7 +201,7 @@ class ClaimDecision:
 class BundleDecision:
     verdict: str
     claims: tuple[ClaimDecision, ...]
-    validated_channels: tuple[EvidenceChannel, ...]
+    channel_receipts: tuple[tuple[EvidenceChannel, str], ...]
     processed_pages: tuple[int, ...]
     total_pages: int
     partial_document: bool
@@ -147,9 +210,9 @@ class BundleDecision:
         return {
             "schema": SCHEMA,
             "verdict": self.verdict,
-            "validated_channels": [
-                channel.value for channel in self.validated_channels
-            ],
+            "channel_receipts": {
+                channel.value: digest for channel, digest in self.channel_receipts
+            },
             "processed_pages": list(self.processed_pages),
             "total_pages": self.total_pages,
             "partial_document": self.partial_document,
@@ -204,7 +267,7 @@ def _matching_channels(
     matched_channels: list[EvidenceChannel] = []
     matched_tokens: set[str] = set()
     for channel in channels:
-        if require_validated and channel not in bundle.validated_channels:
+        if require_validated and channel not in bundle.channel_receipts:
             continue
         matched, hits = _matches(requirement, _channel_tokens(bundle, channel))
         if matched:
@@ -219,19 +282,26 @@ def _official_confirmation(channels: Sequence[EvidenceChannel]) -> bool:
     )
 
 
-def _not_validated_decision(
+def _decision(
     requirement: ClaimRequirement,
-    channels: tuple[EvidenceChannel, ...],
-    tokens: tuple[str, ...],
+    *,
+    state: ResolutionState,
+    reason_code: str,
+    matched_tokens: tuple[str, ...] = (),
+    supporting_channels: tuple[EvidenceChannel, ...] = (),
+    metadata_channels: tuple[EvidenceChannel, ...] = (),
+    unvalidated_observed_channels: tuple[EvidenceChannel, ...] = (),
 ) -> ClaimDecision:
     return ClaimDecision(
         claim_id=requirement.claim_id,
-        state=ResolutionState.NOT_EVALUABLE,
-        reason_code="EVIDENCE_CHANNEL_NOT_VALIDATED",
+        scope=requirement.scope,
+        state=state,
+        reason_code=reason_code,
         hard=requirement.hard,
-        matched_tokens=tokens,
-        supporting_channels=channels,
-        metadata_channels=(),
+        matched_tokens=matched_tokens,
+        supporting_channels=supporting_channels,
+        metadata_channels=metadata_channels,
+        unvalidated_observed_channels=unvalidated_observed_channels,
     )
 
 
@@ -240,14 +310,10 @@ def evaluate_claim(
     requirement: ClaimRequirement,
 ) -> ClaimDecision:
     if not bundle.integrity_ok:
-        return ClaimDecision(
-            claim_id=requirement.claim_id,
+        return _decision(
+            requirement,
             state=ResolutionState.QUARANTINED,
             reason_code=bundle.integrity_reason,
-            hard=requirement.hard,
-            matched_tokens=(),
-            supporting_channels=(),
-            metadata_channels=(),
         )
 
     confirmation_channels, confirmation_tokens = _matching_channels(
@@ -262,19 +328,16 @@ def evaluate_claim(
             if _official_confirmation(confirmation_channels)
             else ResolutionState.MATCH_VALIDATED
         )
-        reason = (
-            "OFFICIAL_ID_EXACT"
-            if state is ResolutionState.MATCH_OFFICIAL
-            else "EVIDENCE_SCOPED_CONTENT_MATCH"
-        )
-        return ClaimDecision(
-            claim_id=requirement.claim_id,
+        return _decision(
+            requirement,
             state=state,
-            reason_code=reason,
-            hard=requirement.hard,
+            reason_code=(
+                "OFFICIAL_ID_EXACT"
+                if state is ResolutionState.MATCH_OFFICIAL
+                else "EVIDENCE_SCOPED_CONTENT_MATCH"
+            ),
             matched_tokens=confirmation_tokens,
             supporting_channels=confirmation_channels,
-            metadata_channels=(),
         )
 
     raw_confirmation_channels, raw_confirmation_tokens = _matching_channels(
@@ -284,10 +347,12 @@ def evaluate_claim(
         require_validated=False,
     )
     if raw_confirmation_channels:
-        return _not_validated_decision(
+        return _decision(
             requirement,
-            raw_confirmation_channels,
-            raw_confirmation_tokens,
+            state=ResolutionState.NOT_EVALUABLE,
+            reason_code="EVIDENCE_CHANNEL_NOT_VALIDATED",
+            matched_tokens=raw_confirmation_tokens,
+            unvalidated_observed_channels=raw_confirmation_channels,
         )
 
     diagnostic_channels, diagnostic_tokens = _matching_channels(
@@ -297,14 +362,12 @@ def evaluate_claim(
         require_validated=True,
     )
     if diagnostic_channels:
-        return ClaimDecision(
-            claim_id=requirement.claim_id,
+        return _decision(
+            requirement,
             state=ResolutionState.QUARANTINED,
             reason_code="OCR_REQUIRED_TOKEN_MISSED",
-            hard=requirement.hard,
             matched_tokens=diagnostic_tokens,
             supporting_channels=diagnostic_channels,
-            metadata_channels=(),
         )
 
     raw_diagnostic_channels, raw_diagnostic_tokens = _matching_channels(
@@ -314,10 +377,12 @@ def evaluate_claim(
         require_validated=False,
     )
     if raw_diagnostic_channels:
-        return _not_validated_decision(
+        return _decision(
             requirement,
-            raw_diagnostic_channels,
-            raw_diagnostic_tokens,
+            state=ResolutionState.NOT_EVALUABLE,
+            reason_code="EVIDENCE_CHANNEL_NOT_VALIDATED",
+            matched_tokens=raw_diagnostic_tokens,
+            unvalidated_observed_channels=raw_diagnostic_channels,
         )
 
     metadata_channels, metadata_tokens = _matching_channels(
@@ -328,22 +393,18 @@ def evaluate_claim(
     )
     if metadata_channels:
         if bundle.partial_document and requirement.hard:
-            return ClaimDecision(
-                claim_id=requirement.claim_id,
+            return _decision(
+                requirement,
                 state=ResolutionState.NOT_EVALUABLE,
                 reason_code="PARTIAL_SCOPE_NOT_COVERED",
-                hard=requirement.hard,
                 matched_tokens=metadata_tokens,
-                supporting_channels=(),
                 metadata_channels=metadata_channels,
             )
-        return ClaimDecision(
-            claim_id=requirement.claim_id,
+        return _decision(
+            requirement,
             state=ResolutionState.CANDIDATE_REVIEW,
             reason_code="METADATA_ONLY_NOT_CONTENT_IDENTITY",
-            hard=requirement.hard,
             matched_tokens=metadata_tokens,
-            supporting_channels=(),
             metadata_channels=metadata_channels,
         )
 
@@ -354,31 +415,25 @@ def evaluate_claim(
         require_validated=False,
     )
     if raw_metadata_channels:
-        return _not_validated_decision(
+        return _decision(
             requirement,
-            raw_metadata_channels,
-            raw_metadata_tokens,
+            state=ResolutionState.NOT_EVALUABLE,
+            reason_code="EVIDENCE_CHANNEL_NOT_VALIDATED",
+            matched_tokens=raw_metadata_tokens,
+            unvalidated_observed_channels=raw_metadata_channels,
         )
 
     if bundle.partial_document:
-        return ClaimDecision(
-            claim_id=requirement.claim_id,
+        return _decision(
+            requirement,
             state=ResolutionState.NOT_EVALUABLE,
             reason_code="PARTIAL_SCOPE_NOT_COVERED",
-            hard=requirement.hard,
-            matched_tokens=(),
-            supporting_channels=(),
-            metadata_channels=(),
         )
 
-    return ClaimDecision(
-        claim_id=requirement.claim_id,
+    return _decision(
+        requirement,
         state=ResolutionState.NO_MATCH_OBSERVED,
         reason_code="NO_MATCH_OBSERVED_IN_FULL_SCOPE",
-        hard=requirement.hard,
-        matched_tokens=(),
-        supporting_channels=(),
-        metadata_channels=(),
     )
 
 
@@ -416,8 +471,8 @@ def evaluate_bundle(
     return BundleDecision(
         verdict=verdict,
         claims=decisions,
-        validated_channels=tuple(
-            sorted(bundle.validated_channels, key=lambda channel: channel.value)
+        channel_receipts=tuple(
+            sorted(bundle.channel_receipts.items(), key=lambda item: item[0].value)
         ),
         processed_pages=bundle.processed_pages,
         total_pages=bundle.total_pages,
