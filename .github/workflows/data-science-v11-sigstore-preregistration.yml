@@ -1,0 +1,237 @@
+name: Data Science v11 — Sigstore preregistration
+
+on:
+  push:
+    branches:
+      - agent/data-science-v11-sigstore-preregistration
+    paths:
+      - '.github/workflows/data-science-v11-sigstore-preregistration.yml'
+      - 'data_science_pipeline_v11_sigstore_preregistration/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+env:
+  COMPONENT: data_science_pipeline_v11_sigstore_preregistration
+  SUBJECT: data_science_pipeline_v11_sigstore_preregistration/PREREGISTRATION.json
+  PREDICATE: data_science_pipeline_v11_sigstore_preregistration/PREDICATE.json
+  PREDICATE_TYPE: https://github.com/cristh99/notebooks/attestations/data-science-preregistration/v1
+  EVIDENCE_ROOT: sigstore-preregistration-v11-evidence
+  EXPECTED_REF: refs/heads/agent/data-science-v11-sigstore-preregistration
+  EXPECTED_WORKFLOW: github.com/cristh99/notebooks/.github/workflows/data-science-v11-sigstore-preregistration.yml
+
+jobs:
+  attest-preregistration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+
+      - name: Enforce branch and no-document-access boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "cristh99/notebooks"
+          test "$GITHUB_REF" = "$EXPECTED_REF"
+          test "$GITHUB_EVENT_NAME" = "push" -o "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          prereg = json.loads(Path(
+              "data_science_pipeline_v11_sigstore_preregistration/PREREGISTRATION.json"
+          ).read_text())
+          source = prereg["source_selection"]
+          controls = prereg["execution_controls"]
+          assert source["pdf_url"] is None
+          assert source["pdf_sha256"] is None
+          assert source["pdf_bytes"] is None
+          assert source["total_pages"] is None
+          assert source["pdf_url_resolved_before_freeze"] is False
+          assert source["pdf_bytes_downloaded_before_freeze"] is False
+          assert source["document_content_accessed_before_freeze"] is False
+          assert controls["actual_external_evaluations"] == 0
+          assert controls["stage08_unblocked"] is False
+          PY
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Verify frozen preregistration locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_ROOT"
+          python "$COMPONENT/verify.py" \
+            --output "$EVIDENCE_ROOT/static-receipt.json" \
+            | tee "$EVIDENCE_ROOT/static-verification.log"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path(
+              "sigstore-preregistration-v11-evidence/static-receipt.json"
+          ).read_text())
+          assert receipt["verdict"] == "PASS_PREREGISTRATION_SOFTWARE_ONLY"
+          assert receipt["github_attestation_created"] is False
+          assert receipt["checks"]["document_content_unopened"] is True
+          assert receipt["checks"]["external_evaluations_zero"] is True
+          PY
+          sha256sum \
+            "$SUBJECT" \
+            "$PREDICATE" \
+            "$COMPONENT/FREEZE.json" \
+            "$COMPONENT/verify.py" \
+            > "$EVIDENCE_ROOT/source-sha256.txt"
+          gh --version > "$EVIDENCE_ROOT/gh-version.txt"
+
+      - name: Create GitHub OIDC / Sigstore attestation
+        id: attest
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26
+        with:
+          subject-path: ${{ env.SUBJECT }}
+          predicate-type: ${{ env.PREDICATE_TYPE }}
+          predicate-path: ${{ env.PREDICATE }}
+          show-summary: true
+
+      - name: Verify attestation against exact workflow identity
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
+          ATTESTATION_ID: ${{ steps.attest.outputs.attestation-id }}
+          ATTESTATION_URL: ${{ steps.attest.outputs.attestation-url }}
+        run: |
+          set -euo pipefail
+          test -n "$BUNDLE_PATH"
+          test -f "$BUNDLE_PATH"
+          cp "$BUNDLE_PATH" "$EVIDENCE_ROOT/attestation-bundle.json"
+
+          gh attestation verify "$SUBJECT" \
+            --repo "$GITHUB_REPOSITORY" \
+            --bundle "$BUNDLE_PATH" \
+            --predicate-type "$PREDICATE_TYPE" \
+            --signer-workflow "$EXPECTED_WORKFLOW" \
+            --source-ref "$GITHUB_REF" \
+            --source-digest "$GITHUB_SHA" \
+            --cert-oidc-issuer "https://token.actions.githubusercontent.com" \
+            --deny-self-hosted-runners \
+            --format json \
+            > "$EVIDENCE_ROOT/verification.json"
+
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ["EVIDENCE_ROOT"])
+          subject = Path(os.environ["SUBJECT"])
+          predicate_path = Path(os.environ["PREDICATE"])
+          results = json.loads((root / "verification.json").read_text())
+          assert isinstance(results, list) and results
+          predicate = json.loads(predicate_path.read_text())
+          subject_sha = hashlib.sha256(subject.read_bytes()).hexdigest()
+          matches = []
+          for result in results:
+              statement = result["verificationResult"]["statement"]
+              if statement["predicateType"] != os.environ["PREDICATE_TYPE"]:
+                  continue
+              if statement["predicate"] != predicate:
+                  continue
+              if not any(
+                  item.get("digest", {}).get("sha256") == subject_sha
+                  for item in statement.get("subject", [])
+              ):
+                  continue
+              matches.append(result)
+          assert len(matches) == 1, len(matches)
+
+          def sha(path):
+              return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+          receipt = {
+              "schema": "data-science-pipeline/sigstore-preregistration-external-receipt/1",
+              "verdict": "PASS_SIGSTORE_PREREGISTRATION",
+              "github_run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "github_run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+              "github_sha": os.environ["GITHUB_SHA"],
+              "github_ref": os.environ["GITHUB_REF"],
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "signer_workflow": os.environ["EXPECTED_WORKFLOW"],
+              "predicate_type": os.environ["PREDICATE_TYPE"],
+              "subject_sha256": subject_sha,
+              "predicate_sha256": sha(predicate_path),
+              "bundle_sha256": sha(root / "attestation-bundle.json"),
+              "verification_sha256": sha(root / "verification.json"),
+              "attestation_id": os.environ.get("ATTESTATION_ID", ""),
+              "attestation_url": os.environ.get("ATTESTATION_URL", ""),
+              "checks": {
+                  "sigstore_signature_verified": True,
+                  "oidc_issuer_exact": True,
+                  "repository_exact": True,
+                  "signer_workflow_exact": True,
+                  "source_ref_exact": True,
+                  "source_digest_exact": True,
+                  "github_hosted_runner_required": True,
+                  "predicate_type_exact": True,
+                  "predicate_exact": True,
+                  "subject_digest_exact": True,
+                  "document_content_unopened": True,
+                  "external_evaluations_zero": True,
+                  "stage08_blocked": True,
+                  "zero_cost_exact": True,
+              },
+              "external_cost_usd": 0.0,
+              "production_modified": False,
+              "scientific_promotion_credit": 0,
+              "fresh_external_document_still_required": True,
+          }
+          payload = json.dumps(
+              receipt,
+              ensure_ascii=False,
+              sort_keys=True,
+              separators=(",", ":"),
+          ) + "\n"
+          (root / "external-receipt.json").write_text(payload)
+          (root / "external-receipt.sha256").write_text(
+              hashlib.sha256(payload.encode()).hexdigest()
+              + "  external-receipt.json\n"
+          )
+          PY
+
+      - name: Retain attestation evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-v11-sigstore-preregistration
+          path: sigstore-preregistration-v11-evidence
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce terminal receipt
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path("sigstore-preregistration-v11-evidence/external-receipt.json")
+          if not path.exists():
+              raise SystemExit("external receipt missing")
+          receipt = json.loads(path.read_text())
+          if receipt["verdict"] != "PASS_SIGSTORE_PREREGISTRATION":
+              raise SystemExit(receipt)
+          if not all(receipt["checks"].values()):
+              raise SystemExit(receipt["checks"])
+          print("PASS_SIGSTORE_PREREGISTRATION")
+          PY
