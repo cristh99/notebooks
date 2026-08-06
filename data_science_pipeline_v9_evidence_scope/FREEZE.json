@@ -1,0 +1,36 @@
+{
+  "schema": "data-science-pipeline/evidence-scope-freeze/1",
+  "base_ref": "agent/data-science-v8-ensemble-formula-hygiene",
+  "purpose": "Separate source provenance, document metadata, OCR content and native diagnostic evidence before Stage 07 identity promotion.",
+  "observed_external_failures": {
+    "v6_sesal": "Metadata named SESAL but the processed PDF pages did not contain the literal token; the old gate overconstrained identity.",
+    "v7_pacc": "Native evidence contained PACC while OCR emitted PACE; this is an OCR candidate failure and must quarantine.",
+    "v8_year": "Metadata named 2023 but neither OCR nor native text contained 2023 in the partial three-page scope; this must abstain as scope-not-covered rather than become an OCR failure."
+  },
+  "frozen_policy": {
+    "source_provenance_can_confirm_publisher": true,
+    "metadata_cannot_confirm_content_identity": true,
+    "native_control_mismatch_quarantines_ocr_candidate": true,
+    "partial_scope_absence_returns_not_evaluable": true,
+    "hard_unconfirmed_claims_force_abstention": true,
+    "integrity_failure_quarantines": true,
+    "deterministic_receipt_required": true,
+    "unvalidated_channels_cannot_confirm": true,
+    "observation_snapshot_is_immutable": true,
+    "channel_validation_requires_sha256_receipt": true,
+    "claim_scope_enforces_channel_roles": true,
+    "validation_receipt_binds_channel_observation_validator_policy": true
+  },
+  "source_sha256": "0f8aba8fd709bf9f5ac24ec9ca9bee6e40c1a397efa1f97679c80fa9392b7135",
+  "tests_sha256": "51ac02776b35370db970dae10897966e09b38eb114d3223d2d0c614dbba0fcbf",
+  "expected_tests": 15,
+  "controls": {
+    "network_required": false,
+    "external_cost_usd": 0.0,
+    "production_modified": false,
+    "merge_authorized": false,
+    "mass_processing_authorized": false,
+    "scientific_promotion_credit": 0,
+    "fresh_external_document_still_required": true
+  }
+}
