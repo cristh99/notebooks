@@ -50,7 +50,7 @@ jobs:
           test "$GITHUB_BASE_REF" = "agent/data-science-v11-envelope-bootstrap-base"
           [[ "$GITHUB_REF" =~ ^refs/pull/[0-9]+/merge$ ]]
           mkdir -p "$EVIDENCE_ROOT"
-          python3 -m unittest -v "$COMPONENT/test_envelope.py" \
+          (cd "$COMPONENT" && python3 -m unittest -v test_envelope.py) \
             |& tee "$EVIDENCE_ROOT/tests.log"
           python3 "$COMPONENT/verify_envelope.py" static \
             --output "$EVIDENCE_ROOT/local-receipt.json"
@@ -111,10 +111,10 @@ jobs:
             --certificate-github-workflow-repository "$GITHUB_REPOSITORY" \
             --certificate-github-workflow-sha "$OIDC_WORKFLOW_SHA" \
             --certificate-github-workflow-trigger "$GITHUB_EVENT_NAME" \
-            > "$EVIDENCE_ROOT/verify.stdout" 2> "$EVIDENCE_ROOT/verify.stderr"
+            > "$EVIDENCE_ROOT/verify.log" 2>&1
           python3 "$COMPONENT/verify_envelope.py" finalize \
             --bundle "$EVIDENCE_ROOT/envelope.sigstore.json" \
-            --verify-output "$EVIDENCE_ROOT/verify.stdout" \
+            --verify-output "$EVIDENCE_ROOT/verify.log" \
             --claims "$EVIDENCE_ROOT/oidc-safe-claims.json" \
             --local-receipt "$EVIDENCE_ROOT/local-receipt.json" \
             --original "$ORIGINAL_PATH" \
