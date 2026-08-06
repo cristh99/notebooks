@@ -1,0 +1,89 @@
+name: Data Science — Lane E entity/provider v1
+
+on:
+  push:
+    branches:
+      - agent/data-science-entity-provider-lane-v1-20260806
+    paths:
+      - 'data_science_pipeline_v12_entity_provider_candidates/**'
+      - '.github/workflows/data-science-lane-e-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: data-science-lane-e-v1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      PYTHONHASHSEED: '0'
+      COMPONENT: data_science_pipeline_v12_entity_provider_candidates
+      EXPECTED_SOURCE_BLOB: 6621cce3eea97d28a6df444099afa649e8be8b1b
+      EXPECTED_TEST_BLOB: 5ccc29557ae449a87a6a592bd41118ecc6fcd64b
+      EXPECTED_CONTRACT_BLOB: e206e969302808ff060f9d6a753c2f8427b75fd1
+      EXPECTED_TESTS: '19'
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up pinned Python runtime
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Verify exact Git blobs and run frozen regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object "$COMPONENT/entity_provider_candidates.py")" = "$EXPECTED_SOURCE_BLOB"
+          test "$(git hash-object "$COMPONENT/test_entity_provider_candidates.py")" = "$EXPECTED_TEST_BLOB"
+          test "$(git hash-object "$COMPONENT/ENTITY_PROVIDER_CONTRACT.md")" = "$EXPECTED_CONTRACT_BLOB"
+          python3 -m compileall -q "$COMPONENT"
+          PYTHONPATH="$COMPONENT" python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import unittest
+
+          component = Path(os.environ['COMPONENT'])
+          suite = unittest.defaultTestLoader.discover(
+              str(component), pattern='test_entity_provider_candidates.py'
+          )
+          expected = int(os.environ['EXPECTED_TESTS'])
+          count = suite.countTestCases()
+          if count != expected:
+              raise SystemExit(f'expected {expected} tests, discovered {count}')
+          result = unittest.TextTestRunner(verbosity=2).run(suite)
+          if not result.wasSuccessful():
+              raise SystemExit(1)
+
+          receipt = {
+              'schema': 'data-science-pipeline/lane-e-ci-receipt/1',
+              'verdict': 'PASS_LANE_E_SOFTWARE_ONLY',
+              'tests_run': result.testsRun,
+              'tests_expected': expected,
+              'failures': len(result.failures),
+              'errors': len(result.errors),
+              'skipped': len(result.skipped),
+              'source_sha256': hashlib.sha256((component / 'entity_provider_candidates.py').read_bytes()).hexdigest(),
+              'tests_sha256': hashlib.sha256((component / 'test_entity_provider_candidates.py').read_bytes()).hexdigest(),
+              'contract_sha256': hashlib.sha256((component / 'ENTITY_PROVIDER_CONTRACT.md').read_bytes()).hexdigest(),
+              'external_document_access': 0,
+              'production_writes': 0,
+              'external_cost_usd': 0.0,
+              'canonical_promotions': 0,
+              'scientific_promotion_credit': 0,
+          }
+          canonical = json.dumps(receipt, sort_keys=True, separators=(',', ':'))
+          receipt['receipt_sha256'] = hashlib.sha256(canonical.encode()).hexdigest()
+          print('LANE_E_RECEIPT=' + json.dumps(receipt, sort_keys=True, separators=(',', ':')))
+          PY
