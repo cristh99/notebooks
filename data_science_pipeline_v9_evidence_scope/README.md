@@ -7,7 +7,14 @@ This bounded Stage 07 maintenance layer separates four evidence channels before 
 3. OCR content;
 4. native-text diagnostic control.
 
-It repairs the semantic defect exposed by the SESAL and PACC canaries: metadata may identify a source or remain a candidate, but it cannot silently become a content mention; absence in a partial page scope causes abstention, while a token present in native control but missed by OCR quarantines the OCR candidate. A channel can support a match only after explicit validation, and the evidence bundle snapshots observations so later mutation cannot rewrite the decision.
+It repairs the semantic defects exposed by the SESAL and PACC canaries. Metadata may identify a source or remain a candidate, but it cannot silently become a content mention. Absence in a partial page scope causes abstention, while a token present in native control but missed by OCR quarantines the OCR candidate.
+
+Two structural controls prevent policy bypass:
+
+- every validated channel is bound to a lowercase SHA-256 validation receipt;
+- claim scope fixes which channels may confirm source identity or document content, so metadata or provenance cannot be reconfigured into content evidence.
+
+Observation text and validation receipts are snapshotted immutably so later mutation cannot rewrite a decision.
 
 ## Reproduce
 
@@ -20,7 +27,7 @@ The verifier checks frozen source/test hashes, runs every behavior test, compile
 
 ## Verified locally
 
-- 10/10 behavior and determinism tests pass;
+- 14/14 behavior, adversarial and determinism tests pass;
 - Python compilation passes;
 - canonical receipt replay is byte-identical;
 - receipt verdict: `PASS_SOFTWARE_POLICY_ONLY`;
@@ -28,4 +35,4 @@ The verifier checks frozen source/test hashes, runs every behavior test, compile
 
 ## Claim boundary
 
-This is a software-governance repair. It does not validate a fuzzy resolver, authorize production, reopen exposed documents, or earn external/scientific promotion credit. A fresh preregistered document is still required.
+This is a software-governance repair. It does not validate a fuzzy resolver, authenticate an external validator by itself, authorize production, reopen exposed documents, or earn external/scientific promotion credit. A fresh preregistered document and validator binding remain required.
