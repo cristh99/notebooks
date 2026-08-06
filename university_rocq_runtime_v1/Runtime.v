@@ -76,10 +76,10 @@ Proof.
   induction e as [n | lhs IHlhs rhs IHrhs].
   - reflexivity.
   - simpl.
-    remember (runtime_fold_constants lhs) as lhs' eqn:Hlhs.
-    remember (runtime_fold_constants rhs) as rhs' eqn:Hrhs.
-    destruct lhs'; destruct rhs'; simpl in *; rewrite <- IHlhs, <- IHrhs;
-      rewrite Hlhs, Hrhs; reflexivity.
+    rewrite <- IHlhs, <- IHrhs.
+    destruct (runtime_fold_constants lhs);
+      destruct (runtime_fold_constants rhs);
+      reflexivity.
 Qed.
 
 Definition runtime_assertion := nat -> Prop.
