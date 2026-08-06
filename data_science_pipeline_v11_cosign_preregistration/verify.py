@@ -17,6 +17,7 @@ FILES = {
     "preregistration": HERE / "PREREGISTRATION.json",
     "verifier": HERE / "verify_static.py",
     "tests": HERE / "test_static.py",
+    "workflow": WORKFLOW,
 }
 REQUIRED_WORKFLOW_TOKENS = {
     "id-token: write",

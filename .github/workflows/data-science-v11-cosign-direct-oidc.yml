@@ -9,7 +9,7 @@ on:
       - 'data_science_pipeline_v11_cosign_preregistration/**'
   pull_request:
     branches:
-      - agent/data-science-v10-signed-validator-registry
+      - agent/data-science-v11-oidc-bootstrap-base
     types: [opened, synchronize, reopened]
     paths:
       - '.github/workflows/data-science-v11-cosign-direct-oidc.yml'
@@ -32,7 +32,7 @@ env:
   EXPECTED_REPOSITORY_ID: '616013328'
   EXPECTED_OWNER_ID: '87334928'
   EXPECTED_HEAD_BRANCH: agent/data-science-v11-cosign-direct-oidc
-  EXPECTED_BASE_BRANCH: agent/data-science-v10-signed-validator-registry
+  EXPECTED_BASE_BRANCH: agent/data-science-v11-oidc-bootstrap-base
   EXPECTED_WORKFLOW_PATH: .github/workflows/data-science-v11-cosign-direct-oidc.yml
   EXPECTED_CERTIFICATE_IDENTITY_REGEXP: '^https://github\.com/cristh99/notebooks/\.github/workflows/data-science-v11-cosign-direct-oidc\.yml@(refs/heads/agent/data-science-v11-cosign-direct-oidc|refs/pull/[0-9]+/merge)$'
   OIDC_ISSUER: https://token.actions.githubusercontent.com

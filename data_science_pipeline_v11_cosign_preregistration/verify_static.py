@@ -17,7 +17,7 @@ EXPECTED_PAGE_URL = (
 EXPECTED_PAGE_TITLE = "Manual de usuario para compras por catálogo electrónico"
 EXPECTED_DOWNLOAD_LABEL = "Manual de usuario Catálogo Electrónico Abril 2016"
 EXPECTED_HEAD_BRANCH = "agent/data-science-v11-cosign-direct-oidc"
-EXPECTED_BASE_BRANCH = "agent/data-science-v10-signed-validator-registry"
+EXPECTED_BASE_BRANCH = "agent/data-science-v11-oidc-bootstrap-base"
 EXPECTED_WORKFLOW_PATH = ".github/workflows/data-science-v11-cosign-direct-oidc.yml"
 EXPECTED_REF_PATTERNS = {
     r"refs/heads/agent/data-science-v11-cosign-direct-oidc",
