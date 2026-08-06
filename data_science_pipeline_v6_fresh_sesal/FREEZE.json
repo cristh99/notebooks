@@ -1,0 +1,54 @@
+{
+  "schema": "data-science-pipeline/fresh-sesal-end-to-end-freeze/1",
+  "source_discovery": {
+    "official_page": "https://oncae.gob.hn/biblioteca/manuales/procedimientos-de-compra/guia-de-contratacion-directa-pcm-04-2023-sesal/",
+    "official_pdf": "https://oncae.gob.hn/wp-content/uploads/2024/05/GUIA-PARA-CONTRATACION-DIRECTA-SESAL-AGOSTO-2024.pdf",
+    "discovered_by": "rendered page link extraction",
+    "pdf_contents_accessed_before_freeze": false,
+    "visible_metadata_used": "GUIA PARA CONTRATACION DIRECTA SESAL AGOSTO 2024"
+  },
+  "pipeline_scope": ["acquire", "preserve_raw", "extract", "normalize", "resolve"],
+  "extract_gate": {
+    "pages": 3,
+    "dpi": 200,
+    "languages": "spa+eng",
+    "psm": 6,
+    "minimum_mean_confidence": 55.0,
+    "minimum_native_token_recall": 0.55,
+    "required_tokens": ["ONCAE", "CONTRATACION", "DIRECTA", "SESAL", "AGOSTO", "2024"],
+    "empty_pages": 0
+  },
+  "normalize_gate": {
+    "documents": 1,
+    "pages": 3,
+    "minimum_lines": 1,
+    "minimum_words": 1,
+    "unique_word_keys": true,
+    "coordinates_inside_raster": true,
+    "byte_identical_replay": true
+  },
+  "resolve_gate": {
+    "required_entities": ["hn:institution:oncae", "hn:institution:sesal"],
+    "required_date": "2024-08",
+    "required_legal_instrument": "hn:pcm:053-2023",
+    "false_positive_forbidden": {
+      "source_pattern": "FISCAL 2024",
+      "forbidden_amount_surface": "L 2024",
+      "forbidden_value": 2024.0
+    },
+    "all_mentions_require_line_ids_and_parent_hash": true,
+    "registry_alias_collisions_fail_closed": true,
+    "unqualified_numbers_are_not_money": true,
+    "abstention_required_when_no_money_resolves": true
+  },
+  "execution": {
+    "candidate_frozen_before_pdf_download": true,
+    "post_result_retuning_permitted": false,
+    "external_cost_usd": 0.0,
+    "gcloud_used": false,
+    "paid_compute_used": false,
+    "merge_authorized": false,
+    "mass_processing_authorized": false,
+    "novelty_points": 0
+  }
+}
