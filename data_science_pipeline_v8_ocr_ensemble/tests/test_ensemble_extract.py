@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# Software-hygiene regression only: no OCR or source-document access.
+
 import tempfile
 import unittest
 from pathlib import Path
