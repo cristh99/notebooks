@@ -68,11 +68,26 @@ jobs:
       KG_CONTENT_MODE: none
       KG_MAX_OBJECTS: "100000"
     steps:
+      - name: Check Notion credential without disclosure
+        id: auth
+        shell: bash
+        run: |
+          if [[ -n "${NOTION_GRAPH_TOKEN:-${NOTION_TOKEN:-}}" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "Credential: present." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "Status: BLOCKED_NO_SECRET." >> "$GITHUB_STEP_SUMMARY"
+            echo "Create the repository secret NOTION_GRAPH_TOKEN to activate daily sync." >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Checkout
+        if: steps.auth.outputs.available == 'true'
         uses: actions/checkout@v4
       - name: Verify Python
+        if: steps.auth.outputs.available == 'true'
         run: python3 --version
       - name: Reconstruct runtime
+        if: steps.auth.outputs.available == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -89,9 +104,10 @@ jobs:
           unzip -q /tmp/kg_runner.zip -d knowledge_graph_runner/runtime
           cp knowledge_graph_runner/public_runner.py knowledge_graph_runner/runtime/
       - name: Build graph and write Notion receipt
+        if: steps.auth.outputs.available == 'true'
         working-directory: knowledge_graph_runner/runtime
         run: python3 public_runner.py
-      - name: Confirm zero-persistence boundary
+      - name: Confirm privacy and cost boundary
         if: always()
         shell: bash
         run: |
