@@ -1,0 +1,195 @@
+name: Data Science pipeline v5 — strict amount regression repair
+
+on:
+  push:
+    branches:
+      - agent/data-science-canonical-pipeline-v5-resolve-fix
+    paths:
+      - '.github/workflows/data-science-pipeline-v5-resolve-fix.yml'
+      - 'data_science_pipeline_v5_resolve/resolve_amounts_strict.py'
+      - 'data_science_pipeline_v5_resolve/resolve_runner_v3.py'
+      - 'data_science_pipeline_v5_resolve/test_resolve_amounts_regression.py'
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  EVIDENCE_ROOT: resolution-v5-fix-evidence
+  UPSTREAM_ARTIFACT_ID: '8952699633'
+  UPSTREAM_ARTIFACT_SHA256: 3c2aa0e8551b559ab2540f61a13a1aef3d69d6efec64437721d574f1d38be2d8
+  FROZEN_V5_SHA: 7b4e75de8e8f400e231b19046d1585113731522d
+
+jobs:
+  resolve-regression-repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+
+      - name: Prove bounded fix scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git diff --name-only "$FROZEN_V5_SHA" HEAD | sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/data-science-pipeline-v5-resolve-fix.yml' \
+            'data_science_pipeline_v5_resolve/resolve_amounts_strict.py' \
+            'data_science_pipeline_v5_resolve/resolve_runner_v3.py' \
+            'data_science_pipeline_v5_resolve/test_resolve_amounts_regression.py' | sort)"
+          test "$actual" = "$expected"
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Run frozen and regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_ROOT"
+          cd data_science_pipeline_v5_resolve
+          python -m unittest -v \
+            test_resolve_canonical.py \
+            test_resolve_runner_v2.py \
+            test_resolve_amounts_regression.py \
+            2>&1 | tee "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/unit-tests.log"
+          grep -q 'Ran 13 tests' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/unit-tests.log"
+          grep -q '^OK$' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/unit-tests.log"
+          python -m py_compile \
+            resolve_canonical.py resolve_runner.py resolve_runner_v2.py \
+            resolve_amounts_strict.py resolve_runner_v3.py \
+            test_resolve_canonical.py test_resolve_runner_v2.py \
+            test_resolve_amounts_regression.py
+          cp FREEZE.json "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/FREEZE.json"
+
+      - name: Download exact sealed normalization artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api -H 'Accept: application/vnd.github+json' \
+            "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${UPSTREAM_ARTIFACT_ID}/zip" \
+            > "$EVIDENCE_ROOT/upstream.zip"
+          echo "${UPSTREAM_ARTIFACT_SHA256}  $EVIDENCE_ROOT/upstream.zip" | sha256sum -c -
+          mkdir -p "$EVIDENCE_ROOT/upstream"
+          unzip -q "$EVIDENCE_ROOT/upstream.zip" -d "$EVIDENCE_ROOT/upstream"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path('resolution-v5-fix-evidence/upstream/repaired-receipt.json').read_text())
+          assert receipt['verdict'] == 'PASS'
+          assert receipt['sealed_source_artifact_id'] == 8952669318
+          assert receipt['row_counts'] == {'documents': 1, 'pages': 3, 'lines': 99, 'words': 461}
+          PY
+
+      - name: Resolve twice with strict currency boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          python data_science_pipeline_v5_resolve/resolve_runner_v3.py \
+            --bundle "$EVIDENCE_ROOT/upstream" \
+            --output "$EVIDENCE_ROOT/output-a" \
+            > "$EVIDENCE_ROOT/resolve-a.log"
+          python data_science_pipeline_v5_resolve/resolve_runner_v3.py \
+            --bundle "$EVIDENCE_ROOT/upstream" \
+            --output "$EVIDENCE_ROOT/output-b" \
+            > "$EVIDENCE_ROOT/resolve-b.log"
+          diff -qr "$EVIDENCE_ROOT/output-a" "$EVIDENCE_ROOT/output-b" \
+            | tee "$EVIDENCE_ROOT/replay-diff.log"
+          test ! -s "$EVIDENCE_ROOT/replay-diff.log"
+
+      - name: Independently adjudicate the repaired output
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+
+          root = Path(os.environ['EVIDENCE_ROOT'])
+          out = root / 'output-a'
+          manifest = json.loads((out / 'resolve-manifest.json').read_text())
+
+          def rows(name):
+              return [json.loads(line) for line in (out / name).read_text().splitlines() if line.strip()]
+
+          def sha(path):
+              return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+          entities = rows('entities.jsonl')
+          mentions = rows('entity_mentions.jsonl')
+          collisions = rows('entity_collisions.jsonl')
+          dates = rows('dates.jsonl')
+          legal = rows('legal_instruments.jsonl')
+          legal_mentions = rows('legal_mentions.jsonl')
+          contacts = rows('contacts.jsonl')
+          amounts = rows('amounts.jsonl')
+          abstentions = rows('abstentions.jsonl')
+          entity_ids = {row['entity_id'] for row in entities}
+          legal_ids = {row['legal_id'] for row in legal}
+          internal_checks = {key: value for key, value in manifest['checks'].items() if key != 'external_cost_usd'}
+
+          checks = {
+              'schema_exact': manifest['schema'] == 'data-science-pipeline/resolved-canonical-bundle/1',
+              'all_internal_checks_true': all(internal_checks.values()),
+              'zero_cost_exact': manifest['checks']['external_cost_usd'] == 0.0,
+              'oncae_resolved': 'hn:institution:oncae' in entity_ids,
+              'cich_resolved': 'hn:organization:cich' in entity_ids,
+              'month_year_resolved': any(row['value'] == '2024-11' for row in dates),
+              'decree_resolved': 'hn:decree:62-2023' in legal_ids,
+              'phone_resolved': any(row['canonical_value'] == '+504-2209-5355' for row in contacts),
+              'fiscal_year_not_money': amounts == [],
+              'amount_abstention_present': any(row['reason_code'] == 'NO_CURRENCY_QUALIFIED_AMOUNT' for row in abstentions),
+              'zero_entity_collisions': collisions == [],
+              'mention_lineage_complete': all(row.get('line_ids') and row.get('lineage_parent_sha256') for row in mentions + legal_mentions),
+              'replay_byte_identical': not (root / 'replay-diff.log').read_bytes(),
+              'manifest_replay_identical': (root / 'output-a/resolve-manifest.json').read_bytes() == (root / 'output-b/resolve-manifest.json').read_bytes(),
+              'source_hash_exact': manifest['upstream']['source_pdf_sha256'] == '5f278ec51106212a95a6f8c135cdfb8376724daab1e49b9ca0d3879543d11e85',
+          }
+          passed = all(checks.values())
+          output_hashes = {path.name: sha(path) for path in sorted(out.iterdir()) if path.is_file()}
+          receipt = {
+              'schema': 'data-science-pipeline/resolve-regression-repair-receipt/2',
+              'verdict': 'PASS_REGRESSION_ONLY' if passed else 'FAIL',
+              'technical_checks_passed': passed,
+              'scientific_gate_status': 'OPEN_REQUIRES_FRESH_DOCUMENT',
+              'promotion_credit': 0,
+              'same_document_reused_for_regression_only': True,
+              'post_result_retuning_permitted_for_same_document': False,
+              'document_retired_from_promotion': True,
+              'next_candidate_must_use_fresh_document': True,
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_sha': os.environ['GITHUB_SHA'],
+              'frozen_v5_sha': os.environ['FROZEN_V5_SHA'],
+              'root_cause': 'standalone-currency-boundary-missing',
+              'rejected_false_positive': {'surface_text': 'L 2024', 'source_context': 'EJERCICIO FISCAL 2024'},
+              'checks': checks,
+              'row_counts': manifest['row_counts'],
+              'amount_count': len(amounts),
+              'abstention_count': len(abstentions),
+              'output_hashes': output_hashes,
+              'upstream_artifact_zip_sha256': os.environ['UPSTREAM_ARTIFACT_SHA256'],
+              'merge_authorized': False,
+              'mass_processing_authorized': False,
+              'external_cost_usd': 0.0,
+          }
+          payload = json.dumps(receipt, indent=2, sort_keys=True, ensure_ascii=False) + '\n'
+          (root / 'integration-receipt.json').write_text(payload)
+          digest = hashlib.sha256(payload.encode()).hexdigest()
+          (root / 'integration-receipt.sha256').write_text(f'{digest}  integration-receipt.json\n')
+          if not passed:
+              raise SystemExit(json.dumps(checks, indent=2, sort_keys=True))
+          PY
+
+      - name: Upload bounded evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-pipeline-v5-resolve-fix
+          path: resolution-v5-fix-evidence
+          if-no-files-found: error
+          retention-days: 90
