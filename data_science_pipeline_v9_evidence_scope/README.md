@@ -11,7 +11,7 @@ It repairs the semantic defects exposed by the SESAL and PACC canaries. Metadata
 
 Two structural controls prevent policy bypass:
 
-- every validated channel is bound to a lowercase SHA-256 validation receipt;
+- every validated channel carries a canonical receipt that binds channel, observation hash, validator identity and policy hash;
 - claim scope fixes which channels may confirm source identity or document content, so metadata or provenance cannot be reconfigured into content evidence.
 
 Observation text and validation receipts are snapshotted immutably so later mutation cannot rewrite a decision.
@@ -27,7 +27,7 @@ The verifier checks frozen source/test hashes, runs every behavior test, compile
 
 ## Verified locally
 
-- 14/14 behavior, adversarial and determinism tests pass;
+- 15/15 behavior, adversarial and determinism tests pass;
 - Python compilation passes;
 - canonical receipt replay is byte-identical;
 - receipt verdict: `PASS_SOFTWARE_POLICY_ONLY`;
@@ -35,4 +35,4 @@ The verifier checks frozen source/test hashes, runs every behavior test, compile
 
 ## Claim boundary
 
-This is a software-governance repair. It does not validate a fuzzy resolver, authenticate an external validator by itself, authorize production, reopen exposed documents, or earn external/scientific promotion credit. A fresh preregistered document and validator binding remain required.
+This is a software-governance repair. It does not validate a fuzzy resolver, authenticate the validator identity cryptographically by itself, authorize production, reopen exposed documents, or earn external/scientific promotion credit. A fresh preregistered document and validator binding remain required.
