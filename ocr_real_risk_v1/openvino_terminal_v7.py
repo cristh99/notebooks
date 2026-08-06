@@ -87,6 +87,8 @@ def adjudicate(
         or candidate.get("source_commit") != source_commit
         or candidate["predecessor_v7"]["stable_payload_sha256"]
         != PREDECESSOR_STABLE
+        or candidate["metadata_power_gate"].get("expected_source_rows")
+        != EXPECTED_ROW_COUNT
         or candidate["metadata_power_gate"]["image_column_forbidden"]
         is not True
         or candidate["metadata_power_gate"][
@@ -107,6 +109,7 @@ def adjudicate(
         source.get("path") != SOURCE_PATH
         or source.get("sha256") != SOURCE_SHA256
         or source.get("size_bytes") != SOURCE_SIZE_BYTES
+        or source.get("declared_rows") != EXPECTED_ROW_COUNT
         or source_seal.get("outcomes_opened") is not False
         or source_seal.get("images_opened") != 0
     ):
