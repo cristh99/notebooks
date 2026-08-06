@@ -70,7 +70,7 @@ def evaluate(s):
     ranked=sorted(((matching(v),k) for k,v in values.items()),key=lambda x:(-x[0],x[1]))
     accepted=[]
     if ranked and ranked[0][0]>=s["q"]: accepted=[{"claim_key":f'{s["domain"]}:asset|status',"value":ranked[0][1]}]
-    next_id=choose_candidate(s.get("candidates",[]),{o["root"] for o in obs},{o["dep"] for o in obs},bad_roots)
+    next_id=choose_candidate(s.get("candidates",[]),{o["root"] for o in valid},{o["dep"] for o in valid},bad_roots)
     if accepted: terminal="REVOKED_RECOMPUTED" if revoked else "ACCEPTED"
     elif bad_ids or bad_roots: terminal="QUARANTINED"
     elif next_id: terminal="ABSTAIN"
