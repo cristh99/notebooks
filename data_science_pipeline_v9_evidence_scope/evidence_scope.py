@@ -6,6 +6,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 from enum import Enum
+from types import MappingProxyType
 from typing import Mapping, Sequence
 
 SCHEMA = "data-science-pipeline/evidence-scope-receipt/1"
@@ -48,11 +49,19 @@ class ClaimRequirement:
             raise ValueError("match_mode must be 'all' or 'any'")
         if len(set(self.tokens)) != len(self.tokens):
             raise ValueError("tokens must be unique")
+        channels = (
+            *self.confirmation_channels,
+            *self.diagnostic_channels,
+            *self.metadata_channels,
+        )
+        if any(not isinstance(channel, EvidenceChannel) for channel in channels):
+            raise TypeError("all evidence channels must be EvidenceChannel values")
 
 
 @dataclass(frozen=True)
 class EvidenceBundle:
     observations: Mapping[EvidenceChannel, str]
+    validated_channels: frozenset[EvidenceChannel]
     processed_pages: tuple[int, ...]
     total_pages: int
     partial_document: bool
@@ -60,6 +69,29 @@ class EvidenceBundle:
     integrity_reason: str = "INTEGRITY_OK"
 
     def __post_init__(self) -> None:
+        observation_snapshot = dict(self.observations)
+        if any(
+            not isinstance(channel, EvidenceChannel)
+            for channel in observation_snapshot
+        ):
+            raise TypeError("observation keys must be EvidenceChannel values")
+        if any(not isinstance(text, str) for text in observation_snapshot.values()):
+            raise TypeError("observation values must be strings")
+        validated_snapshot = frozenset(self.validated_channels)
+        if any(
+            not isinstance(channel, EvidenceChannel)
+            for channel in validated_snapshot
+        ):
+            raise TypeError("validated_channels must contain EvidenceChannel values")
+        if not validated_snapshot.issubset(observation_snapshot):
+            raise ValueError("validated channel has no observation")
+        object.__setattr__(
+            self,
+            "observations",
+            MappingProxyType(observation_snapshot),
+        )
+        object.__setattr__(self, "validated_channels", validated_snapshot)
+
         if self.total_pages <= 0:
             raise ValueError("total_pages must be positive")
         if not self.processed_pages:
@@ -93,8 +125,12 @@ class ClaimDecision:
             "reason_code": self.reason_code,
             "hard": self.hard,
             "matched_tokens": list(self.matched_tokens),
-            "supporting_channels": [channel.value for channel in self.supporting_channels],
-            "metadata_channels": [channel.value for channel in self.metadata_channels],
+            "supporting_channels": [
+                channel.value for channel in self.supporting_channels
+            ],
+            "metadata_channels": [
+                channel.value for channel in self.metadata_channels
+            ],
         }
 
 
@@ -102,6 +138,7 @@ class ClaimDecision:
 class BundleDecision:
     verdict: str
     claims: tuple[ClaimDecision, ...]
+    validated_channels: tuple[EvidenceChannel, ...]
     processed_pages: tuple[int, ...]
     total_pages: int
     partial_document: bool
@@ -110,6 +147,9 @@ class BundleDecision:
         return {
             "schema": SCHEMA,
             "verdict": self.verdict,
+            "validated_channels": [
+                channel.value for channel in self.validated_channels
+            ],
             "processed_pages": list(self.processed_pages),
             "total_pages": self.total_pages,
             "partial_document": self.partial_document,
@@ -130,15 +170,23 @@ class BundleDecision:
 
 def normalize_text(text: str) -> str:
     decomposed = unicodedata.normalize("NFKD", text)
-    unaccented = "".join(char for char in decomposed if not unicodedata.combining(char))
+    unaccented = "".join(
+        char for char in decomposed if not unicodedata.combining(char)
+    )
     return re.sub(r"[^A-Z0-9]+", " ", unaccented.upper()).strip()
 
 
-def _channel_tokens(bundle: EvidenceBundle, channel: EvidenceChannel) -> frozenset[str]:
+def _channel_tokens(
+    bundle: EvidenceBundle,
+    channel: EvidenceChannel,
+) -> frozenset[str]:
     return frozenset(normalize_text(bundle.observations.get(channel, "")).split())
 
 
-def _matches(requirement: ClaimRequirement, token_set: frozenset[str]) -> tuple[bool, tuple[str, ...]]:
+def _matches(
+    requirement: ClaimRequirement,
+    token_set: frozenset[str],
+) -> tuple[bool, tuple[str, ...]]:
     expected = tuple(normalize_text(token) for token in requirement.tokens)
     hits = tuple(token for token in expected if token in token_set)
     if requirement.match_mode == "all":
@@ -150,10 +198,14 @@ def _matching_channels(
     requirement: ClaimRequirement,
     bundle: EvidenceBundle,
     channels: Sequence[EvidenceChannel],
+    *,
+    require_validated: bool,
 ) -> tuple[tuple[EvidenceChannel, ...], tuple[str, ...]]:
     matched_channels: list[EvidenceChannel] = []
     matched_tokens: set[str] = set()
     for channel in channels:
+        if require_validated and channel not in bundle.validated_channels:
+            continue
         matched, hits = _matches(requirement, _channel_tokens(bundle, channel))
         if matched:
             matched_channels.append(channel)
@@ -162,10 +214,31 @@ def _matching_channels(
 
 
 def _official_confirmation(channels: Sequence[EvidenceChannel]) -> bool:
-    return any(channel is EvidenceChannel.SOURCE_PROVENANCE for channel in channels)
+    return any(
+        channel is EvidenceChannel.SOURCE_PROVENANCE for channel in channels
+    )
 
 
-def evaluate_claim(bundle: EvidenceBundle, requirement: ClaimRequirement) -> ClaimDecision:
+def _not_validated_decision(
+    requirement: ClaimRequirement,
+    channels: tuple[EvidenceChannel, ...],
+    tokens: tuple[str, ...],
+) -> ClaimDecision:
+    return ClaimDecision(
+        claim_id=requirement.claim_id,
+        state=ResolutionState.NOT_EVALUABLE,
+        reason_code="EVIDENCE_CHANNEL_NOT_VALIDATED",
+        hard=requirement.hard,
+        matched_tokens=tokens,
+        supporting_channels=channels,
+        metadata_channels=(),
+    )
+
+
+def evaluate_claim(
+    bundle: EvidenceBundle,
+    requirement: ClaimRequirement,
+) -> ClaimDecision:
     if not bundle.integrity_ok:
         return ClaimDecision(
             claim_id=requirement.claim_id,
@@ -178,7 +251,10 @@ def evaluate_claim(bundle: EvidenceBundle, requirement: ClaimRequirement) -> Cla
         )
 
     confirmation_channels, confirmation_tokens = _matching_channels(
-        requirement, bundle, requirement.confirmation_channels
+        requirement,
+        bundle,
+        requirement.confirmation_channels,
+        require_validated=True,
     )
     if confirmation_channels:
         state = (
@@ -186,7 +262,11 @@ def evaluate_claim(bundle: EvidenceBundle, requirement: ClaimRequirement) -> Cla
             if _official_confirmation(confirmation_channels)
             else ResolutionState.MATCH_VALIDATED
         )
-        reason = "OFFICIAL_ID_EXACT" if state is ResolutionState.MATCH_OFFICIAL else "EVIDENCE_SCOPED_CONTENT_MATCH"
+        reason = (
+            "OFFICIAL_ID_EXACT"
+            if state is ResolutionState.MATCH_OFFICIAL
+            else "EVIDENCE_SCOPED_CONTENT_MATCH"
+        )
         return ClaimDecision(
             claim_id=requirement.claim_id,
             state=state,
@@ -197,8 +277,24 @@ def evaluate_claim(bundle: EvidenceBundle, requirement: ClaimRequirement) -> Cla
             metadata_channels=(),
         )
 
+    raw_confirmation_channels, raw_confirmation_tokens = _matching_channels(
+        requirement,
+        bundle,
+        requirement.confirmation_channels,
+        require_validated=False,
+    )
+    if raw_confirmation_channels:
+        return _not_validated_decision(
+            requirement,
+            raw_confirmation_channels,
+            raw_confirmation_tokens,
+        )
+
     diagnostic_channels, diagnostic_tokens = _matching_channels(
-        requirement, bundle, requirement.diagnostic_channels
+        requirement,
+        bundle,
+        requirement.diagnostic_channels,
+        require_validated=True,
     )
     if diagnostic_channels:
         return ClaimDecision(
@@ -211,8 +307,24 @@ def evaluate_claim(bundle: EvidenceBundle, requirement: ClaimRequirement) -> Cla
             metadata_channels=(),
         )
 
+    raw_diagnostic_channels, raw_diagnostic_tokens = _matching_channels(
+        requirement,
+        bundle,
+        requirement.diagnostic_channels,
+        require_validated=False,
+    )
+    if raw_diagnostic_channels:
+        return _not_validated_decision(
+            requirement,
+            raw_diagnostic_channels,
+            raw_diagnostic_tokens,
+        )
+
     metadata_channels, metadata_tokens = _matching_channels(
-        requirement, bundle, requirement.metadata_channels
+        requirement,
+        bundle,
+        requirement.metadata_channels,
+        require_validated=True,
     )
     if metadata_channels:
         if bundle.partial_document and requirement.hard:
@@ -233,6 +345,19 @@ def evaluate_claim(bundle: EvidenceBundle, requirement: ClaimRequirement) -> Cla
             matched_tokens=metadata_tokens,
             supporting_channels=(),
             metadata_channels=metadata_channels,
+        )
+
+    raw_metadata_channels, raw_metadata_tokens = _matching_channels(
+        requirement,
+        bundle,
+        requirement.metadata_channels,
+        require_validated=False,
+    )
+    if raw_metadata_channels:
+        return _not_validated_decision(
+            requirement,
+            raw_metadata_channels,
+            raw_metadata_tokens,
         )
 
     if bundle.partial_document:
@@ -263,15 +388,25 @@ def evaluate_bundle(
 ) -> BundleDecision:
     if not requirements:
         raise ValueError("requirements must not be empty")
-    if len({requirement.claim_id for requirement in requirements}) != len(requirements):
+    if len({requirement.claim_id for requirement in requirements}) != len(
+        requirements
+    ):
         raise ValueError("claim_id values must be unique")
 
-    decisions = tuple(evaluate_claim(bundle, requirement) for requirement in requirements)
-    if any(decision.state is ResolutionState.QUARANTINED for decision in decisions):
+    decisions = tuple(
+        evaluate_claim(bundle, requirement) for requirement in requirements
+    )
+    if any(
+        decision.state is ResolutionState.QUARANTINED for decision in decisions
+    ):
         verdict = "QUARANTINED"
     elif any(
         decision.hard
-        and decision.state not in {ResolutionState.MATCH_OFFICIAL, ResolutionState.MATCH_VALIDATED}
+        and decision.state
+        not in {
+            ResolutionState.MATCH_OFFICIAL,
+            ResolutionState.MATCH_VALIDATED,
+        }
         for decision in decisions
     ):
         verdict = "ABSTAIN"
@@ -281,6 +416,9 @@ def evaluate_bundle(
     return BundleDecision(
         verdict=verdict,
         claims=decisions,
+        validated_channels=tuple(
+            sorted(bundle.validated_channels, key=lambda channel: channel.value)
+        ),
         processed_pages=bundle.processed_pages,
         total_pages=bundle.total_pages,
         partial_document=bundle.partial_document,
