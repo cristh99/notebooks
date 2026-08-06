@@ -29,6 +29,7 @@ COMPONENT = "openvino"
 SOURCE_PATH = "data/openvino-00000-of-00001.parquet"
 SOURCE_SHA256 = "5413c6ffb4f8047977db9dba520453976f48eed91b5477d06e7f62258a2ba09c"
 SOURCE_SIZE_BYTES = 65_751_927_475
+EXPECTED_ROW_COUNT = 207_790
 SOURCE_URL = (
     "https://huggingface.co/datasets/Yesianrohn/OCR-Data/resolve/"
     f"{DATASET_REVISION}/{SOURCE_PATH}?download=true"
@@ -209,6 +210,11 @@ def remote_census(
                 yield int(row[0]), row[1]
 
     stage_a = texts_only_upper_bound(text_rows())
+    if int(stage_a["row_count"]) != EXPECTED_ROW_COUNT:
+        raise RuntimeError(
+            "OpenVINO texts-only scan row count mismatch: "
+            f"{stage_a['row_count']} != {EXPECTED_ROW_COUNT}"
+        )
     exact_census: dict[str, Any] | None = None
     geometry_columns_read = False
     if stage_a["exact_geometry_stage_required"]:
@@ -258,6 +264,11 @@ def remote_census(
                     yield int(row[0]), row[1], row[2], row[3], row[4]
 
         exact_census = census_rows(exact_rows())
+        if int(exact_census["row_count"]) != EXPECTED_ROW_COUNT:
+            raise RuntimeError(
+                "OpenVINO exact geometry scan row count mismatch: "
+                f"{exact_census['row_count']} != {EXPECTED_ROW_COUNT}"
+            )
         selected = int(exact_census["selected_count"])
     else:
         selected = int(stage_a["selected_upper_bound"])
@@ -289,6 +300,7 @@ def remote_census(
             "source_path": SOURCE_PATH,
             "source_sha256": SOURCE_SHA256,
             "source_size_bytes": SOURCE_SIZE_BYTES,
+            "expected_row_count": EXPECTED_ROW_COUNT,
             "source_url": source_url,
         },
         "candidate_binding": {
