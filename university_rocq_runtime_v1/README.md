@@ -9,14 +9,15 @@ This capsule closes one scoped runtime gate from the university curriculum: comp
 - Official version: `7.0` (`2026-01-09 13:17`)
 - Required runtime: Coq/Rocq `9.0.0` or later
 - Source: `https://softwarefoundations.cis.upenn.edu/current/lf-current/lf.tgz`
-- Initial runtime image: `rocq/rocq-prover:9.0.0`
+- Source SHA-256: `3721c1f9a25243251a30e3be9b861707c8e1ab4ba2d1e5374ca8ef36f8dcf130`
+- Supported official runtime tag: `rocq/rocq-prover:9.0`
 
-The first discovery run records the exact source SHA-256 and container digest. A second run is required after those values are frozen in `SOURCE_LOCK.json`; only that second run may be promoted to final scoped PASS.
+The source is now frozen. The next discovery run records the exact container digest behind the supported `9.0` tag. A further replay is required after that digest is committed to `SOURCE_LOCK.json`; only that replay may be promoted to final scoped PASS.
 
 ## Gates
 
 1. Download the official tarball and retain it in the evidence artifact.
-2. Record and subsequently enforce its SHA-256.
+2. Enforce its SHA-256.
 3. Record and subsequently enforce the Rocq container digest.
 4. Build the official volume once with `make -j1` and once independently with `make -j4`.
 5. Compile `Runtime.v` in both trees and compare normalized `Print Assumptions` output.
