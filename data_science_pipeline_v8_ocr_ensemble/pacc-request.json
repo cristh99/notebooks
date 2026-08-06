@@ -1,0 +1,11 @@
+{
+  "request_id": "oncae-pacc-basic-concepts-2023",
+  "url": "https://oncae.gob.hn/wp-content/uploads/2024/05/Conceptos-basicos-PACC-ONCAE-2023.pdf",
+  "allowed_hosts": ["oncae.gob.hn"],
+  "expected_media_types": ["application/pdf"],
+  "min_bytes": 50000,
+  "max_bytes": 30000000,
+  "timeout_seconds": 60,
+  "max_redirects": 3,
+  "headers": {"Accept": "application/pdf"}
+}
