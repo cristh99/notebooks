@@ -23,6 +23,12 @@ class T(unittest.TestCase):
  def test_recompute_accepts(self): self.assertEqual(evaluate(build('x','revocation_deterministic_recompute'))['terminal'],'REVOKED_RECOMPUTED')
  def test_evaluator_rejected(self): self.assertEqual(evaluate(build('x','evaluator_compromise'))['terminal'],'QUARANTINED')
  def test_adaptive_independent(self): self.assertEqual(evaluate(build('x','adaptive_next_source_under_dependence'))['next_source_id'],'candidate-x-independent')
+ def test_invalid_observation_cannot_censor_independent_candidate(self):
+  s=build('x','adaptive_next_source_under_dependence')
+  s['observations'].append({'id':'x-invalid-censor','root':'r4','dep':'d4','value':'INVALID','epoch':1,'sig':False})
+  decision=evaluate(s)
+  self.assertIn('x-invalid-censor',decision['quarantined_statement_ids'])
+  self.assertEqual(decision['next_source_id'],'candidate-x-independent')
  def test_impossible(self): self.assertEqual(evaluate(build('x','indistinguishable_worlds_impossible'))['terminal'],'IMPOSSIBLE_UNDER_FAULT_MODEL')
  def test_deterministic(self):
   s=build('x','root_equivocation'); self.assertEqual(evaluate(s),evaluate(copy.deepcopy(s)))
