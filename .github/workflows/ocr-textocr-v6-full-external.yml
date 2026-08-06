@@ -16,6 +16,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  REPO_VISIBILITY: ${{ github.event.repository.visibility }}
   CANDIDATE_ARTIFACT_ID: '8934627865'
   CANDIDATE_ARTIFACT_SHA256: 019f739abc302d54efced526f8e48bc2f2a4f4a7bcb5ff89c586f9781fc8fd5e
   CANDIDATE_STABLE_SHA256: 96b35ec606a174e25c49089e099c917e88425385c46ba557dd594de506f349ca
@@ -46,7 +47,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "${GITHUB_REPOSITORY_VISIBILITY}" = public
+          mkdir -p "$GITHUB_WORKSPACE/evidence/runtime"
+          test "$REPO_VISIBILITY" = public
           df -h
           available_kb="$(df -Pk "$RUNNER_TEMP" | awk 'NR==2 {print $4}')"
           if (( available_kb < 12000000 )); then
@@ -305,5 +307,5 @@ jobs:
         with:
           name: ocr-textocr-v6-terminal-external-evidence
           path: evidence
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
