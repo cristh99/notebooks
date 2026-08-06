@@ -1,0 +1,279 @@
+name: OCR OpenVINO v7 freeze and metadata power gate
+
+on:
+  push:
+    branches:
+      - agent/ocr-consensus-v7-openvino-preregistered
+    paths:
+      - '.github/workflows/ocr-openvino-v7-freeze-census.yml'
+      - 'ocr_real_risk_v1/openvino_source_seal_v7.py'
+      - 'ocr_real_risk_v1/openvino_adapter_v7.py'
+      - 'ocr_real_risk_v1/openvino_terminal_v7.py'
+      - 'ocr_real_risk_v1/test_openvino_metadata_gate_v7.py'
+      - 'ocr_real_risk_v1/numeric_consensus_candidate_v7_openvino.py'
+      - 'docs/OCR_NUMERIC_CONSENSUS_V7_OPENVINO_PREREGISTRATION.md'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: ocr-openvino-v7-freeze-census-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PREDECESSOR_RUN_ID: '31122749467'
+  PREDECESSOR_ARTIFACT_ID: '8974218596'
+  PREDECESSOR_ARTIFACT_SHA256: 7a0671b214d02276ae0e14689915fbd2800dddf95847317b7fb1745e9e6b3361
+  PREDECESSOR_CANDIDATE_STABLE: 33d14875f0d2f9681ced662e452a5f28943ecb65e30a9242663d6a472034da9d
+  PREDECESSOR_SOURCE_COMMIT: 74bb1fffb71fb4da78995b1417235cf04db34639
+  DEVELOPMENT_STABLE: 2e1ac87773d387c27c0d8a8649eb03f39739b8275f3b34a71654a0c81f67cb79
+  OPENVINO_REVISION: 2b1f8aab9fbba3b5be07e2cae9e3e9c43fe5487c
+  OPENVINO_PATH: data/openvino-00000-of-00001.parquet
+  OPENVINO_SOURCE_SHA256: 5413c6ffb4f8047977db9dba520453976f48eed91b5477d06e7f62258a2ba09c
+  OPENVINO_SOURCE_BYTES: '65751927475'
+  OPENVINO_URL: https://huggingface.co/datasets/Yesianrohn/OCR-Data/resolve/2b1f8aab9fbba3b5be07e2cae9e3e9c43fe5487c/data/openvino-00000-of-00001.parquet?download=true
+  PYTHONHASHSEED: '0'
+  OMP_THREAD_LIMIT: '1'
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  NUMEXPR_NUM_THREADS: '1'
+
+jobs:
+  freeze-census:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+
+      - name: Confirm public standard runner and free disk
+        run: |
+          set -euo pipefail
+          test '${{ github.event.repository.private }}' = 'false'
+          test "$RUNNER_ENVIRONMENT" = 'github-hosted'
+          df -h /
+
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+
+      - name: Install pinned metadata-only runtime
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            scipy==1.17.1 \
+            threadpoolctl==3.6.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13 \
+            packaging==26.3 \
+            duckdb==1.5.4
+
+      - name: Verify unchanged v7 policy and OpenVINO metadata gate
+        run: |
+          set -euo pipefail
+          python -m unittest -v \
+            ocr_real_risk_v1.test_numeric_consensus_policy_v7 \
+            ocr_real_risk_v1.test_openvino_metadata_gate_v7
+          python -m compileall -q \
+            ocr_real_risk_v1/numeric_consensus_policy_v7.py \
+            ocr_real_risk_v1/openvino_source_seal_v7.py \
+            ocr_real_risk_v1/openvino_adapter_v7.py \
+            ocr_real_risk_v1/openvino_terminal_v7.py \
+            ocr_real_risk_v1/numeric_consensus_candidate_v7_openvino.py
+          python - <<'PY'
+          from pathlib import Path
+
+          adapter = Path(
+              'ocr_real_risk_v1/openvino_adapter_v7.py'
+          ).read_text()
+          assert 'SELECT image' not in adapter
+          assert '"image_column_read": False' in adapter
+          assert '"full_image_download_authorized": False' in adapter
+          assert '"ocr_authorized": False' in adapter
+          assert 'download_full_source_and_run_ocr' not in adapter
+          assert 'MINIMUM_SELECTED = 5000' in adapter
+          assert 'MINIMUM_ACCEPTED = 400' in adapter
+          assert 'DEVELOPMENT_ACCEPTANCE_NUMERATOR = 110' in adapter
+          assert 'DEVELOPMENT_ACCEPTANCE_DENOMINATOR = 4674' in adapter
+          PY
+
+      - name: Download terminal COCO-Text v7 predecessor
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ocr-cocotext-v7-freeze-census
+          path: ${{ runner.temp }}/predecessor
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.PREDECESSOR_RUN_ID }}
+
+      - name: Verify terminal COCO-Text v7 predecessor
+        run: |
+          set -euo pipefail
+          test -d "$RUNNER_TEMP/predecessor/frozen-cocotext-v7"
+          test -d "$RUNNER_TEMP/predecessor/v7-evidence"
+          (
+            cd "$RUNNER_TEMP/predecessor/frozen-cocotext-v7"
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+          (
+            cd "$RUNNER_TEMP/predecessor/v7-evidence"
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ['RUNNER_TEMP']) / 'predecessor'
+          candidate = json.loads(
+              (root / 'frozen-cocotext-v7/frozen_candidate.json').read_text()
+          )
+          terminal = json.loads(
+              (
+                  root
+                  / 'v7-evidence/cocotext_v7_census_terminal.json'
+              ).read_text()
+          )
+          assert candidate['candidate_id'] == 'numeric-consensus-v7-cocotext'
+          assert candidate['stable_payload_sha256'] == os.environ[
+              'PREDECESSOR_CANDIDATE_STABLE'
+          ]
+          assert candidate['source_commit'] == os.environ[
+              'PREDECESSOR_SOURCE_COMMIT'
+          ]
+          assert candidate['development_stable_payload_sha256'] == os.environ[
+              'DEVELOPMENT_STABLE'
+          ]
+          assert terminal['scientific_verdict'] == (
+              'UNKNOWN_NO_IMAGE_OUTCOMES_OPENED'
+          )
+          assert terminal['status'] == (
+              'TERMINAL_NO_FULL_DOWNLOAD_INSUFFICIENT_POWER'
+          )
+          assert terminal['image_bytes_opened'] is False
+          assert terminal['ocr_executed'] is False
+          assert terminal['selected_available'] == 998
+          PY
+
+      - name: Seal exact OpenVINO source from repository metadata only
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/v7-evidence"
+          python -m ocr_real_risk_v1.openvino_source_seal_v7 \
+            --output "$RUNNER_TEMP/v7-evidence/openvino_source_seal_v7.json"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = (
+              Path(os.environ['RUNNER_TEMP'])
+              / 'v7-evidence/openvino_source_seal_v7.json'
+          )
+          report = json.loads(path.read_text())
+          assert report['resolved_revision'] == os.environ['OPENVINO_REVISION']
+          source = report['source_object']
+          assert source['path'] == os.environ['OPENVINO_PATH']
+          assert source['size_bytes'] == int(os.environ['OPENVINO_SOURCE_BYTES'])
+          assert source['sha256'] == os.environ['OPENVINO_SOURCE_SHA256']
+          assert report['repository_metadata_only'] is True
+          assert report['parquet_footer_read'] is False
+          assert report['outcomes_opened'] is False
+          assert report['images_opened'] == 0
+          assert report['license_review'][
+              'full_image_download_requires_review'
+          ] is True
+          PY
+
+      - name: Freeze OpenVINO v7 before footer rows geometry or images
+        run: |
+          set -euo pipefail
+          predecessor="$RUNNER_TEMP/predecessor/frozen-cocotext-v7"
+          python -m ocr_real_risk_v1.numeric_consensus_candidate_v7_openvino build \
+            --repository-root "$GITHUB_WORKSPACE" \
+            --predecessor-v7-root "$predecessor" \
+            --source-seal \
+              "$RUNNER_TEMP/v7-evidence/openvino_source_seal_v7.json" \
+            --source-commit "$GITHUB_SHA" \
+            --output-dir "$RUNNER_TEMP/frozen-openvino-v7" \
+            > "$RUNNER_TEMP/v7-evidence/frozen_candidate_stdout.json"
+          PYTHONPATH="$RUNNER_TEMP/frozen-openvino-v7/source" \
+            python -m \
+              ocr_real_risk_v1.numeric_consensus_candidate_v7_openvino \
+              verify "$RUNNER_TEMP/frozen-openvino-v7" \
+              > "$RUNNER_TEMP/v7-evidence/frozen_candidate_verify.json"
+          (
+            cd "$RUNNER_TEMP/frozen-openvino-v7"
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+
+      - name: Execute two-stage metadata-only OpenVINO power gate
+        run: |
+          set -euo pipefail
+          candidate="$RUNNER_TEMP/frozen-openvino-v7"
+          stable="$(
+            python -c 'import json,sys; print(json.load(open(sys.argv[1]))["stable_payload_sha256"])' \
+              "$candidate/frozen_candidate.json"
+          )"
+          PYTHONPATH="$candidate/source" \
+            python -m ocr_real_risk_v1.openvino_adapter_v7 \
+              --source-url "$OPENVINO_URL" \
+              --candidate-stable "$stable" \
+              --candidate-source-commit "$GITHUB_SHA" \
+              --output \
+                "$RUNNER_TEMP/v7-evidence/openvino_v7_metadata_census.json" \
+              | tee \
+                "$RUNNER_TEMP/v7-evidence/openvino_v7_census_stdout.json"
+          test ! -e openvino.parquet
+          test ! -e source.parquet
+          test ! -d images
+
+      - name: Independently adjudicate metadata gate and create receipt
+        run: |
+          set -euo pipefail
+          candidate="$RUNNER_TEMP/frozen-openvino-v7"
+          evidence="$RUNNER_TEMP/v7-evidence"
+          PYTHONPATH="$candidate/source" \
+            python -m ocr_real_risk_v1.openvino_terminal_v7 \
+              --census "$evidence/openvino_v7_metadata_census.json" \
+              --candidate "$candidate/frozen_candidate.json" \
+              --source-seal "$evidence/openvino_source_seal_v7.json" \
+              --source-commit "$GITHUB_SHA" \
+              --output "$evidence/openvino_v7_census_terminal.json"
+          python - <<'PY'
+          import hashlib
+          import os
+          from pathlib import Path
+
+          evidence = Path(os.environ['RUNNER_TEMP']) / 'v7-evidence'
+          files = sorted(path for path in evidence.iterdir() if path.is_file())
+          with (evidence / 'SHA256SUMS.txt').open('w') as handle:
+              for path in files:
+                  handle.write(
+                      f'{hashlib.sha256(path.read_bytes()).hexdigest()}  '
+                      f'{path.name}\n'
+                  )
+          PY
+          (
+            cd "$RUNNER_TEMP/v7-evidence"
+            sha256sum --check --strict SHA256SUMS.txt
+          )
+
+      - name: Upload frozen candidate and terminal metadata evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-openvino-v7-freeze-census
+          path: |
+            ${{ runner.temp }}/frozen-openvino-v7
+            ${{ runner.temp }}/v7-evidence
+          if-no-files-found: error
+          retention-days: 90
