@@ -1,0 +1,76 @@
+{
+  "audit_checks": {
+    "all_four_gzip_payloads_decode": true,
+    "all_reported_raw_and_gzip_hashes_match": true,
+    "candidate_stable_replay": true,
+    "projection_recalculation_matches": true,
+    "run_summary_stable_replay": true,
+    "source_candidate_census_terminal_bindings_consistent": true,
+    "source_seal_stable_replay": true,
+    "terminal_stable_replay": true
+  },
+  "audit_date": "2026-08-06",
+  "audit_limit": "The compact census intentionally omits the 20,629 selected records; therefore the full census stable payload cannot be recomputed from this compact copy alone. The in-run independent terminal adjudicator verified the full census before emitting the terminal receipt, and the selected record set is bound by its SHA-256.",
+  "constraints_verified": {
+    "candidate_inference_executed": false,
+    "external_spend_usd": 0,
+    "gcloud_used": false,
+    "gpu_used": false,
+    "image_bytes_opened": false,
+    "ocr_executed": false,
+    "paid_api_used": false,
+    "production_modified": false
+  },
+  "coordination_lane": "COORD-2026-08-06-PARALLEL-V2",
+  "flight": {
+    "ended_at_utc": "2026-08-06T20:12:46.578Z",
+    "exit_code": 0,
+    "flight_id": "08599f29-9814-4dfd-afc1-56d2c34b2489",
+    "run_id": "019fd8b1-599b-7e03-bc5d-8009e71ae2ff",
+    "run_number": 1,
+    "started_at_utc": "2026-08-06T20:08:50.683Z",
+    "status": "SUCCEEDED"
+  },
+  "frozen_bindings": {
+    "candidate_stable_payload_sha256": "160a3e79c6075a6741a1a6365b0c833115bfc6e156176cb4cb5744b1189119cd",
+    "portable_runner_commit": "6dec3d89ecf825f13db985f0598e51f587ee31f5",
+    "portable_runner_sha256": "db9f83bc01459e73472555deda974bb8bc4944b581ba38ed43342a85bebe2600",
+    "scientific_source_commit": "fa20f6d210fa8be7272178b1f152e38b2d583637",
+    "source_seal_stable_payload_sha256": "3c1192c6a0dc420c4b9de66e4c5f0a2a916339286aa6f28b2e39ba28531ee089"
+  },
+  "integrity": {
+    "candidate_raw_sha256": "a37486cb35446fd7ed453f6105fc6435264474cd083bad33ee5bd9062e598239",
+    "compact_census_raw_sha256": "1a98f1a009758515e02f496bef37d623614e3a3cffae48aa847ed8a88edfee7b",
+    "full_census_file_sha256": "88fa61d1b483c04632304721c89d83415069f766c6a086e23f12f8adb7806742",
+    "full_census_stable_payload_sha256": "f88ef6b533def1bfe47ede75ae46b238d0759380e553d790ad7ec5cab510e1d4",
+    "run_summary_stable_payload_sha256": "641678a95bceaadc5e4799985cf6993033eb3118a8f6615082c44e7594e75f6b",
+    "source_seal_raw_sha256": "e56957f37fcef7ff952c1f5cda7f0a4a837453e3a8904c6477c27e67ee40d67b",
+    "terminal_raw_sha256": "4db7b8d3ca3dd403e3d46f94ae6ca46da6d7c9e880e448b70ce38e357c0561b2",
+    "terminal_stable_payload_sha256": "bf94a65f0c157f6a8aeebbb7916a827282191550452794590722039728a64b4f"
+  },
+  "result": {
+    "full_image_download_authorized": false,
+    "metadata_power_pass": true,
+    "minimum_projected_verified_claims": 400,
+    "minimum_selected": 5000,
+    "ocr_authorized": false,
+    "projected_verified_claims": 485.49208386820715,
+    "required_selected_for_projection": 16997,
+    "rows_scanned": 207790,
+    "scientific_verdict": "UNKNOWN_NO_IMAGE_OUTCOMES_OPENED",
+    "selected_exact_rows": 20629,
+    "selected_record_set_sha256": "35ad9e1e43d81ef826f10a04659f77cacf13b987360e83625b52edcd7e223870",
+    "separate_full_gate_eligible_after_license_review": true,
+    "status": "READY_FOR_LICENSE_REVIEW_AND_SEPARATE_FULL_GATE"
+  },
+  "schema": "ocr-openvino-v7-independent-audit/1",
+  "source": {
+    "bytes": 65751927475,
+    "component": "openvino",
+    "dataset_id": "Yesianrohn/OCR-Data",
+    "declared_rows": 207790,
+    "path": "data/openvino-00000-of-00001.parquet",
+    "revision": "2b1f8aab9fbba3b5be07e2cae9e3e9c43fe5487c",
+    "sha256": "5413c6ffb4f8047977db9dba520453976f48eed91b5477d06e7f62258a2ba09c"
+  }
+}
