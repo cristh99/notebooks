@@ -1,0 +1,174 @@
+name: University TPiL Lean runtime v1
+
+on:
+  push:
+    branches:
+      - agent/university-tpil-lean-runtime-v1
+  pull_request:
+    paths:
+      - '.github/workflows/university-tpil-runtime-v1.yml'
+      - 'university_tpil_runtime_v1/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Verify the frozen source contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reports
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          lock = json.loads(Path('university_tpil_runtime_v1/SOURCE_LOCK.json').read_text())
+          expected = {
+              'official_repository': 'leanprover/theorem_proving_in_lean4',
+              'official_commit': '63fad08fcd5f4f3b8b0464561e2fa252671296b9',
+              'official_tree': '7aa5048834140d0994a7a4def1004da5ac45e390',
+              'official_book_tpil_tree': '0383b084122f17bb6a481aa11799e1fa925bc69e',
+              'examples_toolchain': 'leanprover/lean4:v4.26.0',
+              'book_toolchain': 'leanprover/lean4:v4.27.0-rc1',
+          }
+          for key, value in expected.items():
+              assert lock[key] == value, (key, lock[key], value)
+          print(json.dumps(lock, indent=2, sort_keys=True))
+          PY
+          if grep -nE '(^|[[:space:]])(sorry|admit)([[:space:]]|$)|^[[:space:]]*axiom[[:space:]]' \
+              university_tpil_runtime_v1/TPiLKernelExercises.lean; then
+            echo 'Forbidden proof placeholder or axiom declaration found.' >&2
+            exit 1
+          fi
+          sha256sum university_tpil_runtime_v1/SOURCE_LOCK.json \
+            university_tpil_runtime_v1/TPiLKernelExercises.lean \
+            university_tpil_runtime_v1/NegativeControl.lean \
+            > reports/scoped-source-sha256.txt
+
+      - name: Install pinned Lean toolchains
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          "$HOME/.elan/bin/elan" toolchain install leanprover/lean4:v4.26.0
+          "$HOME/.elan/bin/elan" toolchain install leanprover/lean4:v4.27.0-rc1
+          "$HOME/.elan/bin/elan" toolchain list | tee reports/installed-toolchains.txt
+
+      - name: Acquire and bind the official book source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none https://github.com/leanprover/theorem_proving_in_lean4.git official-tpil
+          git -C official-tpil checkout --detach 63fad08fcd5f4f3b8b0464561e2fa252671296b9
+          test "$(git -C official-tpil rev-parse HEAD)" = '63fad08fcd5f4f3b8b0464561e2fa252671296b9'
+          test "$(git -C official-tpil rev-parse 'HEAD^{tree}')" = '7aa5048834140d0994a7a4def1004da5ac45e390'
+          test "$(git -C official-tpil rev-parse HEAD:book/TPiL)" = '0383b084122f17bb6a481aa11799e1fa925bc69e'
+          test "$(git -C official-tpil hash-object examples/lean-toolchain)" = 'e59446d59f6a2bf7f43d60788e2088a603ae6bd4'
+          test "$(git -C official-tpil hash-object book/lean-toolchain)" = 'bd19bde0ce12df3a11c3f4fd0b7513c30693d72c'
+          test "$(git -C official-tpil hash-object examples/lakefile.toml)" = 'e2a6d410e509d4e95a1a0b724730463685563ddb'
+          test "$(git -C official-tpil hash-object book/lakefile.toml)" = '9fe945ca25bb912d5bda1044e46ea664ca1f8d67'
+          test "$(git -C official-tpil hash-object book/lake-manifest.json)" = '0808bad5334dda27afcef591b9965eb29189a8ea'
+          printf '%s\n' \
+            "commit=$(git -C official-tpil rev-parse HEAD)" \
+            "tree=$(git -C official-tpil rev-parse 'HEAD^{tree}')" \
+            "book_tpil_tree=$(git -C official-tpil rev-parse HEAD:book/TPiL)" \
+            > reports/official-source-binding.txt
+
+      - name: Compile scoped kernel exercises and reject the negative control
+        shell: bash
+        run: |
+          set -euo pipefail
+          elan run leanprover/lean4:v4.27.0-rc1 lean --version \
+            | tee reports/scoped-lean-version.txt
+          elan run leanprover/lean4:v4.27.0-rc1 lean \
+            university_tpil_runtime_v1/TPiLKernelExercises.lean \
+            2>&1 | tee reports/scoped-exercises.log
+          if elan run leanprover/lean4:v4.27.0-rc1 lean \
+              university_tpil_runtime_v1/NegativeControl.lean \
+              > reports/negative-control.log 2>&1; then
+            echo 'Negative control unexpectedly compiled.' >&2
+            exit 1
+          fi
+          printf '%s\n' 'NEGATIVE_CONTROL_REJECTED' \
+            | tee reports/negative-control-status.txt
+
+      - name: Build the official examples project
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd official-tpil/examples
+          lean --version | tee ../../reports/official-examples-lean-version.txt
+          lake build 2>&1 | tee ../../reports/official-examples-build.log
+
+      - name: Build the official book project
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd official-tpil/book
+          lean --version | tee ../../reports/official-book-lean-version.txt
+          lake build 2>&1 | tee ../../reports/official-book-build.log
+
+      - name: Emit the proof-carrying receipt
+        shell: bash
+        env:
+          EVENT_SHA: ${{ github.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path('.')
+          reports = root / 'reports'
+          log = (reports / 'scoped-exercises.log').read_text(errors='replace')
+          receipt = {
+              'schema': 'university-tpil-runtime/receipt/1',
+              'status': 'PASS_SCOPED_KERNEL_AND_OFFICIAL_BUILDS',
+              'repository': 'cristh99/notebooks',
+              'event_sha': os.environ['EVENT_SHA'],
+              'head_sha': os.environ['HEAD_SHA'],
+              'official_repository': 'leanprover/theorem_proving_in_lean4',
+              'official_commit': '63fad08fcd5f4f3b8b0464561e2fa252671296b9',
+              'scoped_exercises_compiled': True,
+              'negative_control_rejected': True,
+              'official_examples_built': True,
+              'official_book_built': True,
+              'constructive_no_axiom_messages': log.count('does not depend on any axioms'),
+              'classical_dependency_visible': 'Classical.choice' in log or 'propext' in log,
+              'scope_boundary': (
+                  'Real Lean kernel execution and pinned official project builds; '
+                  'not full-book exercise completion or full university-course mastery.'
+              ),
+          }
+          receipt_path = reports / 'receipt.json'
+          receipt_path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          receipt_sha = hashlib.sha256(receipt_path.read_bytes()).hexdigest()
+          (reports / 'receipt.sha256').write_text(f'{receipt_sha}  receipt.json\n')
+          print(json.dumps(receipt, indent=2, sort_keys=True))
+          print(receipt_sha)
+          PY
+          find university_tpil_runtime_v1 reports -type f \
+            ! -name SHA256SUMS -print0 \
+            | sort -z \
+            | xargs -0 sha256sum > reports/SHA256SUMS
+          sha256sum -c reports/SHA256SUMS
+
+      - name: Upload runtime evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: university-tpil-runtime-v1-evidence
+          path: |
+            university_tpil_runtime_v1/
+            reports/
