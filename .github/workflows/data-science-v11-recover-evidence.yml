@@ -1,0 +1,394 @@
+name: Data Science v11 — recover verified Cosign evidence
+
+on:
+  push:
+    branches:
+      - agent/data-science-v11-cosign-evidence-recovery
+    paths:
+      - '.github/workflows/data-science-v11-recover-evidence.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: data-science-v11-recover-evidence
+  cancel-in-progress: false
+
+env:
+  RECOVERY_ROOT: data_science_pipeline_v11_cosign_preregistration/recovery
+  ARTIFACT_ID: '8974616091'
+  RUN_ID: '31126763807'
+  JOB_ID: '92700417824'
+  SIGNED_COMMIT: 4a3b438969a559bb7a54c0259f6270bd1d6ea830
+  SIGNED_PATH: data_science_pipeline_v11_cosign_preregistration/PREREGISTRATION.json
+  SIGNED_BLOB: 73fc2696b943634b172c014b42c698ac72b3dd8e
+  SIGNED_SHA256: 1347890e6bf90d9df050bc265823201654b1aa723e5763dc7b59cce0f136637b
+  ARTIFACT_SHA256: d10d8235cedc60775c9966a1487bcfb0b7a553bdd02993c786e7637d661f4dc7
+  BUNDLE_SHA256: 72de05538430b3eae2fa0bed25958106530bad4952cf3585699b301b0379ba3f
+  LOCAL_RECEIPT_SHA256: 7a9af196eda48a1efec1f119300f51eb730179a4c5cc7dc55f4dc3cb5b856f5a
+  OIDC_CLAIMS_SHA256: a9e8962104a77e5161a7d83db8294417c31f2f6edabd89679bfdf1623ca44d9b
+  VERIFY_STDERR_SHA256: 80a53f76c7ed6969dade3b6ee47cdb753162db7c00be625448999d08bae77ed8
+  SOURCE_MANIFEST_SHA256: 8c0e436aff7033ff4e94f05e5be1d1360c3a32cd7681e3c04a8d0858af68bdad
+  COSIGN_VERSION: 3.0.6
+  COSIGN_SHA256: c956e5dfcac53d52bcf058360d579472f0c1d2d9b69f55209e256fe7783f4c74
+  CERTIFICATE_IDENTITY: https://github.com/cristh99/notebooks/.github/workflows/data-science-v11-cosign-direct-oidc.yml@refs/heads/agent/data-science-v11-cosign-direct-oidc
+  OIDC_ISSUER: https://token.actions.githubusercontent.com
+
+jobs:
+  recover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact signed lineage
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Download exact retained artifact and signed subject
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RECOVERY_ROOT/evidence" "$RUNNER_TEMP/v11-artifact"
+          curl --fail --location --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" \
+            --output "$RECOVERY_ROOT/evidence/v11_previous_failure.zip"
+          printf '%s  %s\n' "$ARTIFACT_SHA256" \
+            "$RECOVERY_ROOT/evidence/v11_previous_failure.zip" | sha256sum --check
+          unzip -q "$RECOVERY_ROOT/evidence/v11_previous_failure.zip" \
+            -d "$RUNNER_TEMP/v11-artifact"
+          git cat-file -e "$SIGNED_COMMIT^{commit}"
+          test "$(git rev-parse "$SIGNED_COMMIT:$SIGNED_PATH")" = "$SIGNED_BLOB"
+          git show "$SIGNED_COMMIT:$SIGNED_PATH" \
+            > "$RECOVERY_ROOT/PREREGISTRATION_SIGNED_EXACT.json"
+          printf '%s  %s\n' "$SIGNED_SHA256" \
+            "$RECOVERY_ROOT/PREREGISTRATION_SIGNED_EXACT.json" | sha256sum --check
+
+      - name: Install pinned Cosign and independently reverify retained bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --silent --show-error \
+            "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" \
+            --output "$RUNNER_TEMP/cosign"
+          printf '%s  %s\n' "$COSIGN_SHA256" "$RUNNER_TEMP/cosign" | sha256sum --check
+          chmod 0755 "$RUNNER_TEMP/cosign"
+          "$RUNNER_TEMP/cosign" verify-blob \
+            "$RECOVERY_ROOT/PREREGISTRATION_SIGNED_EXACT.json" \
+            --bundle "$RUNNER_TEMP/v11-artifact/preregistration.sigstore.json" \
+            --certificate-identity "$CERTIFICATE_IDENTITY" \
+            --certificate-oidc-issuer "$OIDC_ISSUER" \
+            --certificate-github-workflow-repository "$GITHUB_REPOSITORY" \
+            --certificate-github-workflow-sha "$SIGNED_COMMIT" \
+            --certificate-github-workflow-trigger push \
+            > "$RECOVERY_ROOT/cosign-reverify.log" 2>&1
+          grep -Fq 'Verified OK' "$RECOVERY_ROOT/cosign-reverify.log"
+
+      - name: Create deterministic recovery verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RECOVERY_ROOT/verify_recovery.py" <<'PY'
+          from __future__ import annotations
+
+          import argparse
+          import hashlib
+          import json
+          import re
+          import zipfile
+          from pathlib import Path, PurePosixPath
+
+          EXPECTED = {
+              "artifact": "d10d8235cedc60775c9966a1487bcfb0b7a553bdd02993c786e7637d661f4dc7",
+              "subject": "1347890e6bf90d9df050bc265823201654b1aa723e5763dc7b59cce0f136637b",
+              "bundle": "72de05538430b3eae2fa0bed25958106530bad4952cf3585699b301b0379ba3f",
+              "local_receipt": "7a9af196eda48a1efec1f119300f51eb730179a4c5cc7dc55f4dc3cb5b856f5a",
+              "oidc_claims": "a9e8962104a77e5161a7d83db8294417c31f2f6edabd89679bfdf1623ca44d9b",
+              "verify_stderr": "80a53f76c7ed6969dade3b6ee47cdb753162db7c00be625448999d08bae77ed8",
+              "source_manifest": "8c0e436aff7033ff4e94f05e5be1d1360c3a32cd7681e3c04a8d0858af68bdad",
+          }
+          MEMBERS = {
+              "cosign-version.txt", "local-receipt.json", "local-verification.log",
+              "oidc-safe-claims.json", "oidc-safe-claims.sha256",
+              "preregistration.sigstore.json", "sign.stderr", "sign.stdout",
+              "source-sha256.txt", "verify.stderr", "verify.stdout",
+          }
+          DECLARATIONS = {
+              "actual_external_evaluations": 0,
+              "document_content_accessed_before_freeze": False,
+              "external_cost_usd": 0.0,
+              "pdf_bytes_downloaded_before_freeze": False,
+              "pdf_url_resolved_before_freeze": False,
+              "production_modified": False,
+              "stage08_unblocked": False,
+          }
+          CLAIMS = {
+              "iss": "https://token.actions.githubusercontent.com",
+              "aud": "sigstore",
+              "sub": "repo:cristh99/notebooks:ref:refs/heads/agent/data-science-v11-cosign-direct-oidc",
+              "repository": "cristh99/notebooks",
+              "repository_id": "616013328",
+              "repository_owner_id": "87334928",
+              "repository_visibility": "public",
+              "event_name": "push",
+              "ref": "refs/heads/agent/data-science-v11-cosign-direct-oidc",
+              "sha": "4a3b438969a559bb7a54c0259f6270bd1d6ea830",
+              "workflow_sha": "4a3b438969a559bb7a54c0259f6270bd1d6ea830",
+              "runner_environment": "github-hosted",
+              "run_id": "31126763807",
+              "run_attempt": "1",
+          }
+
+          class VerificationError(RuntimeError):
+              pass
+
+          def require(value: bool, message: str) -> None:
+              if not value:
+                  raise VerificationError(message)
+
+          def sha(data: bytes) -> str:
+              return hashlib.sha256(data).hexdigest()
+
+          def canonical(value: object) -> bytes:
+              return (json.dumps(value, ensure_ascii=False, sort_keys=True,
+                                 separators=(",", ":")) + "\n").encode()
+
+          def verify(artifact: Path, subject: Path, cosign_log: Path) -> dict[str, object]:
+              checks: dict[str, bool] = {}
+              artifact_bytes = artifact.read_bytes()
+              subject_bytes = subject.read_bytes()
+              checks["artifact_zip_sha256_exact"] = sha(artifact_bytes) == EXPECTED["artifact"]
+              checks["signed_subject_sha256_exact"] = sha(subject_bytes) == EXPECTED["subject"]
+              require(all(checks.values()), "top-level evidence hash mismatch")
+
+              subject_json = json.loads(subject_bytes)
+              checks["signed_subject_canonical_json"] = canonical(subject_json) == subject_bytes
+              require(checks["signed_subject_canonical_json"], "subject is not canonical JSON")
+
+              with zipfile.ZipFile(artifact) as archive:
+                  names = archive.namelist()
+                  checks["artifact_member_set_exact"] = set(names) == MEMBERS
+                  checks["artifact_paths_safe"] = all(
+                      not PurePosixPath(name).is_absolute()
+                      and ".." not in PurePosixPath(name).parts
+                      and len(PurePosixPath(name).parts) == 1
+                      for name in names
+                  )
+                  require(checks["artifact_member_set_exact"] and checks["artifact_paths_safe"],
+                          "artifact member contract mismatch")
+                  files = {name: archive.read(name) for name in names}
+
+              critical = {
+                  "bundle": sha(files["preregistration.sigstore.json"]) == EXPECTED["bundle"],
+                  "local_receipt": sha(files["local-receipt.json"]) == EXPECTED["local_receipt"],
+                  "oidc_claims": sha(files["oidc-safe-claims.json"]) == EXPECTED["oidc_claims"],
+                  "verify_stderr": sha(files["verify.stderr"]) == EXPECTED["verify_stderr"],
+                  "source_manifest": sha(files["source-sha256.txt"]) == EXPECTED["source_manifest"],
+              }
+              checks.update({f"critical_{key}_sha256_exact": value for key, value in critical.items()})
+              require(all(critical.values()), "critical member hash mismatch")
+
+              local = json.loads(files["local-receipt.json"])
+              checks["local_software_checks_all_true"] = all(local["software_checks"].values())
+              checks["local_declarations_exact"] = local["preregistration_declarations"] == DECLARATIONS
+              checks["local_tests_15_unique"] = (
+                  local["tests_expected"] == 15
+                  and len(local["test_ids"]) == 15
+                  and len(set(local["test_ids"])) == 15
+              )
+              checks["local_subject_hash_exact"] = (
+                  local["file_sha256"]["preregistration"] == EXPECTED["subject"]
+              )
+
+              oidc = json.loads(files["oidc-safe-claims.json"])
+              claims = oidc["claims"]
+              checks["oidc_checks_all_true"] = all(oidc["checks"].values())
+              checks["oidc_token_redacted"] = oidc["token_redacted"] is True
+              checks["oidc_critical_claims_exact"] = all(claims.get(k) == v for k, v in CLAIMS.items())
+              checks["oidc_jwt_hash_present"] = bool(re.fullmatch(r"[0-9a-f]{64}", oidc["jwt_sha256"]))
+
+              bundle = json.loads(files["preregistration.sigstore.json"])
+              material = bundle.get("verificationMaterial", {})
+              entries = material.get("tlogEntries", [])
+              checks["sigstore_bundle_media_type"] = str(bundle.get("mediaType", "")).startswith(
+                  "application/vnd.dev.sigstore.bundle+json"
+              )
+              checks["sigstore_verification_material_present"] = bool(material)
+              checks["rekor_transparency_entry_present"] = isinstance(entries, list) and len(entries) == 1
+              checks["signed_content_present"] = bool(
+                  bundle.get("messageSignature") or bundle.get("dsseEnvelope")
+              )
+              checks["original_cosign_verify_reported_ok"] = files["verify.stderr"].strip() == b"Verified OK"
+              checks["original_verify_stdout_empty"] = files["verify.stdout"] == b""
+              checks["failure_class_parser_stream_mismatch"] = (
+                  checks["original_cosign_verify_reported_ok"]
+                  and checks["original_verify_stdout_empty"]
+              )
+              checks["independent_cosign_reverify_reported_ok"] = "Verified OK" in cosign_log.read_text()
+              checks["signature_not_repeated"] = True
+              checks["source_document_not_accessed"] = True
+              checks["external_document_evaluations_zero"] = True
+              checks["external_cost_zero"] = True
+              checks["production_unmodified"] = True
+              checks["stage08_blocked"] = True
+              require(all(checks.values()), [key for key, value in checks.items() if not value])
+
+              member_hashes = {name: sha(data) for name, data in sorted(files.items())}
+              receipt = {
+                  "schema": "data-science-pipeline/cosign-oidc-preregistration-recovered-receipt/2",
+                  "verdict": "PASS_COSIGN_OIDC_PREREGISTRATION_CRYPTOGRAPHIC_EVIDENCE_RECOVERED",
+                  "github_observation": {
+                      "repository": "cristh99/notebooks",
+                      "run_id": 31126763807,
+                      "job_id": 92700417824,
+                      "artifact_id": 8974616091,
+                      "head_branch": "agent/data-science-v11-cosign-direct-oidc",
+                      "head_sha": "4a3b438969a559bb7a54c0259f6270bd1d6ea830",
+                      "event": "push",
+                      "run_attempt": 1,
+                      "github_run_conclusion": "failure",
+                      "job_green": False,
+                      "cryptographic_evidence_verdict": "PASS",
+                      "failed_step": "Verify exact GitHub workflow identity and transparency bundle",
+                      "failure_class": "terminal_receipt_parser_stdout_stderr_mismatch",
+                  },
+                  "recovery_method": {
+                      "network_used_by_verifier": False,
+                      "signature_repeated": False,
+                      "signed_subject_modified": False,
+                      "source_document_accessed": False,
+                      "post_result_model_or_data_retuning": False,
+                      "description": (
+                          "Deterministic verification of the exact retained artifact after an independent "
+                          "Cosign re-verification; the original signature and subject remain unchanged."
+                      ),
+                  },
+                  "evidence_hashes": {
+                      "artifact_zip_sha256": EXPECTED["artifact"],
+                      "signed_preregistration_sha256": EXPECTED["subject"],
+                      "sigstore_bundle_sha256": EXPECTED["bundle"],
+                      "local_receipt_sha256": EXPECTED["local_receipt"],
+                      "oidc_safe_claims_sha256": EXPECTED["oidc_claims"],
+                      "verify_stderr_sha256": EXPECTED["verify_stderr"],
+                      "source_hash_manifest_sha256": EXPECTED["source_manifest"],
+                      "artifact_members_sha256": member_hashes,
+                  },
+                  "signed_preregistration_declarations": DECLARATIONS,
+                  "checks": checks,
+                  "claim_boundary": {
+                      "establishes": [
+                          "exact retained artifact integrity",
+                          "exact signed preregistration digest",
+                          "Cosign verification for the exact subject and GitHub Actions identity",
+                          "Sigstore bundle with one Rekor transparency entry",
+                          "the original failure was a stdout/stderr terminal-receipt parser mismatch",
+                      ],
+                      "does_not_establish": [
+                          "a green original GitHub job",
+                          "truth of every declaration inside the preregistration",
+                          "source document authenticity or content",
+                          "OCR or resolver accuracy",
+                          "payment, legality, intent, corruption or beneficial ownership",
+                          "Stage 08 readiness",
+                      ],
+                  },
+                  "external_document_evaluations": 0,
+                  "external_cost_usd": 0.0,
+                  "production_modified": False,
+                  "stage08_unblocked": False,
+                  "scientific_promotion_credit": 0,
+                  "next_gate": "one_bounded_fresh_full_document_evaluation",
+              }
+              return receipt
+
+          def main() -> None:
+              parser = argparse.ArgumentParser()
+              parser.add_argument("--artifact", type=Path, required=True)
+              parser.add_argument("--subject", type=Path, required=True)
+              parser.add_argument("--cosign-log", type=Path, required=True)
+              parser.add_argument("--output", type=Path, required=True)
+              args = parser.parse_args()
+              args.output.write_bytes(canonical(verify(args.artifact, args.subject, args.cosign_log)))
+
+          if __name__ == "__main__":
+              main()
+          PY
+          python3 -m py_compile "$RECOVERY_ROOT/verify_recovery.py"
+
+      - name: Run deterministic and adversarial recovery checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(
+            --artifact "$RECOVERY_ROOT/evidence/v11_previous_failure.zip"
+            --subject "$RECOVERY_ROOT/PREREGISTRATION_SIGNED_EXACT.json"
+            --cosign-log "$RECOVERY_ROOT/cosign-reverify.log"
+          )
+          python3 "$RECOVERY_ROOT/verify_recovery.py" "${args[@]}" \
+            --output "$RECOVERY_ROOT/RECOVERED_RESULT.json"
+          python3 "$RECOVERY_ROOT/verify_recovery.py" "${args[@]}" \
+            --output "$RUNNER_TEMP/recovered-result-repeat.json"
+          cmp "$RECOVERY_ROOT/RECOVERED_RESULT.json" \
+            "$RUNNER_TEMP/recovered-result-repeat.json"
+          cp "$RECOVERY_ROOT/PREREGISTRATION_SIGNED_EXACT.json" \
+            "$RUNNER_TEMP/mutated-subject.json"
+          printf ' ' >> "$RUNNER_TEMP/mutated-subject.json"
+          if python3 "$RECOVERY_ROOT/verify_recovery.py" \
+              --artifact "$RECOVERY_ROOT/evidence/v11_previous_failure.zip" \
+              --subject "$RUNNER_TEMP/mutated-subject.json" \
+              --cosign-log "$RECOVERY_ROOT/cosign-reverify.log" \
+              --output "$RUNNER_TEMP/should-not-exist.json"; then
+            echo 'mutated subject unexpectedly passed' >&2; exit 1
+          fi
+          cp "$RECOVERY_ROOT/evidence/v11_previous_failure.zip" \
+            "$RUNNER_TEMP/mutated-artifact.zip"
+          printf 'X' >> "$RUNNER_TEMP/mutated-artifact.zip"
+          if python3 "$RECOVERY_ROOT/verify_recovery.py" \
+              --artifact "$RUNNER_TEMP/mutated-artifact.zip" \
+              --subject "$RECOVERY_ROOT/PREREGISTRATION_SIGNED_EXACT.json" \
+              --cosign-log "$RECOVERY_ROOT/cosign-reverify.log" \
+              --output "$RUNNER_TEMP/should-not-exist-2.json"; then
+            echo 'mutated artifact unexpectedly passed' >&2; exit 1
+          fi
+
+      - name: Write durable report, observation and manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RECOVERY_ROOT/RUN_OBSERVATION.json" <<JSON
+          {"artifact_id":8974616091,"artifact_sha256":"$ARTIFACT_SHA256","failed_step":"Verify exact GitHub workflow identity and transparency bundle","failure_class":"terminal_receipt_parser_stdout_stderr_mismatch","github_run_conclusion":"failure","head_branch":"agent/data-science-v11-cosign-direct-oidc","head_sha":"$SIGNED_COMMIT","job_green":false,"job_id":92700417824,"repository":"cristh99/notebooks","run_attempt":1,"run_id":31126763807,"schema":"data-science-pipeline/github-run-observation/1"}
+          JSON
+          cat > "$RECOVERY_ROOT/RECOVERY.md" <<'MD'
+          # Data Science v11 — recovered Cosign/OIDC evidence
+
+          The original GitHub Actions job remains **failure**. Its OIDC request, pinned Cosign installation, keyless signature, retained Sigstore bundle and `cosign verify-blob` execution succeeded; the terminal receipt code failed because it required nonempty stdout while Cosign wrote `Verified OK` to stderr.
+
+          This recovery downloads the exact retained artifact, pins its SHA-256, extracts the exact signed preregistration from the signed commit, independently reruns Cosign verification, then generates a deterministic fail-closed receipt. It does not repeat the signature, alter the signed subject, access the ONCAE PDF, retune any model or data, modify production, spend external funds, or unblock Stage 08.
+
+          The recovered PASS establishes only evidence integrity and the bounded GitHub Actions/Sigstore identity. It does not make the original job green and does not establish source-document authenticity, OCR quality, resolver accuracy, payment, legality, intent, corruption or Stage 08 readiness.
+          MD
+          (
+            cd "$RECOVERY_ROOT"
+            sha256sum \
+              RECOVERED_RESULT.json RECOVERY.md RUN_OBSERVATION.json \
+              PREREGISTRATION_SIGNED_EXACT.json verify_recovery.py \
+              cosign-reverify.log evidence/v11_previous_failure.zip \
+              > MANIFEST.sha256
+            sha256sum --check MANIFEST.sha256
+          )
+
+      - name: Commit durable recovery evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$RECOVERY_ROOT"
+          git commit -m 'Recover verified v11 Cosign evidence without repeating signature'
+          git push origin HEAD:refs/heads/agent/data-science-v11-cosign-evidence-recovery
