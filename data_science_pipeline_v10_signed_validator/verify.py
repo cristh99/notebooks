@@ -9,6 +9,8 @@ import sys
 import unittest
 from pathlib import Path
 
+from adversarial_replay import run as run_adversarial
+
 ROOT = Path(__file__).resolve().parent
 UPSTREAM = Path(
     os.environ.get(
@@ -50,8 +52,11 @@ def main() -> int:
         == freeze["verify_sha256"],
         "requirements_hash_exact": sha256(ROOT / "requirements.txt")
         == freeze["requirements_sha256"],
+        "adversarial_generator_hash_exact": sha256(ROOT / "adversarial_replay.py")
+        == freeze["adversarial"]["generator_sha256"],
         "adversarial_hash_exact": sha256(ROOT / "ADVERSARIAL_RESULT.json")
         == freeze["adversarial"]["report_sha256"],
+        "adversarial_replay_exact": run_adversarial() == adversarial,
         "adversarial_cases_exact": adversarial.get("cases")
         == freeze["adversarial"]["cases"],
         "adversarial_verdict_pass": adversarial.get("verdict") == "PASS",
@@ -102,6 +107,7 @@ def main() -> int:
         "tests_expected": freeze["expected_tests"],
         "test_ids": list(test_ids),
         "adversarial_cases": freeze["adversarial"]["cases"],
+        "adversarial_generator_sha256": freeze["adversarial"]["generator_sha256"],
         "adversarial_report_sha256": freeze["adversarial"]["report_sha256"],
         "upstream_source_sha256": freeze["upstream"]["source_sha256"],
         "source_sha256": freeze["source_sha256"],
