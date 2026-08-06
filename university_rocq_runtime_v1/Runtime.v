@@ -1,4 +1,4 @@
-From LF Require Import Basics Induction Lists Poly Tactics Logic IndProp Maps Imp Hoare.
+From LF Require Import Basics Induction Lists Poly Tactics Logic IndProp Maps Imp.
 
 Module UniversitySoftwareFoundationsRuntime.
 
