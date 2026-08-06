@@ -14,7 +14,6 @@ import concurrent.futures
 import hashlib
 import json
 import re
-import sys
 import time
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -50,14 +49,6 @@ PROBLEM_SIGNAL_RES = (
 
 def sha256_bytes(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
-
-
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def stable_json_bytes(value: Any) -> bytes:
@@ -152,8 +143,6 @@ def analyze_python(path: Path, text: str) -> dict[str, Any]:
         "imports": {},
     }
     try:
-        # compile() is a real Python parser/compiler gate without executing
-        # untrusted assignment code or importing optional dependencies.
         compile(text, path.as_posix(), "exec", dont_inherit=True, optimize=0)
         tree = ast.parse(text, filename=path.as_posix())
     except (SyntaxError, ValueError, UnicodeError) as exc:
@@ -217,28 +206,42 @@ def inspect_file(path: Path, root: Path) -> dict[str, Any]:
 
 def summarize(records: list[dict[str, Any]], root: Path) -> dict[str, Any]:
     pset_dirs = sorted(
-        path.name
-        for path in (root / "psets").iterdir()
-        if path.is_dir() and re.fullmatch(r"ps\d+", path.name)
+        (
+            path.name
+            for path in (root / "psets").iterdir()
+            if path.is_dir() and re.fullmatch(r"ps\d+", path.name)
+        ),
+        key=lambda name: int(name[2:]),
     )
-    lecture_pdfs = [r for r in records if r["path"].startswith("lectures/") and r["suffix"] == ".pdf"]
-    sre_pdfs = [r for r in records if r["path"].startswith("SRE/") and r["suffix"] == ".pdf"]
-    pset_pdfs = [
-        r
-        for r in records
-        if re.fullmatch(r"psets/ps\d+/ps\d+\.pdf", r["path"], flags=re.IGNORECASE)
+    lecture_pdfs = [
+        record
+        for record in records
+        if record["path"].startswith("lectures/") and record["suffix"] == ".pdf"
     ]
-    python_records = [r for r in records if r["suffix"] == ".py"]
-    tex_records = [r for r in records if r["suffix"] == ".tex"]
+    sre_pdfs = [
+        record
+        for record in records
+        if record["path"].startswith("SRE/") and record["suffix"] == ".pdf"
+    ]
+    pset_pdfs = [
+        record
+        for record in records
+        if re.fullmatch(
+            r"psets/ps\d+/ps\d+\.pdf", record["path"], flags=re.IGNORECASE
+        )
+    ]
+    python_records = [record for record in records if record["suffix"] == ".py"]
+    tex_records = [record for record in records if record["suffix"] == ".tex"]
     test_files = [
-        r
-        for r in python_records
-        if Path(r["path"]).name == "tests.py" or Path(r["path"]).name.endswith("_tests.py")
+        record
+        for record in python_records
+        if Path(record["path"]).name == "tests.py"
+        or Path(record["path"]).name.endswith("_tests.py")
     ]
     syntax_failures = [
-        {"path": r["path"], "error": r["python"]["syntax_error"]}
-        for r in python_records
-        if not r["python"]["syntax_ok"]
+        {"path": record["path"], "error": record["python"]["syntax_error"]}
+        for record in python_records
+        if not record["python"]["syntax_ok"]
     ]
     imported_modules: Counter[str] = Counter()
     for record in python_records:
@@ -251,18 +254,18 @@ def summarize(records: list[dict[str, Any]], root: Path) -> dict[str, Any]:
     for lane, lane_records in sorted(grouped.items()):
         lane_payload = [
             {
-                "path": r["path"],
-                "sha256": r["sha256"],
-                "size_bytes": r["size_bytes"],
+                "path": record["path"],
+                "sha256": record["sha256"],
+                "size_bytes": record["size_bytes"],
             }
-            for r in sorted(lane_records, key=lambda item: item["path"])
+            for record in sorted(lane_records, key=lambda item: item["path"])
         ]
         lanes[lane] = {
             "file_count": len(lane_records),
-            "bytes": sum(r["size_bytes"] for r in lane_records),
-            "python_files": sum(r["suffix"] == ".py" for r in lane_records),
-            "pdf_files": sum(r["suffix"] == ".pdf" for r in lane_records),
-            "tex_files": sum(r["suffix"] == ".tex" for r in lane_records),
+            "bytes": sum(record["size_bytes"] for record in lane_records),
+            "python_files": sum(record["suffix"] == ".py" for record in lane_records),
+            "pdf_files": sum(record["suffix"] == ".pdf" for record in lane_records),
+            "tex_files": sum(record["suffix"] == ".tex" for record in lane_records),
             "payload_sha256": sha256_bytes(stable_json_bytes(lane_payload)),
         }
 
@@ -273,7 +276,11 @@ def summarize(records: list[dict[str, Any]], root: Path) -> dict[str, Any]:
         "pset_pdfs": len(pset_pdfs),
     }
     expected_checks = {
-        key: {"expected": expected, "observed": observed[key], "pass": observed[key] == expected}
+        key: {
+            "expected": expected,
+            "observed": observed[key],
+            "pass": observed[key] == expected,
+        }
         for key, expected in EXPECTED.items()
     }
     pset_directory_check = {
@@ -287,27 +294,35 @@ def summarize(records: list[dict[str, Any]], root: Path) -> dict[str, Any]:
         "pset_directory_check": pset_directory_check,
         "counts": {
             "all_files": len(records),
-            "all_bytes": sum(r["size_bytes"] for r in records),
+            "all_bytes": sum(record["size_bytes"] for record in records),
             "python_files": len(python_records),
             "python_syntax_pass": len(python_records) - len(syntax_failures),
             "python_syntax_fail": len(syntax_failures),
             "public_test_files": len(test_files),
-            "static_test_functions": sum(r["python"]["test_functions"] for r in python_records),
-            "static_assert_nodes": sum(r["python"]["assert_nodes"] for r in python_records),
-            "pass_nodes": sum(r["python"]["pass_nodes"] for r in python_records),
-            "not_implemented_raises": sum(
-                r["python"]["raise_not_implemented"] for r in python_records
+            "static_test_functions": sum(
+                record["python"]["test_functions"] for record in python_records
             ),
-            "python_todo_markers": sum(r["python"]["todo_markers"] for r in python_records),
+            "static_assert_nodes": sum(
+                record["python"]["assert_nodes"] for record in python_records
+            ),
+            "pass_nodes": sum(record["python"]["pass_nodes"] for record in python_records),
+            "not_implemented_raises": sum(
+                record["python"]["raise_not_implemented"] for record in python_records
+            ),
+            "python_todo_markers": sum(
+                record["python"]["todo_markers"] for record in python_records
+            ),
             "tex_files": len(tex_records),
-            "tex_problem_signals": sum(r["tex"]["problem_signals"] for r in tex_records),
-            "tex_sections": sum(r["tex"]["sections"] for r in tex_records),
+            "tex_problem_signals": sum(
+                record["tex"]["problem_signals"] for record in tex_records
+            ),
+            "tex_sections": sum(record["tex"]["sections"] for record in tex_records),
             "lecture_pdfs": len(lecture_pdfs),
             "sre_pdfs": len(sre_pdfs),
             "pset_directories": len(pset_dirs),
             "pset_pdfs": len(pset_pdfs),
         },
-        "test_files": sorted(r["path"] for r in test_files),
+        "test_files": sorted(record["path"] for record in test_files),
         "syntax_failures": syntax_failures,
         "imported_modules": dict(sorted(imported_modules.items())),
         "lanes": lanes,
@@ -328,7 +343,11 @@ def main() -> int:
         raise SystemExit("Expected psets/, lectures/, and SRE/ directories are missing")
 
     started = time.perf_counter()
-    files = sorted(path for path in root.rglob("*") if path.is_file() and ".git" not in path.parts)
+    files = sorted(
+        path
+        for path in root.rglob("*")
+        if path.is_file() and ".git" not in path.parts
+    )
     with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, args.workers)) as executor:
         records = list(executor.map(lambda path: inspect_file(path, root), files))
     records.sort(key=lambda item: item["path"])
@@ -343,7 +362,9 @@ def main() -> int:
     (out / "manifest.json").write_bytes(manifest_bytes)
 
     gates = {
-        "expected_counts": all(check["pass"] for check in summary["expected_checks"].values()),
+        "expected_counts": all(
+            check["pass"] for check in summary["expected_checks"].values()
+        ),
         "expected_pset_directories": summary["pset_directory_check"]["pass"],
         "python_syntax": not summary["syntax_failures"],
         "four_required_lanes_present": all(
