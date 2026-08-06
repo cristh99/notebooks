@@ -7,7 +7,7 @@ This bounded Stage 07 maintenance layer separates four evidence channels before 
 3. OCR content;
 4. native-text diagnostic control.
 
-It repairs the semantic defect exposed by the SESAL and PACC canaries: metadata may identify a source or remain a candidate, but it cannot silently become a content mention; absence in a partial page scope causes abstention, while a token present in native control but missed by OCR quarantines the OCR candidate.
+It repairs the semantic defect exposed by the SESAL and PACC canaries: metadata may identify a source or remain a candidate, but it cannot silently become a content mention; absence in a partial page scope causes abstention, while a token present in native control but missed by OCR quarantines the OCR candidate. A channel can support a match only after explicit validation, and the evidence bundle snapshots observations so later mutation cannot rewrite the decision.
 
 ## Reproduce
 
@@ -16,13 +16,13 @@ cd data_science_pipeline_v9_evidence_scope
 python verify.py
 ```
 
-The verifier checks frozen source/test hashes, runs all behavior tests, compiles the module and emits `evidence/receipt.json` plus its SHA-256.
+The verifier checks frozen source/test hashes, runs every behavior test, compiles the module and emits `evidence/receipt.json` plus its SHA-256.
 
 ## Verified locally
 
-- 8/8 behavior tests pass;
+- 10/10 behavior and determinism tests pass;
 - Python compilation passes;
-- deterministic canonical receipt serialization passes;
+- canonical receipt replay is byte-identical;
 - receipt verdict: `PASS_SOFTWARE_POLICY_ONLY`;
 - external cost USD 0.00.
 
