@@ -1,0 +1,90 @@
+name: Data Science — single resolver arbiter v2
+
+on:
+  pull_request:
+    branches:
+      - agent/data-science-single-arbiter-v2-runner-base
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'data_science_pipeline_v15_single_arbiter/**'
+      - '.github/workflows/data-science-single-arbiter-v2.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: data-science-single-arbiter-v2-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      PYTHONHASHSEED: '0'
+      COMPONENT: data_science_pipeline_v15_single_arbiter
+      EVIDENCE: data-science-single-arbiter-v2-evidence
+    steps:
+      - name: Checkout exact PR merge
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up pinned Python runtime
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Reconstruct exact capsule and verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_HEAD_REF" = 'agent/data-science-single-arbiter-v2-20260806'
+          test "$GITHUB_BASE_REF" = 'agent/data-science-single-arbiter-v2-runner-base'
+          mkdir -p "$EVIDENCE"
+          bash "$COMPONENT/reconstruct.sh" . \
+            | tee "$EVIDENCE/reconstruct.log"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path('data_science_pipeline_v15_single_arbiter')
+          receipt = json.loads((root / 'LOCAL_RESULT.json').read_text())
+          assert receipt['verdict'] == 'PASS_STAGE07_SINGLE_ARBITER_SOFTWARE_ONLY'
+          assert receipt['tests_run'] == receipt['tests_expected'] == 44
+          assert all(receipt['software_checks'].values())
+          assert receipt['external_real_data_evaluations'] == 0
+          assert receipt['external_cost_usd'] == 0.0
+          assert receipt['production_modified'] is False
+          assert receipt['stage08_unblocked'] is False
+          assert receipt['scientific_promotion_credit'] == 0
+          print(receipt['verdict'])
+          PY
+
+      - name: Seal evidence manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$COMPONENT/LOCAL_RESULT.json" "$EVIDENCE/"
+          cp "$COMPONENT/ARBITER_RESULT.json" "$EVIDENCE/"
+          cp "$COMPONENT/ARBITRATED_EVENTS.jsonl" "$EVIDENCE/"
+          cp "$COMPONENT/FREEZE.json" "$EVIDENCE/"
+          cp "$COMPONENT/verification.stdout" "$EVIDENCE/"
+          (
+            cd "$EVIDENCE"
+            sha256sum \
+              LOCAL_RESULT.json ARBITER_RESULT.json ARBITRATED_EVENTS.jsonl \
+              FREEZE.json verification.stdout reconstruct.log \
+              > SHA256SUMS.txt
+            sha256sum --check SHA256SUMS.txt
+          )
+
+      - name: Retain hash-bound evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-single-arbiter-v2
+          path: data-science-single-arbiter-v2-evidence
+          if-no-files-found: error
+          retention-days: 90
