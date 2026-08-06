@@ -1,0 +1,46 @@
+{
+  "adversarial": {
+    "cases": 1000,
+    "report_sha256": "6c71a652e79d915f45fe518faf7bee38e158c8b231e7610a2dc578a57ab97af9",
+    "seed": 20260806
+  },
+  "base_ref": "agent/data-science-v9-evidence-scope",
+  "controls": {
+    "external_cost_usd": 0.0,
+    "fresh_external_document_still_required": true,
+    "mass_processing_authorized": false,
+    "merge_authorized": false,
+    "network_required": false,
+    "production_modified": false,
+    "real_private_keys_present": false,
+    "scientific_promotion_credit": 0
+  },
+  "dependency": {
+    "cryptography": "46.0.4"
+  },
+  "expected_tests": 13,
+  "frozen_policy": {
+    "channel_must_be_authorized": true,
+    "channel_validation_binds_observation_validator_and_policy": true,
+    "cross_channel_replay_rejected": true,
+    "cross_validator_replay_rejected": true,
+    "ed25519_signature_must_verify": true,
+    "forged_signature_rejected": true,
+    "policy_must_be_authorized": true,
+    "registry_hash_must_match": true,
+    "registry_serialization_deterministic": true,
+    "signed_payload_binds_channel_validation_and_registry": true,
+    "tampered_observation_rejected": true,
+    "validator_must_exist_in_registry": true
+  },
+  "purpose": "Authenticate Stage 07 channel-validation receipts against a frozen Ed25519 trust registry before they can authorize evidence channels.",
+  "requirements_sha256": "ba5dd4592ae2d0d83245ce3e3ef8be50cd4bf93fc2fb9577caf7219d2ac3800d",
+  "schema": "data-science-pipeline/signed-validator-freeze/1",
+  "source_sha256": "eeecb3fda8c4f483026e64e6630eb5196441da4335380a06fd2fd86a019a0cd8",
+  "tests_sha256": "d9a624a9fc4fab18f442833b605da5734c5249b0758125143306d362b7984e81",
+  "upstream": {
+    "component": "data_science_pipeline_v9_evidence_scope/evidence_scope.py",
+    "source_sha256": "0f8aba8fd709bf9f5ac24ec9ca9bee6e40c1a397efa1f97679c80fa9392b7135"
+  },
+  "verify_sha256": "e50c0a5c7243c170faa94195804e62209de4388f1687ef9bde9601fe76340b11"
+}
