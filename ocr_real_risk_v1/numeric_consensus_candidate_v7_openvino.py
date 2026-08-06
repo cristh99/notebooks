@@ -202,6 +202,7 @@ def build(
                 "stage_b": "exact geometry census only when stage A can pass",
                 "minimum_selected": 5000,
                 "minimum_projected_verified": 400,
+                "expected_source_rows": 207_790,
                 "development_acceptance_rate": 110 / 4674,
                 "image_column_forbidden": True,
                 "full_image_download_authorized_in_this_gate": False,
@@ -249,6 +250,8 @@ def verify(root: Path) -> dict[str, Any]:
     if not policy["forest_threshold_is_effective"]:
         raise RuntimeError("probability threshold is ineffective")
     power_gate = manifest["metadata_power_gate"]
+    if power_gate.get("expected_source_rows") != 207_790:
+        raise RuntimeError("OpenVINO expected row count changed")
     if not power_gate["image_column_forbidden"]:
         raise RuntimeError("image bytes were not forbidden in power gate")
     if power_gate["full_image_download_authorized_in_this_gate"]:
