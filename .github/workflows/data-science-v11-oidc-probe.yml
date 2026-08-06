@@ -1,0 +1,28 @@
+name: Data Science v11 — OIDC availability probe
+
+on:
+  pull_request:
+    branches:
+      - agent/data-science-v11-oidc-bootstrap-base
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  oidc-probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Verify GitHub OIDC variables exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "cristh99/notebooks"
+          test "$GITHUB_EVENT_NAME" = "pull_request"
+          test "$GITHUB_HEAD_REF" = "agent/data-science-v11-cosign-direct-oidc"
+          test "$GITHUB_BASE_REF" = "agent/data-science-v11-oidc-bootstrap-base"
+          test -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}"
+          test -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}"
+          printf '%s\n' 'PASS_OIDC_VARIABLES_AVAILABLE'
