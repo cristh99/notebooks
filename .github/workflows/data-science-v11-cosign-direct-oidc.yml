@@ -7,6 +7,13 @@ on:
     paths:
       - '.github/workflows/data-science-v11-cosign-direct-oidc.yml'
       - 'data_science_pipeline_v11_cosign_preregistration/**'
+  pull_request:
+    branches:
+      - agent/data-science-v10-signed-validator-registry
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/data-science-v11-cosign-direct-oidc.yml'
+      - 'data_science_pipeline_v11_cosign_preregistration/**'
   workflow_dispatch:
 
 concurrency:
@@ -24,9 +31,10 @@ env:
   EXPECTED_REPOSITORY: cristh99/notebooks
   EXPECTED_REPOSITORY_ID: '616013328'
   EXPECTED_OWNER_ID: '87334928'
-  EXPECTED_REF: refs/heads/agent/data-science-v11-cosign-direct-oidc
-  EXPECTED_WORKFLOW_REF: cristh99/notebooks/.github/workflows/data-science-v11-cosign-direct-oidc.yml@refs/heads/agent/data-science-v11-cosign-direct-oidc
-  EXPECTED_CERTIFICATE_IDENTITY: https://github.com/cristh99/notebooks/.github/workflows/data-science-v11-cosign-direct-oidc.yml@refs/heads/agent/data-science-v11-cosign-direct-oidc
+  EXPECTED_HEAD_BRANCH: agent/data-science-v11-cosign-direct-oidc
+  EXPECTED_BASE_BRANCH: agent/data-science-v10-signed-validator-registry
+  EXPECTED_WORKFLOW_PATH: .github/workflows/data-science-v11-cosign-direct-oidc.yml
+  EXPECTED_CERTIFICATE_IDENTITY_REGEXP: '^https://github\.com/cristh99/notebooks/\.github/workflows/data-science-v11-cosign-direct-oidc\.yml@(refs/heads/agent/data-science-v11-cosign-direct-oidc|refs/pull/[0-9]+/merge)$'
   OIDC_ISSUER: https://token.actions.githubusercontent.com
   OIDC_AUDIENCE: sigstore
   COSIGN_VERSION: 3.0.6
@@ -49,8 +57,17 @@ jobs:
         run: |
           set -euo pipefail
           test "$GITHUB_REPOSITORY" = "$EXPECTED_REPOSITORY"
-          test "$GITHUB_REF" = "$EXPECTED_REF"
-          test "$GITHUB_EVENT_NAME" = "push" -o "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          case "$GITHUB_EVENT_NAME" in
+            push|workflow_dispatch)
+              test "$GITHUB_REF" = "refs/heads/$EXPECTED_HEAD_BRANCH"
+              ;;
+            pull_request)
+              test "$GITHUB_HEAD_REF" = "$EXPECTED_HEAD_BRANCH"
+              test "$GITHUB_BASE_REF" = "$EXPECTED_BASE_BRANCH"
+              [[ "$GITHUB_REF" =~ ^refs/pull/[0-9]+/merge$ ]]
+              ;;
+            *) exit 1 ;;
+          esac
           mkdir -p "$EVIDENCE_ROOT"
           python3 "$COMPONENT/verify.py" \
             --output "$EVIDENCE_ROOT/local-receipt.json" \
@@ -109,11 +126,46 @@ jobs:
           else:
               audience_ok = audience == os.environ["OIDC_AUDIENCE"]
 
-          old_subject = f"repo:{os.environ['EXPECTED_REPOSITORY']}:ref:{os.environ['EXPECTED_REF']}"
-          immutable_subject = (
-              "repo:cristh99@87334928/notebooks@616013328:"
-              f"ref:{os.environ['EXPECTED_REF']}"
+          branch_ref = f"refs/heads/{os.environ['EXPECTED_HEAD_BRANCH']}"
+          branch_workflow_ref = (
+              f"{os.environ['EXPECTED_REPOSITORY']}/{os.environ['EXPECTED_WORKFLOW_PATH']}"
+              f"@{branch_ref}"
           )
+          current_workflow_ref = (
+              f"{os.environ['EXPECTED_REPOSITORY']}/{os.environ['EXPECTED_WORKFLOW_PATH']}"
+              f"@{os.environ['GITHUB_REF']}"
+          )
+          event_payload = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
+          pull_head_sha = str(
+              event_payload.get("pull_request", {}).get("head", {}).get("sha", "")
+          )
+          old_branch_subject = f"repo:{os.environ['EXPECTED_REPOSITORY']}:ref:{branch_ref}"
+          immutable_branch_subject = (
+              "repo:cristh99@87334928/notebooks@616013328:"
+              f"ref:{branch_ref}"
+          )
+          old_pr_subject = f"repo:{os.environ['EXPECTED_REPOSITORY']}:pull_request"
+          immutable_pr_subject = "repo:cristh99@87334928/notebooks@616013328:pull_request"
+          event = claims.get("event_name")
+          if event in {"push", "workflow_dispatch"}:
+              event_binding_ok = (
+                  claims.get("ref") == branch_ref
+                  and claims.get("workflow_ref") == branch_workflow_ref
+                  and claims.get("sub") in {old_branch_subject, immutable_branch_subject}
+              )
+          elif event == "pull_request":
+              ref = str(claims.get("ref", ""))
+              event_binding_ok = (
+                  bool(__import__("re").fullmatch(r"refs/pull/[0-9]+/merge", ref))
+                  and claims.get("workflow_ref") in {branch_workflow_ref, current_workflow_ref}
+                  and claims.get("workflow_sha") in {os.environ["GITHUB_SHA"], pull_head_sha}
+                  and bool(pull_head_sha)
+                  and claims.get("head_ref") == os.environ["EXPECTED_HEAD_BRANCH"]
+                  and claims.get("base_ref") == os.environ["EXPECTED_BASE_BRANCH"]
+                  and claims.get("sub") in {old_pr_subject, immutable_pr_subject}
+              )
+          else:
+              event_binding_ok = False
           now = int(time.time())
 
           checks = {
@@ -125,13 +177,15 @@ jobs:
               "repository_id_exact": str(claims.get("repository_id")) == os.environ["EXPECTED_REPOSITORY_ID"],
               "owner_id_exact": str(claims.get("repository_owner_id")) == os.environ["EXPECTED_OWNER_ID"],
               "repository_visibility_public": claims.get("repository_visibility") == "public",
-              "ref_exact": claims.get("ref") == os.environ["EXPECTED_REF"],
+              "event_binding_exact": event_binding_ok,
               "sha_exact": claims.get("sha") == os.environ["GITHUB_SHA"],
-              "workflow_ref_exact": claims.get("workflow_ref") == os.environ["EXPECTED_WORKFLOW_REF"],
-              "workflow_sha_exact": claims.get("workflow_sha") == os.environ["GITHUB_SHA"],
+              "workflow_sha_exact": (
+                  claims.get("workflow_sha") == os.environ["GITHUB_SHA"]
+                  if event in {"push", "workflow_dispatch"}
+                  else claims.get("workflow_sha") in {os.environ["GITHUB_SHA"], pull_head_sha}
+              ),
               "runner_environment_github_hosted": claims.get("runner_environment") == "github-hosted",
-              "event_allowed": claims.get("event_name") in {"push", "workflow_dispatch"},
-              "subject_allowed": claims.get("sub") in {old_subject, immutable_subject},
+              "event_allowed": claims.get("event_name") in {"push", "pull_request", "workflow_dispatch"},
               "jti_present": bool(claims.get("jti")),
               "time_window_valid": (
                   int(claims.get("nbf", 0)) <= now
@@ -162,6 +216,8 @@ jobs:
                       "repository_visibility",
                       "ref",
                       "ref_type",
+                      "head_ref",
+                      "base_ref",
                       "sha",
                       "workflow",
                       "workflow_ref",
@@ -197,6 +253,15 @@ jobs:
               hashlib.sha256(payload.encode()).hexdigest()
               + "  oidc-safe-claims.json\n"
           )
+          workflow_sha = str(claims["workflow_sha"])
+          if not __import__("re").fullmatch(r"[0-9a-f]{40}", workflow_sha):
+              raise SystemExit("workflow_sha is not a commit SHA")
+          workflow_ref = str(claims["workflow_ref"])
+          if workflow_ref not in {branch_workflow_ref, current_workflow_ref}:
+              raise SystemExit("workflow_ref outside frozen alternatives")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as handle:
+              handle.write(f"OIDC_WORKFLOW_SHA={workflow_sha}\n")
+              handle.write(f"OIDC_WORKFLOW_REF={workflow_ref}\n")
           PY
 
       - name: Install pinned Cosign binary
@@ -232,10 +297,10 @@ jobs:
           set -euo pipefail
           "$RUNNER_TEMP/cosign" verify-blob "$SUBJECT" \
             --bundle "$EVIDENCE_ROOT/preregistration.sigstore.json" \
-            --certificate-identity "$EXPECTED_CERTIFICATE_IDENTITY" \
+            --certificate-identity-regexp "$EXPECTED_CERTIFICATE_IDENTITY_REGEXP" \
             --certificate-oidc-issuer "$OIDC_ISSUER" \
             --certificate-github-workflow-repository "$EXPECTED_REPOSITORY" \
-            --certificate-github-workflow-sha "$GITHUB_SHA" \
+            --certificate-github-workflow-sha "$OIDC_WORKFLOW_SHA" \
             --certificate-github-workflow-trigger "$GITHUB_EVENT_NAME" \
             > "$EVIDENCE_ROOT/verify.stdout" \
             2> "$EVIDENCE_ROOT/verify.stderr"
@@ -286,8 +351,10 @@ jobs:
               "github_sha": os.environ["GITHUB_SHA"],
               "github_ref": os.environ["GITHUB_REF"],
               "repository": os.environ["GITHUB_REPOSITORY"],
-              "workflow_ref": os.environ["EXPECTED_WORKFLOW_REF"],
-              "certificate_identity": os.environ["EXPECTED_CERTIFICATE_IDENTITY"],
+              "workflow_path": os.environ["EXPECTED_WORKFLOW_PATH"],
+              "oidc_workflow_ref": os.environ["OIDC_WORKFLOW_REF"],
+              "oidc_workflow_sha": os.environ["OIDC_WORKFLOW_SHA"],
+              "certificate_identity_regexp": os.environ["EXPECTED_CERTIFICATE_IDENTITY_REGEXP"],
               "oidc_issuer": os.environ["OIDC_ISSUER"],
               "oidc_audience": os.environ["OIDC_AUDIENCE"],
               "subject_sha256": sha(subject),
@@ -300,7 +367,7 @@ jobs:
                   "oidc_safe_claims_validated": True,
                   "cosign_binary_sha256_exact": True,
                   "sigstore_bundle_signature_verified": True,
-                  "certificate_identity_exact": True,
+                  "certificate_identity_regexp_exact": True,
                   "certificate_oidc_issuer_exact": True,
                   "github_workflow_repository_exact": True,
                   "github_workflow_sha_exact": True,
