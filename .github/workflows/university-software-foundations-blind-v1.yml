@@ -1,0 +1,286 @@
+name: University Software Foundations blind v1
+
+on:
+  push:
+    branches: [agent/university-software-foundations-blind-v1]
+  pull_request:
+    paths:
+      - '.github/workflows/university-software-foundations-blind-v1.yml'
+      - 'university_software_foundations_blind_v1/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Verify and expand frozen implementation capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'a2c561c0360fcb7e51e9411112f43bc3a3252c1e1db72af9bb0f9a9835594592  university_software_foundations_blind_v1/implementation-v1.tar.gz' | sha256sum -c -
+          tar xzf university_software_foundations_blind_v1/implementation-v1.tar.gz
+          test -f university_software_foundations_blind_v1/BlindEarly.v
+          test -f university_software_foundations_blind_v1/BlindProof.v
+          test -f university_software_foundations_blind_v1/BlindSemantics.v
+          test -f university_software_foundations_blind_v1/BlindAutomation.v
+          test -f university_software_foundations_blind_v1/BlindNegativeControl.v
+          test -f university_software_foundations_blind_v1/TARGET_MAP.json
+
+      - name: Verify frozen preregistration before execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reports frozen regenerated
+          echo 'ca18047f818e9a0c6725a1d9e40001adce817bdd0662005ce01054565a71404b  university_software_foundations_blind_v1/preregistration-frozen.tar.gz' | sha256sum -c -
+          tar xzf university_software_foundations_blind_v1/preregistration-frozen.tar.gz -C frozen
+          (cd frozen && sha256sum -c university_software_foundations_blind_v1/SHA256SUMS)
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('frozen/university_software_foundations_blind_v1')
+          prereg = json.loads((root / 'PREREGISTRATION.json').read_text())
+          selected = json.loads((root / 'SELECTED.json').read_text())
+          lock = json.loads((root / 'SOURCE_LOCK.json').read_text())
+          assert prereg['status'] == 'FROZEN_BEFORE_TARGET_REVEAL'
+          assert prereg['denominator'] == 18
+          assert prereg['proof_policy']['preapproved_axioms'] == []
+          assert prereg['proof_policy']['target_replacement'] is False
+          assert selected['target_count'] == 18
+          assert selected['no_replacement'] is True
+          assert len(selected['targets']) == 18
+          assert lock['source_sha256'] == '3721c1f9a25243251a30e3be9b861707c8e1ab4ba2d1e5374ca8ef36f8dcf130'
+          assert len({t['target_id'] for t in selected['targets']}) == 18
+          print(json.dumps({
+              'assessment_id': prereg['assessment_id'],
+              'denominator': prereg['denominator'],
+              'selection_seed': selected['selection_seed'],
+              'target_ids': [t['target_id'] for t in selected['targets']],
+          }, indent=2, sort_keys=True))
+          PY
+
+      - name: Acquire and verify official Logical Foundations source
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 https://softwarefoundations.cis.upenn.edu/current/lf-current/lf.tgz -o lf.tgz
+          echo '3721c1f9a25243251a30e3be9b861707c8e1ab4ba2d1e5374ca8ef36f8dcf130  lf.tgz' | sha256sum -c -
+          mkdir -p lf-build lf-replay
+          tar xzf lf.tgz -C lf-build
+          tar xzf lf.tgz -C lf-replay
+          chmod -R a+rwX lf-build lf-replay
+          test -f lf-build/lf/Makefile
+          test -f lf-replay/lf/Makefile
+          python frozen/university_software_foundations_blind_v1/select_blind_targets.py lf-build/lf regenerated
+          cmp frozen/university_software_foundations_blind_v1/INVENTORY.json regenerated/INVENTORY.json
+          cmp frozen/university_software_foundations_blind_v1/SELECTED.json regenerated/SELECTED.json
+          echo 'LF_PRIMARY=lf-build/lf' >> "$GITHUB_ENV"
+          echo 'LF_REPLAY=lf-replay/lf' >> "$GITHUB_ENV"
+
+      - name: Bind pinned Rocq kernel
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull rocq/rocq-prover:9.0
+          IMAGE_REF="$(docker image inspect --format '{{index .RepoDigests 0}}' rocq/rocq-prover:9.0)"
+          IMAGE_DIGEST="${IMAGE_REF##*@}"
+          test "$IMAGE_DIGEST" = 'sha256:787ea5569c9bf40e03a2255224365cb2fb0ae4a446fc60565dd61b1656d1699d'
+          echo "ROCQ_IMAGE_REF=$IMAGE_REF" >> "$GITHUB_ENV"
+          printf '%s\n' "repo_digest=$IMAGE_REF" "digest=$IMAGE_DIGEST" > reports/container-binding.txt
+          docker run --rm "$IMAGE_REF" rocq --version 2>&1 | tee reports/rocq-version.log
+
+      - name: Build official volume in two clean trees
+        shell: bash
+        run: |
+          set -euo pipefail
+          (
+            set -o pipefail
+            docker run --rm -v "$PWD:/work" -w "/work/$LF_PRIMARY" "$ROCQ_IMAGE_REF" bash -c 'make -j4 V=' 2>&1 | tee reports/official-build-primary.log
+          ) &
+          P1=$!
+          (
+            set -o pipefail
+            docker run --rm -v "$PWD:/work" -w "/work/$LF_REPLAY" "$ROCQ_IMAGE_REF" bash -c 'make -j4 V=' 2>&1 | tee reports/official-build-replay.log
+          ) &
+          P2=$!
+          R1=0; R2=0
+          wait "$P1" || R1=$?
+          wait "$P2" || R2=$?
+          test "$R1" -eq 0
+          test "$R2" -eq 0
+          C1="$(find "$LF_PRIMARY" -type f -name '*.vo' | wc -l)"
+          C2="$(find "$LF_REPLAY" -type f -name '*.vo' | wc -l)"
+          test "$C1" -eq 40
+          test "$C2" -eq 40
+          printf '%s\n' "primary_official_vo=$C1" "replay_official_vo=$C2" > reports/official-build-counts.txt
+
+      - name: Compile 18 frozen targets in four parallel groups
+        shell: bash
+        run: |
+          set -euo pipefail
+          GROUPS=(BlindEarly BlindProof BlindSemantics BlindAutomation)
+          PIDS=()
+          for group in "${GROUPS[@]}"; do
+            cp "university_software_foundations_blind_v1/${group}.v" "$LF_PRIMARY/${group}.v"
+            chmod a+rw "$LF_PRIMARY/${group}.v"
+            (
+              set -o pipefail
+              docker run --rm -v "$PWD:/work" -w "/work/$LF_PRIMARY" "$ROCQ_IMAGE_REF" rocq compile -Q . LF "${group}.v" 2>&1 | tee "reports/compile-${group}.log"
+            ) &
+            PIDS+=("$!")
+          done
+          STATUS=0
+          for i in "${!GROUPS[@]}"; do
+            RC=0
+            wait "${PIDS[$i]}" || RC=$?
+            printf '%s=%s\n' "${GROUPS[$i]}" "$RC" | tee -a reports/primary-status.txt
+            if [ "$RC" -ne 0 ]; then STATUS=1; fi
+          done
+          exit "$STATUS"
+
+      - name: Enforce zero-assumption gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RniE '(^|[[:space:]])(Admitted|admit)([[:space:].]|$)|^[[:space:]]*(Axiom|Parameter)[[:space:]]' university_software_foundations_blind_v1/*.v; then
+            echo 'Forbidden proof placeholder or declaration found.' >&2
+            exit 1
+          fi
+          if grep -Hn '^Axioms:$' reports/compile-*.log; then
+            echo 'At least one selected proof depends on an axiom.' >&2
+            exit 1
+          fi
+          EXPECTED=(6 6 3 3)
+          GROUPS=(BlindEarly BlindProof BlindSemantics BlindAutomation)
+          TOTAL=0
+          for i in "${!GROUPS[@]}"; do
+            COUNT="$(grep -c 'Closed under the global context' "reports/compile-${GROUPS[$i]}.log")"
+            test "$COUNT" -eq "${EXPECTED[$i]}"
+            TOTAL=$((TOTAL + COUNT))
+          done
+          test "$TOTAL" -eq 18
+          echo "closed_targets=$TOTAL" | tee reports/assumption-gate.txt
+
+      - name: Reject false mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp university_software_foundations_blind_v1/BlindNegativeControl.v "$LF_PRIMARY/BlindNegativeControl.v"
+          chmod a+rw "$LF_PRIMARY/BlindNegativeControl.v"
+          if docker run --rm -v "$PWD:/work" -w "/work/$LF_PRIMARY" "$ROCQ_IMAGE_REF" rocq compile -Q . LF BlindNegativeControl.v > reports/negative-control.log 2>&1; then
+            echo 'False mutation unexpectedly compiled.' >&2
+            exit 1
+          fi
+          grep -Eq 'Error:|Unable to unify|not convertible' reports/negative-control.log
+          echo 'negative_control_rejected=1' > reports/negative-control-status.txt
+
+      - name: Replay all targets from second clean extraction
+        shell: bash
+        run: |
+          set -euo pipefail
+          GROUPS=(BlindEarly BlindProof BlindSemantics BlindAutomation)
+          PIDS=()
+          for group in "${GROUPS[@]}"; do
+            cp "university_software_foundations_blind_v1/${group}.v" "$LF_REPLAY/${group}.v"
+            chmod a+rw "$LF_REPLAY/${group}.v"
+            (
+              set -o pipefail
+              docker run --rm -v "$PWD:/work" -w "/work/$LF_REPLAY" "$ROCQ_IMAGE_REF" rocq compile -Q . LF "${group}.v" 2>&1 | tee "reports/replay-${group}.log"
+            ) &
+            PIDS+=("$!")
+          done
+          STATUS=0
+          for i in "${!GROUPS[@]}"; do
+            RC=0
+            wait "${PIDS[$i]}" || RC=$?
+            printf '%s=%s\n' "${GROUPS[$i]}" "$RC" | tee -a reports/replay-status.txt
+            if [ "$RC" -ne 0 ]; then STATUS=1; fi
+          done
+          test "$STATUS" -eq 0
+          for group in "${GROUPS[@]}"; do
+            cmp "reports/compile-${group}.log" "reports/replay-${group}.log"
+          done
+          TOTAL="$(grep -h 'Closed under the global context' reports/replay-*.log | wc -l)"
+          test "$TOTAL" -eq 18
+          if grep -Hn '^Axioms:$' reports/replay-*.log; then exit 1; fi
+
+      - name: Emit assessment receipt and hash ledger
+        shell: bash
+        env:
+          EVENT_SHA: ${{ github.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          frozen = Path('frozen/university_software_foundations_blind_v1')
+          selected = json.loads((frozen / 'SELECTED.json').read_text())
+          targets = []
+          for target in selected['targets']:
+              targets.append({
+                  'target_id': target['target_id'],
+                  'file': target['file'],
+                  'exercise_name': target['exercise_name'],
+                  'target_name': target['target_name'],
+                  'stars': target['stars'],
+                  'stratum': target['stratum'],
+                  'statement_sha256': target['statement_sha256'],
+                  'status': 'PASS',
+                  'assumptions': [],
+                  'primary_compile': True,
+                  'clean_replay': True,
+              })
+          receipt = {
+              'schema': 'university-software-foundations-blind/receipt/1',
+              'status': 'PASS_18_OF_18_BLIND_STRATIFIED',
+              'assessment_id': 'university-software-foundations-blind-v1',
+              'repository': 'cristh99/notebooks',
+              'event_sha': os.environ['EVENT_SHA'],
+              'head_sha': os.environ['HEAD_SHA'],
+              'preregistration_commit': 'd4b1e21889e1d17323130d88ebc5d7fb7f069f7a',
+              'preregistration_archive_sha256': 'ca18047f818e9a0c6725a1d9e40001adce817bdd0662005ce01054565a71404b',
+              'source_sha256': selected['source_sha256'],
+              'container_digest': 'sha256:787ea5569c9bf40e03a2255224365cb2fb0ae4a446fc60565dd61b1656d1699d',
+              'denominator': 18,
+              'passed': 18,
+              'failed': 0,
+              'target_replacement': False,
+              'preapproved_axioms': [],
+              'negative_controls_rejected': 1,
+              'clean_replay': True,
+              'targets': targets,
+              'scope_boundary': 'Fixed blind sample only; not completion of Logical Foundations, a course, or a university curriculum.',
+          }
+          out = Path('reports/receipt.json')
+          out.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          Path('reports/receipt.sha256').write_text(
+              f"{hashlib.sha256(out.read_bytes()).hexdigest()}  receipt.json\n"
+          )
+          print(json.dumps({k: receipt[k] for k in ['status','denominator','passed','failed','clean_replay']}, indent=2))
+          PY
+          find university_software_foundations_blind_v1 reports frozen regenerated .github/workflows/university-software-foundations-blind-v1.yml \
+            -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > reports/SHA256SUMS
+          sha256sum lf.tgz >> reports/SHA256SUMS
+          sha256sum -c reports/SHA256SUMS
+
+      - name: Upload blind assessment evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: university-software-foundations-blind-v1-evidence
+          path: |
+            university_software_foundations_blind_v1/
+            reports/
+            frozen/
+            regenerated/
+            lf.tgz
