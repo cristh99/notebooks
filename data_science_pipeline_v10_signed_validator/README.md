@@ -20,7 +20,7 @@ python -m pip install -r requirements.txt
 EVIDENCE_SCOPE_ROOT=../data_science_pipeline_v9_evidence_scope python verify.py
 ```
 
-The verifier checks the frozen v9 source, v10 source/tests/verifier/dependency hashes, runs 13 tests, compiles the code, checks a deterministic 1,000-case adversarial report and emits `evidence/receipt.json` plus SHA-256.
+The verifier checks the frozen v9 source, v10 source/tests/verifier/dependency hashes, runs 14 tests, compiles the code, regenerates and byte-compares a deterministic 1,000-case adversarial report and emits `evidence/receipt.json` plus SHA-256.
 
 ## Boundary
 
