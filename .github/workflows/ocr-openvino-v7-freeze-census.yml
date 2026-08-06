@@ -31,6 +31,7 @@ env:
   OPENVINO_PATH: data/openvino-00000-of-00001.parquet
   OPENVINO_SOURCE_SHA256: 5413c6ffb4f8047977db9dba520453976f48eed91b5477d06e7f62258a2ba09c
   OPENVINO_SOURCE_BYTES: '65751927475'
+  OPENVINO_EXPECTED_ROWS: '207790'
   OPENVINO_URL: https://huggingface.co/datasets/Yesianrohn/OCR-Data/resolve/2b1f8aab9fbba3b5be07e2cae9e3e9c43fe5487c/data/openvino-00000-of-00001.parquet?download=true
   PYTHONHASHSEED: '0'
   OMP_THREAD_LIMIT: '1'
@@ -103,6 +104,7 @@ jobs:
           assert 'MINIMUM_ACCEPTED = 400' in adapter
           assert 'DEVELOPMENT_ACCEPTANCE_NUMERATOR = 110' in adapter
           assert 'DEVELOPMENT_ACCEPTANCE_DENOMINATOR = 4674' in adapter
+          assert 'EXPECTED_ROW_COUNT = 207_790' in adapter
           workflow = Path(
               '.github/workflows/ocr-openvino-v7-freeze-census.yml'
           ).read_text()
@@ -197,6 +199,9 @@ jobs:
           assert source['path'] == os.environ['OPENVINO_PATH']
           assert source['size_bytes'] == int(os.environ['OPENVINO_SOURCE_BYTES'])
           assert source['sha256'] == os.environ['OPENVINO_SOURCE_SHA256']
+          assert source['declared_rows'] == int(
+              os.environ['OPENVINO_EXPECTED_ROWS']
+          )
           assert report['repository_metadata_only'] is True
           assert report['parquet_footer_read'] is False
           assert report['outcomes_opened'] is False
