@@ -1,0 +1,60 @@
+{
+  "schema": "data-science-pipeline/fresh-pacc-end-to-end-freeze/1",
+  "source_discovery": {
+    "official_page": "https://oncae.gob.hn/biblioteca/manuales/pacc/guia-de-registros-y-flujo-de-pacc-2023/",
+    "official_pdf": "https://oncae.gob.hn/wp-content/uploads/2024/05/GUIA-DE-REGISTROS-Y-FLUJO-DE-PACC-2023.pdf",
+    "visible_page_title": "GUIA DE REGISTROS Y FLUJO DE PACC 2023",
+    "pdf_contents_accessed_before_freeze": false
+  },
+  "pipeline_scope": ["acquire", "preserve_raw", "extract", "normalize", "resolve"],
+  "extract_gate": {
+    "pages": 3,
+    "dpi": 200,
+    "languages": "spa+eng",
+    "psm": 6,
+    "minimum_mean_confidence": 55.0,
+    "minimum_native_token_recall": 0.55,
+    "minimal_ocr_token": "PACC",
+    "identity_groups": {
+      "institution": {"minimum": 1, "tokens": ["ONCAE", "OFICINA NORMATIVA"]},
+      "title": {"minimum": 2, "tokens": ["REGISTROS", "FLUJO", "PACC"]},
+      "year": {"minimum": 1, "tokens": ["2023"]}
+    },
+    "empty_pages": 0
+  },
+  "normalize_gate": {
+    "documents": 1,
+    "pages": 3,
+    "minimum_lines": 1,
+    "minimum_words": 1,
+    "hashes_and_cardinality_reconciled": true,
+    "word_keys_unique": true,
+    "coordinates_inside_raster": true,
+    "byte_identical_replay": true
+  },
+  "resolve_gate": {
+    "required_entities": ["hn:institution:oncae", "hn:concept:pacc"],
+    "required_year": "2023",
+    "false_positive_forbidden": ["L 2023", "L 2024"],
+    "all_mentions_require_line_ids_and_parent_hash": true,
+    "registry_alias_collisions_fail_closed": true,
+    "unqualified_numbers_are_not_money": true,
+    "abstention_required_when_no_money_resolves": true,
+    "byte_identical_replay": true
+  },
+  "rationale": {
+    "v6_failure": "A filename-only SESAL token did not occur in the first three PDF pages.",
+    "improvement": "Document identity is now an explicit quorum of institution, title and year groups derived only from public page metadata; no filename-only token is mandatory.",
+    "same_document_reused": false
+  },
+  "execution": {
+    "candidate_frozen_before_pdf_download": true,
+    "post_result_retuning_permitted": false,
+    "external_cost_usd": 0.0,
+    "gcloud_used": false,
+    "paid_compute_used": false,
+    "merge_authorized": false,
+    "mass_processing_authorized": false,
+    "novelty_points": 0
+  }
+}
