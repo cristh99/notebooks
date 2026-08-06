@@ -1,0 +1,56 @@
+{
+  "schema": "data-science-pipeline/resolve-freeze/1",
+  "upstream": {
+    "normalization_repair_run_id": 31062746599,
+    "normalization_artifact_id": 8952699633,
+    "normalization_artifact_zip_sha256": "3c2aa0e8551b559ab2540f61a13a1aef3d69d6efec64437721d574f1d38be2d8",
+    "source_pdf_sha256": "5f278ec51106212a95a6f8c135cdfb8376724daab1e49b9ca0d3879543d11e85",
+    "canonical_input_counts": {"documents": 1, "pages": 3, "lines": 99, "words": 461}
+  },
+  "minimum_resolutions": {
+    "required_entity_ids": [
+      "hn:institution:oncae",
+      "hn:organization:cich",
+      "hn:organization:educredito",
+      "hn:country:honduras",
+      "hn:government:republic"
+    ],
+    "required_date_values": ["2024-11"],
+    "required_legal_ids": [
+      "hn:legal:reglamento-ley-contratacion-estado",
+      "hn:legal:presupuesto-general-2024",
+      "hn:decree:62-2023"
+    ],
+    "required_contact_values": ["+504-2209-5355"],
+    "amount_count": 0,
+    "required_amount_abstention": "NO_CURRENCY_QUALIFIED_AMOUNT",
+    "entity_collision_count": 0
+  },
+  "resolution_rules": {
+    "every_resolved_mention_requires_exact_line_ids": true,
+    "every_resolved_mention_requires_layout_parent_sha256": true,
+    "registry_alias_collisions_fail_closed": true,
+    "distinct_entities_in_one line_are_coexistence_not_collision": true,
+    "numbers_without_explicit_currency_are_not_money": true,
+    "ambiguous_or_unsupported_values_abstain": true
+  },
+  "outputs": [
+    "entities.jsonl",
+    "entity_mentions.jsonl",
+    "entity_collisions.jsonl",
+    "dates.jsonl",
+    "legal_instruments.jsonl",
+    "legal_mentions.jsonl",
+    "contacts.jsonl",
+    "amounts.jsonl",
+    "abstentions.jsonl",
+    "resolve-manifest.json"
+  ],
+  "frozen_before_integration_result": true,
+  "post_result_retuning_permitted": false,
+  "merge_authorized": false,
+  "mass_processing_authorized": false,
+  "gcloud_used": false,
+  "paid_compute_used": false,
+  "novelty_points": 0
+}
