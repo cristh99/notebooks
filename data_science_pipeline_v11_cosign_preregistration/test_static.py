@@ -79,8 +79,8 @@ class PreregistrationTests(unittest.TestCase):
 
     def test_workflow_ref_drift_is_rejected(self) -> None:
         payload = copy.deepcopy(PREREG)
-        payload["trust_contract"]["workflow_ref"] = "other"
-        with self.assertRaisesRegex(ValueError, "workflow ref"):
+        payload["trust_contract"]["workflow_path"] = "other"
+        with self.assertRaisesRegex(ValueError, "workflow path"):
             validate_payload(payload)
 
     def test_issuer_drift_is_rejected(self) -> None:
