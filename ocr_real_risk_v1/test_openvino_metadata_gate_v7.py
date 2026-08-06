@@ -7,6 +7,7 @@ from pathlib import Path
 from . import openvino_adapter_v7
 from .openvino_adapter_v7 import (
     DEVELOPMENT_ACCEPTANCE_RATE,
+    EXPECTED_ROW_COUNT,
     REQUIRED_SELECTED_FOR_PROJECTED_ACCEPTS,
     exact_power_decision,
     stable_payload,
@@ -14,6 +15,7 @@ from .openvino_adapter_v7 import (
 )
 from .openvino_source_seal_v7 import (
     RESOLVED_REVISION,
+    SOURCE_DECLARED_ROWS,
     SOURCE_PATH,
     SOURCE_SHA256,
     SOURCE_SIZE_BYTES,
@@ -43,6 +45,10 @@ class OpenVinoSourceSealV7Tests(unittest.TestCase):
         self.assertFalse(report["parquet_footer_read"])
         self.assertFalse(report["outcomes_opened"])
         self.assertEqual(report["images_opened"], 0)
+        self.assertEqual(
+            report["source_object"]["declared_rows"],
+            SOURCE_DECLARED_ROWS,
+        )
         self.assertTrue(
             report["license_review"]["full_image_download_requires_review"]
         )
@@ -113,6 +119,7 @@ class OpenVinoMetadataGateV7Tests(unittest.TestCase):
                     )
                 },
                 "metadata_power_gate": {
+                    "expected_source_rows": EXPECTED_ROW_COUNT,
                     "image_column_forbidden": True,
                     "full_image_download_authorized_in_this_gate": False,
                 },
@@ -135,6 +142,8 @@ class OpenVinoMetadataGateV7Tests(unittest.TestCase):
         stage_a = texts_only_upper_bound(
             [(0, ["12-34"]), (1, ["987654"]), (2, ["abc"])]
         )
+        stage_a = dict(stage_a)
+        stage_a["row_count"] = EXPECTED_ROW_COUNT
         power = exact_power_decision(stage_a["selected_upper_bound"])
         report = stable_payload(
             {
@@ -145,6 +154,7 @@ class OpenVinoMetadataGateV7Tests(unittest.TestCase):
                     "source_path": SOURCE_PATH,
                     "source_sha256": SOURCE_SHA256,
                     "source_size_bytes": SOURCE_SIZE_BYTES,
+                    "expected_row_count": EXPECTED_ROW_COUNT,
                 },
                 "candidate_binding": {
                     "stable_payload_sha256": candidate[
@@ -233,6 +243,26 @@ class OpenVinoMetadataGateV7Tests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "power adjudication"):
             adjudicate(
                 unsafe,
+                candidate,
+                source_seal,
+                source_commit=source_commit,
+                census_file_sha256="b" * 64,
+            )
+
+    def test_terminal_adjudicator_rejects_incomplete_scan(self) -> None:
+        report, candidate, source_seal, source_commit = self._terminal_inputs()
+        incomplete = dict(report)
+        incomplete.pop("stable_payload_sha256")
+        incomplete["stage_a_texts_only_upper_bound"] = dict(
+            incomplete["stage_a_texts_only_upper_bound"]
+        )
+        incomplete["stage_a_texts_only_upper_bound"]["row_count"] = (
+            EXPECTED_ROW_COUNT - 1
+        )
+        incomplete = stable_payload(incomplete)
+        with self.assertRaisesRegex(RuntimeError, "row count"):
+            adjudicate(
+                incomplete,
                 candidate,
                 source_seal,
                 source_commit=source_commit,
