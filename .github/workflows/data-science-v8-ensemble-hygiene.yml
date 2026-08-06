@@ -52,14 +52,16 @@ jobs:
           test_path = Path('data_science_pipeline_v8_ocr_ensemble/tests/test_ensemble_extract.py')
           tests = test_path.read_text(encoding='utf-8')
           marker = '    def test_deterministic_archive(self):\n'
-          exact_test = '''    def test_candidate_score_matches_frozen_formula(self):
-        metrics = {"mean_confidence": 92.1039, "native_token_recall": 1.0}
-        expected = 92.1039 + 20.0 + 167 / 168
-        self.assertAlmostEqual(candidate_score(metrics, 167), expected, places=12)
-        self.assertEqual(candidate_score({}, -5), 0.0)
-        self.assertLess(candidate_score({}, 10**9), 1.0)
-
-'''
+          exact_test = '\n'.join([
+              '    def test_candidate_score_matches_frozen_formula(self):',
+              '        metrics = {"mean_confidence": 92.1039, "native_token_recall": 1.0}',
+              '        expected = 92.1039 + 20.0 + 167 / 168',
+              '        self.assertAlmostEqual(candidate_score(metrics, 167), expected, places=12)',
+              '        self.assertEqual(candidate_score({}, -5), 0.0)',
+              '        self.assertLess(candidate_score({}, 10**9), 1.0)',
+              '',
+              '',
+          ])
           if 'def test_candidate_score_matches_frozen_formula' not in tests:
               if marker not in tests:
                   raise SystemExit('test insertion marker missing')
