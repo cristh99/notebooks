@@ -1,0 +1,296 @@
+name: Data Science pipeline v8 — fresh PACC OCR ensemble gate
+
+on:
+  push:
+    branches:
+      - agent/data-science-canonical-pipeline-v8-ocr-ensemble
+    paths:
+      - '.github/workflows/data-science-pipeline-v8-ocr-ensemble.yml'
+      - 'data_science_pipeline_v8_ocr_ensemble/**'
+
+permissions:
+  contents: read
+
+env:
+  PROTOCOL_SHA: 60116f9492c166b67d48e30faf5114a435989afa
+  BASE_OUT: /tmp/canonical-pipeline-v1
+  PIPELINE_ROOT: /tmp/canonical-pipeline-v1/canonical_data_science_pipeline_v1
+  EVIDENCE_ROOT: fresh-pacc-v8-ensemble-evidence
+
+jobs:
+  fresh-pacc-ensemble:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+
+      - name: Prove protocol precedence and bounded scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor "$PROTOCOL_SHA" HEAD
+          python - <<'PY'
+          import json, subprocess
+          raw = subprocess.check_output([
+              'git', 'show',
+              '60116f9492c166b67d48e30faf5114a435989afa:data_science_pipeline_v8_ocr_ensemble/FREEZE.json'
+          ])
+          freeze = json.loads(raw)
+          assert freeze['source_discovery']['pdf_contents_accessed_before_freeze'] is False
+          assert freeze['selection_rule']['score_formula'] == 'mean_confidence + 20*native_token_recall + word_count/(1+word_count)'
+          assert freeze['execution']['score_formula_frozen_before_pdf_download'] is True
+          assert freeze['execution']['post_result_retuning_permitted'] is False
+          PY
+          actual="$(git diff --name-only "$PROTOCOL_SHA" HEAD | sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/data-science-pipeline-v8-ocr-ensemble.yml' \
+            'data_science_pipeline_v8_ocr_ensemble/extract-auto-300-psm3.json' \
+            'data_science_pipeline_v8_ocr_ensemble/extract-balanced-200-psm6.json' \
+            'data_science_pipeline_v8_ocr_ensemble/extract-sparse-300-psm11.json' \
+            'data_science_pipeline_v8_ocr_ensemble/pacc-request.json' \
+            'data_science_pipeline_v8_ocr_ensemble/resolve_ensemble.py' \
+            'data_science_pipeline_v8_ocr_ensemble/select_ocr_candidate.py' \
+            'data_science_pipeline_v8_ocr_ensemble/test_resolve_ensemble.py' \
+            'data_science_pipeline_v8_ocr_ensemble/test_select_ocr_candidate.py' | sort)"
+          test "$actual" = "$expected"
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Install zero-cost OCR runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq poppler-utils tesseract-ocr tesseract-ocr-spa tesseract-ocr-eng
+          mkdir -p "$EVIDENCE_ROOT"
+          tesseract --version | head -n 5 > "$EVIDENCE_ROOT/tesseract-version.txt"
+          tesseract --list-langs 2>&1 | sort > "$EVIDENCE_ROOT/tesseract-languages.txt"
+          grep -qx spa "$EVIDENCE_ROOT/tesseract-languages.txt"
+          grep -qx eng "$EVIDENCE_ROOT/tesseract-languages.txt"
+
+      - name: Reconstruct governed pipeline organs
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash data_science_pipeline_v1/reconstruct.sh "$BASE_OUT" 2>&1 | tee "$EVIDENCE_ROOT/reconstruct-v1.log"
+          bash data_science_pipeline_v2_acquisition/apply_overlay.sh "$PIPELINE_ROOT" 2>&1 | tee "$EVIDENCE_ROOT/apply-acquisition-v2.log"
+          bash data_science_pipeline_v3_extract/install_overlay.sh "$PIPELINE_ROOT" 2>&1 | tee "$EVIDENCE_ROOT/install-extract-v3.log"
+          cp data_science_pipeline_v8_ocr_ensemble/FREEZE.json "$EVIDENCE_ROOT/FREEZE.json"
+          cp data_science_pipeline_v8_ocr_ensemble/pacc-request.json "$EVIDENCE_ROOT/pacc-request.json"
+          cp data_science_pipeline_v8_ocr_ensemble/extract-*.json "$EVIDENCE_ROOT/"
+
+      - name: Run 72 frozen tests and compile
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PIPELINE_ROOT"
+          PYTHONPATH=src python -m unittest discover -s tests -v 2>&1 | tee "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/pipeline-tests.log"
+          grep -q 'Ran 40 tests' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/pipeline-tests.log"
+          grep -q '^OK$' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/pipeline-tests.log"
+          cd "$GITHUB_WORKSPACE/data_science_pipeline_v4_normalize"
+          python -m unittest -v test_normalize_ocr.py 2>&1 | tee "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/normalize-tests.log"
+          grep -q 'Ran 4 tests' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/normalize-tests.log"
+          cd "$GITHUB_WORKSPACE/data_science_pipeline_v5_resolve"
+          python -m unittest -v test_resolve_canonical.py test_resolve_runner_v2.py 2>&1 | tee "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/resolve-v5-tests.log"
+          grep -q 'Ran 9 tests' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/resolve-v5-tests.log"
+          cd "$GITHUB_WORKSPACE/data_science_pipeline_v6_fresh_sesal"
+          PYTHONPATH="$GITHUB_WORKSPACE/data_science_pipeline_v5_resolve:$GITHUB_WORKSPACE/data_science_pipeline_v6_fresh_sesal" \
+            python -m unittest -v test_fresh_resolver.py 2>&1 | tee "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/resolve-v6-tests.log"
+          grep -q 'Ran 6 tests' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/resolve-v6-tests.log"
+          cd "$GITHUB_WORKSPACE/data_science_pipeline_v7_fresh_pacc"
+          PYTHONPATH="$GITHUB_WORKSPACE/data_science_pipeline_v5_resolve:$GITHUB_WORKSPACE/data_science_pipeline_v6_fresh_sesal:$GITHUB_WORKSPACE/data_science_pipeline_v7_fresh_pacc" \
+            python -m unittest -v test_resolve_pacc.py 2>&1 | tee "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/resolve-v7-tests.log"
+          grep -q 'Ran 5 tests' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/resolve-v7-tests.log"
+          cd "$GITHUB_WORKSPACE/data_science_pipeline_v8_ocr_ensemble"
+          PYTHONPATH="$GITHUB_WORKSPACE/data_science_pipeline_v5_resolve:$GITHUB_WORKSPACE/data_science_pipeline_v6_fresh_sesal:$GITHUB_WORKSPACE/data_science_pipeline_v7_fresh_pacc:$GITHUB_WORKSPACE/data_science_pipeline_v8_ocr_ensemble" \
+            python -m unittest -v test_select_ocr_candidate.py test_resolve_ensemble.py 2>&1 | tee "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/resolve-v8-tests.log"
+          grep -q 'Ran 8 tests' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/resolve-v8-tests.log"
+          grep -q '^OK$' "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/resolve-v8-tests.log"
+          cd "$GITHUB_WORKSPACE"
+          PYTHONPATH=data_science_pipeline_v5_resolve:data_science_pipeline_v6_fresh_sesal:data_science_pipeline_v7_fresh_pacc:data_science_pipeline_v8_ocr_ensemble \
+            python -m py_compile data_science_pipeline_v8_ocr_ensemble/*.py
+          echo '72/72 PASS' > "$EVIDENCE_ROOT/test-summary.txt"
+
+      - name: Acquire and preserve the fresh official PACC PDF once
+        shell: bash
+        run: |
+          set +e
+          cd "$PIPELINE_ROOT"
+          PYTHONPATH=src python -m god_pipeline.cli acquisition-canary \
+            --root "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/acquisition" \
+            "$GITHUB_WORKSPACE/data_science_pipeline_v8_ocr_ensemble/pacc-request.json" \
+            > "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/acquisition-output.json" \
+            2> "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/acquisition-stderr.log"
+          echo "$?" > "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/acquisition-exit-status.txt"
+          exit 0
+
+      - name: Run the three frozen OCR candidates independently
+        shell: bash
+        run: |
+          set +e
+          cd "$PIPELINE_ROOT"
+          mkdir -p "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/candidates"
+          while IFS='|' read -r name config; do
+            PYTHONPATH=src python -m god_pipeline.extract_canary \
+              --root "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/candidates/$name" \
+              --acquisition-manifest "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/acquisition/evidence/manifest.json" \
+              --config "$GITHUB_WORKSPACE/data_science_pipeline_v8_ocr_ensemble/$config" \
+              > "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/$name-output.json" \
+              2> "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/$name-stderr.log"
+            echo "$?" > "$GITHUB_WORKSPACE/$EVIDENCE_ROOT/$name-exit-status.txt"
+          done <<'EOF'
+          auto_300_psm3|extract-auto-300-psm3.json
+          balanced_200_psm6|extract-balanced-200-psm6.json
+          sparse_300_psm11|extract-sparse-300-psm11.json
+          EOF
+          exit 0
+
+      - name: Select the highest-scoring eligible candidate
+        id: select
+        shell: bash
+        run: |
+          set +e
+          PYTHONPATH=data_science_pipeline_v8_ocr_ensemble \
+            python data_science_pipeline_v8_ocr_ensemble/select_ocr_candidate.py \
+              --candidates-root "$EVIDENCE_ROOT/candidates" \
+              --output "$EVIDENCE_ROOT/selection" \
+              --source-host oncae.gob.hn \
+              > "$EVIDENCE_ROOT/selection.log" 2> "$EVIDENCE_ROOT/selection-stderr.log"
+          status=$?
+          verdict="FAIL_NO_SELECTION"
+          selected=""
+          if [[ -f "$EVIDENCE_ROOT/selection/selection.json" ]]; then
+            verdict="$(python -c 'import json; print(json.load(open("fresh-pacc-v8-ensemble-evidence/selection/selection.json"))["verdict"])')"
+            selected="$(python -c 'import json; print(json.load(open("fresh-pacc-v8-ensemble-evidence/selection/selection.json")).get("selected_candidate") or "")')"
+          fi
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+          echo "selected=$selected" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Normalize selected candidate twice
+        if: steps.select.outputs.verdict == 'PASS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          selected='${{ steps.select.outputs.selected }}'
+          python data_science_pipeline_v6_fresh_sesal/normalize_fresh.py \
+            --extraction "$EVIDENCE_ROOT/candidates/$selected" \
+            --output "$EVIDENCE_ROOT/normalized-a" > "$EVIDENCE_ROOT/normalize-a.log"
+          python data_science_pipeline_v6_fresh_sesal/normalize_fresh.py \
+            --extraction "$EVIDENCE_ROOT/candidates/$selected" \
+            --output "$EVIDENCE_ROOT/normalized-b" > "$EVIDENCE_ROOT/normalize-b.log"
+          diff -qr "$EVIDENCE_ROOT/normalized-a" "$EVIDENCE_ROOT/normalized-b" | tee "$EVIDENCE_ROOT/normalize-replay-diff.log"
+          test ! -s "$EVIDENCE_ROOT/normalize-replay-diff.log"
+
+      - name: Resolve selected candidate twice
+        if: steps.select.outputs.verdict == 'PASS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=data_science_pipeline_v5_resolve:data_science_pipeline_v6_fresh_sesal:data_science_pipeline_v7_fresh_pacc:data_science_pipeline_v8_ocr_ensemble \
+            python data_science_pipeline_v8_ocr_ensemble/resolve_ensemble.py \
+              --normalized "$EVIDENCE_ROOT/normalized-a" \
+              --output "$EVIDENCE_ROOT/resolved-a" \
+              --source-host oncae.gob.hn > "$EVIDENCE_ROOT/resolve-a.log"
+          PYTHONPATH=data_science_pipeline_v5_resolve:data_science_pipeline_v6_fresh_sesal:data_science_pipeline_v7_fresh_pacc:data_science_pipeline_v8_ocr_ensemble \
+            python data_science_pipeline_v8_ocr_ensemble/resolve_ensemble.py \
+              --normalized "$EVIDENCE_ROOT/normalized-a" \
+              --output "$EVIDENCE_ROOT/resolved-b" \
+              --source-host oncae.gob.hn > "$EVIDENCE_ROOT/resolve-b.log"
+          diff -qr "$EVIDENCE_ROOT/resolved-a" "$EVIDENCE_ROOT/resolved-b" | tee "$EVIDENCE_ROOT/resolve-replay-diff.log"
+          test ! -s "$EVIDENCE_ROOT/resolve-replay-diff.log"
+
+      - name: Independently adjudicate the fresh external gate
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+
+          root = Path(os.environ['EVIDENCE_ROOT'])
+          def load(path):
+              path = Path(path)
+              return json.loads(path.read_text()) if path.exists() else None
+          def rows(path):
+              path = Path(path)
+              return [json.loads(line) for line in path.read_text().splitlines() if line.strip()] if path.exists() else []
+          acquisition = load(root / 'acquisition/evidence/manifest.json')
+          selection = load(root / 'selection/selection.json')
+          summaries = load(root / 'selection/candidate-summaries.json') or []
+          normalization = load(root / 'normalized-a/normalize-manifest.json')
+          resolution = load(root / 'resolved-a/resolve-manifest.json')
+          entities = rows(root / 'resolved-a/entities.jsonl')
+          source_bindings = rows(root / 'resolved-a/source_bindings.jsonl')
+          dates = rows(root / 'resolved-a/dates.jsonl')
+          amounts = rows(root / 'resolved-a/amounts.jsonl')
+          abstentions = rows(root / 'resolved-a/abstentions.jsonl')
+          selected_name = None if selection is None else selection.get('selected_candidate')
+          selected_summary = next((row for row in summaries if row.get('candidate_name') == selected_name), None)
+          acquired = [] if acquisition is None else [row for row in acquisition.get('artifacts', []) if row.get('stage') == 'acquire' and row.get('state') == 'accepted']
+          final_url = '' if not acquired else acquired[0].get('metadata', {}).get('final_url', '')
+          entity_ids = {row.get('entity_id') for row in entities}
+          false_amounts = [row for row in amounts if row.get('value') in {2023.0, 2024.0} and str(row.get('surface_text', '')).strip().casefold() in {'l 2023', 'l 2024'}]
+          normalize_checks = {} if normalization is None else {k:v for k,v in normalization['checks'].items() if k != 'external_cost_usd'}
+          resolve_checks = {} if resolution is None else {k:v for k,v in resolution['checks'].items() if k != 'external_cost_usd'}
+          checks = {
+              'tests_72_pass': (root / 'test-summary.txt').exists() and (root / 'test-summary.txt').read_text().strip() == '72/72 PASS',
+              'acquisition_pass': bool(acquisition and acquisition.get('status') == 'passed'),
+              'fresh_source_host_exact': final_url.startswith('https://oncae.gob.hn/'),
+              'three_candidates_summarized': len(summaries) == 3 and {row.get('candidate_name') for row in summaries} == {'auto_300_psm3','balanced_200_psm6','sparse_300_psm11'},
+              'selection_pass': bool(selection and selection.get('verdict') == 'PASS' and selected_name),
+              'selected_candidate_eligible': bool(selected_summary and selected_summary.get('eligible') and all(selected_summary.get('checks', {}).values())),
+              'candidate_archives_hash_summarized': bool(summaries and all(row.get('archive', {}).get('manifest_sha256') for row in summaries)),
+              'normalize_pass': bool(normalization and all(normalize_checks.values()) and normalization['checks']['external_cost_usd'] == 0.0),
+              'normalize_replay_identical': (root / 'normalize-replay-diff.log').exists() and not (root / 'normalize-replay-diff.log').read_bytes(),
+              'resolve_pass': bool(resolution and all(resolve_checks.values()) and resolution['checks']['external_cost_usd'] == 0.0),
+              'resolve_replay_identical': (root / 'resolve-replay-diff.log').exists() and not (root / 'resolve-replay-diff.log').read_bytes(),
+              'oncae_source_bound': 'hn:institution:oncae' in entity_ids and any(row.get('source_host') == 'oncae.gob.hn' for row in source_bindings),
+              'pacc_text_entity_resolved': 'hn:concept:pacc' in entity_ids,
+              'year_2023_resolved': any(row.get('value') == '2023' and row.get('precision') == 'year' for row in dates),
+              'fiscal_year_not_money': not false_amounts,
+              'amount_policy_closed': bool(amounts) or any(row.get('reason_code') == 'NO_CURRENCY_QUALIFIED_AMOUNT' for row in abstentions),
+              'external_cost_zero': all(float(row.get('score_components', {}).get('mean_confidence', 0)) >= 0 for row in summaries),
+          }
+          passed = all(checks.values())
+          receipt = {
+              'schema': 'data-science-pipeline/fresh-pacc-ocr-ensemble-receipt/1',
+              'verdict': 'PASS' if passed else 'FAIL',
+              'scientific_gate_status': 'PASS_FRESH_EXTERNAL' if passed else 'FAIL_FRESH_EXTERNAL',
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_sha': os.environ['GITHUB_SHA'],
+              'protocol_sha': os.environ['PROTOCOL_SHA'],
+              'checks': checks,
+              'selected_candidate': selected_name,
+              'selected_score': None if selection is None else selection.get('selected_score'),
+              'source_pdf_sha256': None if resolution is None else resolution.get('source_pdf_sha256'),
+              'candidate_summary_sha256': None if selection is None else selection.get('candidate_summary_sha256'),
+              'same_document_reused': False,
+              'post_result_retuning_permitted': False,
+              'promotion_authorized': False,
+              'mass_processing_authorized': False,
+              'merge_authorized': False,
+              'novelty_points': 0,
+              'external_cost_usd': 0.0,
+          }
+          payload = (json.dumps(receipt, indent=2, sort_keys=True, ensure_ascii=False) + '\n').encode()
+          (root / 'external-receipt.json').write_bytes(payload)
+          digest = hashlib.sha256(payload).hexdigest()
+          (root / 'external-receipt.sha256').write_text(f'{digest}  external-receipt.json\n')
+          if not passed:
+              raise SystemExit(json.dumps({key:value for key,value in checks.items() if not value}, indent=2, sort_keys=True))
+          PY
+
+      - name: Upload complete evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-pipeline-v8-fresh-pacc-ocr-ensemble
+          path: fresh-pacc-v8-ensemble-evidence
+          if-no-files-found: error
+          retention-days: 90
