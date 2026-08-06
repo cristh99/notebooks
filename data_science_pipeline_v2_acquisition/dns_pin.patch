@@ -1,0 +1,199 @@
+--- a/src/god_pipeline/acquisition.py
++++ b/src/god_pipeline/acquisition.py
+@@ -1,16 +1,18 @@
+ from __future__ import annotations
+ 
+ import hashlib
++import http.client
+ import ipaddress
+ import json
+ import socket
++import ssl
+ import time
+ from dataclasses import asdict, dataclass, field
+ from pathlib import Path
+ from typing import Any, Mapping, Protocol, Sequence
+ from urllib.error import HTTPError, URLError
+ from urllib.parse import urlparse
+-from urllib.request import HTTPRedirectHandler, Request, build_opener
++from urllib.request import HTTPRedirectHandler, HTTPSHandler, ProxyHandler, Request, build_opener
+ 
+ from .models import (
+     Artifact,
+@@ -79,11 +81,11 @@
+     return False
+ 
+ 
+-def _validate_public_host(host: str) -> None:
++def _resolve_public_addresses(host: str, port: int = 443) -> tuple[str, ...]:
+     try:
+         addresses = {
+             ipaddress.ip_address(item[4][0])
+-            for item in socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
++            for item in socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+         }
+     except socket.gaierror as exc:
+         raise AcquisitionValidationError(
+@@ -93,7 +95,7 @@
+         raise AcquisitionValidationError(
+             f"DNS returned no addresses for {host}", ReasonCode.INACCESSIBLE
+         )
+-    unsafe = [
++    unsafe = sorted(
+         str(address)
+         for address in addresses
+         if (
+@@ -104,12 +106,17 @@
+             or address.is_reserved
+             or address.is_unspecified
+         )
+-    ]
++    )
+     if unsafe:
+         raise AcquisitionValidationError(
+             f"host {host} resolved to non-public addresses: {unsafe}",
+             ReasonCode.INACCESSIBLE,
+         )
++    return tuple(sorted(str(address) for address in addresses))
++
++
++def _validate_public_host(host: str) -> None:
++    _resolve_public_addresses(host)
+ 
+ 
+ def validate_url(url: str, allowed_hosts: Sequence[str], *, resolve_dns: bool = True) -> None:
+@@ -260,19 +267,70 @@
+         self.redirect_count += 1
+         if self.redirect_count > self.request_contract.max_redirects:
+             raise HTTPError(newurl, code, "redirect limit exceeded", headers, fp)
+-        validate_url(newurl, self.request_contract.allowed_hosts, resolve_dns=True)
++        validate_url(newurl, self.request_contract.allowed_hosts, resolve_dns=False)
+         return super().redirect_request(req, fp, code, msg, headers, newurl)
+ 
+ 
++class _PinnedHTTPSConnection(http.client.HTTPSConnection):
++    def __init__(self, host: str, *, pinned_addresses: Sequence[str], **kwargs: Any) -> None:
++        self._pinned_addresses = tuple(pinned_addresses)
++        if not self._pinned_addresses:
++            raise AcquisitionValidationError("no pinned public addresses", ReasonCode.INACCESSIBLE)
++        super().__init__(host, **kwargs)
++
++    def connect(self) -> None:
++        last_error: OSError | None = None
++        for address in self._pinned_addresses:
++            sock = None
++            try:
++                sock = socket.create_connection(
++                    (address, self.port),
++                    self.timeout,
++                    self.source_address,
++                )
++                if self._tunnel_host:
++                    self.sock = sock
++                    self._tunnel()
++                    sock = self.sock
++                self.sock = self._context.wrap_socket(sock, server_hostname=self.host)
++                return
++            except OSError as exc:
++                last_error = exc
++                if sock is not None:
++                    sock.close()
++        raise OSError(f"all pinned public addresses failed: {last_error}")
++
++
++class _PinnedHTTPSHandler(HTTPSHandler):
++    def __init__(self, request: FetchRequest) -> None:
++        super().__init__(context=ssl.create_default_context())
++        self.request_contract = request
++
++    def https_open(self, req):
++        parsed = urlparse(req.full_url)
++        validate_url(req.full_url, self.request_contract.allowed_hosts, resolve_dns=False)
++        assert parsed.hostname is not None
++        addresses = _resolve_public_addresses(parsed.hostname, parsed.port or 443)
++
++        def connection_factory(host: str, **kwargs: Any) -> _PinnedHTTPSConnection:
++            return _PinnedHTTPSConnection(host, pinned_addresses=addresses, **kwargs)
++
++        return self.do_open(connection_factory, req)
++
++
+ @dataclass(frozen=True)
+ class UrllibTransport:
+     user_agent: str = "EVIDENCIA_PUBLICA-CanonicalPipeline/2"
+     chunk_bytes: int = 64 * 1024
+ 
+     def fetch(self, request: FetchRequest) -> FetchResponse:
+-        validate_url(request.url, request.allowed_hosts, resolve_dns=True)
++        validate_url(request.url, request.allowed_hosts, resolve_dns=False)
+         redirect_handler = _LimitedRedirectHandler(request)
+-        opener = build_opener(redirect_handler)
++        opener = build_opener(
++            ProxyHandler({}),
++            redirect_handler,
++            _PinnedHTTPSHandler(request),
++        )
+         headers = {"User-Agent": self.user_agent, "Accept-Encoding": "identity"}
+         headers.update(request.headers)
+         raw_request = Request(request.url, headers=headers, method="GET")
+@@ -281,7 +339,7 @@
+             with opener.open(raw_request, timeout=request.timeout_seconds) as response:
+                 status = int(response.getcode())
+                 final_url = str(response.geturl())
+-                validate_url(final_url, request.allowed_hosts, resolve_dns=True)
++                validate_url(final_url, request.allowed_hosts, resolve_dns=False)
+                 response_headers = {str(key).lower(): str(value) for key, value in response.headers.items()}
+                 declared_length = response_headers.get("content-length")
+                 if declared_length is not None:
+--- a/tests/test_acquisition.py
++++ b/tests/test_acquisition.py
+@@ -4,6 +4,7 @@
+ import json
+ import tempfile
+ import unittest
++from unittest.mock import Mock, patch
+ from dataclasses import dataclass
+ from pathlib import Path
+ 
+@@ -12,6 +13,8 @@
+     FetchRequest,
+     FetchResponse,
+     HttpAcquire,
++    _PinnedHTTPSConnection,
++    _resolve_public_addresses,
+     validate_url,
+ )
+ from god_pipeline.ledger import AppendOnlyLedger
+@@ -121,6 +124,32 @@
+             with self.subTest(url=url), self.assertRaises(AcquisitionValidationError):
+                 validate_url(url, ("official.example",), resolve_dns=False)
+ 
++    def test_dns_resolution_rejects_any_non_public_answer(self) -> None:
++        answers = [
++            (2, 1, 6, '', ('93.184.216.34', 443)),
++            (2, 1, 6, '', ('127.0.0.1', 443)),
++        ]
++        with patch('god_pipeline.acquisition.socket.getaddrinfo', return_value=answers):
++            with self.assertRaisesRegex(AcquisitionValidationError, 'non-public'):
++                _resolve_public_addresses('official.example')
++
++    def test_pinned_https_connection_connects_to_validated_ip_not_hostname(self) -> None:
++        raw_sock = Mock()
++        wrapped_sock = Mock()
++        context = Mock()
++        context.wrap_socket.return_value = wrapped_sock
++        connection = _PinnedHTTPSConnection(
++            'official.example',
++            pinned_addresses=('93.184.216.34',),
++            context=context,
++            timeout=7.0,
++        )
++        with patch('god_pipeline.acquisition.socket.create_connection', return_value=raw_sock) as create:
++            connection.connect()
++        create.assert_called_once_with(('93.184.216.34', 443), 7.0, None)
++        context.wrap_socket.assert_called_once_with(raw_sock, server_hostname='official.example')
++        self.assertIs(connection.sock, wrapped_sock)
++
+     def test_valid_json_is_acquired_with_receipt(self) -> None:
+         parent = self.request_artifact("valid")
+         body = b'{"ok": true}'
