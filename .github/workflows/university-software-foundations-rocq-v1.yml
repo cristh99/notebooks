@@ -35,7 +35,7 @@ jobs:
           assert lock['volume_version'] == '7.0'
           assert lock['minimum_rocq_coq'] == '9.0.0'
           assert lock['source_url'].endswith('/lf.tgz')
-          assert lock['container_image'] == 'rocq/rocq-prover:9.0.0'
+          assert lock['container_image'] == 'rocq/rocq-prover:9.0'
           assert lock['serial_jobs'] == 1
           assert lock['parallel_jobs'] == 4
           print(json.dumps(lock, indent=2, sort_keys=True))
@@ -125,12 +125,12 @@ jobs:
             "source_bytes=$SOURCE_BYTES" \
             > reports/source-binding.txt
 
-      - name: Bind Rocq 9.0.0 container
+      - name: Bind Rocq 9.0 container
         shell: bash
         run: |
           set -euo pipefail
-          docker pull rocq/rocq-prover:9.0.0
-          IMAGE_REF="$(docker image inspect --format '{{index .RepoDigests 0}}' rocq/rocq-prover:9.0.0)"
+          docker pull rocq/rocq-prover:9.0
+          IMAGE_REF="$(docker image inspect --format '{{index .RepoDigests 0}}' rocq/rocq-prover:9.0)"
           test -n "$IMAGE_REF"
           IMAGE_DIGEST="${IMAGE_REF##*@}"
           python - "$IMAGE_DIGEST" <<'PY'
@@ -146,7 +146,7 @@ jobs:
           PY
           echo "ROCQ_IMAGE_DIGEST=$IMAGE_DIGEST" >> "$GITHUB_ENV"
           printf '%s\n' \
-            'image=rocq/rocq-prover:9.0.0' \
+            'image=rocq/rocq-prover:9.0' \
             "repo_digest=$IMAGE_REF" \
             "digest=$IMAGE_DIGEST" \
             > reports/container-binding.txt
@@ -158,7 +158,7 @@ jobs:
           docker run --rm --user 0:0 --entrypoint bash \
             -v "$PWD:/work" \
             -w "/work/$LF_SERIAL_ROOT" \
-            rocq/rocq-prover:9.0.0 \
+            rocq/rocq-prover:9.0 \
             -lc 'coqc --version && make -j1' \
             2>&1 | tee reports/official-build-serial.log
 
@@ -169,7 +169,7 @@ jobs:
           docker run --rm --user 0:0 --entrypoint bash \
             -v "$PWD:/work" \
             -w "/work/$LF_PARALLEL_ROOT" \
-            rocq/rocq-prover:9.0.0 \
+            rocq/rocq-prover:9.0 \
             -lc 'coqc --version && make -j4' \
             2>&1 | tee reports/official-build-parallel.log
 
@@ -185,20 +185,20 @@ jobs:
           docker run --rm --user 0:0 --entrypoint bash \
             -v "$PWD:/work" \
             -w "/work/$LF_SERIAL_ROOT" \
-            rocq/rocq-prover:9.0.0 \
+            rocq/rocq-prover:9.0 \
             -lc 'coqc -Q . LF UniversityRuntime.v' \
             2>&1 | tee reports/runtime-serial.log
           docker run --rm --user 0:0 --entrypoint bash \
             -v "$PWD:/work" \
             -w "/work/$LF_PARALLEL_ROOT" \
-            rocq/rocq-prover:9.0.0 \
+            rocq/rocq-prover:9.0 \
             -lc 'coqc -Q . LF UniversityRuntime.v' \
             2>&1 | tee reports/runtime-parallel.log
 
           if docker run --rm --user 0:0 --entrypoint bash \
               -v "$PWD:/work" \
               -w "/work/$LF_SERIAL_ROOT" \
-              rocq/rocq-prover:9.0.0 \
+              rocq/rocq-prover:9.0 \
               -lc 'coqc -Q . LF NegativeControl.v' \
               > reports/negative-serial.log 2>&1; then
             echo 'Serial negative control unexpectedly compiled.' >&2
@@ -207,7 +207,7 @@ jobs:
           if docker run --rm --user 0:0 --entrypoint bash \
               -v "$PWD:/work" \
               -w "/work/$LF_PARALLEL_ROOT" \
-              rocq/rocq-prover:9.0.0 \
+              rocq/rocq-prover:9.0 \
               -lc 'coqc -Q . LF NegativeControl.v' \
               > reports/negative-parallel.log 2>&1; then
             echo 'Parallel negative control unexpectedly compiled.' >&2
