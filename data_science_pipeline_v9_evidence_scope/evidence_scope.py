@@ -9,7 +9,8 @@ from enum import Enum
 from types import MappingProxyType
 from typing import Mapping, Sequence
 
-SCHEMA = "data-science-pipeline/evidence-scope-receipt/2"
+SCHEMA = "data-science-pipeline/evidence-scope-receipt/3"
+VALIDATION_SCHEMA = "data-science-pipeline/channel-validation/1"
 _SHA256_RE = re.compile(r"[0-9a-f]{64}")
 
 
@@ -62,6 +63,104 @@ _ALLOWED_CHANNELS: Mapping[
 )
 
 
+def canonical_bytes(value: object) -> bytes:
+    return (
+        json.dumps(
+            value,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n"
+    ).encode("utf-8")
+
+
+def sha256_text(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _require_sha256(value: str, field_name: str) -> None:
+    if not isinstance(value, str) or _SHA256_RE.fullmatch(value) is None:
+        raise ValueError(f"{field_name} must be a lowercase SHA-256 digest")
+
+
+@dataclass(frozen=True)
+class ChannelValidation:
+    channel: EvidenceChannel
+    observation_sha256: str
+    validator_id: str
+    policy_sha256: str
+    receipt_sha256: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.channel, EvidenceChannel):
+            raise TypeError("channel must be an EvidenceChannel")
+        _require_sha256(self.observation_sha256, "observation_sha256")
+        _require_sha256(self.policy_sha256, "policy_sha256")
+        _require_sha256(self.receipt_sha256, "receipt_sha256")
+        if not isinstance(self.validator_id, str) or not self.validator_id.strip():
+            raise ValueError("validator_id must not be blank")
+        expected = self.compute_receipt_sha256(
+            channel=self.channel,
+            observation_sha256=self.observation_sha256,
+            validator_id=self.validator_id,
+            policy_sha256=self.policy_sha256,
+        )
+        if self.receipt_sha256 != expected:
+            raise ValueError("receipt_sha256 does not bind the declared validation")
+
+    @staticmethod
+    def compute_receipt_sha256(
+        *,
+        channel: EvidenceChannel,
+        observation_sha256: str,
+        validator_id: str,
+        policy_sha256: str,
+    ) -> str:
+        payload = {
+            "schema": VALIDATION_SCHEMA,
+            "channel": channel.value,
+            "observation_sha256": observation_sha256,
+            "validator_id": validator_id,
+            "policy_sha256": policy_sha256,
+        }
+        return hashlib.sha256(canonical_bytes(payload)).hexdigest()
+
+    @classmethod
+    def issue(
+        cls,
+        *,
+        channel: EvidenceChannel,
+        observation: str,
+        validator_id: str,
+        policy_sha256: str,
+    ) -> ChannelValidation:
+        observation_sha256 = sha256_text(observation)
+        receipt_sha256 = cls.compute_receipt_sha256(
+            channel=channel,
+            observation_sha256=observation_sha256,
+            validator_id=validator_id,
+            policy_sha256=policy_sha256,
+        )
+        return cls(
+            channel=channel,
+            observation_sha256=observation_sha256,
+            validator_id=validator_id,
+            policy_sha256=policy_sha256,
+            receipt_sha256=receipt_sha256,
+        )
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "schema": VALIDATION_SCHEMA,
+            "channel": self.channel.value,
+            "observation_sha256": self.observation_sha256,
+            "validator_id": self.validator_id,
+            "policy_sha256": self.policy_sha256,
+            "receipt_sha256": self.receipt_sha256,
+        }
+
+
 @dataclass(frozen=True)
 class ClaimRequirement:
     claim_id: str
@@ -112,7 +211,7 @@ class ClaimRequirement:
 @dataclass(frozen=True)
 class EvidenceBundle:
     observations: Mapping[EvidenceChannel, str]
-    channel_receipts: Mapping[EvidenceChannel, str]
+    channel_validations: Mapping[EvidenceChannel, ChannelValidation]
     processed_pages: tuple[int, ...]
     total_pages: int
     partial_document: bool
@@ -121,18 +220,23 @@ class EvidenceBundle:
 
     def __post_init__(self) -> None:
         observation_snapshot = dict(self.observations)
-        receipt_snapshot = dict(self.channel_receipts)
+        validation_snapshot = dict(self.channel_validations)
         if any(not isinstance(channel, EvidenceChannel) for channel in observation_snapshot):
             raise TypeError("observation keys must be EvidenceChannel values")
         if any(not isinstance(text, str) for text in observation_snapshot.values()):
             raise TypeError("observation values must be strings")
-        if any(not isinstance(channel, EvidenceChannel) for channel in receipt_snapshot):
-            raise TypeError("receipt keys must be EvidenceChannel values")
-        if not set(receipt_snapshot).issubset(observation_snapshot):
-            raise ValueError("validated channel receipt has no observation")
-        for digest in receipt_snapshot.values():
-            if not isinstance(digest, str) or _SHA256_RE.fullmatch(digest) is None:
-                raise ValueError("channel receipts must be lowercase SHA-256 digests")
+        if any(not isinstance(channel, EvidenceChannel) for channel in validation_snapshot):
+            raise TypeError("validation keys must be EvidenceChannel values")
+        if not set(validation_snapshot).issubset(observation_snapshot):
+            raise ValueError("validated channel has no observation")
+        for channel, validation in validation_snapshot.items():
+            if not isinstance(validation, ChannelValidation):
+                raise TypeError("channel validations must be ChannelValidation values")
+            if validation.channel is not channel:
+                raise ValueError("validation channel does not match its mapping key")
+            observed_sha256 = sha256_text(observation_snapshot[channel])
+            if validation.observation_sha256 != observed_sha256:
+                raise ValueError("validation does not bind the observed channel text")
 
         object.__setattr__(
             self,
@@ -141,8 +245,8 @@ class EvidenceBundle:
         )
         object.__setattr__(
             self,
-            "channel_receipts",
-            MappingProxyType(receipt_snapshot),
+            "channel_validations",
+            MappingProxyType(validation_snapshot),
         )
 
         if self.total_pages <= 0:
@@ -162,7 +266,7 @@ class EvidenceBundle:
 
     @property
     def validated_channels(self) -> frozenset[EvidenceChannel]:
-        return frozenset(self.channel_receipts)
+        return frozenset(self.channel_validations)
 
 
 @dataclass(frozen=True)
@@ -201,7 +305,7 @@ class ClaimDecision:
 class BundleDecision:
     verdict: str
     claims: tuple[ClaimDecision, ...]
-    channel_receipts: tuple[tuple[EvidenceChannel, str], ...]
+    channel_validations: tuple[ChannelValidation, ...]
     processed_pages: tuple[int, ...]
     total_pages: int
     partial_document: bool
@@ -210,8 +314,9 @@ class BundleDecision:
         return {
             "schema": SCHEMA,
             "verdict": self.verdict,
-            "channel_receipts": {
-                channel.value: digest for channel, digest in self.channel_receipts
+            "channel_validations": {
+                validation.channel.value: validation.to_dict()
+                for validation in self.channel_validations
             },
             "processed_pages": list(self.processed_pages),
             "total_pages": self.total_pages,
@@ -220,12 +325,7 @@ class BundleDecision:
         }
 
     def canonical_json(self) -> str:
-        return json.dumps(
-            self.to_dict(),
-            ensure_ascii=False,
-            sort_keys=True,
-            separators=(",", ":"),
-        ) + "\n"
+        return canonical_bytes(self.to_dict()).decode("utf-8")
 
     def sha256(self) -> str:
         return hashlib.sha256(self.canonical_json().encode("utf-8")).hexdigest()
@@ -267,7 +367,7 @@ def _matching_channels(
     matched_channels: list[EvidenceChannel] = []
     matched_tokens: set[str] = set()
     for channel in channels:
-        if require_validated and channel not in bundle.channel_receipts:
+        if require_validated and channel not in bundle.channel_validations:
             continue
         matched, hits = _matches(requirement, _channel_tokens(bundle, channel))
         if matched:
@@ -471,8 +571,12 @@ def evaluate_bundle(
     return BundleDecision(
         verdict=verdict,
         claims=decisions,
-        channel_receipts=tuple(
-            sorted(bundle.channel_receipts.items(), key=lambda item: item[0].value)
+        channel_validations=tuple(
+            validation
+            for _, validation in sorted(
+                bundle.channel_validations.items(),
+                key=lambda item: item[0].value,
+            )
         ),
         processed_pages=bundle.processed_pages,
         total_pages=bundle.total_pages,
