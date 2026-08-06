@@ -25,7 +25,7 @@ jobs:
       COMPONENT: data_science_pipeline_v12_entity_provider_candidates
       EXPECTED_SOURCE_BLOB: 6621cce3eea97d28a6df444099afa649e8be8b1b
       EXPECTED_TEST_BLOB: 5ccc29557ae449a87a6a592bd41118ecc6fcd64b
-      EXPECTED_CONTRACT_BLOB: e206e969302808ff060f9d6a753c2f8427b75fd1
+      EXPECTED_CONTRACT_BLOB: de16745c9357d9c4bda1791867c8857b6bbddc37
       EXPECTED_TESTS: '19'
     steps:
       - name: Checkout exact source
