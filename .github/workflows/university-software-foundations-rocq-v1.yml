@@ -163,7 +163,7 @@ jobs:
             -v "$PWD:/work" \
             -w "/work/$LF_SERIAL_ROOT" \
             rocq/rocq-prover:9.0 \
-            bash -lc 'coqc --version && make -j1' \
+            bash -c 'coqc --version && make -j1' \
             2>&1 | tee reports/official-build-serial.log
 
       - name: Build official volume in parallel
@@ -174,7 +174,7 @@ jobs:
             -v "$PWD:/work" \
             -w "/work/$LF_PARALLEL_ROOT" \
             rocq/rocq-prover:9.0 \
-            bash -lc 'coqc --version && make -j4' \
+            bash -c 'coqc --version && make -j4' \
             2>&1 | tee reports/official-build-parallel.log
 
       - name: Compile scoped proofs and reject negative controls
@@ -192,20 +192,20 @@ jobs:
             -v "$PWD:/work" \
             -w "/work/$LF_SERIAL_ROOT" \
             rocq/rocq-prover:9.0 \
-            bash -lc 'coqc -Q . LF UniversityRuntime.v' \
+            bash -c 'coqc -Q . LF UniversityRuntime.v' \
             2>&1 | tee reports/runtime-serial.log
           docker run --rm \
             -v "$PWD:/work" \
             -w "/work/$LF_PARALLEL_ROOT" \
             rocq/rocq-prover:9.0 \
-            bash -lc 'coqc -Q . LF UniversityRuntime.v' \
+            bash -c 'coqc -Q . LF UniversityRuntime.v' \
             2>&1 | tee reports/runtime-parallel.log
 
           if docker run --rm \
               -v "$PWD:/work" \
               -w "/work/$LF_SERIAL_ROOT" \
               rocq/rocq-prover:9.0 \
-              bash -lc 'coqc -Q . LF NegativeControl.v' \
+              bash -c 'coqc -Q . LF NegativeControl.v' \
               > reports/negative-serial.log 2>&1; then
             echo 'Serial negative control unexpectedly compiled.' >&2
             exit 1
@@ -214,7 +214,7 @@ jobs:
               -v "$PWD:/work" \
               -w "/work/$LF_PARALLEL_ROOT" \
               rocq/rocq-prover:9.0 \
-              bash -lc 'coqc -Q . LF NegativeControl.v' \
+              bash -c 'coqc -Q . LF NegativeControl.v' \
               > reports/negative-parallel.log 2>&1; then
             echo 'Parallel negative control unexpectedly compiled.' >&2
             exit 1
