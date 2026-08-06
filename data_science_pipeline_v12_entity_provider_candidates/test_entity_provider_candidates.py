@@ -210,6 +210,43 @@ class LaneETests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.extract([word("ACME", "acme", 1, 10)], registry(alias=("ACME",)))
 
+    def test_document_id_must_bind_declared_source_sha256(self):
+        bad = word("ACME", "acme", 1, 10)
+        bad["document_id"] = "sha256:" + ("9" * 64)
+        with self.assertRaises(ValueError):
+            self.extract([bad])
+
+    def test_word_id_suffix_must_bind_word_num(self):
+        bad = word("ACME", "acme", 1, 10)
+        bad["word_id"] = bad["word_id"].rsplit(":w", 1)[0] + ":w9"
+        with self.assertRaises(ValueError):
+            self.extract([bad])
+
+    def test_word_lineage_parent_must_be_sha256(self):
+        bad = word("ACME", "acme", 1, 10)
+        bad["lineage_parent_sha256"] = "not-a-hash"
+        with self.assertRaises(ValueError):
+            self.extract([bad])
+
+    def test_invalid_bbox_fails_closed_before_candidate(self):
+        bad = word("ACME", "acme", 1, 10)
+        bad["width_px"] = 0
+        with self.assertRaises(ValueError):
+            self.extract([bad])
+
+    def test_word_lineage_is_bound_privately_and_publicly_by_commitment(self):
+        row = self.extract([
+            word("Proveedor", "proveedor", 1, 10),
+            word("ACME", "acme", 2, 100),
+        ])[0]
+        self.assertEqual(row["word_lineage_parent_sha256"], ["e" * 64])
+        public = lane.candidate_public_commitment(row)
+        self.assertEqual(
+            public["word_lineage_manifest_sha256"],
+            lane.sha256_value(["e" * 64]),
+        )
+        self.assertNotIn("e" * 64, lane.canonical_json(public))
+
 
 if __name__ == "__main__":
     unittest.main()
