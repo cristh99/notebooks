@@ -47,7 +47,7 @@ Theorem runtime_even_double : forall n,
 Proof.
   induction n as [| n IH].
   - simpl. apply runtime_even_O.
-  - rewrite plus_n_Sm. simpl. apply runtime_even_SS. exact IH.
+  - simpl. rewrite <- plus_n_Sm. apply runtime_even_SS. exact IH.
 Qed.
 
 Inductive runtime_expr : Type :=
