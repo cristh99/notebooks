@@ -1,0 +1,100 @@
+name: Data Science v8 ensemble formula hygiene
+
+on:
+  push:
+    branches:
+      - agent/data-science-v8-ensemble-formula-hygiene
+    paths:
+      - '.github/workflows/data-science-v8-ensemble-hygiene.yml'
+      - 'data_science_pipeline_v8_ocr_ensemble/src/god_pipeline/ensemble_extract.py'
+      - 'data_science_pipeline_v8_ocr_ensemble/tests/test_ensemble_extract.py'
+  pull_request:
+    paths:
+      - '.github/workflows/data-science-v8-ensemble-hygiene.yml'
+      - 'data_science_pipeline_v8_ocr_ensemble/src/god_pipeline/ensemble_extract.py'
+      - 'data_science_pipeline_v8_ocr_ensemble/tests/test_ensemble_extract.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: data-science-v8-ensemble-formula-hygiene-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Reconstruct and test without OCR or document access
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="$RUNNER_TEMP/canonical-pipeline-v1"
+          pipeline="$base/canonical_data_science_pipeline_v1"
+          bash data_science_pipeline_v1/reconstruct.sh "$base"
+          bash data_science_pipeline_v2_acquisition/apply_overlay.sh "$pipeline"
+          bash data_science_pipeline_v3_extract/install_overlay.sh "$pipeline"
+          bash data_science_pipeline_v8_ocr_ensemble/install_overlay.sh "$pipeline"
+          cd "$pipeline"
+          PYTHONPATH=src python -m unittest discover -s tests -p 'test_ensemble_extract.py' -v \
+            2>&1 | tee "$GITHUB_WORKSPACE/v8-ensemble-hygiene-tests.log"
+          grep -q 'Ran 3 tests' "$GITHUB_WORKSPACE/v8-ensemble-hygiene-tests.log"
+          grep -q '^OK$' "$GITHUB_WORKSPACE/v8-ensemble-hygiene-tests.log"
+          PYTHONPATH=src python - <<'PY'
+          from god_pipeline.ensemble_extract import candidate_score
+          metrics = {'mean_confidence': 92.1039, 'native_token_recall': 1.0}
+          expected = 92.1039 + 20.0 + 167 / 168
+          assert abs(candidate_score(metrics, 167) - expected) < 1e-12
+          assert candidate_score({}, -5) == 0.0
+          assert 0.0 <= candidate_score({}, 10**9) < 1.0
+          PY
+
+      - name: Record bounded maintenance receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          source = Path('data_science_pipeline_v8_ocr_ensemble/src/god_pipeline/ensemble_extract.py')
+          tests = Path('data_science_pipeline_v8_ocr_ensemble/tests/test_ensemble_extract.py')
+          receipt = {
+              'schema': 'data-science-v8-ensemble-formula-hygiene/2',
+              'verdict': 'PASS_SOFTWARE_HYGIENE_ONLY',
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_sha': os.environ['GITHUB_SHA'],
+              'frozen_formula': 'mean_confidence + 20*native_token_recall + word_count/(1+word_count)',
+              'legacy_formula_aligned': True,
+              'tests_passed': 3,
+              'scientific_credit': 0,
+              'document_reused': False,
+              'document_bytes_opened': False,
+              'ocr_executed': False,
+              'post_result_retuning': False,
+              'production_modified': False,
+              'external_cost_usd': 0.0,
+              'workflow_permissions': 'contents:read',
+              'source_sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
+              'tests_sha256': hashlib.sha256(tests.read_bytes()).hexdigest(),
+          }
+          payload = json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          Path('evidence/receipt.json').write_text(payload, encoding='utf-8')
+          Path('evidence/receipt.sha256').write_text(
+              f"{hashlib.sha256(payload.encode()).hexdigest()}  receipt.json\n",
+              encoding='utf-8',
+          )
+          PY
+
+      - name: Upload maintenance evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-v8-ensemble-formula-hygiene-readonly
+          path: |
+            evidence
+            v8-ensemble-hygiene-tests.log
+          if-no-files-found: error
+          retention-days: 90
