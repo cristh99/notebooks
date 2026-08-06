@@ -55,8 +55,29 @@ jobs:
           test -n "$PRISM_BIN"
           PRISM_HOME="$(cd "$(dirname "$PRISM_BIN")/.." && pwd)"
           ORIGINAL_LAUNCHER_SHA="$(sha256sum "$PRISM_BIN" | awk '{print $1}')"
-          grep -q '^PRISM_DIR=/home/luser/prism$' "$PRISM_BIN"
-          sed -i "s|^PRISM_DIR=.*|PRISM_DIR=$PRISM_HOME|" "$PRISM_BIN"
+          python - "$PRISM_BIN" "$PRISM_HOME" <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+
+          launcher = Path(sys.argv[1])
+          prism_home = sys.argv[2]
+          text = launcher.read_text()
+          matches = re.findall(r'^PRISM_DIR=.*$', text, flags=re.MULTILINE)
+          if len(matches) != 1:
+              raise SystemExit(f'Expected exactly one PRISM_DIR assignment, found {len(matches)}')
+          Path('reports/original-prism-dir.txt').write_text(matches[0] + '\n')
+          patched = re.sub(
+              r'^PRISM_DIR=.*$',
+              f'PRISM_DIR={prism_home}',
+              text,
+              count=1,
+              flags=re.MULTILINE,
+          )
+          if patched == text:
+              raise SystemExit('PRISM_DIR relocation produced no change')
+          launcher.write_text(patched)
+          PY
           PATCHED_LAUNCHER_SHA="$(sha256sum "$PRISM_BIN" | awk '{print $1}')"
           test "$ORIGINAL_LAUNCHER_SHA" != "$PATCHED_LAUNCHER_SHA"
           chmod +x "$PRISM_BIN"
