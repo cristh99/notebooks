@@ -129,6 +129,8 @@ def verify(output: Path) -> dict[str, object]:
             "expected_base_branch": trust["expected_base_branch"],
             "allowed_ref_patterns": trust["allowed_ref_patterns"],
             "workflow_path": trust["workflow_path"],
+            "allowed_workflow_ref_sources": trust["allowed_workflow_ref_sources"],
+            "allowed_workflow_sha_sources": trust["allowed_workflow_sha_sources"],
             "certificate_identity_regexp": trust["certificate_identity_regexp"],
             "cosign_version": trust["cosign_version"],
             "cosign_linux_amd64_sha256": trust["cosign_linux_amd64_sha256"],
