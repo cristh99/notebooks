@@ -1,0 +1,88 @@
+{
+  "schema": "data-science-pipeline/identity-aware-resolution-freeze/1",
+  "source_discovery": {
+    "official_landing_page": "https://oncae.gob.hn/2026/07/14/circular-oncae-004-2026/",
+    "visible_title": "Circular ONCAE-004-2026",
+    "visible_publication_date": "2026-07-14",
+    "download_anchor_must_resolve_dynamically": true,
+    "pdf_url_known_before_freeze": false,
+    "pdf_contents_accessed_before_freeze": false,
+    "allowed_hosts": ["oncae.gob.hn", "www.oncae.gob.hn"]
+  },
+  "identity_model": {
+    "source_authority": "official HTTPS landing page, allowlisted host, exact visible title, one PDF download binding",
+    "document_binding": "downloaded PDF bytes, final allowlisted URL, PDF magic, SHA-256 and bounded size/page count",
+    "content_resolution": "facts supported by PDF body; landing-page title, filename and publication date are never injected as document facts",
+    "metadata_body_token_equality_required": false
+  },
+  "acquisition_gate": {
+    "dns_pinning": true,
+    "ambient_proxies_disabled": true,
+    "https_only": true,
+    "maximum_redirects": 3,
+    "landing_min_bytes": 1000,
+    "landing_max_bytes": 3000000,
+    "pdf_min_bytes": 10000,
+    "pdf_max_bytes": 30000000,
+    "pdf_magic": "%PDF-",
+    "minimum_pages": 1,
+    "maximum_pages": 20
+  },
+  "candidate_gate": {
+    "native_text_forbidden": true,
+    "ocr_candidates": [
+      {"name": "auto_300_psm3", "dpi": 300, "psm": 3},
+      {"name": "balanced_200_psm6", "dpi": 200, "psm": 6},
+      {"name": "sparse_300_psm11", "dpi": 300, "psm": 11}
+    ],
+    "languages": "spa+eng",
+    "fact_types": ["circular_id", "date", "money", "email", "phone", "institution"],
+    "consensus": "a canonical fact must be independently present in at least two of three frozen OCR strategies",
+    "minimum_support": 2,
+    "one_strategy_only_is_abstention": true,
+    "unqualified_numbers_are_not_money": true,
+    "standalone_years_are_not_money": true,
+    "byte_identical_resolver_replay": true
+  },
+  "oracle_gate": {
+    "engine": "pdftotext from Poppler",
+    "oracle_created_only_after_candidate_output_and SHA-256 are sealed": true,
+    "native_text_minimum_non_whitespace_characters": 80,
+    "minimum_facts": 3,
+    "minimum_fact_types": 2,
+    "required_fact_type": "circular_id",
+    "byte_identical_oracle_replay": true
+  },
+  "adjudication_gate": {
+    "required_precision": 1.0,
+    "minimum_recall": 0.7,
+    "required_circular_id": "ONCAE-004-2026",
+    "candidate_and_oracle_pdf_sha256_must_match": true,
+    "candidate_sha256_must_verify": true,
+    "extra_candidate_facts": "FAIL_HALLUCINATION",
+    "missing_or_too_small_native_text": "BLOCKED_NO_NATIVE_ORACLE",
+    "insufficient_oracle_targets": "BLOCKED_INSUFFICIENT_ORACLE",
+    "metric_or_required_fact_failure": "FAIL_EXTERNAL_RESOLUTION",
+    "all_gates_pass": "PASS_EXTERNAL_RESOLUTION",
+    "byte_identical_adjudication_replay": true
+  },
+  "controls": {
+    "protocol_and_code_frozen_before_network": true,
+    "candidate_sealed_before_native_oracle": true,
+    "post_result_retuning_permitted": false,
+    "same_document_reuse_for_promotion_permitted": false,
+    "merge_authorized": false,
+    "mass_processing_authorized": false,
+    "production_modified": false,
+    "external_cost_usd": 0.0,
+    "gcloud_used": false,
+    "paid_compute_used": false,
+    "novelty_points": 0
+  },
+  "rationale": {
+    "v6_finding": "OCR quality passed, but a landing-page/filename identity token was wrongly required inside the PDF body.",
+    "v7_finding": "one OCR layout strategy failed on a color cover.",
+    "v8_finding": "three OCR strategies recovered the intended topic, but an external year token was still wrongly required inside the PDF body.",
+    "v9_improvement": "separate source authority, exact document binding and body-supported facts; use OCR consensus and an independent native-text oracle without metadata leakage."
+  }
+}

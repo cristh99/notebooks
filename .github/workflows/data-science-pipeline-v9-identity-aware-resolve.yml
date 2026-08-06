@@ -1,0 +1,290 @@
+name: Data Science pipeline v9 — identity-aware fresh resolution
+
+on:
+  push:
+    branches:
+      - agent/data-science-canonical-pipeline-v9-identity-aware-resolve
+    paths:
+      - '.github/workflows/data-science-pipeline-v9-identity-aware-resolve.yml'
+      - 'data_science_pipeline_v9_identity_aware/FREEZE.json'
+      - 'data_science_pipeline_v9_identity_aware/README.md'
+      - 'data_science_pipeline_v9_identity_aware/*.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  BASE_SHA: 6889a37961bf2fe6ad8a72de0676f3b332fbbacf
+  V9: data_science_pipeline_v9_identity_aware
+  EVIDENCE: fresh-oncae-v9-identity-aware-evidence
+  LANDING_URL: https://oncae.gob.hn/2026/07/14/circular-oncae-004-2026/
+
+jobs:
+  identity-aware-resolution:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+
+      - name: Prove frozen protocol precedence and exact scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor "$BASE_SHA" HEAD
+          actual="$(git diff --name-only "$BASE_SHA" HEAD | sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/data-science-pipeline-v9-identity-aware-resolve.yml' \
+            'data_science_pipeline_v9_identity_aware/FREEZE.json' \
+            'data_science_pipeline_v9_identity_aware/README.md' \
+            'data_science_pipeline_v9_identity_aware/adjudicate.py' \
+            'data_science_pipeline_v9_identity_aware/candidate_resolver.py' \
+            'data_science_pipeline_v9_identity_aware/discover_pdf.py' \
+            'data_science_pipeline_v9_identity_aware/facts_contract.py' \
+            'data_science_pipeline_v9_identity_aware/native_oracle.py' \
+            'data_science_pipeline_v9_identity_aware/ocr_ensemble.py' \
+            'data_science_pipeline_v9_identity_aware/secure_fetch.py' \
+            'data_science_pipeline_v9_identity_aware/test_v9_identity_aware.py' | sort)"
+          test "$actual" = "$expected"
+          python - <<'PY'
+          import json
+          freeze = json.load(open('data_science_pipeline_v9_identity_aware/FREEZE.json'))
+          assert freeze['source_discovery']['pdf_url_known_before_freeze'] is False
+          assert freeze['source_discovery']['pdf_contents_accessed_before_freeze'] is False
+          assert freeze['identity_model']['metadata_body_token_equality_required'] is False
+          assert freeze['candidate_gate']['native_text_forbidden'] is True
+          assert freeze['candidate_gate']['minimum_support'] == 2
+          assert freeze['oracle_gate']['oracle_created_only_after_candidate_output_and SHA-256 are sealed'] is True
+          assert freeze['adjudication_gate']['required_precision'] == 1.0
+          assert freeze['adjudication_gate']['minimum_recall'] == 0.7
+          assert freeze['controls']['post_result_retuning_permitted'] is False
+          assert freeze['controls']['merge_authorized'] is False
+          PY
+          if grep -n 'pdftotext' "$V9/candidate_resolver.py" "$V9/ocr_ensemble.py"; then
+            echo 'candidate path contains forbidden native-text command' >&2
+            exit 1
+          fi
+          mkdir -p "$EVIDENCE"
+          cp "$V9/FREEZE.json" "$EVIDENCE/FREEZE.json"
+          printf '%s\n' "$actual" > "$EVIDENCE/exact-scope.txt"
+          git rev-parse HEAD > "$EVIDENCE/github-sha.txt"
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Install zero-cost OCR and PDF runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq poppler-utils tesseract-ocr tesseract-ocr-spa tesseract-ocr-eng
+          tesseract --version 2>&1 | head -n 5 > "$EVIDENCE/tesseract-version.txt"
+          tesseract --list-langs 2>&1 | sort > "$EVIDENCE/tesseract-languages.txt"
+          pdfinfo -v 2>&1 | head -n 2 > "$EVIDENCE/pdfinfo-version.txt"
+          pdftotext -v 2>&1 | head -n 2 > "$EVIDENCE/pdftotext-version.txt"
+          grep -qx spa "$EVIDENCE/tesseract-languages.txt"
+          grep -qx eng "$EVIDENCE/tesseract-languages.txt"
+
+      - name: Run frozen synthetic tests and compile before network
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$V9"
+          python -m unittest -v test_v9_identity_aware.py 2>&1 | tee "$GITHUB_WORKSPACE/$EVIDENCE/v9-tests.log"
+          grep -q 'Ran 23 tests' "$GITHUB_WORKSPACE/$EVIDENCE/v9-tests.log"
+          grep -q '^OK$' "$GITHUB_WORKSPACE/$EVIDENCE/v9-tests.log"
+          python -m py_compile *.py
+          python -m compileall -q .
+          echo '23/23 PASS' > "$GITHUB_WORKSPACE/$EVIDENCE/test-summary.txt"
+
+      - name: Acquire the frozen official landing page with pinned DNS
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="$V9" python "$V9/secure_fetch.py" \
+            --url "$LANDING_URL" \
+            --allowed-host oncae.gob.hn \
+            --allowed-host www.oncae.gob.hn \
+            --media-type text/html \
+            --min-bytes 1000 \
+            --max-bytes 3000000 \
+            --max-redirects 3 \
+            --output "$EVIDENCE/landing.html" \
+            --receipt "$EVIDENCE/landing-receipt.json" \
+            > "$EVIDENCE/landing-fetch.log"
+
+      - name: Bind exactly one official PDF without opening its contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="$V9" python "$V9/discover_pdf.py" \
+            --html "$EVIDENCE/landing.html" \
+            --landing-url "$LANDING_URL" \
+            --visible-title 'Circular ONCAE-004-2026' \
+            --visible-date 2026-07-14 \
+            --allowed-host oncae.gob.hn \
+            --allowed-host www.oncae.gob.hn \
+            --output "$EVIDENCE/source-document-binding.json" \
+            > "$EVIDENCE/discovery.log"
+          python - <<'PY' > "$EVIDENCE/pdf-url.txt"
+          import json
+          print(json.load(open('fresh-oncae-v9-identity-aware-evidence/source-document-binding.json'))['pdf_url'])
+          PY
+
+      - name: Acquire and preserve the bound PDF with pinned DNS
+        shell: bash
+        run: |
+          set -euo pipefail
+          pdf_url="$(cat "$EVIDENCE/pdf-url.txt")"
+          PYTHONPATH="$V9" python "$V9/secure_fetch.py" \
+            --url "$pdf_url" \
+            --allowed-host oncae.gob.hn \
+            --allowed-host www.oncae.gob.hn \
+            --media-type application/pdf \
+            --min-bytes 10000 \
+            --max-bytes 30000000 \
+            --max-redirects 3 \
+            --magic '%PDF-' \
+            --output "$EVIDENCE/document.pdf" \
+            --receipt "$EVIDENCE/pdf-receipt.json" \
+            > "$EVIDENCE/pdf-fetch.log"
+
+      - name: Run the frozen OCR ensemble without native text
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="$V9" python "$V9/ocr_ensemble.py" \
+            --pdf "$EVIDENCE/document.pdf" \
+            --output "$EVIDENCE/ocr" \
+            > "$EVIDENCE/ocr-ensemble.log"
+          test "$(python -c 'import json; print(json.load(open("fresh-oncae-v9-identity-aware-evidence/ocr/ocr-manifest.json"))["native_text_used"])')" = 'False'
+
+      - name: Resolve OCR facts twice and seal candidate before oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="$V9" python "$V9/candidate_resolver.py" \
+            --ocr-root "$EVIDENCE/ocr" \
+            --output "$EVIDENCE/candidate-a" \
+            > "$EVIDENCE/candidate-a.log"
+          PYTHONPATH="$V9" python "$V9/candidate_resolver.py" \
+            --ocr-root "$EVIDENCE/ocr" \
+            --output "$EVIDENCE/candidate-b" \
+            > "$EVIDENCE/candidate-b.log"
+          diff -qr "$EVIDENCE/candidate-a" "$EVIDENCE/candidate-b" | tee "$EVIDENCE/candidate-replay-diff.log"
+          test ! -s "$EVIDENCE/candidate-replay-diff.log"
+          (cd "$EVIDENCE/candidate-a" && sha256sum -c candidate-facts.sha256)
+          cp "$EVIDENCE/candidate-a/candidate-facts.json" "$EVIDENCE/SEALED-CANDIDATE.json"
+          cp "$EVIDENCE/candidate-a/candidate-facts.sha256" "$EVIDENCE/SEALED-CANDIDATE.sha256"
+          echo 'candidate sealed before pdftotext' > "$EVIDENCE/candidate-seal-order.txt"
+
+      - name: Create independent native-text oracle only after candidate seal
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "$EVIDENCE/SEALED-CANDIDATE.sha256"
+          pdftotext -layout -enc UTF-8 "$EVIDENCE/document.pdf" "$EVIDENCE/native-text.txt"
+          pdf_sha="$(python -c 'import json; print(json.load(open("fresh-oncae-v9-identity-aware-evidence/pdf-receipt.json"))["sha256"])')"
+          PYTHONPATH="$V9" python "$V9/native_oracle.py" \
+            --native-text "$EVIDENCE/native-text.txt" \
+            --pdf-sha256 "$pdf_sha" \
+            --output "$EVIDENCE/oracle-a" \
+            > "$EVIDENCE/oracle-a.log"
+          PYTHONPATH="$V9" python "$V9/native_oracle.py" \
+            --native-text "$EVIDENCE/native-text.txt" \
+            --pdf-sha256 "$pdf_sha" \
+            --output "$EVIDENCE/oracle-b" \
+            > "$EVIDENCE/oracle-b.log"
+          diff -qr "$EVIDENCE/oracle-a" "$EVIDENCE/oracle-b" | tee "$EVIDENCE/oracle-replay-diff.log"
+          test ! -s "$EVIDENCE/oracle-replay-diff.log"
+
+      - name: Adjudicate exact fact sets twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          for suffix in a b; do
+            PYTHONPATH="$V9" python "$V9/adjudicate.py" \
+              --freeze "$V9/FREEZE.json" \
+              --landing-receipt "$EVIDENCE/landing-receipt.json" \
+              --binding "$EVIDENCE/source-document-binding.json" \
+              --pdf-receipt "$EVIDENCE/pdf-receipt.json" \
+              --candidate "$EVIDENCE/candidate-a/candidate-facts.json" \
+              --candidate-sha "$EVIDENCE/candidate-a/candidate-facts.sha256" \
+              --oracle "$EVIDENCE/oracle-a/oracle-facts.json" \
+              --output "$EVIDENCE/adjudication-$suffix.json" \
+              > "$EVIDENCE/adjudication-$suffix.log"
+          done
+          diff "$EVIDENCE/adjudication-a.json" "$EVIDENCE/adjudication-b.json" | tee "$EVIDENCE/adjudication-replay-diff.log"
+          test ! -s "$EVIDENCE/adjudication-replay-diff.log"
+          cp "$EVIDENCE/adjudication-a.json" "$EVIDENCE/external-result.json"
+          sha256sum "$EVIDENCE/external-result.json" | sed "s#  $EVIDENCE/#  #" > "$EVIDENCE/external-result.sha256"
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          result = json.load(open('fresh-oncae-v9-identity-aware-evidence/external-result.json'))
+          print(f"## V9 terminal: `{result['verdict']}`")
+          print(f"- precision: {result['metrics']['precision']}")
+          print(f"- recall: {result['metrics']['recall']}")
+          print(f"- candidate/oracle facts: {result['metrics']['candidate_facts']}/{result['metrics']['oracle_facts']}")
+          PY
+
+      - name: Seal complete evidence manifest
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root = Path(os.environ['EVIDENCE'])
+          rows = []
+          excluded = {'archive-manifest.json', 'archive-manifest.sha256', 'external-receipt.json', 'external-receipt.sha256'}
+          for path in sorted(item for item in root.rglob('*') if item.is_file()):
+              relative = path.relative_to(root).as_posix()
+              if relative in excluded:
+                  continue
+              rows.append({
+                  'path': relative,
+                  'bytes': path.stat().st_size,
+                  'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+              })
+          payload = (json.dumps(rows, ensure_ascii=False, sort_keys=True, separators=(',', ':')) + '\n').encode()
+          (root / 'archive-manifest.json').write_bytes(payload)
+          manifest_sha = hashlib.sha256(payload).hexdigest()
+          (root / 'archive-manifest.sha256').write_text(f'{manifest_sha}  archive-manifest.json\n')
+          result_path = root / 'external-result.json'
+          result = json.loads(result_path.read_text()) if result_path.exists() else None
+          receipt = {
+              'schema': 'data-science-pipeline/v9-external-receipt/1',
+              'verdict': 'OPERATIONAL_ERROR' if result is None else result['verdict'],
+              'github_run_id': os.environ.get('GITHUB_RUN_ID'),
+              'github_job': os.environ.get('GITHUB_JOB'),
+              'github_sha': os.environ.get('GITHUB_SHA'),
+              'tests': (root / 'test-summary.txt').read_text().strip() if (root / 'test-summary.txt').exists() else None,
+              'archive_files': len(rows),
+              'archive_bytes': sum(row['bytes'] for row in rows),
+              'archive_manifest_sha256': manifest_sha,
+              'candidate_sealed_before_native_oracle': (root / 'candidate-seal-order.txt').exists(),
+              'external_cost_usd': 0.0,
+              'gcloud_used': False,
+              'paid_compute_used': False,
+              'production_modified': False,
+              'merge_authorized': False,
+              'mass_processing_authorized': False,
+          }
+          receipt_payload = (json.dumps(receipt, ensure_ascii=False, sort_keys=True, separators=(',', ':')) + '\n').encode()
+          (root / 'external-receipt.json').write_bytes(receipt_payload)
+          digest = hashlib.sha256(receipt_payload).hexdigest()
+          (root / 'external-receipt.sha256').write_text(f'{digest}  external-receipt.json\n')
+          PY
+
+      - name: Upload complete evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-pipeline-v9-identity-aware-resolution
+          path: fresh-oncae-v9-identity-aware-evidence
+          if-no-files-found: error
+          retention-days: 90
