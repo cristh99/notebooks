@@ -19,6 +19,7 @@ RESOLVER_VERSION = "V1-20260806"
 SCHEMA = "data-science-pipeline/entity-provider-candidates/1"
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _TOKEN_RE = re.compile(r"^[a-z0-9]+$")
+_WORD_SUFFIX_RE = re.compile(r":w(\d+)$")
 
 ROLE_SEQUENCES: Mapping[str, tuple[tuple[str, ...], ...]] = {
     "supplier": (("proveedor",), ("contratista",), ("adjudicatario",)),
@@ -38,6 +39,8 @@ POLICY = {
     "role_cue_must_be_outside_entity_span": True,
     "max_role_gap_tokens": MAX_ROLE_GAP_TOKENS,
     "registry_aliases_are_pre_normalized": True,
+    "source_document_binding_required": True,
+    "word_id_lineage_binding_required": True,
     "evaluation_labels_as_features": False,
     "ground_truth_rtn_as_feature": False,
 }
@@ -153,7 +156,7 @@ def _role_support_for_match(tokens: Sequence[str], match_start: int, match_end: 
                 elif cue_start >= match_end:
                     gap = cue_start - match_end
                 else:
-                    continue  # cue is inside/overlaps the matched entity sequence
+                    continue
                 if gap <= MAX_ROLE_GAP_TOKENS:
                     roles.add(role)
     if len(roles) == 1:
@@ -162,8 +165,11 @@ def _role_support_for_match(tokens: Sequence[str], match_start: int, match_end: 
     return None, False
 
 
-def _group_words_by_line(words: Sequence[Mapping[str, Any]]) -> dict[str, list[Mapping[str, Any]]]:
+def _group_words_by_line(words: Sequence[Mapping[str, Any]], *, source_sha256: str) -> dict[str, list[Mapping[str, Any]]]:
+    """Validate exact v4 lineage shape before any candidate can be emitted."""
+    expected_document_id = f"sha256:{source_sha256}"
     grouped: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    seen_word_ids: set[str] = set()
     for row in words:
         for field in (
             "document_id", "page_id", "word_id", "line_num", "word_num",
@@ -172,15 +178,47 @@ def _group_words_by_line(words: Sequence[Mapping[str, Any]]) -> dict[str, list[M
         ):
             if field not in row:
                 raise ValueError(f"normalized word missing {field}")
+
+        document_id = str(row["document_id"])
+        page_id = str(row["page_id"])
+        word_id = str(row["word_id"])
+        lineage_parent = str(row["lineage_parent_sha256"])
+        require_sha256(lineage_parent, "lineage_parent_sha256")
+        if document_id != expected_document_id:
+            raise ValueError("normalized word document_id does not bind source_sha256")
+        if not page_id.startswith(document_id + ":page:"):
+            raise ValueError("page_id does not bind document_id")
+        if word_id in seen_word_ids:
+            raise ValueError(f"duplicate word_id: {word_id}")
+        seen_word_ids.add(word_id)
+
         token = str(row["token_normalized"])
         if token and not _TOKEN_RE.fullmatch(token):
             raise ValueError(f"token_normalized is not canonical: {token!r}")
+        for coordinate in ("left_px", "top_px", "width_px", "height_px"):
+            try:
+                value = int(row[coordinate])
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"{coordinate} must be an integer") from exc
+            if coordinate in {"left_px", "top_px"} and value < 0:
+                raise ValueError(f"{coordinate} must be non-negative")
+            if coordinate in {"width_px", "height_px"} and value <= 0:
+                raise ValueError(f"{coordinate} must be positive")
+
         line_id = str(row.get("line_id") or "")
         if not line_id:
-            word_id = str(row["word_id"])
-            if ":w" not in word_id:
+            match = _WORD_SUFFIX_RE.search(word_id)
+            if match is None:
                 raise ValueError("word has neither line_id nor recoverable v4 word_id")
-            line_id = word_id.rsplit(":w", 1)[0]
+            line_id = word_id[: match.start()]
+        if not line_id.startswith(page_id + ":b"):
+            raise ValueError("line_id does not bind page_id")
+        expected_word_prefix = line_id + ":w"
+        if not word_id.startswith(expected_word_prefix):
+            raise ValueError("word_id does not bind line_id")
+        suffix = word_id[len(expected_word_prefix):]
+        if not suffix.isdigit() or int(suffix) != int(row["word_num"]):
+            raise ValueError("word_id suffix does not bind word_num")
         grouped[line_id].append(row)
     return grouped
 
@@ -196,15 +234,13 @@ def extract_candidates(
     require_sha256(source_sha256, "source_sha256")
     require_sha256(normalization_manifest_sha256, "normalization_manifest_sha256")
     governed = validate_registry(registry)
-    lines = _group_words_by_line(words)
+    lines = _group_words_by_line(words, source_sha256=source_sha256)
     candidates: dict[str, dict[str, Any]] = {}
 
     for line_id in sorted(lines):
         ordered, reconstructed, char_spans = _reconstruct_line(lines[line_id])
         tokens = [str(row["token_normalized"]) for row in ordered]
         for entity in governed:
-            # One exact sequence can appear in both alias and identifier lists for the
-            # same entity. Identifier evidence wins so the span is emitted once.
             match_specs: dict[tuple[str, ...], str] = {
                 sequence: "EXACT_ALIAS" for sequence in entity["alias_tokens_normalized"]
             }
@@ -229,11 +265,13 @@ def extract_candidates(
                         hint, rank = "DOCUMENT_LOCAL_ENTITY_MENTION", 90
                     else:
                         hint, rank = "CONTEXTUAL_ORGANIZATION_ONLY", 40
+                    word_lineage = [str(row["lineage_parent_sha256"]) for row in matched_words]
                     basis = {
                         "document_id": str(matched_words[0]["document_id"]),
                         "page_id": str(matched_words[0]["page_id"]),
                         "line_id": line_id,
                         "word_ids": [str(row["word_id"]) for row in matched_words],
+                        "word_lineage_parent_sha256": word_lineage,
                         "source_sha256": source_sha256,
                         "normalization_manifest_sha256": normalization_manifest_sha256,
                         "candidate_type": "ENTITY",
@@ -314,12 +352,14 @@ def build_manifest(
 
 def candidate_public_commitment(candidate: Mapping[str, Any]) -> dict[str, Any]:
     """Commitment-only projection; no entity names or OCR text are exported."""
+    word_lineage = [str(value) for value in candidate.get("word_lineage_parent_sha256", ())]
     return {
         "candidate_id": candidate["candidate_id"],
         "candidate_type": candidate["candidate_type"],
         "document_id_sha256": sha256_value(str(candidate["document_id"])),
         "page_id_sha256": sha256_value(str(candidate["page_id"])),
         "line_id_sha256": sha256_value(str(candidate["line_id"])),
+        "word_lineage_manifest_sha256": sha256_value(word_lineage),
         "source_sha256": candidate["source_sha256"],
         "normalization_manifest_sha256": candidate["normalization_manifest_sha256"],
         "candidate_value_commitment_sha256": sha256_value(str(candidate["candidate_value_normalized"])),
