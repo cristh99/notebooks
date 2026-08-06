@@ -26,73 +26,56 @@ Lane E cannot emit a canonical entity decision. It cannot rewrite Normalize, use
 
 ## Frozen input contract
 
-From v4 Normalize, candidate extraction uses the exact word-level lineage already produced upstream:
+From v4 Normalize, candidate extraction uses the existing word-level lineage:
 
 - `document_id`, `page_id`, deterministic `word_id` / recoverable `line_id`;
 - `text_raw` and `token_normalized`;
-- `word_num` and OCR bounding box (`left_px`, `top_px`, `width_px`, `height_px`);
+- `word_num` and OCR bounding box;
 - `lineage_parent_sha256`;
 - separately bound `source_sha256` and `normalization_manifest_sha256`.
 
-The registry is a separate governed input. Lane E does **not** normalize registry strings. Every record must provide:
-
-- `entity_id`, `canonical_name`, `entity_type`;
-- `registry_record_sha256`;
-- `alias_tokens_normalized`: one or more already-normalized token sequences; and/or
-- `identifier_tokens_normalized`: one or more already-normalized identifier sequences;
-- optional `generic_jurisdiction=true`.
-
-A registry sequence that maps exactly to more than one entity fails closed before candidate extraction.
+The registry is a separate governed input. Lane E does **not** normalize registry strings. Every row supplies `entity_id`, `canonical_name`, `entity_type`, `registry_record_sha256`, and one or more already-normalized alias or identifier token sequences. A sequence that maps to multiple entity IDs fails closed.
 
 ## Matching rule
 
-Only **exact contiguous equality** over upstream `token_normalized` values is permitted.
+Only **exact contiguous equality** over upstream `token_normalized` values is permitted. Substring, fuzzy/Levenshtein/Jaro, phonetic, acronym expansion and ad-hoc normalization are prohibited.
 
-Explicitly prohibited:
-
-- substring search;
-- fuzzy/Levenshtein/Jaro similarity;
-- phonetic matching;
-- acronym expansion not present in the governed registry;
-- ad-hoc normalization in this lane;
-- label leakage from evaluation fields.
-
-This intentionally differs from the historical v5 entity resolver, which used `norm(alias) in normalized` over line windows. That path remains historical regression evidence; it is not Lane E's strict identity rule.
+This intentionally differs from historical v5 entity logic, which used `norm(alias) in normalized` over line windows. That code remains regression history; it is not Lane E's strict identity rule.
 
 ## Role support
 
-For v1, role support is deliberately narrow and same-line only:
+Role support is deliberately narrow:
 
 - supplier: exact cue `proveedor`, `contratista`, or `adjudicatario`;
 - buyer: exact cue `comprador` or exact sequence `entidad contratante`.
 
-No cue → contextual candidate only. Multiple incompatible role cues → no body-role support. Generic jurisdiction records always abstain.
+The cue must be on the **same OCR line, outside the matched entity/identifier span, and at most 3 normalized-token positions away**. A role word inside a company name does not count as role evidence. Multiple incompatible nearby role cues force contextual-only treatment. Generic jurisdiction records always abstain.
 
 ## Candidate semantics
 
-Lane E may emit candidate hints only:
+Lane E may emit hints only:
 
-- `EXACT_SOURCE_BOUND_ENTITY` — exact governed identifier plus body role support;
-- `DOCUMENT_LOCAL_ENTITY_MENTION` — exact governed alias plus body role support;
+- `EXACT_SOURCE_BOUND_ENTITY` — exact governed identifier plus body-role support;
+- `DOCUMENT_LOCAL_ENTITY_MENTION` — exact governed alias plus body-role support;
 - `CONTEXTUAL_ORGANIZATION_ONLY` — exact mention without role support;
 - `GENERIC_JURISDICTION_ABSTAIN` — jurisdictional context only.
 
-Every candidate binds source/normalization hashes, line/word IDs, character span, bounding box, resolver version, policy hash, registry-row hash, exact match kind and downstream validation requirement.
+Every candidate binds source/normalization hashes, line/word IDs, exact reconstructed character span, bbox, resolver version, policy hash, registry-row hash, match kind and downstream validation requirement.
 
-`registry_support=true` is deliberately stricter than mere registry membership: it is set only for an exact governed identifier match with body-role support and a non-generic entity. This prevents registry presence alone from bypassing the arbiter contract's body-role requirement.
+`registry_support=true` is stricter than mere registry membership: exact identifier + non-generic entity + valid nearby body-role support are all required. Alias and identifier sequences that are identical for the same entity emit one candidate, with identifier evidence taking precedence.
 
 ## Evaluation leakage boundary
 
-The existing FOR-ABS supplier benchmark contains authoritative RTN used as ground truth and split control. Its frozen receipt explicitly says `rtn_used_as_feature=false`. Lane E therefore does not consume benchmark RTN labels, `supplier_id_exact`, `supplier_name_exact`, test metrics, or split outcomes as features.
+The existing FOR-ABS supplier benchmark freezes authoritative RTN as ground truth and split control and explicitly states `rtn_used_as_feature=false`. Lane E therefore does not consume benchmark RTN labels, `supplier_id_exact`, `supplier_name_exact`, split outcomes or test metrics as features.
 
-Those artifacts may later evaluate a frozen resolver, but cannot train, tune or generate its candidate identity assertions.
+Those artifacts may later evaluate a frozen resolver, but cannot train, tune or generate candidate identity assertions.
 
 ## Public/private boundary
 
-Candidate rows may contain OCR surface text and entity display names in a private technical artifact. Public receipts must use commitments only. `candidate_public_commitment()` hashes document/page/line/entity values and does not export raw names or OCR text.
+Candidate rows may contain OCR surface text and entity display names in a private technical artifact. Public receipts must use commitments only. The commitment projection hashes document/page/line/entity values and does not export raw names or OCR text.
 
 ## Promotion boundary
 
-This implementation is software-only. It proves only deterministic fail-closed candidate construction over supplied inputs. It does not establish external entity-resolution accuracy, provider identity, beneficial ownership, payment, legality, intent, corruption or production readiness.
+Software-only candidate construction. It does not establish external entity-resolution accuracy, provider identity, beneficial ownership, payment, legality, intent, corruption or production readiness.
 
 Next scientific gate: bind Lane V validator evidence and PR #135 arbiter, freeze a fresh preregistered document/registry evaluation, then run without post-result retuning.
