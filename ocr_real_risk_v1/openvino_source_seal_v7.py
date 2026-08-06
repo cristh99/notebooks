@@ -23,6 +23,8 @@ COMPONENT = "openvino"
 RESOLVED_REVISION = "2b1f8aab9fbba3b5be07e2cae9e3e9c43fe5487c"
 SOURCE_PATH = "data/openvino-00000-of-00001.parquet"
 SOURCE_SIZE_BYTES = 65_751_927_475
+SOURCE_DECLARED_ROWS = 207_790
+SOURCE_ADD_COMMIT = "90b74416d90c8f2647d4f5289ecdedc178cc2b97"
 SOURCE_SHA256 = "5413c6ffb4f8047977db9dba520453976f48eed91b5477d06e7f62258a2ba09c"
 API_URL = f"https://huggingface.co/api/datasets/{DATASET_ID}?blobs=true"
 TARGET_PATTERN = re.compile(r"^data/openvino(?:-[^/]*)?\.parquet$")
@@ -109,6 +111,8 @@ def seal(metadata: Mapping[str, Any]) -> dict[str, Any]:
             "path": path,
             "size_bytes": size,
             "sha256": digest,
+            "declared_rows": SOURCE_DECLARED_ROWS,
+            "declared_rows_source_commit": SOURCE_ADD_COMMIT,
             "download_url": (
                 f"https://huggingface.co/datasets/{DATASET_ID}/resolve/"
                 f"{revision}/{path}?download=true"
