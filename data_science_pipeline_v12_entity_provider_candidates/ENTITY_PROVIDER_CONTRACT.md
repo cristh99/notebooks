@@ -34,6 +34,17 @@ From v4 Normalize, candidate extraction uses the existing word-level lineage:
 - `lineage_parent_sha256`;
 - separately bound `source_sha256` and `normalization_manifest_sha256`.
 
+Before matching, Lane E fails closed unless every word satisfies the v4 identity relationships:
+
+- `document_id == sha256:<source_sha256>`;
+- `page_id` is a child of that `document_id`;
+- `word_id` is a child of the recovered/provided `line_id` and its `:wN` suffix equals `word_num`;
+- `word_id` values are unique;
+- `lineage_parent_sha256` is a valid lowercase SHA-256;
+- bbox coordinates are non-negative and dimensions are positive.
+
+Matched-word lineage hashes are included in the private candidate commitment. The public projection exposes only their manifest hash.
+
 The registry is a separate governed input. Lane E does **not** normalize registry strings. Every row supplies `entity_id`, `canonical_name`, `entity_type`, `registry_record_sha256`, and one or more already-normalized alias or identifier token sequences. A sequence that maps to multiple entity IDs fails closed.
 
 ## Matching rule
@@ -60,7 +71,7 @@ Lane E may emit hints only:
 - `CONTEXTUAL_ORGANIZATION_ONLY` — exact mention without role support;
 - `GENERIC_JURISDICTION_ABSTAIN` — jurisdictional context only.
 
-Every candidate binds source/normalization hashes, line/word IDs, exact reconstructed character span, bbox, resolver version, policy hash, registry-row hash, match kind and downstream validation requirement.
+Every candidate binds source/normalization hashes, per-word lineage hashes, line/word IDs, exact reconstructed character span, bbox, resolver version, policy hash, registry-row hash, match kind and downstream validation requirement.
 
 `registry_support=true` is stricter than mere registry membership: exact identifier + non-generic entity + valid nearby body-role support are all required. Alias and identifier sequences that are identical for the same entity emit one candidate, with identifier evidence taking precedence.
 
@@ -72,10 +83,14 @@ Those artifacts may later evaluate a frozen resolver, but cannot train, tune or 
 
 ## Public/private boundary
 
-Candidate rows may contain OCR surface text and entity display names in a private technical artifact. Public receipts must use commitments only. The commitment projection hashes document/page/line/entity values and does not export raw names or OCR text.
+Candidate rows may contain OCR surface text and entity display names in a private technical artifact. Public receipts must use commitments only. The commitment projection hashes document/page/line/entity values and word-lineage manifests and does not export raw names or OCR text.
+
+## Validator/arbiter boundary
+
+Lane E intentionally does not forge or synthesize validator evidence. Lane V must attach an authorized signed validation to the exact observation/policy/channel before PR #135 can decide anything. The current arbiter implementation still has integration work to reconcile its dataclass with the frozen envelope (`span_start`, `span_end`, `bbox`, resolver policy binding and evidence-channel representation); Lane E does not patch the arbiter-owned branch.
 
 ## Promotion boundary
 
 Software-only candidate construction. It does not establish external entity-resolution accuracy, provider identity, beneficial ownership, payment, legality, intent, corruption or production readiness.
 
-Next scientific gate: bind Lane V validator evidence and PR #135 arbiter, freeze a fresh preregistered document/registry evaluation, then run without post-result retuning.
+Next scientific gate: exact-byte regression execution, then Lane V validator evidence + PR #135 arbiter binding, then a fresh preregistered document/registry evaluation without post-result retuning.
