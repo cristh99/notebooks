@@ -30,11 +30,9 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@1a74a5415d48c8ea7bc4063ea84eea6abc1f1b93
-      - name: Set up Python
-        uses: actions/setup-python@a26fc7d9536613d8f56901a28bb17f30c3b7fd48
-        with:
-          python-version: "3.12"
+        uses: actions/checkout@v4
+      - name: Verify Python
+        run: python3 --version
       - name: Reconstruct audited portable runtime
         shell: bash
         run: |
@@ -45,12 +43,12 @@ jobs:
             | base64 --decode > /tmp/kg_runner.zip
           unzip -q /tmp/kg_runner.zip -d knowledge_graph_runner/runtime
           cp knowledge_graph_runner/public_runner.py knowledge_graph_runner/runtime/
-          python -m py_compile \
+          python3 -m py_compile \
             knowledge_graph_runner/runtime/kg_portable.py \
             knowledge_graph_runner/runtime/public_runner.py
       - name: Run deterministic offline self-test
         working-directory: knowledge_graph_runner/runtime
-        run: python kg_portable.py selftest
+        run: python3 kg_portable.py selftest
 
   sync:
     name: Sync visible Notion graph and write receipt
@@ -65,11 +63,9 @@ jobs:
       KG_MAX_OBJECTS: "100000"
     steps:
       - name: Checkout
-        uses: actions/checkout@1a74a5415d48c8ea7bc4063ea84eea6abc1f1b93
-      - name: Set up Python
-        uses: actions/setup-python@a26fc7d9536613d8f56901a28bb17f30c3b7fd48
-        with:
-          python-version: "3.12"
+        uses: actions/checkout@v4
+      - name: Verify Python
+        run: python3 --version
       - name: Reconstruct runtime
         shell: bash
         run: |
@@ -82,7 +78,7 @@ jobs:
           cp knowledge_graph_runner/public_runner.py knowledge_graph_runner/runtime/
       - name: Build graph and write Notion receipt
         working-directory: knowledge_graph_runner/runtime
-        run: python public_runner.py
+        run: python3 public_runner.py
       - name: Confirm zero-persistence boundary
         if: always()
         shell: bash
