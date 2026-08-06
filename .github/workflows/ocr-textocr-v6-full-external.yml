@@ -1,0 +1,309 @@
+name: OCR TextOCR v6 full external validation
+
+on:
+  push:
+    branches:
+      - agent/ocr-consensus-v6-textocr-external-run
+    paths:
+      - '.github/workflows/ocr-textocr-v6-full-external.yml'
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: ocr-textocr-v6-full-external-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CANDIDATE_ARTIFACT_ID: '8934627865'
+  CANDIDATE_ARTIFACT_SHA256: 019f739abc302d54efced526f8e48bc2f2a4f4a7bcb5ff89c586f9781fc8fd5e
+  CANDIDATE_STABLE_SHA256: 96b35ec606a174e25c49089e099c917e88425385c46ba557dd594de506f349ca
+  CANDIDATE_SOURCE_COMMIT: 1e79cfc4336644fe171f7855291218f24b26ae2e
+  CENSUS_ARTIFACT_ID: '8934858800'
+  CENSUS_ARTIFACT_SHA256: 3c9be6db893e9cfa4181cb415107f74351ac85f04e39d180edaad594e310c805
+  CENSUS_STABLE_SHA256: b8dd9fec1547c39a1dead673627b89c85ca33c4f4e451057c37d4f086e685398
+  AUTHORIZATION_ARTIFACT_ID: '8934866091'
+  AUTHORIZATION_ARTIFACT_SHA256: ecc5e6df85832d2148c87d67e3a235ce84dff961c259cc16b35af4e106984d99
+  AUTHORIZATION_STABLE_SHA256: 99bc952feb0d2277f8f5847ee3147706b63e86f6c97cce078afe69686fe5ba39
+  TEXTOCR_REVISION: 2b1f8aab9fbba3b5be07e2cae9e3e9c43fe5487c
+  TEXTOCR_SOURCE_SHA256: f2d50b206923e4bdb70e9200e92b31bd8626acc37466bab8379fa48bb9c62823
+  TEXTOCR_SOURCE_BYTES: '6196529116'
+  TEXTOCR_URL: https://huggingface.co/datasets/Yesianrohn/OCR-Data/resolve/2b1f8aab9fbba3b5be07e2cae9e3e9c43fe5487c/data/TextOCR-00000-of-00001.parquet?download=true
+  PYTHONHASHSEED: '0'
+  OMP_THREAD_LIMIT: '1'
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  NUMEXPR_NUM_THREADS: '1'
+
+jobs:
+  full-external:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 355
+    steps:
+      - name: Confirm public standard-runner and free disk
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REPOSITORY_VISIBILITY}" = public
+          df -h
+          available_kb="$(df -Pk "$RUNNER_TEMP" | awk 'NR==2 {print $4}')"
+          if (( available_kb < 12000000 )); then
+            sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup || true
+          fi
+          available_kb="$(df -Pk "$RUNNER_TEMP" | awk 'NR==2 {print $4}')"
+          test "$available_kb" -ge 10000000
+          printf '%s\n' "$available_kb" > "$RUNNER_TEMP/initial-free-kb.txt"
+
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+
+      - name: Install exact CPU runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq tesseract-ocr
+          sudo rm -rf /var/lib/apt/lists/*
+          python -m pip install --disable-pip-version-check --no-cache-dir \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            scipy==1.17.1 \
+            threadpoolctl==3.6.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13 \
+            packaging==26.3 \
+            duckdb==1.5.4
+          test "$(tesseract --version | head -n1)" = 'tesseract 5.3.4'
+          mkdir -p "$RUNNER_TEMP/textocr-v6" "$GITHUB_WORKSPACE/evidence/runtime"
+          tesseract --version > "$GITHUB_WORKSPACE/evidence/runtime/tesseract-version.txt" 2>&1
+          python -m pip freeze | sort > "$GITHUB_WORKSPACE/evidence/runtime/pip-freeze.txt"
+
+      - name: Recover candidate, census, and authorization receipts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/textocr-v6"
+          for spec in \
+            "candidate:${CANDIDATE_ARTIFACT_ID}:${CANDIDATE_ARTIFACT_SHA256}" \
+            "census:${CENSUS_ARTIFACT_ID}:${CENSUS_ARTIFACT_SHA256}" \
+            "authorization:${AUTHORIZATION_ARTIFACT_ID}:${AUTHORIZATION_ARTIFACT_SHA256}"; do
+            IFS=: read -r name artifact_id digest <<< "$spec"
+            curl --fail --location --retry 5 --retry-all-errors \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" \
+              --output "$root/${name}.zip"
+            echo "${digest}  $root/${name}.zip" | sha256sum --check --strict
+            mkdir -p "$root/${name}"
+            unzip -q "$root/${name}.zip" -d "$root/${name}"
+          done
+          candidate="$root/candidate/frozen-textocr-v6-a"
+          (cd "$candidate" && sha256sum --check --strict SHA256SUMS.txt)
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP']) / 'textocr-v6'
+          candidate = json.loads((root / 'candidate/frozen-textocr-v6-a/frozen_candidate.json').read_text())
+          census = json.loads((root / 'census/textocr_v6_metadata_census.json').read_text())
+          authorization = json.loads((root / 'authorization/textocr_v6_full_download_authorization.json').read_text())
+          assert candidate['stable_payload_sha256'] == os.environ['CANDIDATE_STABLE_SHA256']
+          assert candidate['source_commit'] == os.environ['CANDIDATE_SOURCE_COMMIT']
+          assert candidate['status'] == 'FROZEN_BEFORE_TEXTOCR_FOOTER_ROWS_OR_IMAGES'
+          assert census['stable_payload_sha256'] == os.environ['CENSUS_STABLE_SHA256']
+          assert census['decision']['image_bytes_opened'] is False
+          assert census['decision']['verdict'] == 'TEXTOCR_SCHEMA_AND_POWER_GATE_PASS'
+          assert authorization['stable_payload_sha256'] == os.environ['AUTHORIZATION_STABLE_SHA256']
+          assert authorization['full_download_authorized_by_frozen_gate'] is True
+          assert authorization['full_source_downloaded_in_this_job'] is False
+          assert authorization['source_sha256'] == os.environ['TEXTOCR_SOURCE_SHA256']
+          assert authorization['source_size_bytes'] == int(os.environ['TEXTOCR_SOURCE_BYTES'])
+          assert authorization['selected_available'] >= 3000
+          assert authorization['projected_accepted'] >= 900
+          PY
+          mkdir -p "$GITHUB_WORKSPACE/evidence/frozen"
+          cp "$candidate/frozen_candidate.json" "$GITHUB_WORKSPACE/evidence/frozen/"
+          cp "$root/census/stdout.json" "$GITHUB_WORKSPACE/evidence/frozen/census-summary.json"
+          cp "$root/authorization/textocr_v6_full_download_authorization.json" "$GITHUB_WORKSPACE/evidence/frozen/"
+          PYTHONPATH="$candidate/source" python -m compileall -q "$candidate/source"
+
+      - name: Download and verify exact full TextOCR source
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/textocr-v6"
+          curl --fail --location --retry 8 --retry-all-errors \
+            --connect-timeout 30 --speed-limit 1024 --speed-time 180 \
+            "$TEXTOCR_URL" --output "$root/textocr.parquet"
+          test "$(stat -c %s "$root/textocr.parquet")" = "$TEXTOCR_SOURCE_BYTES"
+          echo "${TEXTOCR_SOURCE_SHA256}  $root/textocr.parquet" | sha256sum --check --strict
+          df -h
+
+      - name: Prepare physically deduplicated frozen partitions
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/textocr-v6"
+          candidate="$root/candidate/frozen-textocr-v6-a"
+          PYTHONPATH="$candidate/source" \
+            python -m ocr_real_risk_v1.textocr_external_v6 prepare \
+              --parquet "$root/textocr.parquet" \
+              --census "$root/census/textocr_v6_metadata_census.json" \
+              --candidate-root "$candidate" \
+              --output-dir "$root/prepared" \
+              > "$GITHUB_WORKSPACE/evidence/runtime/prepare.json"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          protocol = json.loads((Path(os.environ['RUNNER_TEMP']) / 'textocr-v6/prepared/protocol.json').read_text())
+          assert protocol['status'] == 'PREPARED_AFTER_CENSUS_BEFORE_TEXTOCR_OCR'
+          assert protocol['power_gate']['run_ocr'] is True
+          assert protocol['execution']['unique_physical_images'] >= 3000
+          assert protocol['execution']['partition_count'] == 12
+          assert protocol['execution']['macrofold_count'] == 4
+          assert protocol['decision']['ocr_executed'] is False
+          assert protocol['constraints']['external_spend_usd'] == 0
+          PY
+          cp "$root/prepared/protocol.json" "$GITHUB_WORKSPACE/evidence/frozen/prepared-protocol.json"
+          rm -f "$root/textocr.parquet" "$root/candidate.zip" "$root/census.zip" "$root/authorization.zip"
+          df -h
+
+      - name: Evaluate twelve frozen partitions with four CPU-isolated processes
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/textocr-v6"
+          candidate="$root/candidate/frozen-textocr-v6-a"
+          mkdir -p "$root/reports" "$GITHUB_WORKSPACE/evidence/runtime/partition-logs"
+          for batch_start in 0 4 8; do
+            pids=()
+            for value in $(seq "$batch_start" "$((batch_start + 3))"); do
+              partition="$(printf '%02d' "$value")"
+              (
+                PYTHONPATH="$candidate/source" \
+                  python -m ocr_real_risk_v1.textocr_external_v6 evaluate \
+                    --partition-root "$root/prepared/partitions/p${partition}" \
+                    --candidate-root "$candidate" \
+                    --output-dir "$root/reports/p${partition}"
+              ) > "$GITHUB_WORKSPACE/evidence/runtime/partition-logs/p${partition}.log" 2>&1 &
+              pids+=("$!")
+            done
+            failed=0
+            for pid in "${pids[@]}"; do
+              wait "$pid" || failed=1
+            done
+            test "$failed" = 0
+          done
+          test "$(find "$root/reports" -name partition_report.json | wc -l)" = 12
+
+      - name: Aggregate exact bounds and macrofold stability
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/textocr-v6"
+          candidate="$root/candidate/frozen-textocr-v6-a"
+          reports=()
+          for value in $(seq 0 11); do
+            reports+=("$root/reports/p$(printf '%02d' "$value")")
+          done
+          PYTHONPATH="$candidate/source" \
+            python -m ocr_real_risk_v1.textocr_external_v6 aggregate \
+              --protocol "$root/prepared/protocol.json" \
+              "${reports[@]}" \
+              --output-dir "$root/aggregate" \
+              > "$GITHUB_WORKSPACE/evidence/runtime/aggregate-stdout.json"
+          mkdir -p "$GITHUB_WORKSPACE/evidence/aggregate" "$GITHUB_WORKSPACE/evidence/partition-reports"
+          cp -a "$root/aggregate/." "$GITHUB_WORKSPACE/evidence/aggregate/"
+          for value in $(seq 0 11); do
+            partition="$(printf '%02d' "$value")"
+            mkdir -p "$GITHUB_WORKSPACE/evidence/partition-reports/p${partition}"
+            cp "$root/reports/p${partition}/partition_report.json" \
+              "$root/reports/p${partition}/SHA256SUMS.txt" \
+              "$GITHUB_WORKSPACE/evidence/partition-reports/p${partition}/"
+          done
+
+      - name: Independently validate terminal evidence and build run receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          evidence = Path('evidence')
+          aggregate_path = evidence / 'aggregate/textocr_external_aggregate.json'
+          aggregate = json.loads(aggregate_path.read_text())
+          assert aggregate['decision']['external_validation_complete'] is True
+          assert aggregate['decision']['candidate_bound_before_textocr_outcomes'] is True
+          assert aggregate['execution']['partition_count'] == 12
+          assert aggregate['execution']['macrofold_count'] == 4
+          assert aggregate['execution']['selected_unique_images'] >= 3000
+          assert aggregate['candidate_binding']['stable_payload_sha256'] == os.environ['CANDIDATE_STABLE_SHA256']
+          assert aggregate['dataset']['source_sha256'] == os.environ['TEXTOCR_SOURCE_SHA256']
+          assert aggregate['constraints'] == {
+              'external_spend_usd': 0,
+              'gcloud_used': False,
+              'gpu_used': False,
+              'paid_api_used': False,
+              'production_modified': False,
+          }
+          reports = sorted(evidence.glob('partition-reports/p*/partition_report.json'))
+          assert len(reports) == 12
+          report_hashes = {path.parent.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in reports}
+          receipt = {
+              'schema': 'ocr-textocr-v6-terminal-run-record/1',
+              'status': 'TERMINAL_EXTERNAL_EVIDENCE_RECORDED',
+              'scientific_verdict': aggregate['decision']['verdict'],
+              'pass_statistical_10x': aggregate['decision']['pass_statistical_10x'],
+              'tenfold_bound_reached': aggregate['decision']['tenfold_bound_reached'],
+              'macrofold_stability_passed': aggregate['decision']['macrofold_stability_passed'],
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_sha': os.environ['GITHUB_SHA'],
+              'candidate_artifact_id': int(os.environ['CANDIDATE_ARTIFACT_ID']),
+              'candidate_artifact_sha256': os.environ['CANDIDATE_ARTIFACT_SHA256'],
+              'candidate_stable_payload_sha256': os.environ['CANDIDATE_STABLE_SHA256'],
+              'census_artifact_id': int(os.environ['CENSUS_ARTIFACT_ID']),
+              'census_artifact_sha256': os.environ['CENSUS_ARTIFACT_SHA256'],
+              'authorization_artifact_id': int(os.environ['AUTHORIZATION_ARTIFACT_ID']),
+              'authorization_artifact_sha256': os.environ['AUTHORIZATION_ARTIFACT_SHA256'],
+              'source_sha256': os.environ['TEXTOCR_SOURCE_SHA256'],
+              'source_size_bytes': int(os.environ['TEXTOCR_SOURCE_BYTES']),
+              'aggregate_sha256': hashlib.sha256(aggregate_path.read_bytes()).hexdigest(),
+              'partition_report_sha256': report_hashes,
+              'selected_unique_images': aggregate['execution']['selected_unique_images'],
+              'baseline': aggregate['baseline'],
+              'candidate': aggregate['candidate'],
+              'counterfactual': aggregate['counterfactual'],
+              'stability': aggregate['stability'],
+              'automatic_production_change': False,
+              'honduras_production_ready': False,
+              'general_ocr_superiority_claimed': False,
+              'external_spend_usd': 0,
+          }
+          payload = (json.dumps(receipt, ensure_ascii=False, indent=2, sort_keys=True) + '\n').encode()
+          (evidence / 'terminal_run_record.json').write_bytes(payload)
+          digest = hashlib.sha256(payload).hexdigest()
+          (evidence / 'terminal_run_record.sha256').write_text(f'{digest}  terminal_run_record.json\n')
+          files = sorted(path for path in evidence.rglob('*') if path.is_file() and path.name != 'SHA256SUMS.txt')
+          with (evidence / 'SHA256SUMS.txt').open('w') as handle:
+              for path in files:
+                  handle.write(f'{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.relative_to(evidence).as_posix()}\n')
+          PY
+          (cd evidence && sha256sum --check --strict SHA256SUMS.txt)
+          df -h
+
+      - name: Upload terminal evidence without source images
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ocr-textocr-v6-terminal-external-evidence
+          path: evidence
+          if-no-files-found: error
+          retention-days: 14
