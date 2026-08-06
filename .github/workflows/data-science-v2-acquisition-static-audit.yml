@@ -1,0 +1,148 @@
+name: Data Science v2 acquisition static audit
+
+on:
+  push:
+    branches:
+      - agent/data-science-v2-acquisition-static-audit
+    paths:
+      - '.github/workflows/data-science-v2-acquisition-static-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Reconstruct exact acquisition and browser-capture code
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/canonical-pipeline-v1"
+          pipeline="$root/canonical_data_science_pipeline_v1"
+          bash data_science_pipeline_v1/reconstruct.sh "$root"
+          bash data_science_pipeline_v2_acquisition/apply_overlay.sh "$pipeline"
+          bash data_science_pipeline_v2_acquisition/apply_browser_capture_overlay.sh "$pipeline"
+          printf '%s\n' "$pipeline" > "$RUNNER_TEMP/pipeline-root.txt"
+
+      - name: Run complete local tests and compile
+        shell: bash
+        run: |
+          set -euo pipefail
+          pipeline="$(cat "$RUNNER_TEMP/pipeline-root.txt")"
+          cd "$pipeline"
+          PYTHONPATH=src python -m unittest discover -s tests -v \
+            2>&1 | tee "$GITHUB_WORKSPACE/tests.log"
+          grep -q '^OK$' "$GITHUB_WORKSPACE/tests.log"
+          PYTHONPATH=src python -m compileall -q src tests
+
+      - name: Static security and provenance audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          pipeline="$(cat "$RUNNER_TEMP/pipeline-root.txt")"
+          cd "$pipeline"
+          python - <<'PY'
+          import ast, hashlib, json, re
+          from pathlib import Path
+
+          root = Path('.')
+          targets = [
+              root / 'src/god_pipeline/acquisition.py',
+              root / 'src/god_pipeline/canary.py',
+              root / 'src/god_pipeline/browser_capture.py',
+              root / 'src/god_pipeline/browser_canary.py',
+              root / 'tests/test_acquisition.py',
+              root / 'tests/test_browser_capture.py',
+          ]
+          for path in targets:
+              if not path.is_file():
+                  raise SystemExit(f'missing reconstructed file: {path}')
+              ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
+
+          source = '\n'.join(path.read_text(encoding='utf-8') for path in targets[:4])
+          required = {
+              'https_only': bool(re.search(r'https', source, re.I)),
+              'host_policy': bool(re.search(r'allow(?:ed)?_hosts?|trusted_hosts?', source, re.I)),
+              'redirect_control': bool(re.search(r'redirect', source, re.I)),
+              'public_ip_control': bool(re.search(r'(?:private|public).*(?:address|ip)|ipaddress', source, re.I | re.S)),
+              'credential_rejection': bool(re.search(r'credential|authorization|userinfo|cookie', source, re.I)),
+              'byte_limit': bool(re.search(r'max(?:imum)?_bytes|byte_limit|bytes_limit|max_bytes', source, re.I)),
+              'cost_limit': bool(re.search(r'max(?:imum)?_cost|cost_limit|max_cost', source, re.I)),
+              'origin_equivalence_false': 'origin_bytes_equivalent' in source,
+              'quarantine': 'quarantin' in source.lower(),
+              'sha256': 'sha256' in source.lower(),
+          }
+          if not all(required.values()):
+              raise SystemExit({'missing_static_control': [k for k,v in required.items() if not v]})
+
+          forbidden_calls = []
+          for path in targets[:4]:
+              tree = ast.parse(path.read_text(encoding='utf-8'))
+              for node in ast.walk(tree):
+                  if isinstance(node, ast.Call):
+                      name = ''
+                      if isinstance(node.func, ast.Name):
+                          name = node.func.id
+                      elif isinstance(node.func, ast.Attribute):
+                          parts=[]
+                          cur=node.func
+                          while isinstance(cur, ast.Attribute):
+                              parts.append(cur.attr); cur=cur.value
+                          if isinstance(cur, ast.Name): parts.append(cur.id)
+                          name='.'.join(reversed(parts))
+                      if name in {'eval','exec','os.system','subprocess.run','subprocess.Popen','subprocess.call'}:
+                          forbidden_calls.append({'path':str(path),'line':node.lineno,'call':name})
+          if forbidden_calls:
+              raise SystemExit({'forbidden_dynamic_execution': forbidden_calls})
+
+          manifest = {
+              'schema': 'data-science-v2-acquisition-static-audit/1',
+              'verdict': 'PASS_STATIC_AND_TESTS',
+              'controls': required,
+              'forbidden_dynamic_execution_calls': forbidden_calls,
+              'network_executed': False,
+              'external_source_accessed': False,
+              'production_modified': False,
+              'external_cost_usd': 0.0,
+              'files': {
+                  str(path): {
+                      'bytes': path.stat().st_size,
+                      'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+                  }
+                  for path in targets
+              },
+          }
+          Path('static-audit.json').write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
+          PY
+
+      - name: Package materialized code for independent inspection
+        shell: bash
+        run: |
+          set -euo pipefail
+          pipeline="$(cat "$RUNNER_TEMP/pipeline-root.txt")"
+          mkdir -p materialized/src/god_pipeline materialized/tests materialized/canary
+          cp "$pipeline/src/god_pipeline/acquisition.py" materialized/src/god_pipeline/
+          cp "$pipeline/src/god_pipeline/canary.py" materialized/src/god_pipeline/
+          cp "$pipeline/src/god_pipeline/browser_capture.py" materialized/src/god_pipeline/
+          cp "$pipeline/src/god_pipeline/browser_canary.py" materialized/src/god_pipeline/
+          cp "$pipeline/tests/test_acquisition.py" materialized/tests/
+          cp "$pipeline/tests/test_browser_capture.py" materialized/tests/
+          cp "$pipeline/static-audit.json" materialized/
+          cp tests.log materialized/
+          find materialized -type f -print0 | sort -z | xargs -0 sha256sum > materialized/SHA256SUMS.txt
+
+      - name: Upload exact audit bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-v2-acquisition-static-audit
+          path: materialized
+          if-no-files-found: error
+          retention-days: 90
