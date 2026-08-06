@@ -58,13 +58,6 @@ theorem list_append_associative {α : Type u} (xs ys zs : List α) :
   | cons x xs ih =>
       simp [ih]
 
-theorem list_length_append {α : Type u} (xs ys : List α) :
-    (xs ++ ys).length = xs.length + ys.length := by
-  induction xs with
-  | nil => simp
-  | cons x xs ih =>
-      simp [ih]
-
 class HasUnit (α : Type u) where
   unit : α
 
@@ -87,7 +80,6 @@ theorem classical_excluded_middle (P : Prop) : P ∨ ¬ P :=
 #print axioms Point.swap_swap
 #print axioms Vec.head_cons
 #print axioms list_append_associative
-#print axioms list_length_append
 #print axioms unitOfNat
 #print axioms classical_excluded_middle
 
