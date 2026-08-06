@@ -37,6 +37,7 @@ OVERLAYS = (
     "ocr_real_risk_v1/textocr_v7_development_replay.py",
     "ocr_real_risk_v1/openvino_source_seal_v7.py",
     "ocr_real_risk_v1/openvino_adapter_v7.py",
+    "ocr_real_risk_v1/openvino_terminal_v7.py",
     "ocr_real_risk_v1/test_openvino_metadata_gate_v7.py",
     "ocr_real_risk_v1/numeric_consensus_candidate_v7_openvino.py",
 )
