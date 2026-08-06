@@ -70,7 +70,7 @@ def candidate_score(metrics: Mapping[str, Any], word_count: int) -> float:
     return (
         float(metrics.get("mean_confidence", 0.0))
         + 20.0 * float(metrics.get("native_token_recall", 0.0))
-        + min(max(word_count, 0), 1000) / 1000.0
+        + max(word_count, 0) / (1.0 + max(word_count, 0))
     )
 
 
@@ -218,7 +218,7 @@ class EnsembleExtractDocument:
                 "selected_candidate": selected_name,
                 "selected_score": score,
                 "selected_word_count": selected_word_count,
-                "selection_rule": "highest mean_confidence + 20*native_token_recall + bounded word_count; lexical name tie-break",
+                "selection_rule": "highest mean_confidence + 20*native_token_recall + word_count/(1+word_count); lexical name tie-break",
                 "native_text_non_authoritative": True,
                 "candidates": summaries,
                 "cost_usd": 0.0,
