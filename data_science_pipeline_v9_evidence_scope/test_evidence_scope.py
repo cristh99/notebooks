@@ -12,6 +12,10 @@ from evidence_scope import (
 )
 
 
+def validated(*channels: EvidenceChannel) -> frozenset[EvidenceChannel]:
+    return frozenset(channels)
+
+
 class EvidenceScopePolicyTests(unittest.TestCase):
     def test_source_provenance_confirms_publisher_without_ocr_literal(self) -> None:
         bundle = EvidenceBundle(
@@ -21,6 +25,12 @@ class EvidenceScopePolicyTests(unittest.TestCase):
                 EvidenceChannel.OCR_CONTENT: "Guía para contratación directa del sistema de salud",
                 EvidenceChannel.NATIVE_CONTROL: "Guía para contratación directa del sistema de salud",
             },
+            validated_channels=validated(
+                EvidenceChannel.SOURCE_PROVENANCE,
+                EvidenceChannel.DOCUMENT_METADATA,
+                EvidenceChannel.OCR_CONTENT,
+                EvidenceChannel.NATIVE_CONTROL,
+            ),
             processed_pages=(1, 2, 3),
             total_pages=27,
             partial_document=True,
@@ -39,6 +49,51 @@ class EvidenceScopePolicyTests(unittest.TestCase):
         self.assertEqual(result.verdict, "PASS_SCOPED")
         self.assertEqual(result.claims[0].state, ResolutionState.MATCH_OFFICIAL)
 
+    def test_unvalidated_provenance_cannot_confirm_official_identity(self) -> None:
+        bundle = EvidenceBundle(
+            observations={EvidenceChannel.SOURCE_PROVENANCE: "publisher:ONCAE"},
+            validated_channels=frozenset(),
+            processed_pages=(1,),
+            total_pages=1,
+            partial_document=False,
+        )
+        result = evaluate_bundle(
+            bundle,
+            [
+                ClaimRequirement(
+                    claim_id="publisher_oncae",
+                    tokens=("ONCAE",),
+                    confirmation_channels=(EvidenceChannel.SOURCE_PROVENANCE,),
+                    hard=True,
+                )
+            ],
+        )
+        self.assertEqual(result.verdict, "ABSTAIN")
+        self.assertEqual(result.claims[0].state, ResolutionState.NOT_EVALUABLE)
+        self.assertEqual(result.claims[0].reason_code, "EVIDENCE_CHANNEL_NOT_VALIDATED")
+
+    def test_bundle_snapshots_observations_against_external_mutation(self) -> None:
+        observations = {EvidenceChannel.OCR_CONTENT: "PACC"}
+        bundle = EvidenceBundle(
+            observations=observations,
+            validated_channels=validated(EvidenceChannel.OCR_CONTENT),
+            processed_pages=(1,),
+            total_pages=1,
+            partial_document=False,
+        )
+        requirements = [
+            ClaimRequirement(
+                claim_id="pacc",
+                tokens=("PACC",),
+                confirmation_channels=(EvidenceChannel.OCR_CONTENT,),
+                hard=True,
+            )
+        ]
+        before = evaluate_bundle(bundle, requirements).canonical_json()
+        observations[EvidenceChannel.OCR_CONTENT] = "PACE"
+        after = evaluate_bundle(bundle, requirements).canonical_json()
+        self.assertEqual(before, after)
+
     def test_metadata_only_sesal_is_candidate_not_content_identity(self) -> None:
         bundle = EvidenceBundle(
             observations={
@@ -47,6 +102,12 @@ class EvidenceScopePolicyTests(unittest.TestCase):
                 EvidenceChannel.OCR_CONTENT: "GUIA PARA CONTRATACION DIRECTA DEL SISTEMA DE SALUD",
                 EvidenceChannel.NATIVE_CONTROL: "GUIA PARA CONTRATACION DIRECTA DEL SISTEMA DE SALUD",
             },
+            validated_channels=validated(
+                EvidenceChannel.SOURCE_PROVENANCE,
+                EvidenceChannel.DOCUMENT_METADATA,
+                EvidenceChannel.OCR_CONTENT,
+                EvidenceChannel.NATIVE_CONTROL,
+            ),
             processed_pages=(1, 2, 3),
             total_pages=27,
             partial_document=True,
@@ -75,6 +136,11 @@ class EvidenceScopePolicyTests(unittest.TestCase):
                 EvidenceChannel.OCR_CONTENT: "DIAGRAMAS DE FLUJO DEL PACE",
                 EvidenceChannel.NATIVE_CONTROL: "DIAGRAMAS DE FLUJO DEL PACC",
             },
+            validated_channels=validated(
+                EvidenceChannel.DOCUMENT_METADATA,
+                EvidenceChannel.OCR_CONTENT,
+                EvidenceChannel.NATIVE_CONTROL,
+            ),
             processed_pages=(1, 2, 3),
             total_pages=15,
             partial_document=True,
@@ -103,6 +169,11 @@ class EvidenceScopePolicyTests(unittest.TestCase):
                 EvidenceChannel.OCR_CONTENT: "CONCEPTOS BASICOS PACC",
                 EvidenceChannel.NATIVE_CONTROL: "CONCEPTOS BASICOS PACC",
             },
+            validated_channels=validated(
+                EvidenceChannel.DOCUMENT_METADATA,
+                EvidenceChannel.OCR_CONTENT,
+                EvidenceChannel.NATIVE_CONTROL,
+            ),
             processed_pages=(1, 2, 3),
             total_pages=22,
             partial_document=True,
@@ -131,6 +202,11 @@ class EvidenceScopePolicyTests(unittest.TestCase):
                 EvidenceChannel.OCR_CONTENT: "CONCEPTOS BASICOS PACC",
                 EvidenceChannel.NATIVE_CONTROL: "CONCEPTOS BASICOS PACC",
             },
+            validated_channels=validated(
+                EvidenceChannel.DOCUMENT_METADATA,
+                EvidenceChannel.OCR_CONTENT,
+                EvidenceChannel.NATIVE_CONTROL,
+            ),
             processed_pages=tuple(range(1, 23)),
             total_pages=22,
             partial_document=False,
@@ -159,6 +235,11 @@ class EvidenceScopePolicyTests(unittest.TestCase):
                 EvidenceChannel.OCR_CONTENT: "CONCEPTOS BASICOS PACC 2023",
                 EvidenceChannel.NATIVE_CONTROL: "CONCEPTOS BASICOS PACC 2023",
             },
+            validated_channels=validated(
+                EvidenceChannel.SOURCE_PROVENANCE,
+                EvidenceChannel.OCR_CONTENT,
+                EvidenceChannel.NATIVE_CONTROL,
+            ),
             processed_pages=(1, 2, 3),
             total_pages=3,
             partial_document=False,
@@ -189,15 +270,19 @@ class EvidenceScopePolicyTests(unittest.TestCase):
             ],
         )
         self.assertEqual(result.verdict, "PASS_SCOPED")
-        self.assertEqual([claim.state for claim in result.claims], [
-            ResolutionState.MATCH_OFFICIAL,
-            ResolutionState.MATCH_VALIDATED,
-            ResolutionState.MATCH_VALIDATED,
-        ])
+        self.assertEqual(
+            [claim.state for claim in result.claims],
+            [
+                ResolutionState.MATCH_OFFICIAL,
+                ResolutionState.MATCH_VALIDATED,
+                ResolutionState.MATCH_VALIDATED,
+            ],
+        )
 
     def test_integrity_failure_quarantines_every_claim(self) -> None:
         bundle = EvidenceBundle(
             observations={EvidenceChannel.OCR_CONTENT: "PACC 2023"},
+            validated_channels=validated(EvidenceChannel.OCR_CONTENT),
             processed_pages=(1,),
             total_pages=1,
             partial_document=False,
@@ -224,6 +309,10 @@ class EvidenceScopePolicyTests(unittest.TestCase):
                 EvidenceChannel.SOURCE_PROVENANCE: "publisher:ONCAE host:oncae.gob.hn",
                 EvidenceChannel.OCR_CONTENT: "PACC",
             },
+            validated_channels=validated(
+                EvidenceChannel.SOURCE_PROVENANCE,
+                EvidenceChannel.OCR_CONTENT,
+            ),
             processed_pages=(1,),
             total_pages=1,
             partial_document=False,
@@ -243,11 +332,15 @@ class EvidenceScopePolicyTests(unittest.TestCase):
             ),
         ]
         first = evaluate_bundle(bundle, requirements).canonical_json()
-        second = evaluate_bundle(bundle, list(reversed(list(reversed(requirements))))).canonical_json()
+        second = evaluate_bundle(
+            bundle, list(reversed(list(reversed(requirements))))
+        ).canonical_json()
         self.assertEqual(first, second)
         parsed = json.loads(first)
         self.assertEqual(parsed["verdict"], "PASS_SCOPED")
-        self.assertEqual(parsed["schema"], "data-science-pipeline/evidence-scope-receipt/1")
+        self.assertEqual(
+            parsed["schema"], "data-science-pipeline/evidence-scope-receipt/1"
+        )
 
 
 if __name__ == "__main__":
