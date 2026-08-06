@@ -1,0 +1,7 @@
+coordination_id=COORD-2026-08-06-PARALLEL-V2
+purpose=trigger_public_pr_test_after_carrier_creation
+notion_sync=false
+external_real_data_evaluations=0
+external_cost_usd=0.00
+production_modified=false
+stage08_unblocked=false
