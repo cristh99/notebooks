@@ -18,11 +18,12 @@
     "unvalidated_channels_cannot_confirm": true,
     "observation_snapshot_is_immutable": true,
     "channel_validation_requires_sha256_receipt": true,
-    "claim_scope_enforces_channel_roles": true
+    "claim_scope_enforces_channel_roles": true,
+    "validation_receipt_binds_channel_observation_validator_policy": true
   },
-  "source_sha256": "70fc59039ecc7444549c67811ea56792a1ec873294eff1b79c85aeff76cc8e2a",
-  "tests_sha256": "0327c6ce4da20c16699e48b526c597b940fbe04003aba75b655e4632125fd0ce",
-  "expected_tests": 14,
+  "source_sha256": "0f8aba8fd709bf9f5ac24ec9ca9bee6e40c1a397efa1f97679c80fa9392b7135",
+  "tests_sha256": "d77c1506521e7108bf1d3302c9eb04a6b4d40983bbcf237df848039d1232abb2",
+  "expected_tests": 15,
   "controls": {
     "network_required": false,
     "external_cost_usd": 0.0,
