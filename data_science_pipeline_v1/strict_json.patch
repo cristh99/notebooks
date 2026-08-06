@@ -1,0 +1,285 @@
+--- a/src/god_pipeline/models.py
++++ b/src/god_pipeline/models.py
+@@ -2,6 +2,7 @@
+ 
+ import hashlib
+ import json
++import math
+ from dataclasses import asdict, dataclass, field
+ from datetime import datetime, timezone
+ from enum import Enum
+@@ -85,8 +86,47 @@
+     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+ 
+ 
++def _reject_nonfinite_json_constant(token: str) -> None:
++    raise ValueError(f"non-finite JSON number is forbidden: {token}")
++
++
++def _assert_finite_json_numbers(value: Any) -> None:
++    if isinstance(value, float) and not math.isfinite(value):
++        raise ValueError(f"non-finite JSON number is forbidden: {value!r}")
++    if isinstance(value, list):
++        for item in value:
++            _assert_finite_json_numbers(item)
++    elif isinstance(value, dict):
++        for item in value.values():
++            _assert_finite_json_numbers(item)
++
++
++def strict_json_loads(value: str) -> Any:
++    """Parse standards-compliant JSON and reject all non-finite numbers."""
++    parsed = json.loads(value, parse_constant=_reject_nonfinite_json_constant)
++    _assert_finite_json_numbers(parsed)
++    return parsed
++
++
++def strict_json_dumps(
++    value: Any,
++    *,
++    indent: int | None = None,
++    ensure_ascii: bool = True,
++) -> str:
++    """Serialize standards-compliant JSON deterministically and reject non-finite floats."""
++    return json.dumps(
++        value,
++        indent=indent,
++        sort_keys=True,
++        separators=(",", ":") if indent is None else None,
++        ensure_ascii=ensure_ascii,
++        allow_nan=False,
++    )
++
++
+ def canonical_json(value: Any) -> str:
+-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
++    return strict_json_dumps(value, ensure_ascii=True)
+ 
+ 
+ def sha256_bytes(data: bytes) -> str:
+--- a/src/god_pipeline/ledger.py
++++ b/src/god_pipeline/ledger.py
+@@ -1,11 +1,10 @@
+ from __future__ import annotations
+ 
+-import json
+ from dataclasses import dataclass
+ from pathlib import Path
+ from typing import Any, Iterable, Mapping
+ 
+-from .models import LedgerIntegrityError, canonical_json, sha256_json, utc_now
++from .models import LedgerIntegrityError, canonical_json, sha256_json, strict_json_loads, utc_now
+ 
+ 
+ @dataclass(frozen=True)
+@@ -50,9 +49,9 @@
+             if not line.strip():
+                 continue
+             try:
+-                row = json.loads(line)
+-            except json.JSONDecodeError as exc:
+-                raise LedgerIntegrityError(f"invalid JSON on ledger line {line_number}") from exc
++                row = strict_json_loads(line)
++            except (ValueError, TypeError) as exc:
++                raise LedgerIntegrityError(f"invalid strict JSON on ledger line {line_number}") from exc
+             if not isinstance(row, dict):
+                 raise LedgerIntegrityError(f"ledger line {line_number} is not an object")
+             rows.append(row)
+--- a/src/god_pipeline/stages.py
++++ b/src/god_pipeline/stages.py
+@@ -1,6 +1,5 @@
+ from __future__ import annotations
+ 
+-import json
+ import re
+ import shutil
+ from dataclasses import dataclass
+@@ -17,6 +16,8 @@
+     StageContract,
+     StageOutput,
+     sha256_bytes,
++    strict_json_dumps,
++    strict_json_loads,
+     utc_now,
+ )
+ 
+@@ -193,8 +194,8 @@
+         for parent in artifacts:
+             path = path_from_file_uri(parent.uri)
+             try:
+-                payload = json.loads(path.read_text(encoding="utf-8"))
+-            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
++                payload = strict_json_loads(path.read_text(encoding="utf-8"))
++            except (UnicodeDecodeError, ValueError, TypeError) as exc:
+                 parse_errors += 1
+                 destination = quarantine_dir / f"{parent.artifact_id}.json"
+                 shutil.copyfile(path, destination)
+@@ -217,7 +218,7 @@
+                 continue
+             destination = accepted_dir / f"{parent.artifact_id}.json"
+             destination.write_text(
+-                json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
++                strict_json_dumps(payload, indent=2, ensure_ascii=False) + "\n",
+                 encoding="utf-8",
+             )
+             valid_json += 1
+@@ -312,11 +313,13 @@
+         key_collisions = 0
+         for parent in artifacts:
+             path = path_from_file_uri(parent.uri)
+-            payload = json.loads(path.read_text(encoding="utf-8"))
+             try:
++                payload = strict_json_loads(path.read_text(encoding="utf-8"))
+                 normalized = normalize_payload(payload)
+-            except ValueError as exc:
+-                key_collisions += 1
++            except (UnicodeDecodeError, ValueError, TypeError) as exc:
++                is_collision = "normalized key collision" in str(exc)
++                if is_collision:
++                    key_collisions += 1
+                 destination = quarantine_dir / f"{parent.artifact_id}.json"
+                 shutil.copyfile(path, destination)
+                 quarantined.append(
+@@ -330,7 +333,7 @@
+                         observed_at=parent.observed_at,
+                         parent_ids=(parent.artifact_id,),
+                         media_type="application/json",
+-                        reason_code=ReasonCode.AMBIGUOUS,
++                        reason_code=ReasonCode.AMBIGUOUS if is_collision else ReasonCode.PARSE_ERROR,
+                         reason_detail=str(exc),
+                     )
+                 )
+@@ -338,7 +341,7 @@
+                 continue
+             destination = normalized_dir / f"{parent.artifact_id}.json"
+             destination.write_text(
+-                json.dumps(normalized, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
++                strict_json_dumps(normalized, indent=2, ensure_ascii=False) + "\n",
+                 encoding="utf-8",
+             )
+             normalized_count += 1
+--- a/src/god_pipeline/orchestrator.py
++++ b/src/god_pipeline/orchestrator.py
+@@ -18,6 +18,7 @@
+     StageOutput,
+     StageRecord,
+     sha256_json,
++    strict_json_dumps,
+     utc_now,
+ )
+ 
+@@ -457,6 +458,4 @@
+ 
+ 
+ def json_dump(value: Any) -> str:
+-    import json
+-
+-    return json.dumps(value, indent=2, sort_keys=True, ensure_ascii=True)
++    return strict_json_dumps(value, indent=2, ensure_ascii=True)
+--- a/src/god_pipeline/cli.py
++++ b/src/god_pipeline/cli.py
+@@ -1,11 +1,10 @@
+ from __future__ import annotations
+ 
+ import argparse
+-import json
+ from pathlib import Path
+ 
+ from .ledger import AppendOnlyLedger
+-from .models import Artifact, ArtifactState, Stage, sha256_json
++from .models import Artifact, ArtifactState, Stage, sha256_json, strict_json_dumps
+ from .orchestrator import Orchestrator
+ from .stages import NormalizeJson, PreserveLocalFiles, PublishJson, ValidateJson
+ 
+@@ -16,13 +15,14 @@
+     good = input_dir / "good.json"
+     bad = input_dir / "bad.json"
+     good.write_text(
+-        json.dumps(
++        strict_json_dumps(
+             {
+                 "Institution Name": "IAIP",
+                 "Document Count": 2,
+                 "Source": "demo",
+             },
+             indent=2,
++            ensure_ascii=True,
+         )
+         + "\n",
+         encoding="utf-8",
+@@ -99,7 +99,7 @@
+ 
+     if args.command == "demo":
+         manifest = run_demo(args.root)
+-        print(json.dumps(manifest, indent=2, sort_keys=True))
++        print(strict_json_dumps(manifest, indent=2, ensure_ascii=True))
+     else:
+         ledger = AppendOnlyLedger(args.ledger)
+         print(ledger.verify())
+--- a/tests/test_pipeline.py
++++ b/tests/test_pipeline.py
+@@ -29,7 +29,7 @@
+     ValidateJson,
+     idempotency_key,
+ )
+-from god_pipeline.models import sha256_bytes
++from god_pipeline.models import canonical_json, sha256_bytes, sha256_json, strict_json_loads
+ 
+ 
+ class PipelineTestCase(unittest.TestCase):
+@@ -162,6 +162,55 @@
+         self.ledger.path.write_text(json.dumps(row) + "\n")
+         with self.assertRaises(LedgerIntegrityError):
+             self.ledger.verify()
++
++
++    def test_strict_json_hashing_rejects_nonfinite_numbers(self) -> None:
++        for value in (float("nan"), float("inf"), float("-inf")):
++            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "Out of range|non-finite"):
++                canonical_json({"value": value})
++            with self.subTest(hash_value=value), self.assertRaises(ValueError):
++                sha256_json({"value": value})
++
++    def test_validate_quarantines_nonfinite_json_constants(self) -> None:
++        artifacts = tuple(
++            self.source_artifact(f"nonfinite-{index}.json", payload)
++            for index, payload in enumerate(
++                (b'{"value": NaN}', b'{"value": Infinity}', b'{"value": -Infinity}')
++            )
++        )
++        manifest = self.orchestrator.run(
++            run_id="nonfinite-json-run",
++            source_snapshot="snapshot:nonfinite",
++            initial_artifacts=artifacts,
++            handlers=(PreserveLocalFiles(), ValidateJson()),
++        )
++        self.assertEqual(manifest.status, RunStatus.BLOCKED)
++        validate = manifest.stage_records[-1]
++        self.assertEqual(validate.metrics["valid_json"], 0)
++        self.assertEqual(validate.metrics["parse_errors"], 3)
++        self.assertEqual(validate.counts["quarantined"], 3)
++        quarantine = self.workspace / "quarantine" / Stage.VALIDATE.value
++        self.assertEqual(len(list(quarantine.glob("*.json"))), 3)
++
++    def test_ledger_rejects_nonfinite_payload_before_mutation(self) -> None:
++        for value in (float("nan"), float("inf"), float("-inf")):
++            with self.subTest(value=value), self.assertRaises(ValueError):
++                self.ledger.append("nonfinite", {"value": value})
++            self.assertEqual(self.ledger.path.read_text(encoding="utf-8"), "")
++
++    def test_ledger_rejects_nonfinite_json_text(self) -> None:
++        self.ledger.path.write_text(
++            '{"sequence":0,"recorded_at":"x","event_type":"x","payload":{"value":NaN},'
++            '"previous_hash":"' + AppendOnlyLedger.GENESIS_HASH + '","record_hash":"' + ('0' * 64) + '"}\n',
++            encoding="utf-8",
++        )
++        with self.assertRaisesRegex(LedgerIntegrityError, "strict JSON"):
++            self.ledger.verify()
++
++    def test_strict_loader_rejects_nonfinite_constants(self) -> None:
++        for token in ("NaN", "Infinity", "-Infinity", "1e9999"):
++            with self.subTest(token=token), self.assertRaisesRegex(ValueError, "non-finite"):
++                strict_json_loads('{"value": ' + token + '}')
+ 
+     def test_quarantine_artifact_requires_reason_code(self) -> None:
+         path = self.input_dir / "x.json"
