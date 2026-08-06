@@ -1,0 +1,92 @@
+{
+  "candidate_id": "numeric-consensus-v7-openvino",
+  "constraints": {
+    "external_spend_usd": 0,
+    "gcloud_used": false,
+    "gpu_used": false,
+    "paid_api_used": false,
+    "production_modified": false
+  },
+  "development_stable_payload_sha256": "2e1ac87773d387c27c0d8a8649eb03f39739b8275f3b34a71654a0c81f67cb79",
+  "digit_model": {
+    "artifact_id": 8917522937,
+    "artifact_zip_sha256": "080b0efd4b91a180a1a5c6acd767d72e0a8f286718e64eb90d8ec9d370d2dc17",
+    "candidate_id": "digit-forest-v3",
+    "candidate_stable_payload_sha256": "0f88d94af81e0f7921e654e452059d2075b07ee35bcffd83dd8b02ebdd9e93a1",
+    "model_file": "model/digit_forest.joblib",
+    "model_sha256": "53229915331c2bbea2454f9e7cb5768a26e9edb30de750747f4397f1ff4cf92c",
+    "reused_without_retraining": true,
+    "threshold": 0.25,
+    "tree_count": 500
+  },
+  "independence": {
+    "digit_model_training_corpus": "jsdnrs/ICDAR2019-SROIE",
+    "openvino_component_previously_opened": false,
+    "pixel_overlap_unchecked_until_images_are_authorized": true,
+    "retired_or_opened_corpora": [
+      "SROIE",
+      "CORD",
+      "WildReceipt",
+      "TextOCR",
+      "COCO-Text"
+    ]
+  },
+  "license_gate": {
+    "full_image_download_requires_review": true,
+    "mirror_declared": "apache-2.0",
+    "upstream_terms_independently_resolved": false
+  },
+  "metadata_power_gate": {
+    "development_acceptance_rate": 0.0235344458707745,
+    "expected_source_rows": 207790,
+    "full_image_download_authorized_in_this_gate": false,
+    "image_column_forbidden": true,
+    "license_review_required_before_separate_full_gate": true,
+    "minimum_projected_verified": 400,
+    "minimum_selected": 5000,
+    "stage_a": "texts-only upper bound",
+    "stage_b": "exact geometry census only when stage A can pass"
+  },
+  "policy": {
+    "alternate_output_correction": false,
+    "annotation_text_length_used_at_inference": false,
+    "equal_length_detector_conflicts": "abstain",
+    "forest_minimum_mean_probability": 0.25,
+    "forest_threshold_is_effective": true,
+    "ground_truth_available_at_inference": false,
+    "minimum_independent_crop_guards": 1,
+    "policy_id": "v7-claim-verifier-prob25-guard1-no-conflict",
+    "schema": "ocr-numeric-consensus-policy/7",
+    "semantics": "verify_observed_claim_or_abstain",
+    "terminal_outputs": [
+      "verified_claim",
+      "abstain"
+    ]
+  },
+  "predecessor_v7": {
+    "candidate_id": "numeric-consensus-v7-cocotext",
+    "policy_reused_without_change": true,
+    "policy_source_sha256": "5b37aa3ac9f349e708624e815dab97e2ab1eaaac4a905499de15aa3513862b2d",
+    "policy_test_sha256": "826a841298ef0e0a6c252982009f0f446ba354f8901da7dc7e3dda8c136bf2c0",
+    "source_commit": "74bb1fffb71fb4da78995b1417235cf04db34639",
+    "stable_payload_sha256": "33d14875f0d2f9681ced662e452a5f28943ecb65e30a9242663d6a472034da9d",
+    "terminal_scientific_verdict": "UNKNOWN_NO_IMAGE_OUTCOMES_OPENED"
+  },
+  "quality_gate": {
+    "counterfactual_maximum_upper": 0.01,
+    "macrofolds": 4,
+    "minimum_coverage_lower": 0.25,
+    "minimum_macrofold_pass_fraction": 0.75,
+    "target_error_reduction": 10.0
+  },
+  "schema": "ocr-numeric-consensus-v7-openvino-candidate/1",
+  "source_commit": "fa20f6d210fa8be7272178b1f152e38b2d583637",
+  "source_seal_stable_payload_sha256": "3c1192c6a0dc420c4b9de66e4c5f0a2a916339286aa6f28b2e39ba28531ee089",
+  "speed_gate": {
+    "claim_authorized": false,
+    "measure_candidate_and_baseline_wall_seconds": true,
+    "tenfold_claim_requires_ratio_at_most": 0.1
+  },
+  "stable_payload_sha256": "160a3e79c6075a6741a1a6365b0c833115bfc6e156176cb4cb5744b1189119cd",
+  "status": "FROZEN_BEFORE_OPENVINO_FOOTER_ROWS_OR_IMAGES"
+}
