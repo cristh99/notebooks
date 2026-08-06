@@ -14,6 +14,7 @@ from .openvino_adapter_v7 import (
     CENSUS_SCHEMA,
     DATASET_REVISION,
     DEVELOPMENT_ACCEPTANCE_RATE,
+    EXPECTED_ROW_COUNT,
     MINIMUM_ACCEPTED,
     MINIMUM_SELECTED,
     REQUIRED_SELECTED_FOR_PROJECTED_ACCEPTS,
@@ -78,6 +79,7 @@ def adjudicate(
         or dataset.get("source_path") != SOURCE_PATH
         or dataset.get("source_sha256") != SOURCE_SHA256
         or dataset.get("source_size_bytes") != SOURCE_SIZE_BYTES
+        or dataset.get("expected_row_count") != EXPECTED_ROW_COUNT
     ):
         raise RuntimeError("OpenVINO dataset binding mismatch")
     if (
@@ -129,6 +131,8 @@ def adjudicate(
     stage_a = report["stage_a_texts_only_upper_bound"]
     rows_scanned = int(stage_a["row_count"])
     upper_bound = int(stage_a["selected_upper_bound"])
+    if rows_scanned != EXPECTED_ROW_COUNT:
+        raise RuntimeError("OpenVINO row count does not match frozen source")
     if rows_scanned < upper_bound:
         raise RuntimeError("selected upper bound exceeds row count")
     if (
@@ -143,6 +147,8 @@ def adjudicate(
         if exact is None:
             raise RuntimeError("exact geometry census is missing")
         records = exact["records"]
+        if int(exact["row_count"]) != EXPECTED_ROW_COUNT:
+            raise RuntimeError("exact geometry row count mismatch")
         selected = int(exact["selected_count"])
         if selected != len(records):
             raise RuntimeError("exact selected count mismatch")
@@ -234,6 +240,7 @@ def adjudicate(
         "ocr_authorized": False,
         "decision_basis": power["decision_basis"],
         "rows_scanned": rows_scanned,
+        "expected_row_count": EXPECTED_ROW_COUNT,
         "selected_or_upper_bound": selected,
         "projected_verified_claims": projected,
         "minimum_selected": MINIMUM_SELECTED,
