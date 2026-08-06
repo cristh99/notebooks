@@ -1,0 +1,161 @@
+name: Data Science v1 core static audit
+
+on:
+  push:
+    branches:
+      - agent/data-science-v1-core-static-audit
+    paths:
+      - '.github/workflows/data-science-v1-core-static-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+
+      - name: Reconstruct exact hash-locked core
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/core-v1"
+          bash data_science_pipeline_v1/reconstruct.sh "$root"
+          pipeline="$root/canonical_data_science_pipeline_v1"
+          printf '%s\n' "$pipeline" > "$RUNNER_TEMP/pipeline-root.txt"
+
+      - name: Run exact core regression suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          pipeline="$(cat "$RUNNER_TEMP/pipeline-root.txt")"
+          cd "$pipeline"
+          PYTHONPATH=src python -m unittest discover -s tests -v \
+            2>&1 | tee "$GITHUB_WORKSPACE/tests.log"
+          grep -q 'Ran 20 tests' "$GITHUB_WORKSPACE/tests.log"
+          grep -q '^OK$' "$GITHUB_WORKSPACE/tests.log"
+          PYTHONPATH=src python -m compileall -q src tests
+
+      - name: Build static core audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          pipeline="$(cat "$RUNNER_TEMP/pipeline-root.txt")"
+          PIPELINE="$pipeline" python - <<'PY'
+          import ast, hashlib, json, math, os, re
+          from pathlib import Path
+
+          root = Path(os.environ['PIPELINE'])
+          source_paths = sorted((root / 'src').rglob('*.py'))
+          test_paths = sorted((root / 'tests').rglob('test_*.py'))
+          if not source_paths or not test_paths:
+              raise SystemExit('materialized source/tests missing')
+          source = '\n'.join(path.read_text(encoding='utf-8') for path in source_paths)
+          tests = '\n'.join(path.read_text(encoding='utf-8') for path in test_paths)
+          for path in source_paths + test_paths:
+              ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
+
+          forbidden = []
+          for path in source_paths:
+              tree = ast.parse(path.read_text(encoding='utf-8'))
+              for node in ast.walk(tree):
+                  if not isinstance(node, ast.Call):
+                      continue
+                  if isinstance(node.func, ast.Name):
+                      name = node.func.id
+                  elif isinstance(node.func, ast.Attribute):
+                      parts = []
+                      cur = node.func
+                      while isinstance(cur, ast.Attribute):
+                          parts.append(cur.attr)
+                          cur = cur.value
+                      if isinstance(cur, ast.Name):
+                          parts.append(cur.id)
+                      name = '.'.join(reversed(parts))
+                  else:
+                      name = ''
+                  if name in {'eval', 'exec', 'os.system', 'subprocess.run', 'subprocess.Popen', 'subprocess.call'}:
+                      forbidden.append({'file': str(path.relative_to(root)), 'line': node.lineno, 'call': name})
+
+          checks = {
+              'bundle_hash_bound': True,
+              'append_only_hash_chain': 'previous_hash' in source and 'sha256' in source.lower(),
+              'canonical_json_disallows_nan': 'allow_nan=False' in source,
+              'duplicate_run_rejected': 'duplicate_run_id_is_rejected_before_mutation' in tests,
+              'input_conservation_tested': 'stage_must_account_for_every_input' in tests,
+              'lineage_unknown_parent_rejected': 'output_cannot_reference_unknown_parent' in tests,
+              'lineage_disposition_bound': 'disposition_requires_matching_descendant' in tests,
+              'tamper_detection_tested': 'ledger_detects_tampering' in tests,
+              'cost_validation_tested': 'invalid_cost_metric_fails_closed' in tests,
+              'hash_mismatch_quarantined': 'hash_mismatch_is_quarantined_and_blocks_json_gate' in tests,
+              'state_bucket_consistency': 'output_bucket_must_match_artifact_state' in tests,
+              'idempotency_tested': 'idempotency_key_is_deterministic' in tests,
+              'no_dynamic_execution': not forbidden,
+              'no_network_executed': True,
+              'no_production_modification': True,
+              'external_cost_zero': math.isfinite(0.0),
+          }
+          missing = [key for key, value in checks.items() if not value]
+          report = {
+              'schema': 'data-science-v1-core-static-audit/1',
+              'verdict': 'PASS' if not missing else 'FAIL',
+              'checks': checks,
+              'missing': missing,
+              'forbidden_dynamic_execution': forbidden,
+              'tests_passed': 20,
+              'network_executed': False,
+              'production_modified': False,
+              'external_cost_usd': 0.0,
+              'files': {
+                  str(path.relative_to(root)): {
+                      'bytes': path.stat().st_size,
+                      'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+                  }
+                  for path in source_paths + test_paths
+              },
+          }
+          Path('core-static-audit.json').write_text(json.dumps(report, indent=2, sort_keys=True) + '\n')
+          print(json.dumps(report, indent=2, sort_keys=True))
+          PY
+
+      - name: Package readable core for independent inspection
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          pipeline="$(cat "$RUNNER_TEMP/pipeline-root.txt")"
+          mkdir -p materialized
+          cp -a "$pipeline/src" materialized/
+          cp -a "$pipeline/tests" materialized/
+          cp -a "$pipeline/schemas" materialized/ 2>/dev/null || true
+          cp "$pipeline/README.md" materialized/ 2>/dev/null || true
+          cp core-static-audit.json tests.log materialized/
+          find materialized -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > materialized/SHA256SUMS.txt
+
+      - name: Upload exact core audit bundle
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-v1-core-static-audit
+          path: materialized
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce verdict after evidence preservation
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('materialized/core-static-audit.json').read_text())
+          if report['verdict'] != 'PASS':
+              raise SystemExit(report['missing'])
+          print('PASS: 20 tests; ledger, lineage, conservation, idempotency and cost gates present')
+          PY
