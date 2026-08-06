@@ -1,6 +1,8 @@
 name: University Software Foundations Rocq runtime v1
 
 on:
+  push:
+    branches: [agent/university-software-foundations-rocq-v1]
   pull_request:
     paths:
       - '.github/workflows/university-software-foundations-rocq-v1.yml'
