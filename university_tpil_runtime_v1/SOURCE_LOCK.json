@@ -1,0 +1,14 @@
+{
+  "schema": "university-tpil-runtime/source-lock/1",
+  "official_repository": "leanprover/theorem_proving_in_lean4",
+  "official_commit": "63fad08fcd5f4f3b8b0464561e2fa252671296b9",
+  "official_tree": "7aa5048834140d0994a7a4def1004da5ac45e390",
+  "official_book_tpil_tree": "0383b084122f17bb6a481aa11799e1fa925bc69e",
+  "examples_toolchain": "leanprover/lean4:v4.26.0",
+  "examples_toolchain_blob": "e59446d59f6a2bf7f43d60788e2088a603ae6bd4",
+  "book_toolchain": "leanprover/lean4:v4.27.0-rc1",
+  "book_toolchain_blob": "bd19bde0ce12df3a11c3f4fd0b7513c30693d72c",
+  "examples_lakefile_blob": "e2a6d410e509d4e95a1a0b724730463685563ddb",
+  "book_lakefile_blob": "9fe945ca25bb912d5bda1044e46ea664ca1f8d67",
+  "book_manifest_blob": "0808bad5334dda27afcef591b9965eb29189a8ea"
+}
