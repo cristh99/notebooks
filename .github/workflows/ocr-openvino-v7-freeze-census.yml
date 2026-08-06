@@ -103,6 +103,19 @@ jobs:
           assert 'MINIMUM_ACCEPTED = 400' in adapter
           assert 'DEVELOPMENT_ACCEPTANCE_NUMERATOR = 110' in adapter
           assert 'DEVELOPMENT_ACCEPTANCE_DENOMINATOR = 4674' in adapter
+          workflow = Path(
+              '.github/workflows/ocr-openvino-v7-freeze-census.yml'
+          ).read_text()
+          frozen_import = (
+              'PYTHONSAFEPATH=1 ' + 'PYTHONPATH="$PWD"'
+          )
+          unsafe_candidate = 'PYTHONPATH="$candidate' + '/source"'
+          unsafe_runner = (
+              'PYTHONPATH="$RUNNER_TEMP/frozen-openvino-v7' + '/source"'
+          )
+          assert workflow.count(frozen_import) == 3
+          assert unsafe_candidate not in workflow
+          assert unsafe_runner not in workflow
           PY
 
       - name: Download terminal COCO-Text v7 predecessor
@@ -205,11 +218,14 @@ jobs:
             --source-commit "$GITHUB_SHA" \
             --output-dir "$RUNNER_TEMP/frozen-openvino-v7" \
             > "$RUNNER_TEMP/v7-evidence/frozen_candidate_stdout.json"
-          PYTHONPATH="$RUNNER_TEMP/frozen-openvino-v7/source" \
-            python -m \
-              ocr_real_risk_v1.numeric_consensus_candidate_v7_openvino \
-              verify "$RUNNER_TEMP/frozen-openvino-v7" \
-              > "$RUNNER_TEMP/v7-evidence/frozen_candidate_verify.json"
+          (
+            cd "$RUNNER_TEMP/frozen-openvino-v7/source"
+            PYTHONSAFEPATH=1 PYTHONPATH="$PWD" \
+              python -m \
+                ocr_real_risk_v1.numeric_consensus_candidate_v7_openvino \
+                verify "$RUNNER_TEMP/frozen-openvino-v7" \
+                > "$RUNNER_TEMP/v7-evidence/frozen_candidate_verify.json"
+          )
           (
             cd "$RUNNER_TEMP/frozen-openvino-v7"
             sha256sum --check --strict SHA256SUMS.txt
@@ -223,15 +239,18 @@ jobs:
             python -c 'import json,sys; print(json.load(open(sys.argv[1]))["stable_payload_sha256"])' \
               "$candidate/frozen_candidate.json"
           )"
-          PYTHONPATH="$candidate/source" \
-            python -m ocr_real_risk_v1.openvino_adapter_v7 \
-              --source-url "$OPENVINO_URL" \
-              --candidate-stable "$stable" \
-              --candidate-source-commit "$GITHUB_SHA" \
-              --output \
-                "$RUNNER_TEMP/v7-evidence/openvino_v7_metadata_census.json" \
-              | tee \
-                "$RUNNER_TEMP/v7-evidence/openvino_v7_census_stdout.json"
+          (
+            cd "$candidate/source"
+            PYTHONSAFEPATH=1 PYTHONPATH="$PWD" \
+              python -m ocr_real_risk_v1.openvino_adapter_v7 \
+                --source-url "$OPENVINO_URL" \
+                --candidate-stable "$stable" \
+                --candidate-source-commit "$GITHUB_SHA" \
+                --output \
+                  "$RUNNER_TEMP/v7-evidence/openvino_v7_metadata_census.json" \
+                | tee \
+                  "$RUNNER_TEMP/v7-evidence/openvino_v7_census_stdout.json"
+          )
           test ! -e openvino.parquet
           test ! -e source.parquet
           test ! -d images
@@ -241,13 +260,16 @@ jobs:
           set -euo pipefail
           candidate="$RUNNER_TEMP/frozen-openvino-v7"
           evidence="$RUNNER_TEMP/v7-evidence"
-          PYTHONPATH="$candidate/source" \
-            python -m ocr_real_risk_v1.openvino_terminal_v7 \
-              --census "$evidence/openvino_v7_metadata_census.json" \
-              --candidate "$candidate/frozen_candidate.json" \
-              --source-seal "$evidence/openvino_source_seal_v7.json" \
-              --source-commit "$GITHUB_SHA" \
-              --output "$evidence/openvino_v7_census_terminal.json"
+          (
+            cd "$candidate/source"
+            PYTHONSAFEPATH=1 PYTHONPATH="$PWD" \
+              python -m ocr_real_risk_v1.openvino_terminal_v7 \
+                --census "$evidence/openvino_v7_metadata_census.json" \
+                --candidate "$candidate/frozen_candidate.json" \
+                --source-seal "$evidence/openvino_source_seal_v7.json" \
+                --source-commit "$GITHUB_SHA" \
+                --output "$evidence/openvino_v7_census_terminal.json"
+          )
           python - <<'PY'
           import hashlib
           import os
