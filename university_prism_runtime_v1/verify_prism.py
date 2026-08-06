@@ -14,11 +14,13 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent
 MODELS = ROOT / "models"
+SOLVER_OPTIONS = ("-explicit", "-epsilon", "1e-12", "-absolute")
 RESULT_RE = re.compile(
     r"^Result(?:\s+\([^)]*\))?:\s*"
     r"([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)",
     re.MULTILINE,
 )
+ERROR_RE = re.compile(r"(^|\n)Error:", re.IGNORECASE)
 
 CASES: tuple[dict[str, Any], ...] = (
     {
@@ -81,7 +83,7 @@ def run_case(prism: Path, case: dict[str, Any]) -> dict[str, Any]:
         str(MODELS / case["properties"]),
         "-prop",
         str(case["property_index"]),
-        "-explicit",
+        *SOLVER_OPTIONS,
     ]
     start = time.perf_counter()
     completed = subprocess.run(
@@ -93,12 +95,12 @@ def run_case(prism: Path, case: dict[str, Any]) -> dict[str, Any]:
         check=False,
     )
     elapsed = time.perf_counter() - start
-    if completed.returncode != 0:
+    matches = RESULT_RE.findall(completed.stdout)
+    if completed.returncode != 0 or ERROR_RE.search(completed.stdout):
         raise RuntimeError(
             f"{case['name']} failed with code {completed.returncode}\n"
             f"{completed.stdout}"
         )
-    matches = RESULT_RE.findall(completed.stdout)
     if len(matches) != 1:
         raise RuntimeError(
             f"{case['name']} produced {len(matches)} numeric results; expected one\n"
@@ -182,7 +184,7 @@ def main() -> int:
         str(MODELS / "invalid_distribution.pctl"),
         "-prop",
         "1",
-        "-explicit",
+        *SOLVER_OPTIONS,
     ]
     invalid = subprocess.run(
         invalid_command,
@@ -193,7 +195,11 @@ def main() -> int:
         check=False,
     )
     (out / "negative-control.log").write_text(invalid.stdout)
-    negative_control_rejected = invalid.returncode != 0
+    invalid_results = RESULT_RE.findall(invalid.stdout)
+    negative_control_rejected = (
+        invalid.returncode != 0
+        or (ERROR_RE.search(invalid.stdout) is not None and not invalid_results)
+    )
 
     model_hashes = {
         path.name: sha256(path)
@@ -209,6 +215,7 @@ def main() -> int:
         ),
         "prism_version_output": version_run.stdout.strip(),
         "engine": "explicit",
+        "solver_options": list(SOLVER_OPTIONS),
         "tolerance": args.tolerance,
         "workers": args.workers,
         "serial_seconds": serial_seconds,
@@ -219,6 +226,8 @@ def main() -> int:
         "parity_failures": parity_failures,
         "negative_control_rejected": negative_control_rejected,
         "negative_control_returncode": invalid.returncode,
+        "negative_control_error_marker": ERROR_RE.search(invalid.stdout) is not None,
+        "negative_control_result_count": len(invalid_results),
         "results": [
             {
                 key: value
