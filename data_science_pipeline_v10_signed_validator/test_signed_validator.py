@@ -184,6 +184,16 @@ class SignedValidatorTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "validator_id values must be unique"):
             TrustRegistry((self.entry_a, self.entry_a))
 
+    def test_duplicate_public_key_across_validator_ids_is_rejected(self) -> None:
+        duplicate_key_entry = TrustEntry(
+            validator_id="validator:alias",
+            public_key_raw=self.entry_a.public_key_raw,
+            allowed_policy_sha256=(POLICY_A,),
+            allowed_channels=(EvidenceChannel.OCR_CONTENT,),
+        )
+        with self.assertRaisesRegex(ValueError, "public keys must be unique"):
+            TrustRegistry((self.entry_a, duplicate_key_entry))
+
     def test_invalid_public_key_length_is_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "32 bytes"):
             TrustEntry(
