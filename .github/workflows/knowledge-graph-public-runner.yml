@@ -38,7 +38,13 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p knowledge_graph_runner/runtime
-          cat knowledge_graph_runner/vendor/kg_runner.part*.b64 \
+          cat \
+            knowledge_graph_runner/vendor/kg_runner.part1.b64 \
+            knowledge_graph_runner/vendor/kg_runner.part2.b64 \
+            knowledge_graph_runner/vendor/kg_runner.part3.b64 \
+            knowledge_graph_runner/vendor/kg_runner.part4a.b64 \
+            knowledge_graph_runner/vendor/kg_runner.part4b.b64 \
+            knowledge_graph_runner/vendor/kg_runner.part5.b64 \
             | tr -d '\n\r' \
             | base64 --decode > /tmp/kg_runner.zip
           unzip -q /tmp/kg_runner.zip -d knowledge_graph_runner/runtime
@@ -71,7 +77,13 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p knowledge_graph_runner/runtime
-          cat knowledge_graph_runner/vendor/kg_runner.part*.b64 \
+          cat \
+            knowledge_graph_runner/vendor/kg_runner.part1.b64 \
+            knowledge_graph_runner/vendor/kg_runner.part2.b64 \
+            knowledge_graph_runner/vendor/kg_runner.part3.b64 \
+            knowledge_graph_runner/vendor/kg_runner.part4a.b64 \
+            knowledge_graph_runner/vendor/kg_runner.part4b.b64 \
+            knowledge_graph_runner/vendor/kg_runner.part5.b64 \
             | tr -d '\n\r' \
             | base64 --decode > /tmp/kg_runner.zip
           unzip -q /tmp/kg_runner.zip -d knowledge_graph_runner/runtime
