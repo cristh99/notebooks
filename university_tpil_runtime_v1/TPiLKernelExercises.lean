@@ -61,9 +61,9 @@ theorem list_append_associative {α : Type u} (xs ys zs : List α) :
 theorem list_length_append {α : Type u} (xs ys : List α) :
     (xs ++ ys).length = xs.length + ys.length := by
   induction xs with
-  | nil => rfl
+  | nil => simp
   | cons x xs ih =>
-      simp [ih, Nat.succ_add]
+      simp [ih]
 
 class HasUnit (α : Type u) where
   unit : α
