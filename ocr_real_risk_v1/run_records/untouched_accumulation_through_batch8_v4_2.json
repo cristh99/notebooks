@@ -1,0 +1,29 @@
+{
+  "candidate_commit": "fe8865e9182f8ef62babcc1bdda0ac4c107cebfd",
+  "candidate_frozen": true,
+  "constraints": {
+    "external_spend_usd": 0.0,
+    "production_modified": false,
+    "significance_look_performed": false
+  },
+  "metrics": {
+    "accepted_flagged_claims": 2,
+    "baseline_error_fraction_among_flags": 0.3333333333333333,
+    "baseline_errors": 6,
+    "evaluated_flags": 18,
+    "false_replacements": 0,
+    "false_semantic_flags": 12,
+    "final_errors_among_accepted": 0,
+    "flags": 18,
+    "images": 150,
+    "quarantined_flagged_claims": 16,
+    "selective_coverage": 0.1111111111111111
+  },
+  "schema": "ocr-v4-2-untouched-selective-accumulation/6",
+  "statistics": {
+    "alpha_spending_plan": "51 -> 87 -> 148",
+    "first_predeclared_look_at_flags": 51,
+    "remaining_to_look_1": 33
+  },
+  "status": "ACCUMULATION_BEFORE_PREDECLARED_LOOK_1"
+}
