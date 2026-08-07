@@ -1,0 +1,224 @@
+name: OpenVINO v7 prior-registry finalization v1
+
+on:
+  push:
+    branches:
+      - agent/openvino-v7-smoke-16-stacked-v2
+    paths:
+      - ".openvino-prior-registry-finalize-trigger-v1"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: openvino-v7-prior-registry-finalize-v1
+  cancel-in-progress: false
+
+env:
+  REUSED_ARTIFACT_ID: "8992076796"
+  REUSED_ARTIFACT_SHA256: "e4c27e7d7ad4e568873e7be5881aea61332c76e4d8b0cc125872dc82150f0389"
+  SROIE_TRAIN_ARTIFACT_ID: "8991269979"
+  SROIE_TRAIN_ARTIFACT_SHA256: "81857c550a4d64faad93c5ffaa7ee3f30c5bd0600b9d40c6f8c08b29db3e8708"
+  SROIE_TEST_ARTIFACT_ID: "8991287210"
+  SROIE_TEST_ARTIFACT_SHA256: "05306f1538849631eee8379af42829222440c1af36112a3f694363180441aad1"
+  PYTHONHASHSEED: "0"
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  aggregate:
+    name: Aggregate exact eleven plus repaired SROIE two
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+      artifact_digest: ${{ steps.upload.outputs.artifact-digest }}
+      registry_stable: ${{ steps.summary.outputs.registry_stable }}
+      population_rows: ${{ steps.summary.outputs.population_rows }}
+      unique_encoded: ${{ steps.summary.outputs.unique_encoded }}
+      unique_pixels: ${{ steps.summary.outputs.unique_pixels }}
+      duplicate_groups: ${{ steps.summary.outputs.duplicate_groups }}
+      cross_corpus_groups: ${{ steps.summary.outputs.cross_corpus_groups }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: "3.11"
+
+      - name: Recover exact three immutable source-bundle artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p downloads prior-source-bundles
+          for item in \
+            "reused:${REUSED_ARTIFACT_ID}:${REUSED_ARTIFACT_SHA256}" \
+            "sroie-train:${SROIE_TRAIN_ARTIFACT_ID}:${SROIE_TRAIN_ARTIFACT_SHA256}" \
+            "sroie-test:${SROIE_TEST_ARTIFACT_ID}:${SROIE_TEST_ARTIFACT_SHA256}"; do
+            IFS=: read -r name artifact_id expected <<< "$item"
+            gh api \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" \
+              > "downloads/${name}.zip"
+            echo "${expected}  downloads/${name}.zip" | sha256sum --check --strict
+          done
+          unzip -q downloads/reused.zip -d prior-source-bundles
+          mkdir -p prior-source-bundles/sroie-train prior-source-bundles/sroie-test
+          unzip -q downloads/sroie-train.zip -d prior-source-bundles/sroie-train
+          unzip -q downloads/sroie-test.zip -d prior-source-bundles/sroie-test
+          mapfile -t roots < <(find prior-source-bundles -mindepth 1 -maxdepth 1 -type d | sort)
+          test "${#roots[@]}" = 13
+          for root in "${roots[@]}"; do
+            (cd "$root" && sha256sum --check --strict SHA256SUMS.txt)
+          done
+
+      - name: Build, replay and summarize the complete registry
+        id: summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t roots < <(find prior-source-bundles -mindepth 1 -maxdepth 1 -type d | sort)
+          python -m ocr_real_risk_v1.openvino_prior_registry_entry_v7 \
+            aggregate "${roots[@]}" --output-dir prior-registry \
+            > aggregate-build.json
+          python -m ocr_real_risk_v1.openvino_prior_registry_entry_v7 \
+            verify prior-registry > aggregate-replay.json
+          (cd prior-registry && sha256sum --check --strict SHA256SUMS.txt)
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          registry = json.load(open('prior-registry/prior_registry.json'))
+          assert registry['complete'] is True
+          assert registry['population_rows'] == 38601
+          assert registry['expected_population_rows'] == 38601
+          assert registry['unique_encoded_sha256'] == 38583
+          assert registry['unique_pixel_sha256'] == 38583
+          assert registry['duplicate_physical_groups'] == 18
+          assert registry['cross_corpus_duplicate_groups'] == 0
+          assert registry['annotation_columns_read'] is False
+          assert registry['ocr_runs'] == 0
+          assert registry['candidate_inference_runs'] == 0
+          assert registry['openvino_scientific_images_opened'] == 0
+          print(f"registry_stable={registry['stable_payload_sha256']}")
+          print(f"population_rows={registry['population_rows']}")
+          print(f"unique_encoded={registry['unique_encoded_sha256']}")
+          print(f"unique_pixels={registry['unique_pixel_sha256']}")
+          print(f"duplicate_groups={registry['duplicate_physical_groups']}")
+          print(f"cross_corpus_groups={registry['cross_corpus_duplicate_groups']}")
+          PY
+
+      - name: Upload immutable complete registry
+        id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: openvino-v7-prior-corpus-registry-final-${{ github.sha }}
+          path: prior-registry/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 9
+
+  terminal-replay:
+    name: Re-download, replay and seal terminal receipt
+    needs: aggregate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: "3.11"
+
+      - name: Recover exact final artifact and independently replay it
+        shell: bash
+        env:
+          REGISTRY_ARTIFACT_ID: ${{ needs.aggregate.outputs.artifact_id }}
+          REGISTRY_ARTIFACT_DIGEST: ${{ needs.aggregate.outputs.artifact_digest }}
+        run: |
+          set -euo pipefail
+          gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${REGISTRY_ARTIFACT_ID}/zip" \
+            > registry.zip
+          echo "${REGISTRY_ARTIFACT_DIGEST#sha256:}  registry.zip" | sha256sum --check --strict
+          mkdir registry
+          unzip -q registry.zip -d registry
+          (cd registry && sha256sum --check --strict SHA256SUMS.txt)
+          python -m ocr_real_risk_v1.openvino_prior_registry_entry_v7 \
+            verify registry > terminal-replay.json
+
+      - name: Seal terminal zero-science receipt
+        shell: bash
+        env:
+          REGISTRY_ARTIFACT_ID: ${{ needs.aggregate.outputs.artifact_id }}
+          REGISTRY_ARTIFACT_DIGEST: ${{ needs.aggregate.outputs.artifact_digest }}
+          REGISTRY_STABLE: ${{ needs.aggregate.outputs.registry_stable }}
+          POPULATION_ROWS: ${{ needs.aggregate.outputs.population_rows }}
+          UNIQUE_ENCODED: ${{ needs.aggregate.outputs.unique_encoded }}
+          UNIQUE_PIXELS: ${{ needs.aggregate.outputs.unique_pixels }}
+          DUPLICATE_GROUPS: ${{ needs.aggregate.outputs.duplicate_groups }}
+          CROSS_CORPUS_GROUPS: ${{ needs.aggregate.outputs.cross_corpus_groups }}
+        run: |
+          set -euo pipefail
+          mkdir terminal-evidence
+          cp terminal-replay.json terminal-evidence/
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          replay = json.load(open('terminal-replay.json'))
+          assert replay['complete'] is True
+          assert replay['population_rows'] == 38601
+          assert replay['openvino_scientific_images_opened'] == 0
+          receipt = {
+              'schema': 'eaat.openvino_v7_prior_registry_terminal/2',
+              'status': 'PASS_FULL_PRIOR_CORPUS_PHYSICAL_REGISTRY',
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_sha': os.environ['GITHUB_SHA'],
+              'artifact_id': int(os.environ['REGISTRY_ARTIFACT_ID']),
+              'artifact_digest': os.environ['REGISTRY_ARTIFACT_DIGEST'],
+              'registry_stable_payload_sha256': os.environ['REGISTRY_STABLE'],
+              'population_rows': int(os.environ['POPULATION_ROWS']),
+              'unique_encoded_sha256': int(os.environ['UNIQUE_ENCODED']),
+              'unique_pixel_sha256': int(os.environ['UNIQUE_PIXELS']),
+              'duplicate_physical_groups': int(os.environ['DUPLICATE_GROUPS']),
+              'cross_corpus_duplicate_groups': int(os.environ['CROSS_CORPUS_GROUPS']),
+              'source_shards': 13,
+              'reused_source_shards': 11,
+              'repaired_source_shards': 2,
+              'full_source_hashes_verified': True,
+              'full_populations_fingerprinted': True,
+              'annotation_columns_read': False,
+              'ocr_runs': 0,
+              'candidate_inference_runs': 0,
+              'openvino_scientific_images_opened': 0,
+              'external_spend_usd': 0,
+              'full_openvino_execution_authorized': False,
+              'next_gate': 'REAL_GITHUB_FAST_FORWARD_CAS_AND_RUNTIME_FREEZE',
+          }
+          raw = json.dumps(receipt, sort_keys=True, separators=(',', ':')).encode()
+          receipt['stable_payload_sha256'] = hashlib.sha256(raw).hexdigest()
+          Path('terminal-evidence/terminal-receipt.json').write_text(
+              json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          )
+          PY
+          (cd terminal-evidence && \
+            find . -type f ! -name SHA256SUMS.txt -print0 \
+              | sort -z | xargs -0 sha256sum \
+              | sed 's#  \./#  #' > SHA256SUMS.txt)
+          (cd terminal-evidence && sha256sum --check --strict SHA256SUMS.txt)
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: openvino-v7-prior-registry-terminal-${{ github.sha }}
+          path: terminal-evidence/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 9
