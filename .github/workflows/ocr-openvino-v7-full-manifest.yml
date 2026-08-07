@@ -48,12 +48,20 @@ jobs:
           python-version: "3.11"
           cache: pip
 
-      - name: Install metadata-only dependencies
+      - name: Install frozen import dependencies only
         shell: bash
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
-          python -m pip install duckdb==1.5.5 pyarrow==18.1.0
+          python -m pip install \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13 \
+            duckdb==1.5.5
 
       - name: Generate exact selected set and partitions without image bytes
         shell: bash
