@@ -1,0 +1,257 @@
+name: Data Science v14.5 - exclusion registry PR signature carrier
+
+on:
+  pull_request:
+    branches:
+      - agent/data-science-v14-5-signed-exclusion-registry-v1
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'data_science_pipeline_v14_5_exclusion_registry_carrier/**'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: data-science-v14-5-exclusion-registry-pr-carrier
+  cancel-in-progress: true
+
+env:
+  COMPONENT_REPO: data_science_pipeline_v14_5_signed_exclusion_registry
+  TRANSPORT: data_science_pipeline_v14_5_signed_exclusion_registry/transport
+  TRANSPORT_MANIFEST: data_science_pipeline_v14_5_signed_exclusion_registry/TRANSPORT_MANIFEST.json
+  PACKAGE_MANIFEST: data_science_pipeline_v14_5_signed_exclusion_registry/PACKAGE_MANIFEST.json
+  PUBLIC_README: data_science_pipeline_v14_5_signed_exclusion_registry/README.md
+  PACKAGE: /tmp/stage09-exclusion-registry.zip
+  COMPONENT: /tmp/stage09-exclusion-registry
+  SUBJECT: /tmp/stage09-exclusion-registry/EXCLUSION_REGISTRY.json
+  CONTRACT: /tmp/stage09-exclusion-registry/REGISTRY_CONTRACT.json
+  LOCAL_RESULT: /tmp/stage09-exclusion-registry/LOCAL_RESULT.json
+  EVIDENCE: data-science-v14-5-exclusion-registry-pr-evidence
+  EXPECTED_REPOSITORY: cristh99/notebooks
+  EXPECTED_BASE: agent/data-science-v14-5-signed-exclusion-registry-v1
+  EXPECTED_HEAD: agent/data-science-v14-5-exclusion-registry-carrier-v1
+  EXPECTED_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+  EXPECTED_WORKFLOW_REF: cristh99/notebooks/.github/workflows/data-science-v14-5-signed-exclusion-registry-pr-carrier.yml@refs/heads/agent/data-science-v14-5-signed-exclusion-registry-v1
+  CERTIFICATE_IDENTITY_REGEXP: '^https://github\.com/cristh99/notebooks/\.github/workflows/data-science-v14-5-signed-exclusion-registry-pr-carrier\.yml@(refs/heads/agent/data-science-v14-5-signed-exclusion-registry-v1|refs/pull/[0-9]+/merge)$'
+  OIDC_ISSUER: https://token.actions.githubusercontent.com
+  OIDC_AUDIENCE: sigstore
+  COSIGN_VERSION: 3.0.6
+  COSIGN_SHA256: c956e5dfcac53d52bcf058360d579472f0c1d2d9b69f55209e256fe7783f4c74
+  TRANSPORT_MANIFEST_SHA256: b309f040ea1b951e5d8f9a56d79b92497f8212a122850df2a5bf324ed88fa8a5
+  PACKAGE_MANIFEST_SHA256: 39492804812b90905eb2c981f5772e5b46c650e12b64971741dc647879c1601f
+  README_SHA256: f359a8abcceef39401cc267eb7e7ec171fa0a83430a7df806a5f25d9d4870199
+  REGISTRY_SHA256: 38323cd86b606b70be3f94ecc16ecb0bab91317384b1aeb28f1985116168b73e
+  REGISTRY_SELF_HASH: a2c7a4fa95528dbcb5eefec2e1258e64a2a2d3b163279a772267a2facfbe247d
+  CONTRACT_SHA256: ee7b11fe90b7187592c6242bbb7c02eb93abef4572617ce9cc103eb8407552b8
+  BEACON_NOT_BEFORE_EPOCH: '1786147200'
+
+jobs:
+  validate-and-sign:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact PR merge
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Reconstruct and verify exact exclusion registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "$EXPECTED_REPOSITORY"
+          test "$GITHUB_EVENT_NAME" = "pull_request"
+          test "$GITHUB_BASE_REF" = "$EXPECTED_BASE"
+          test "$GITHUB_HEAD_REF" = "$EXPECTED_HEAD"
+          [[ "$GITHUB_REF" =~ ^refs/pull/[0-9]+/merge$ ]]
+          now_epoch="$(date -u +%s)"
+          test "$now_epoch" -lt "$BEACON_NOT_BEFORE_EPOCH"
+          mkdir -p "$EVIDENCE" "$COMPONENT"
+          printf '%s  %s\n' "$TRANSPORT_MANIFEST_SHA256" "$TRANSPORT_MANIFEST" | sha256sum -c -
+          printf '%s  %s\n' "$PACKAGE_MANIFEST_SHA256" "$PACKAGE_MANIFEST" | sha256sum -c -
+          printf '%s  %s\n' "$README_SHA256" "$PUBLIC_README" | sha256sum -c -
+          python3 - "$TRANSPORT" "$TRANSPORT_MANIFEST" "$PACKAGE_MANIFEST" "$PACKAGE" "$COMPONENT" <<'PY'
+          from pathlib import Path, PurePosixPath
+          from zipfile import ZipFile
+          import base64, hashlib, json, sys
+          td,tmp,pmp,archive,out=map(Path,sys.argv[1:])
+          tm=json.loads(tmp.read_text()); pm=json.loads(pmp.read_text())
+          sha=lambda d:hashlib.sha256(d).hexdigest()
+          blob=lambda d:hashlib.sha1(f'blob {len(d)}\0'.encode()+d).hexdigest()
+          names=sorted(p.name for p in td.glob('part_*.b64'))
+          if names!=tm['part_order']: raise SystemExit('part set mismatch')
+          chunks=[]
+          for name in names:
+              data=(td/name).read_bytes(); exp=tm['parts'][name]
+              if len(data)!=exp['bytes'] or sha(data)!=exp['sha256'] or blob(data)!=exp['git_blob_sha1']:
+                  raise SystemExit(f'part mismatch: {name}')
+              chunks.append(data)
+          encoded=b''.join(chunks); decoded=base64.b64decode(encoded,validate=True)
+          if len(encoded)!=tm['base64_characters'] or len(decoded)!=tm['decoded_bytes'] or sha(decoded)!=tm['decoded_sha256'] or blob(decoded)!=tm['decoded_git_blob_sha1']:
+              raise SystemExit('transport mismatch')
+          if len(decoded)!=pm['package_bytes'] or sha(decoded)!=pm['package_sha256'] or blob(decoded)!=pm['package_git_blob_sha1']:
+              raise SystemExit('package mismatch')
+          archive.write_bytes(decoded)
+          with ZipFile(archive) as zf:
+              members=zf.namelist()
+              if len(members)!=len(set(members)) or set(members)!=set(pm['members']): raise SystemExit('member set mismatch')
+              for name in members:
+                  p=PurePosixPath(name); data=zf.read(name); exp=pm['members'][name]
+                  if p.is_absolute() or '..' in p.parts or len(p.parts)!=1 or len(data)!=exp['bytes'] or sha(data)!=exp['sha256']:
+                      raise SystemExit(f'bad member: {name}')
+              zf.extractall(out)
+          PY
+          printf '%s  %s\n' "$REGISTRY_SHA256" "$SUBJECT" | sha256sum -c -
+          printf '%s  %s\n' "$CONTRACT_SHA256" "$CONTRACT" | sha256sum -c -
+          python3 -m compileall -q "$COMPONENT"
+          (cd "$COMPONENT" && python3 -m unittest -v test_registry.py) |& tee "$EVIDENCE/tests.log"
+          grep -Fq 'Ran 36 tests' "$EVIDENCE/tests.log"
+          grep -Fq 'OK' "$EVIDENCE/tests.log"
+          python3 "$COMPONENT/verify_registry.py" --output "$EVIDENCE/local-result.json" > "$EVIDENCE/local-verification.log"
+          cmp "$LOCAL_RESULT" "$EVIDENCE/local-result.json"
+          printf '%s\n' "$now_epoch" > "$EVIDENCE/registry-signing-preflight-epoch.txt"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          event=json.loads(Path(os.environ['GITHUB_EVENT_PATH']).read_text())
+          pr=event['pull_request']
+          safe={
+            'schema':'data-science-pipeline/stage09-exclusion-registry-pr-event/1',
+            'repository':os.environ['GITHUB_REPOSITORY'],
+            'event_name':os.environ['GITHUB_EVENT_NAME'],
+            'github_ref':os.environ['GITHUB_REF'],
+            'github_sha':os.environ['GITHUB_SHA'],
+            'base_ref':pr['base']['ref'],
+            'base_sha':pr['base']['sha'],
+            'head_ref':pr['head']['ref'],
+            'head_sha':pr['head']['sha'],
+            'pr_number':pr['number'],
+          }
+          Path(os.environ['EVIDENCE'],'event-safe.json').write_text(json.dumps(safe,sort_keys=True,separators=(',',':'))+'\n')
+          PY
+
+      - name: Request and validate GitHub OIDC identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          response="$(curl --fail --silent --show-error -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${OIDC_AUDIENCE}")"
+          token="$(printf '%s' "$response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])')"
+          echo "::add-mask::$token"
+          printf '%s' "$token" > "$RUNNER_TEMP/oidc-token.jwt"
+          python3 - <<'PY'
+          import base64, hashlib, json, os, time
+          from pathlib import Path
+          token=Path(os.environ['RUNNER_TEMP'],'oidc-token.jwt').read_text().strip()
+          header,payload,_=token.split('.')
+          dec=lambda s: json.loads(base64.urlsafe_b64decode(s+'='*(-len(s)%4)))
+          h,c=dec(header),dec(payload); now=int(time.time())
+          checks={
+            'alg_rs256':h.get('alg')=='RS256',
+            'kid_present':bool(h.get('kid')),
+            'issuer_exact':c.get('iss')==os.environ['OIDC_ISSUER'],
+            'audience_exact':c.get('aud')==os.environ['OIDC_AUDIENCE'],
+            'repository_exact':c.get('repository')==os.environ['EXPECTED_REPOSITORY'],
+            'event_pull_request':c.get('event_name')=='pull_request',
+            'subject_pull_request':c.get('sub')==f"repo:{os.environ['EXPECTED_REPOSITORY']}:pull_request",
+            'ref_exact':c.get('ref')==os.environ['GITHUB_REF'],
+            'sha_exact':c.get('sha')==os.environ['GITHUB_SHA'],
+            'workflow_ref_exact':c.get('workflow_ref')==os.environ['EXPECTED_WORKFLOW_REF'],
+            'workflow_sha_base_exact':c.get('workflow_sha')==os.environ['EXPECTED_BASE_SHA'],
+            'runner_github_hosted':c.get('runner_environment')=='github-hosted',
+            'time_valid':int(c.get('nbf',0))<=now<int(c.get('exp',0)),
+          }
+          if not all(checks.values()): raise SystemExit([k for k,v in checks.items() if not v])
+          safe={'schema':'data-science-pipeline/stage09-exclusion-registry-pr-oidc/1','header':h,'claims':c,'checks':checks,'jwt_sha256':hashlib.sha256(token.encode()).hexdigest(),'token_redacted':True}
+          Path(os.environ['EVIDENCE'],'oidc-safe-claims.json').write_text(json.dumps(safe,sort_keys=True,separators=(',',':'))+'\n')
+          PY
+
+      - name: Sign and independently verify exact registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" -o "$RUNNER_TEMP/cosign"
+          printf '%s  %s\n' "$COSIGN_SHA256" "$RUNNER_TEMP/cosign" | sha256sum -c -
+          chmod 0755 "$RUNNER_TEMP/cosign"
+          "$RUNNER_TEMP/cosign" version > "$EVIDENCE/cosign-version.txt"
+          token="$(cat "$RUNNER_TEMP/oidc-token.jwt")"
+          echo "::add-mask::$token"
+          "$RUNNER_TEMP/cosign" sign-blob --yes --identity-token "$token" --bundle "$EVIDENCE/exclusion-registry.sigstore.json" "$SUBJECT" > "$EVIDENCE/sign.log" 2>&1
+          rm -f "$RUNNER_TEMP/oidc-token.jwt"
+          "$RUNNER_TEMP/cosign" verify-blob "$SUBJECT" --bundle "$EVIDENCE/exclusion-registry.sigstore.json" --certificate-identity-regexp "$CERTIFICATE_IDENTITY_REGEXP" --certificate-oidc-issuer "$OIDC_ISSUER" --certificate-github-workflow-repository "$GITHUB_REPOSITORY" --certificate-github-workflow-sha "$EXPECTED_BASE_SHA" --certificate-github-workflow-trigger pull_request > "$EVIDENCE/verify.log" 2>&1
+          grep -Fq 'Verified OK' "$EVIDENCE/verify.log"
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          E=Path(os.environ['EVIDENCE'])
+          subject=Path(os.environ['SUBJECT']); contract=Path(os.environ['CONTRACT'])
+          local=json.loads((E/'local-result.json').read_text()); oidc=json.loads((E/'oidc-safe-claims.json').read_text()); event=json.loads((E/'event-safe.json').read_text()); registry=json.loads(subject.read_text())
+          sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+          canonical=lambda v:(json.dumps(v,sort_keys=True,separators=(',',':'))+'\n').encode()
+          before=int((E/'registry-signing-preflight-epoch.txt').read_text())<int(os.environ['BEACON_NOT_BEFORE_EPOCH'])
+          checks={
+            'tests_36_pass':local['verdict']=='PASS_STAGE09_SIGNED_EXCLUSION_REGISTRY_SOFTWARE_ONLY',
+            'local_checks_all_true':all(local['checks'].values()),
+            'registry_hash_exact':sha(subject)==os.environ['REGISTRY_SHA256'],
+            'registry_self_hash_exact':registry['self_hash_sha256']==os.environ['REGISTRY_SELF_HASH'],
+            'contract_hash_exact':sha(contract)==os.environ['CONTRACT_SHA256'],
+            'entries_exact':local['entry_count']==8,
+            'disclosed_candidates_exact':local['disclosed_selected_candidates_excluded']==26,
+            'oidc_checks_all_true':all(oidc['checks'].values()),
+            'oidc_token_redacted':oidc['token_redacted'] is True,
+            'base_exact':event['base_ref']==os.environ['EXPECTED_BASE'] and event['base_sha']==os.environ['EXPECTED_BASE_SHA'],
+            'head_exact':event['head_ref']==os.environ['EXPECTED_HEAD'] and event['head_sha']==os.environ['EXPECTED_HEAD_SHA'],
+            'bundle_present':(E/'exclusion-registry.sigstore.json').stat().st_size>0,
+            'cosign_verified_ok':'Verified OK' in (E/'verify.log').read_text(),
+            'signed_before_beacon_threshold':before,
+            'beacon_unconsumed':local['beacon_consumed'] is False,
+            'cohort_unselected':local['cohort_selected'] is False,
+            'outcome_unaccessed':local['outcome_accessed'] is False,
+            'analysis_unexecuted':local['analysis_executed'] is False,
+            'stage10_blocked':local['stage10_unblocked'] is False,
+            'production_unmodified':local['production_modified'] is False,
+            'cost_zero':local['external_cost_usd']==0.0,
+          }
+          if not all(checks.values()): raise SystemExit([k for k,v in checks.items() if not v])
+          receipt={
+            'schema':'data-science-pipeline/stage09-exclusion-registry-external-receipt/2',
+            'verdict':'PASS_STAGE09_SIGNED_EXCLUSION_REGISTRY_EXTERNAL',
+            'repository':os.environ['GITHUB_REPOSITORY'],'github_sha':os.environ['GITHUB_SHA'],'github_ref':os.environ['GITHUB_REF'],'github_run_id':int(os.environ['GITHUB_RUN_ID']),'github_run_attempt':int(os.environ['GITHUB_RUN_ATTEMPT']),
+            'pr_number':event['pr_number'],'base_ref':event['base_ref'],'base_sha':event['base_sha'],'head_ref':event['head_ref'],'head_sha':event['head_sha'],
+            'registry_sha256':sha(subject),'registry_self_hash_sha256':registry['self_hash_sha256'],'contract_sha256':sha(contract),'contamination_entries':8,'disclosed_selected_candidates_excluded':26,'tests':'36/36 PASS',
+            'signed_before_beacon_threshold':before,'beacon_not_before_utc':'2026-08-08T00:00:00Z','beacon_consumed':False,'cohort_selected':False,'outcome_accessed':False,'analysis_executed':False,'stage10_unblocked':False,'production_modified':False,'external_cost_usd':0.0,
+            'oidc_safe_claims_sha256':sha(E/'oidc-safe-claims.json'),'sigstore_bundle_sha256':sha(E/'exclusion-registry.sigstore.json'),'cosign_verify_log_sha256':sha(E/'verify.log'),'checks':checks,'next_gate':'signed_nist_beacon_pulse_at_or_after_2026_08_08T00_00_00Z'
+          }
+          receipt['self_hash_sha256']=hashlib.sha256(canonical(receipt)).hexdigest()
+          (E/'external-receipt.json').write_bytes(canonical(receipt))
+          PY
+
+      - name: Retain exact evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-v14-5-signed-exclusion-registry
+          path: data-science-v14-5-exclusion-registry-pr-evidence
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce terminal receipt
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('data-science-v14-5-exclusion-registry-pr-evidence/external-receipt.json')
+          if not p.exists(): raise SystemExit('external receipt missing')
+          r=json.loads(p.read_text())
+          assert r['verdict']=='PASS_STAGE09_SIGNED_EXCLUSION_REGISTRY_EXTERNAL'
+          assert r['tests']=='36/36 PASS' and r['contamination_entries']==8 and r['disclosed_selected_candidates_excluded']==26
+          assert r['signed_before_beacon_threshold'] is True and r['beacon_consumed'] is False and r['cohort_selected'] is False and r['outcome_accessed'] is False and r['analysis_executed'] is False
+          assert r['stage10_unblocked'] is False and r['production_modified'] is False and r['external_cost_usd']==0.0 and all(r['checks'].values())
+          print(r['verdict'])
+          PY
