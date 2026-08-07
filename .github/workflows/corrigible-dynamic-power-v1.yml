@@ -1,0 +1,170 @@
+name: Corrigible Dynamic Power v1 public verification
+
+on:
+  pull_request:
+    paths:
+      - 'corrigible_dynamic_power_v1/**'
+      - '.github/workflows/corrigible-dynamic-power-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Verify source binding and reconstruct frozen bundle
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          b = json.loads(Path('corrigible_dynamic_power_v1/SOURCE_BINDING.json').read_text())
+          assert b['schema'] == 'corrigible-dynamic-power/public-source-binding/1'
+          assert b['private_repository'] == 'cristh99/my_first_repository'
+          assert b['private_branch'] == 'agent/corrigible-dynamic-power-v1'
+          assert b['private_head'] == '6d80296e2e679b8b28fd24d37e793f8d71af3787'
+          assert b['private_pull_request'] == 100
+          assert b['private_issue'] == 99
+          PY
+          echo '2eb22fa6da63549233d2da93a060d1a3d3e0265f9471d3a470d44bfdc20c7965  corrigible_dynamic_power_v1/source_bundle.tar.gz.b64' | sha256sum -c -
+          base64 --decode corrigible_dynamic_power_v1/source_bundle.tar.gz.b64 > source_bundle.tar.gz
+          echo '7cfd97cb4156f2bb52e736e1fab59d4ae781cdb801e453ff1aef15556c3f84e2  source_bundle.tar.gz' | sha256sum -c -
+          tar -xzf source_bundle.tar.gz -C corrigible_dynamic_power_v1
+          cd corrigible_dynamic_power_v1
+          echo 'e281250c02c38ebafda388e5a0f3bfd871a56a2c25403ba41cf707237d261323  dynamic_power.py' | sha256sum -c -
+          echo '7586e9624a1900f3a6ff160782457e6fb0a240e6ca454bcc4b92b7d0ef004f18  benchmark.py' | sha256sum -c -
+          echo 'd127905c3d0a401e6426c6ed84acb48751d98c625de6a65e989abd19d81a7fda  test_dynamic_power.py' | sha256sum -c -
+          echo '70036348230f4455b40814b34b59ef7481b0982ccf587a729ab14bf1c8fb1b81  preregistration.json' | sha256sum -c -
+          echo 'a842fe1abde22d59f5255006231d525179a3decfcc976cb2caa9b2d944e9d900  README.md' | sha256sum -c -
+          echo 'd24f1e5d930a527e59f960fd874d3067083949105a565d3ceb1fed17aa61e9fe  verify_receipt.js' | sha256sum -c -
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path('preregistration.json').read_text())
+          assert data['schema'] == 'corrigible-dynamic-power/preregistration/1'
+          assert data['status'] == 'FROZEN_BEFORE_PUBLIC_CI'
+          assert data['scenario_count'] == 72
+          assert data['unit_test_count'] == 12
+          assert len(data['domains']) == 6
+          assert len(data['archetypes']) == 12
+          assert data['acceptance_gates']['exact_conformance'] == 1.0
+          assert data['score']['baseline_before_slice'] == 847
+          assert data['score']['eligible_after_public_pass'] == 872
+          PY
+
+      - name: Compile and execute frozen benchmark
+        run: |
+          set -euo pipefail
+          cd corrigible_dynamic_power_v1
+          python -m compileall -q .
+          python benchmark.py --output reports
+          python -m unittest -v test_dynamic_power.py 2>&1 | tee reports/unittest.log
+
+      - name: Enforce preregistered acceptance gates
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('corrigible_dynamic_power_v1/reports')
+          summary = json.loads((root / 'benchmark_summary.json').read_text())
+          receipt = json.loads((root / 'benchmark_receipt.json').read_text())
+          assert summary['scenario_count'] == 72
+          assert summary['passed'] == 72
+          assert summary['failed'] == 0
+          assert summary['exact_conformance'] == 1.0
+          assert summary['rows_sha256'] == 'dbbd0d8a3b08856265dbd218c8e130784be399eabbee2ee9a01c3e9bb567970e'
+          assert receipt['status'] == 'PASS'
+          assert receipt['scenario_count'] == 72
+          assert receipt['passed'] == 72
+          PY
+          node corrigible_dynamic_power_v1/verify_receipt.js corrigible_dynamic_power_v1/reports/benchmark_receipt.json
+
+      - name: Reject altered evidence
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          source = Path('corrigible_dynamic_power_v1/reports/benchmark_receipt.json')
+          data = json.loads(source.read_text())
+          data['passed'] = 71
+          Path('corrigible_dynamic_power_v1/reports/tampered_receipt.json').write_text(json.dumps(data, sort_keys=True))
+          PY
+          if node corrigible_dynamic_power_v1/verify_receipt.js corrigible_dynamic_power_v1/reports/tampered_receipt.json; then
+            echo 'tampered receipt was incorrectly accepted'
+            exit 1
+          fi
+
+      - name: Build public receipt and evidence hashes
+        env:
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root = Path('corrigible_dynamic_power_v1')
+          reports = root / 'reports'
+          def sha(path):
+              return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+          local = json.loads((reports / 'benchmark_receipt.json').read_text())
+          body = {
+              'schema': 'corrigible-dynamic-power/public-receipt/1',
+              'status': 'PASS',
+              'private_repository': 'cristh99/my_first_repository',
+              'private_head': '6d80296e2e679b8b28fd24d37e793f8d71af3787',
+              'private_pull_request': 100,
+              'private_issue': 99,
+              'public_repository': 'cristh99/notebooks',
+              'public_head': os.environ['PUBLIC_HEAD_SHA'],
+              'event_sha': os.environ['EVENT_SHA'],
+              'scenario_count': local['scenario_count'],
+              'passed': local['passed'],
+              'exact_conformance': 1.0,
+              'source_bundle_sha256': sha(root / 'source_bundle.tar.gz.b64'),
+              'source_binding_sha256': sha(root / 'SOURCE_BINDING.json'),
+              'dynamic_power_sha256': sha(root / 'dynamic_power.py'),
+              'benchmark_sha256': sha(root / 'benchmark.py'),
+              'tests_sha256': sha(root / 'test_dynamic_power.py'),
+              'preregistration_sha256': sha(root / 'preregistration.json'),
+              'readme_sha256': sha(root / 'README.md'),
+              'node_verifier_sha256': sha(root / 'verify_receipt.js'),
+              'manifest_sha256': sha(reports / 'scenario_manifest.json'),
+              'summary_sha256': sha(reports / 'benchmark_summary.json'),
+              'matrix_sha256': sha(reports / 'benchmark_matrix.csv'),
+              'local_receipt_sha256': sha(reports / 'benchmark_receipt.json')
+          }
+          canonical = json.dumps(body, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
+          receipt = {**body, 'sha256': hashlib.sha256(canonical).hexdigest()}
+          path = reports / 'corrigible-dynamic-power-public-receipt-v1.json'
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          (reports / 'corrigible-dynamic-power-public-receipt-v1.sha256').write_text(
+              f"{hashlib.sha256(path.read_bytes()).hexdigest()}  corrigible-dynamic-power-public-receipt-v1.json\n"
+          )
+          print(path.read_text())
+          PY
+          cd corrigible_dynamic_power_v1
+          sha256sum \
+            SOURCE_BINDING.json source_bundle.tar.gz.b64 dynamic_power.py benchmark.py \
+            test_dynamic_power.py preregistration.json README.md verify_receipt.js \
+            reports/scenario_manifest.json reports/benchmark_summary.json \
+            reports/benchmark_matrix.csv reports/benchmark_receipt.json \
+            reports/corrigible-dynamic-power-public-receipt-v1.json \
+            > reports/SHA256SUMS-PUBLIC
+          cat reports/SHA256SUMS-PUBLIC
+
+      - name: Upload public evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: corrigible-dynamic-power-v1-public
+          path: |
+            corrigible_dynamic_power_v1/
+          if-no-files-found: error
+          retention-days: 90
