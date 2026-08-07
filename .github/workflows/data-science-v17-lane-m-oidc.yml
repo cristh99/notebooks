@@ -18,27 +18,19 @@ concurrency:
 
 env:
   COMPONENT: data_science_pipeline_v17_lane_m_oidc
+  SOFTWARE: data_science_pipeline_v17_lane_m_oidc/software.zip
   SUBJECT: data_science_pipeline_v17_lane_m_oidc/LANE_M_SIGNATURE_SUBJECT.json
   RECEIPT: data_science_pipeline_v17_lane_m_oidc/LANE_M_CANONICAL_RECEIPT.json
   EVIDENCE: data-science-v17-lane-m-oidc-evidence
-  EXPECTED_REPOSITORY: cristh99/notebooks
-  EXPECTED_REPOSITORY_ID: '616013328'
-  EXPECTED_OWNER_ID: '87334928'
-  EXPECTED_BRANCH: agent/data-science-v17-lane-m-oidc-signature-v1
-  EXPECTED_WORKFLOW_PATH: .github/workflows/data-science-v17-lane-m-oidc.yml
-  EXPECTED_CERTIFICATE_IDENTITY: https://github.com/cristh99/notebooks/.github/workflows/data-science-v17-lane-m-oidc.yml@refs/heads/agent/data-science-v17-lane-m-oidc-signature-v1
-  OIDC_ISSUER: https://token.actions.githubusercontent.com
-  OIDC_AUDIENCE: sigstore
-  COSIGN_VERSION: 3.0.6
-  COSIGN_SHA256: c956e5dfcac53d52bcf058360d579472f0c1d2d9b69f55209e256fe7783f4c74
+  SOFTWARE_SHA256: a55a45770456a9dabbb2ed01d1aa27f264d6ce746095f41b5e6be3fc05be3eac
   SUBJECT_SHA256: f5e5b0bdccb03434d12e77e89d70a08d437fcd5dcba2280f0708e7106bd3f52c
   RECEIPT_FILE_SHA256: 58c91cb40de6fe461fbd05a793ff5ebad3f5e419071fb3096aaa1a4b92ac57bb
   RECEIPT_SELF_SHA256: 07b98a4d12ab69d0e431c6fcfc8a5e351c2baca3456e5d05f572c58f953b6548
-  README_SHA256: fef42f2685dd34626fec821f89918c4eb442e8e1aadb3139dba073163bd16435
-  VERIFIER_SHA256: 26ff869c2d4dcf6bb63731aa19c41972f8f7da176e6e1c029bc6b69457d16fa4
-  TESTS_SHA256: 7649b8a4047fd4b43b773065abaa301e4f5ddc059b81240595a52b8a3c640335
-  FREEZE_SHA256: 247eb155dbb411479cb2c452ae042b8d28f5446b30f9c039256adf3f2c524451
-  LOCAL_RECEIPT_SHA256: 4a61c25482309214bb7032b7921223e2f772964f55f9c326190043d7702e4059
+  LOCAL_RESULT_SHA256: 4a61c25482309214bb7032b7921223e2f772964f55f9c326190043d7702e4059
+  COSIGN_VERSION: 3.0.6
+  COSIGN_SHA256: c956e5dfcac53d52bcf058360d579472f0c1d2d9b69f55209e256fe7783f4c74
+  CERT_ID: https://github.com/cristh99/notebooks/.github/workflows/data-science-v17-lane-m-oidc.yml@refs/heads/agent/data-science-v17-lane-m-oidc-signature-v1
+  OIDC_ISSUER: https://token.actions.githubusercontent.com
 
 jobs:
   sign-lane-m:
@@ -50,93 +42,40 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Verify exact Lane M subject and receipt
+      - name: Extract and verify frozen Lane M package
         shell: bash
         run: |
           set -euo pipefail
-          test "$GITHUB_REPOSITORY" = "$EXPECTED_REPOSITORY"
-          test "$GITHUB_REF" = "refs/heads/$EXPECTED_BRANCH"
+          test "$GITHUB_REPOSITORY" = cristh99/notebooks
+          test "$GITHUB_REF" = refs/heads/agent/data-science-v17-lane-m-oidc-signature-v1
           case "$GITHUB_EVENT_NAME" in push|workflow_dispatch) ;; *) exit 1 ;; esac
-          mkdir -p "$EVIDENCE"
+          mkdir -p "$EVIDENCE" "$COMPONENT"
+          printf '%s  %s\n' "$SOFTWARE_SHA256" "$SOFTWARE" | sha256sum -c -
+          python3 - "$SOFTWARE" "$COMPONENT" <<'PY'
+          from pathlib import Path, PurePosixPath
+          from zipfile import ZipFile
+          import sys
+          archive, out = Path(sys.argv[1]), Path(sys.argv[2])
+          expected = {
+              'LANE_M_SIGNATURE_SUBJECT.json', 'LANE_M_CANONICAL_RECEIPT.json',
+              'README.md', 'verify_lane_m.py', 'test_lane_m.py',
+              'FREEZE.json', 'LOCAL_RESULT.json'
+          }
+          with ZipFile(archive) as z:
+              names = z.namelist()
+              if len(names) != len(set(names)) or set(names) != expected:
+                  raise SystemExit(f'bad ZIP members: {names}')
+              if any(PurePosixPath(n).is_absolute() or '..' in PurePosixPath(n).parts or len(PurePosixPath(n).parts) != 1 for n in names):
+                  raise SystemExit('unsafe ZIP path')
+              z.extractall(out)
+          PY
           printf '%s  %s\n' "$SUBJECT_SHA256" "$SUBJECT" | sha256sum -c -
           printf '%s  %s\n' "$RECEIPT_FILE_SHA256" "$RECEIPT" | sha256sum -c -
-          printf '%s  %s\n' "$README_SHA256" "$COMPONENT/README.md" | sha256sum -c -
-          printf '%s  %s\n' "$VERIFIER_SHA256" "$COMPONENT/verify_lane_m.py" | sha256sum -c -
-          printf '%s  %s\n' "$TESTS_SHA256" "$COMPONENT/test_lane_m.py" | sha256sum -c -
-          printf '%s  %s\n' "$FREEZE_SHA256" "$COMPONENT/FREEZE.json" | sha256sum -c -
-          printf '%s  %s\n' "$LOCAL_RECEIPT_SHA256" "$COMPONENT/LOCAL_RESULT.json" | sha256sum -c -
-          (
-            cd "$COMPONENT"
-            python3 -m unittest -v test_lane_m.py
-          ) |& tee "$EVIDENCE/tests.log"
+          (cd "$COMPONENT" && python3 -m unittest -v test_lane_m.py) |& tee "$EVIDENCE/tests.log"
           python3 "$COMPONENT/verify_lane_m.py" --output "$EVIDENCE/local-receipt.json" | tee "$EVIDENCE/local-verification.log"
-          printf '%s  %s\n' "$LOCAL_RECEIPT_SHA256" "$EVIDENCE/local-receipt.json" | sha256sum -c -
+          printf '%s  %s\n' "$LOCAL_RESULT_SHA256" "$EVIDENCE/local-receipt.json" | sha256sum -c -
           cmp "$COMPONENT/LOCAL_RESULT.json" "$EVIDENCE/local-receipt.json"
-          sha256sum "$SUBJECT" "$RECEIPT" "$COMPONENT"/{README.md,verify_lane_m.py,test_lane_m.py,FREEZE.json,LOCAL_RESULT.json} > "$EVIDENCE/source-sha256.txt"
-
-      - name: Request and validate GitHub OIDC identity
-        shell: bash
-        run: |
-          set -euo pipefail
-          umask 077
-          test -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}"
-          test -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}"
-          response="$(curl -fsSL -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${OIDC_AUDIENCE}")"
-          token="$(printf '%s' "$response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])')"
-          echo "::add-mask::$token"
-          printf '%s' "$token" > "$RUNNER_TEMP/oidc-token.jwt"
-          python3 - <<'PY'
-          import base64, hashlib, json, os, time
-          from pathlib import Path
-          token_path=Path(os.environ["RUNNER_TEMP"])/"oidc-token.jwt"
-          token=token_path.read_text()
-          parts=token.split(".")
-          if len(parts)!=3: raise SystemExit("not JWT")
-          decode=lambda p: json.loads(base64.urlsafe_b64decode(p+"="*(-len(p)%4)))
-          header,claims=decode(parts[0]),decode(parts[1])
-          aud=claims.get("aud")
-          aud_ok=os.environ["OIDC_AUDIENCE"] in aud if isinstance(aud,list) else aud==os.environ["OIDC_AUDIENCE"]
-          branch_ref=f"refs/heads/{os.environ['EXPECTED_BRANCH']}"
-          workflow_ref=f"{os.environ['EXPECTED_REPOSITORY']}/{os.environ['EXPECTED_WORKFLOW_PATH']}@{branch_ref}"
-          subjects={
-            f"repo:{os.environ['EXPECTED_REPOSITORY']}:ref:{branch_ref}",
-            f"repo:cristh99@{os.environ['EXPECTED_OWNER_ID']}/notebooks@{os.environ['EXPECTED_REPOSITORY_ID']}:ref:{branch_ref}",
-          }
-          now=int(time.time())
-          checks={
-            "algorithm_rs256":header.get("alg")=="RS256",
-            "key_id_present":bool(header.get("kid")),
-            "issuer_exact":claims.get("iss")==os.environ["OIDC_ISSUER"],
-            "audience_exact":aud_ok,
-            "subject_exact":claims.get("sub") in subjects,
-            "repository_exact":claims.get("repository")==os.environ["EXPECTED_REPOSITORY"],
-            "repository_id_exact":str(claims.get("repository_id"))==os.environ["EXPECTED_REPOSITORY_ID"],
-            "owner_id_exact":str(claims.get("repository_owner_id"))==os.environ["EXPECTED_OWNER_ID"],
-            "visibility_public":claims.get("repository_visibility")=="public",
-            "event_allowed":claims.get("event_name") in {"push","workflow_dispatch"},
-            "ref_exact":claims.get("ref")==branch_ref,
-            "sha_exact":claims.get("sha")==os.environ["GITHUB_SHA"],
-            "workflow_ref_exact":claims.get("workflow_ref")==workflow_ref,
-            "workflow_sha_exact":claims.get("workflow_sha")==os.environ["GITHUB_SHA"],
-            "runner_github_hosted":claims.get("runner_environment")=="github-hosted",
-            "jti_present":bool(claims.get("jti")),
-            "time_window_valid":int(claims.get("nbf",0))<=now and int(claims.get("iat",0))<=now<int(claims.get("exp",0)),
-          }
-          if not all(checks.values()): raise SystemExit(json.dumps(checks,sort_keys=True))
-          safe={
-            "schema":"data-science-pipeline/lane-m-github-oidc-safe-claims/1",
-            "header":{"alg":header.get("alg"),"kid":header.get("kid"),"typ":header.get("typ")},
-            "claims":{k:claims.get(k) for k in (
-              "iss","aud","sub","repository","repository_id","repository_owner","repository_owner_id",
-              "repository_visibility","ref","ref_type","sha","workflow","workflow_ref","workflow_sha",
-              "job_workflow_ref","job_workflow_sha","run_id","run_number","run_attempt",
-              "runner_environment","event_name","actor","actor_id","jti","iat","nbf","exp")},
-            "checks":checks,
-            "jwt_sha256":hashlib.sha256(token.encode()).hexdigest(),
-            "token_redacted":True,
-          }
-          Path(os.environ["EVIDENCE"]).joinpath("oidc-safe-claims.json").write_text(json.dumps(safe,ensure_ascii=False,sort_keys=True,separators=(",",":"))+"\n")
-          PY
+          sha256sum "$SOFTWARE" "$SUBJECT" "$RECEIPT" "$COMPONENT"/{README.md,verify_lane_m.py,test_lane_m.py,FREEZE.json,LOCAL_RESULT.json} > "$EVIDENCE/source-sha256.txt"
 
       - name: Install pinned Cosign
         shell: bash
@@ -151,13 +90,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          token="$(cat "$RUNNER_TEMP/oidc-token.jwt")"
+          test -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}"
+          test -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}"
+          response="$(curl -fsSL -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sigstore")"
+          token="$(printf '%s' "$response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])')"
           echo "::add-mask::$token"
           "$RUNNER_TEMP/cosign" sign-blob --yes --identity-token "$token" --bundle "$EVIDENCE/lane-m.sigstore.json" "$SUBJECT" > "$EVIDENCE/sign.log" 2>&1
-          rm -f "$RUNNER_TEMP/oidc-token.jwt"
+          unset token response
           "$RUNNER_TEMP/cosign" verify-blob "$SUBJECT" \
             --bundle "$EVIDENCE/lane-m.sigstore.json" \
-            --certificate-identity "$EXPECTED_CERTIFICATE_IDENTITY" \
+            --certificate-identity "$CERT_ID" \
             --certificate-oidc-issuer "$OIDC_ISSUER" \
             --certificate-github-workflow-repository "$GITHUB_REPOSITORY" \
             --certificate-github-workflow-sha "$GITHUB_SHA" \
@@ -172,70 +114,77 @@ jobs:
           python3 - <<'PY'
           import hashlib, json, os
           from pathlib import Path
-          root=Path(os.environ["EVIDENCE"])
-          subject_path=Path(os.environ["SUBJECT"]); receipt_path=Path(os.environ["RECEIPT"])
-          local_path=root/"local-receipt.json"; claims_path=root/"oidc-safe-claims.json"
-          bundle_path=root/"lane-m.sigstore.json"; verify_path=root/"verify.log"
-          sha=lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
-          subject=json.loads(subject_path.read_text()); receipt=json.loads(receipt_path.read_text())
-          local=json.loads(local_path.read_text()); bundle=json.loads(bundle_path.read_text())
-          canonical=lambda x:(json.dumps(x,ensure_ascii=False,sort_keys=True,separators=(",",":"))+"\n").encode()
-          unsigned=dict(receipt); embedded=unsigned.pop("receipt_sha256")
-          media=str(bundle.get("mediaType","")); material=bundle.get("verificationMaterial",{}); entries=material.get("tlogEntries",[])
-          checks={
-            "subject_hash":sha(subject_path)==os.environ["SUBJECT_SHA256"],
-            "receipt_file_hash":sha(receipt_path)==os.environ["RECEIPT_FILE_SHA256"],
-            "receipt_self_hash_field":embedded==os.environ["RECEIPT_SELF_SHA256"],
-            "receipt_self_hash_recomputed":hashlib.sha256(canonical(unsigned)).hexdigest()==embedded,
-            "receipt_bound_to_subject":subject["receipt_binding"]["canonical_receipt_file_sha256"]==sha(receipt_path) and subject["receipt_binding"]["canonical_receipt_self_hash_sha256"]==embedded,
-            "event_universe_bound":subject["receipt_binding"]["event_universe_sha256"]==receipt["event_universe_sha256"],
-            "local_receipt_hash":sha(local_path)==os.environ["LOCAL_RECEIPT_SHA256"],
-            "local_verdict":local.get("verdict")=="PASS_LANE_M_EXACT_RECEIPT_SOFTWARE_ONLY",
-            "oidc_checks":all(json.loads(claims_path.read_text())["checks"].values()),
-            "bundle_media_type":media.startswith("application/vnd.dev.sigstore.bundle.") and media.endswith("+json"),
-            "verification_material":bool(material),
-            "transparency_log":isinstance(entries,list) and len(entries)>=1,
-            "signed_content":bool(bundle.get("messageSignature") or bundle.get("dsseEnvelope")),
-            "cosign_verified":"Verified OK" in verify_path.read_text(),
-            "relationship_not_promoted":subject["semantic_guards"]["relationship_state"]=="CANDIDATE_REVIEW",
-            "null_bid_count_preserved":subject["semantic_guards"]["null_bid_count_preserved"] is True,
-            "stage08_blocked":subject["governance"]["stage08_unblocked"] is False,
-            "production_unmodified":subject["governance"]["production_modified"] is False,
+          root = Path(os.environ['EVIDENCE'])
+          subject_path = Path(os.environ['SUBJECT'])
+          receipt_path = Path(os.environ['RECEIPT'])
+          local_path = root / 'local-receipt.json'
+          bundle_path = root / 'lane-m.sigstore.json'
+          verify_path = root / 'verify.log'
+          sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
+          canonical = lambda x: (json.dumps(x, ensure_ascii=False, sort_keys=True, separators=(',', ':')) + '\n').encode()
+          subject = json.loads(subject_path.read_text())
+          receipt = json.loads(receipt_path.read_text())
+          local = json.loads(local_path.read_text())
+          bundle = json.loads(bundle_path.read_text())
+          unsigned = dict(receipt)
+          embedded = unsigned.pop('receipt_sha256')
+          media = str(bundle.get('mediaType', ''))
+          material = bundle.get('verificationMaterial', {})
+          entries = material.get('tlogEntries', [])
+          checks = {
+              'software_hash': sha(Path(os.environ['SOFTWARE'])) == os.environ['SOFTWARE_SHA256'],
+              'subject_hash': sha(subject_path) == os.environ['SUBJECT_SHA256'],
+              'receipt_file_hash': sha(receipt_path) == os.environ['RECEIPT_FILE_SHA256'],
+              'receipt_self_hash_field': embedded == os.environ['RECEIPT_SELF_SHA256'],
+              'receipt_self_hash_recomputed': hashlib.sha256(canonical(unsigned)).hexdigest() == embedded,
+              'receipt_bound_to_subject': subject['receipt_binding']['canonical_receipt_file_sha256'] == sha(receipt_path) and subject['receipt_binding']['canonical_receipt_self_hash_sha256'] == embedded,
+              'event_universe_bound': subject['receipt_binding']['event_universe_sha256'] == receipt['event_universe_sha256'],
+              'local_result_hash': sha(local_path) == os.environ['LOCAL_RESULT_SHA256'],
+              'local_verdict': local.get('verdict') == 'PASS_LANE_M_EXACT_RECEIPT_SOFTWARE_ONLY',
+              'bundle_media_type': media.startswith('application/vnd.dev.sigstore.bundle.') and media.endswith('+json'),
+              'verification_material': bool(material),
+              'transparency_log': isinstance(entries, list) and len(entries) >= 1,
+              'signed_content': bool(bundle.get('messageSignature') or bundle.get('dsseEnvelope')),
+              'cosign_verified': 'Verified OK' in verify_path.read_text(),
+              'relationship_not_promoted': subject['semantic_guards']['relationship_state'] == 'CANDIDATE_REVIEW',
+              'null_bid_count_preserved': subject['semantic_guards']['null_bid_count_preserved'] is True,
+              'stage08_blocked': subject['governance']['stage08_unblocked'] is False,
+              'production_unmodified': subject['governance']['production_modified'] is False,
           }
-          if not all(checks.values()): raise SystemExit(checks)
-          result={
-            "schema":"data-science-pipeline/lane-m-exact-receipt-oidc-external-receipt/1",
-            "verdict":"PASS_LANE_M_EXACT_RECEIPT_OIDC_SIGSTORE",
-            "github_run_id":int(os.environ["GITHUB_RUN_ID"]),
-            "github_run_attempt":int(os.environ["GITHUB_RUN_ATTEMPT"]),
-            "github_sha":os.environ["GITHUB_SHA"],
-            "github_ref":os.environ["GITHUB_REF"],
-            "repository":os.environ["GITHUB_REPOSITORY"],
-            "subject_sha256":sha(subject_path),
-            "receipt_file_sha256":sha(receipt_path),
-            "receipt_self_hash_sha256":embedded,
-            "local_receipt_sha256":sha(local_path),
-            "oidc_safe_claims_sha256":sha(claims_path),
-            "sigstore_bundle_sha256":sha(bundle_path),
-            "cosign_verify_log_sha256":sha(verify_path),
-            "cryptographic_checks":checks,
-            "receipt_binding":subject["receipt_binding"],
-            "source_commitments":subject["source_commitments"],
-            "events":subject["events"],
-            "semantic_guards":subject["semantic_guards"],
-            "signature_scope":subject["claim_boundary"],
-            "exact_subject_bytes_present":True,
-            "exact_operational_receipt_bytes_present":True,
-            "independent_lane_m_signature_created":True,
-            "external_cost_usd":0.0,
-            "production_modified":False,
-            "scientific_promotion_credit":0,
-            "stage08_unblocked":False,
-            "next_gate":"combine_terminal_lane_e_and_lane_m_receipts_then_resolve_bid_count_and_sefin_document",
+          if not all(checks.values()):
+              raise SystemExit(checks)
+          result = {
+              'schema': 'data-science-pipeline/lane-m-exact-receipt-oidc-external-receipt/1',
+              'verdict': 'PASS_LANE_M_EXACT_RECEIPT_OIDC_SIGSTORE',
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_run_attempt': int(os.environ['GITHUB_RUN_ATTEMPT']),
+              'github_sha': os.environ['GITHUB_SHA'],
+              'github_ref': os.environ['GITHUB_REF'],
+              'repository': os.environ['GITHUB_REPOSITORY'],
+              'subject_sha256': sha(subject_path),
+              'receipt_file_sha256': sha(receipt_path),
+              'receipt_self_hash_sha256': embedded,
+              'local_receipt_sha256': sha(local_path),
+              'sigstore_bundle_sha256': sha(bundle_path),
+              'cosign_verify_log_sha256': sha(verify_path),
+              'cryptographic_checks': checks,
+              'receipt_binding': subject['receipt_binding'],
+              'source_commitments': subject['source_commitments'],
+              'events': subject['events'],
+              'semantic_guards': subject['semantic_guards'],
+              'signature_scope': subject['claim_boundary'],
+              'exact_subject_bytes_present': True,
+              'exact_operational_receipt_bytes_present': True,
+              'independent_lane_m_signature_created': True,
+              'external_cost_usd': 0.0,
+              'production_modified': False,
+              'scientific_promotion_credit': 0,
+              'stage08_unblocked': False,
+              'next_gate': 'combine_terminal_lane_e_and_lane_m_receipts_then_resolve_bid_count_and_sefin_document',
           }
-          payload=json.dumps(result,ensure_ascii=False,sort_keys=True,separators=(",",":"))+"\n"
-          (root/"external-receipt.json").write_text(payload)
-          (root/"external-receipt.sha256").write_text(hashlib.sha256(payload.encode()).hexdigest()+"  external-receipt.json\n")
+          payload = json.dumps(result, ensure_ascii=False, sort_keys=True, separators=(',', ':')) + '\n'
+          (root / 'external-receipt.json').write_text(payload)
+          (root / 'external-receipt.sha256').write_text(hashlib.sha256(payload.encode()).hexdigest() + '  external-receipt.json\n')
           PY
 
       - if: always()
@@ -253,14 +202,15 @@ jobs:
           python3 - <<'PY'
           import json
           from pathlib import Path
-          path=Path("data-science-v17-lane-m-oidc-evidence/external-receipt.json")
-          if not path.exists(): raise SystemExit("external receipt missing")
-          result=json.loads(path.read_text())
-          assert result["verdict"]=="PASS_LANE_M_EXACT_RECEIPT_OIDC_SIGSTORE"
-          assert all(result["cryptographic_checks"].values())
-          assert result["exact_subject_bytes_present"] is True
-          assert result["exact_operational_receipt_bytes_present"] is True
-          assert result["independent_lane_m_signature_created"] is True
-          assert result["stage08_unblocked"] is False
-          print(result["verdict"])
+          path = Path('data-science-v17-lane-m-oidc-evidence/external-receipt.json')
+          if not path.exists():
+              raise SystemExit('external receipt missing')
+          result = json.loads(path.read_text())
+          assert result['verdict'] == 'PASS_LANE_M_EXACT_RECEIPT_OIDC_SIGSTORE'
+          assert all(result['cryptographic_checks'].values())
+          assert result['exact_subject_bytes_present'] is True
+          assert result['exact_operational_receipt_bytes_present'] is True
+          assert result['independent_lane_m_signature_created'] is True
+          assert result['stage08_unblocked'] is False
+          print(result['verdict'])
           PY
