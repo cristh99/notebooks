@@ -45,6 +45,7 @@ from ocr_real_risk_v1.openvino_full_gate_contract_v7 import (
 from ocr_real_risk_v1.openvino_full_gate_execution_v7 import (
     MANIFEST_ARTIFACT_ID,
     MANIFEST_ARTIFACT_SHA256,
+    claim_binding,
 )
 
 
@@ -64,7 +65,7 @@ def authorization_payload() -> dict:
         "run_once": True,
         "retuning_authorized": False,
         "post_outcome_retry_authorized": False,
-        "execution_id": "openvino-v7-synthetic-test-execution",
+        "execution_id": "openvino-v7-unit-test-execution",
         "authorization_nonce_sha256": h("authorization-nonce"),
         "manifest_artifact_id": MANIFEST_ARTIFACT_ID,
         "manifest_artifact_sha256": MANIFEST_ARTIFACT_SHA256,
@@ -100,29 +101,21 @@ def claim_binding_fixture(authorization: dict) -> tuple[dict, dict]:
         authorization,
         github_run_id=123456,
         github_sha="1" * 40,
-        ledger_claim_commit_sha="2" * 40,
+        ledger_parent_commit_sha="2" * 40,
+        ledger_blob_sha_before="3" * 40,
     )
-    claim = execution_claim_receipt(claimed, authorization)
-    binding = {
-        "execution_id": authorization["execution_id"],
-        "authorization_nonce_sha256": authorization[
-            "authorization_nonce_sha256"
-        ],
-        "authorization_stable_payload_sha256": authorization[
-            "stable_payload_sha256"
-        ],
-        "authorization_file_sha256": h("authorization-file"),
-        "execution_claim_stable_payload_sha256": claim[
-            "stable_payload_sha256"
-        ],
-        "execution_claim_file_sha256": h("claim-file"),
-        "claimed_ledger_stable_payload_sha256": claim[
-            "claimed_ledger_stable_payload_sha256"
-        ],
-        "ledger_claim_commit_sha": claim["ledger_claim_commit_sha"],
-        "github_run_id": claim["github_run_id"],
-        "github_sha": claim["github_sha"],
-    }
+    claim = execution_claim_receipt(
+        claimed,
+        authorization,
+        ledger_claim_commit_sha="4" * 40,
+        ledger_claim_blob_sha="5" * 40,
+    )
+    binding = claim_binding(
+        authorization,
+        claim,
+        authorization_file_sha256=h("authorization-file"),
+        claim_file_sha256=h("claim-file"),
+    )
     return claim, binding
 
 
@@ -217,7 +210,8 @@ class AuthorizationTests(unittest.TestCase):
             authorization,
             github_run_id=123,
             github_sha="a" * 40,
-            ledger_claim_commit_sha="b" * 40,
+            ledger_parent_commit_sha="b" * 40,
+            ledger_blob_sha_before="c" * 40,
         )
         self.assertEqual(claimed["claim_count"], 1)
         with self.assertRaises(RuntimeError):
@@ -226,7 +220,8 @@ class AuthorizationTests(unittest.TestCase):
                 authorization,
                 github_run_id=124,
                 github_sha="c" * 40,
-                ledger_claim_commit_sha="d" * 40,
+                ledger_parent_commit_sha="d" * 40,
+                ledger_blob_sha_before="e" * 40,
             )
 
     def test_execution_claim_is_hash_bound_to_authorization_and_ledger(self):
@@ -237,9 +232,15 @@ class AuthorizationTests(unittest.TestCase):
             authorization,
             github_run_id=123,
             github_sha="a" * 40,
-            ledger_claim_commit_sha="b" * 40,
+            ledger_parent_commit_sha="b" * 40,
+            ledger_blob_sha_before="c" * 40,
         )
-        claim = execution_claim_receipt(claimed, authorization)
+        claim = execution_claim_receipt(
+            claimed,
+            authorization,
+            ledger_claim_commit_sha="d" * 40,
+            ledger_claim_blob_sha="e" * 40,
+        )
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "claim.json"
             digest = write_json_file(path, claim)

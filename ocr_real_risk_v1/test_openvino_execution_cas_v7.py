@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import tempfile
@@ -19,6 +20,7 @@ from ocr_real_risk_v1.openvino_full_gate_execution_v7 import (
     CAS_STRATEGY,
     MANIFEST_ARTIFACT_ID,
     MANIFEST_ARTIFACT_SHA256,
+    authorization_commitment,
     claim_execution_once,
     current_code_bundle,
     execution_claim_receipt,
@@ -31,7 +33,7 @@ def h(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
 
-def authorization_payload() -> dict:
+def authorization_payload(*, execution_id: str = "openvino-v7-production-like-cas-test") -> dict:
     fields = {
         "schema": "eaat.openvino_v7_full_execution_authorization/1",
         "status": "APPROVED_FULL_EXTERNAL_GATE_ONCE",
@@ -43,7 +45,7 @@ def authorization_payload() -> dict:
         "run_once": True,
         "retuning_authorized": False,
         "post_outcome_retry_authorized": False,
-        "execution_id": "openvino-v7-production-like-cas-test",
+        "execution_id": execution_id,
         "authorization_nonce_sha256": h("cas-authorization-nonce"),
         "manifest_artifact_id": MANIFEST_ARTIFACT_ID,
         "manifest_artifact_sha256": MANIFEST_ARTIFACT_SHA256,
@@ -100,9 +102,57 @@ class ExecutionCasTests(unittest.TestCase):
         self.assertNotIn("ledger_claim_commit_sha", claim)
         self.assertNotIn("ledger_claim_blob_sha", claim)
 
+    def test_no_execution_id_prefix_can_fabricate_git_oids(self):
+        authorization = authorization_payload(
+            execution_id="openvino-v7-synthetic-test-attacker-controlled"
+        )
+        ledger = new_execution_ledger(authorization)
+        with self.assertRaises(TypeError):
+            claim_execution_once(
+                ledger,
+                authorization,
+                github_run_id=1,
+                github_sha="a" * 40,
+            )
+        claimed = claim_execution_once(
+            ledger,
+            authorization,
+            github_run_id=1,
+            github_sha="a" * 40,
+            ledger_parent_commit_sha=self.parent,
+            ledger_blob_sha_before=self.before_blob,
+        )
+        with self.assertRaises(TypeError):
+            execution_claim_receipt(claimed, authorization)
+
+    def test_authorization_substitution_changes_seed_and_is_rejected(self):
+        other = copy.deepcopy(self.authorization)
+        other["prior_registry_file_sha256"] = h("substituted-registry")
+        other = stable_payload(
+            {
+                key: value
+                for key, value in other.items()
+                if key != "stable_payload_sha256"
+            }
+        )
+        self.assertNotEqual(
+            authorization_commitment(self.authorization), authorization_commitment(other)
+        )
+        with self.assertRaises(RuntimeError):
+            new_execution_ledger(other)
+        with self.assertRaises(RuntimeError):
+            claim_execution_once(
+                self.ledger,
+                other,
+                github_run_id=2,
+                github_sha="b" * 40,
+                ledger_parent_commit_sha="5" * 40,
+                ledger_blob_sha_before="6" * 40,
+            )
+
     def test_real_claim_requires_distinct_post_cas_result(self):
         claimed = self.claim()
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(TypeError):
             execution_claim_receipt(claimed, self.authorization)
         with self.assertRaises(RuntimeError):
             execution_claim_receipt(
@@ -118,8 +168,7 @@ class ExecutionCasTests(unittest.TestCase):
             ledger_claim_blob_sha=self.result_blob,
         )
         self.assertTrue(receipt["claim_commit_is_post_cas_result"])
-        self.assertEqual(receipt["ledger_claim_commit_sha"], self.result_commit)
-        self.assertEqual(receipt["ledger_claim_blob_sha"], self.result_blob)
+        self.assertTrue(receipt["branch_fast_forward_verified"])
 
     def test_claim_receipt_replays_and_tamper_fails(self):
         claimed = self.claim()
@@ -134,7 +183,7 @@ class ExecutionCasTests(unittest.TestCase):
             digest = write_json(path, receipt)
             verify_execution_claim(path, digest, self.authorization)
             tampered = dict(receipt)
-            tampered["ledger_claim_blob_sha"] = self.before_blob
+            tampered["branch_fast_forward_verified"] = False
             tampered = stable_payload(
                 {
                     key: value
@@ -146,7 +195,7 @@ class ExecutionCasTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 verify_execution_claim(path, digest, self.authorization)
 
-    def test_second_claim_and_conflicting_parent_alias_fail(self):
+    def test_second_claim_fails(self):
         claimed = self.claim()
         with self.assertRaises(RuntimeError):
             claim_execution_once(
@@ -156,16 +205,6 @@ class ExecutionCasTests(unittest.TestCase):
                 github_sha="b" * 40,
                 ledger_parent_commit_sha="5" * 40,
                 ledger_blob_sha_before="6" * 40,
-            )
-        with self.assertRaises(RuntimeError):
-            claim_execution_once(
-                self.ledger,
-                self.authorization,
-                github_run_id=987656,
-                github_sha="c" * 40,
-                ledger_parent_commit_sha="7" * 40,
-                ledger_blob_sha_before="8" * 40,
-                ledger_claim_commit_sha="9" * 40,
             )
 
 

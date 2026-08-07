@@ -35,6 +35,12 @@ from .openvino_full_gate_contract_v7 import (
     verify_stable_payload,
     write_hash_manifest,
 )
+from .openvino_prior_registry_v7 import (
+    EXPECTED_SOURCE_IDS as EXPECTED_PRIOR_SOURCE_IDS,
+    EXPECTED_TOTAL_ROWS as EXPECTED_PRIOR_ROWS,
+    REGISTRY_STATUS as PRIOR_REGISTRY_STATUS,
+    SOURCE_SPECS as PRIOR_SOURCE_SPECS,
+)
 
 
 class _DisjointSet:
@@ -278,16 +284,62 @@ def build_physical_registry(
 
 
 def _load_prior_registry(path: Path, expected_file_sha256: str) -> dict[str, Any]:
+    """Load only a complete, full-population, zero-outcome prior registry."""
     if not _is_sha256(expected_file_sha256) or sha256_file(path) != expected_file_sha256:
         raise RuntimeError("prior-corpus registry file SHA-256 mismatch")
     payload = _read_json(path)
+    encoded = payload.get("encoded_sha256")
+    pixels = payload.get("pixel_sha256")
+    source_ids = payload.get("source_ids")
+    receipts = payload.get("source_receipts")
     if (
         payload.get("schema") != PRIOR_REGISTRY_SCHEMA
+        or payload.get("status") != PRIOR_REGISTRY_STATUS
         or payload.get("complete") is not True
+        or payload.get("scope") != "FULL_PINNED_POPULATION_ALL_IMAGE_ROWS"
         or set(payload.get("corpora") or []) != set(RETIRED_CORPORA)
+        or not isinstance(source_ids, list)
+        or len(source_ids) != len(EXPECTED_PRIOR_SOURCE_IDS)
+        or set(source_ids) != set(EXPECTED_PRIOR_SOURCE_IDS)
+        or payload.get("population_rows") != EXPECTED_PRIOR_ROWS
+        or payload.get("expected_population_rows") != EXPECTED_PRIOR_ROWS
+        or payload.get("image_projection_only") is not True
+        or payload.get("annotation_columns_read") is not False
+        or payload.get("ocr_runs") != 0
+        or payload.get("candidate_inference_runs") != 0
+        or payload.get("openvino_scientific_images_opened") != 0
+        or not isinstance(encoded, list)
+        or not encoded
+        or encoded != sorted(set(encoded))
+        or not all(_is_sha256(value) for value in encoded)
+        or len(encoded) != payload.get("unique_encoded_sha256")
+        or not isinstance(pixels, list)
+        or not pixels
+        or pixels != sorted(set(pixels))
+        or not all(_is_sha256(value) for value in pixels)
+        or len(pixels) != payload.get("unique_pixel_sha256")
+        or not isinstance(receipts, list)
+        or len(receipts) != len(EXPECTED_PRIOR_SOURCE_IDS)
         or not verify_stable_payload(payload)
     ):
         raise RuntimeError("prior-corpus fingerprint registry contract failed")
+    receipt_ids: set[str] = set()
+    for receipt in receipts:
+        if not isinstance(receipt, Mapping):
+            raise RuntimeError("prior-corpus source receipt summary is invalid")
+        source_id = str(receipt.get("source_id") or "")
+        spec = PRIOR_SOURCE_SPECS.get(source_id)
+        if (
+            spec is None
+            or source_id in receipt_ids
+            or receipt.get("rows") != spec["rows"]
+            or not _is_sha256(receipt.get("stable_payload_sha256"))
+            or not _is_sha256(receipt.get("records_sha256"))
+        ):
+            raise RuntimeError("prior-corpus source receipt identity drift")
+        receipt_ids.add(source_id)
+    if receipt_ids != set(EXPECTED_PRIOR_SOURCE_IDS):
+        raise RuntimeError("prior-corpus source receipt set drift")
     return payload
 
 

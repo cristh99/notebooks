@@ -127,6 +127,14 @@ class FrozenSpecTests(unittest.TestCase):
         self.assertEqual(implementation.EXPECTED_TOTAL_ROWS, 38_601)
         self.assertEqual(len(entry.SOURCE_SPECS), 13)
         self.assertEqual(
+            implementation.SOURCE_SPECS['sroie-train']['artifact_sha256'],
+            'ada46e3e9a5ac2d0a29c7f2af20ee493959e4114e299f94cfc00218e8076badd',
+        )
+        self.assertEqual(
+            implementation.SOURCE_SPECS['sroie-test']['artifact_sha256'],
+            '0dc86b73e14029fd45867ed7bbd2b83e3f6d1f22a0791a0a75371ecd3a841f90',
+        )
+        self.assertEqual(
             sum(int(spec["rows"]) for spec in entry.SOURCE_SPECS.values()),
             38_601,
         )
@@ -154,6 +162,9 @@ class FrozenSpecTests(unittest.TestCase):
             "expected_rows": spec["rows"],
         }
         self.assertTrue(entry._dataset_matches(dataset, spec))
+        non_sroie = dict(spec)
+        non_sroie['corpus'] = 'CORD'
+        self.assertFalse(entry._dataset_matches(dataset, non_sroie))
         dataset["parquet_sha256"] = "0" * 64
         self.assertFalse(entry._dataset_matches(dataset, spec))
 

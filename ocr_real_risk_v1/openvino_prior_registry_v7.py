@@ -38,7 +38,7 @@ SOURCE_RECEIPT_SCHEMA = "eaat.openvino_v7_prior_source_fingerprint/1"
 REGISTRY_BUILD_SCHEMA = "eaat.openvino_v7_prior_registry_build/1"
 REGISTRY_STATUS = "PASS_FULL_PRIOR_CORPUS_PHYSICAL_REGISTRY"
 SOURCE_STATUS = "PASS_SOURCE_FULL_POPULATION_PHYSICAL_FINGERPRINTS"
-EXPECTED_TOTAL_ROWS = 38_459
+EXPECTED_TOTAL_ROWS = 38_601
 
 # Exact source and terminal-artifact identities.  Artifact SHA-256 values are
 # ZIP digests as emitted by GitHub Actions.  Source URLs are immutable-revision
@@ -53,7 +53,7 @@ SOURCE_SPECS: dict[str, dict[str, Any]] = {
         "source_sha256": "b18c16b4d8481e5e4537a1700e4616907fe4acd92d6362a7e430b0e866213887",
         "rows": 626,
         "artifact_id": 8_915_849_860,
-        "artifact_sha256": "ef59025d9a2304e0d8c626d1964b585286072f681395c9882ed28c6c8fea3046",
+        "artifact_sha256": "ada46e3e9a5ac2d0a29c7f2af20ee493959e4114e299f94cfc00218e8076badd",
         "artifact_kind": "manifest",
         "anchor_count": 537,
     },
@@ -66,7 +66,7 @@ SOURCE_SPECS: dict[str, dict[str, Any]] = {
         "source_sha256": "04f8f31b45944cc6e6459a7a95c851a721fc93ffec0a5c29ece9ded734a684c2",
         "rows": 361,
         "artifact_id": 8_915_766_909,
-        "artifact_sha256": "e71dbff710cbbb7b519952e83944d16cb7ac04e6e1397307e41a8ac151ef54af",
+        "artifact_sha256": "0dc86b73e14029fd45867ed7bbd2b83e3f6d1f22a0791a0a75371ecd3a841f90",
         "artifact_kind": "manifest",
         "anchor_count": 308,
     },
@@ -278,7 +278,10 @@ def _dataset_matches(dataset: Mapping[str, Any], spec: Mapping[str, Any]) -> boo
     return bool(
         repo == spec["repo"]
         and dataset.get("revision") == spec["revision"]
-        and path == spec["path"]
+        and (
+            path == spec["path"]
+            or (path is None and spec.get("corpus") == "SROIE")
+        )
         and dataset.get("parquet_sha256", dataset.get("source_sha256"))
         == spec["source_sha256"]
         and (rows is None or int(rows) == int(spec["rows"]))
