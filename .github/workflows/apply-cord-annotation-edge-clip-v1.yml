@@ -73,7 +73,7 @@ jobs:
       - name: Commit only tested implementation changes
         run: |
           set -euo pipefail
-          git rm \
+          git rm -f \
             scripts/apply_openvino_review_fixes_v1.py \
             .openvino-review-fixes-trigger-v1
           git config user.name 'github-actions[bot]'
