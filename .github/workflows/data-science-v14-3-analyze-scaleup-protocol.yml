@@ -1,0 +1,133 @@
+name: Data Science v14.3 - preregistered Analyze scale-up protocol
+
+on:
+  push:
+    branches: [agent/data-science-v14-3-analyze-scaleup-protocol-v1]
+    paths:
+      - '.github/workflows/data-science-v14-3-analyze-scaleup-protocol.yml'
+      - 'data_science_pipeline_v14_3_analyze_scaleup_protocol/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: data-science-v14-3-analyze-scaleup-protocol-v1
+  cancel-in-progress: true
+
+env:
+  COMPONENT: data_science_pipeline_v14_3_analyze_scaleup_protocol
+  PROTOCOL: data_science_pipeline_v14_3_analyze_scaleup_protocol/SCALE_UP_PROTOCOL.json
+  EVIDENCE: data-science-v14-3-analyze-scaleup-protocol-evidence
+  EXPECTED_REPOSITORY: cristh99/notebooks
+  EXPECTED_REPOSITORY_ID: '616013328'
+  EXPECTED_OWNER_ID: '87334928'
+  EXPECTED_BRANCH: agent/data-science-v14-3-analyze-scaleup-protocol-v1
+  EXPECTED_WORKFLOW_PATH: .github/workflows/data-science-v14-3-analyze-scaleup-protocol.yml
+  EXPECTED_CERTIFICATE_IDENTITY: https://github.com/cristh99/notebooks/.github/workflows/data-science-v14-3-analyze-scaleup-protocol.yml@refs/heads/agent/data-science-v14-3-analyze-scaleup-protocol-v1
+  OIDC_ISSUER: https://token.actions.githubusercontent.com
+  OIDC_AUDIENCE: sigstore
+  COSIGN_VERSION: 3.0.6
+  COSIGN_SHA256: c956e5dfcac53d52bcf058360d579472f0c1d2d9b69f55209e256fe7783f4c74
+
+jobs:
+  freeze-protocol:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify protocol and 48 adversarial tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "$EXPECTED_REPOSITORY"
+          test "$GITHUB_REF" = "refs/heads/$EXPECTED_BRANCH"
+          case "$GITHUB_EVENT_NAME" in push|workflow_dispatch) ;; *) exit 1 ;; esac
+          mkdir -p "$EVIDENCE" "$RUNNER_TEMP/scaleup"
+          python3 -m compileall -q "$COMPONENT"
+          (cd "$COMPONENT" && python3 -m unittest -v test_cohort_selector.py) |& tee "$EVIDENCE/tests.log"
+          grep -Fq 'Ran 48 tests' "$EVIDENCE/tests.log"
+          grep -Fq 'OK' "$EVIDENCE/tests.log"
+          python3 "$COMPONENT/cohort_selector.py" make-fixture --output "$RUNNER_TEMP/scaleup/candidates.jsonl" --per-group 20
+          python3 "$COMPONENT/cohort_selector.py" freeze --protocol "$PROTOCOL" --input "$RUNNER_TEMP/scaleup/candidates.jsonl" --output "$EVIDENCE/synthetic-cohort-manifest.json" | tee "$EVIDENCE/freeze.log"
+          python3 "$COMPONENT/cohort_selector.py" freeze --protocol "$PROTOCOL" --input "$RUNNER_TEMP/scaleup/candidates.jsonl" --output "$RUNNER_TEMP/scaleup/repeat.json" > "$RUNNER_TEMP/scaleup/repeat.log"
+          cmp "$EVIDENCE/synthetic-cohort-manifest.json" "$RUNNER_TEMP/scaleup/repeat.json"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path('data_science_pipeline_v14_3_analyze_scaleup_protocol/SCALE_UP_PROTOCOL.json').read_text())
+          m=json.loads(Path('data-science-v14-3-analyze-scaleup-protocol-evidence/synthetic-cohort-manifest.json').read_text())
+          assert p['analysis_plan']['hypothesis_id']=='H09-001'
+          assert p['analysis_plan']['minimum_evaluable_cell_n']==5
+          assert p['sampling']['groups']==['DIRECT','OPEN']
+          assert p['sampling']['primary_per_group']==10 and p['sampling']['reserve_per_group']==10
+          assert p['discovery_blinding']['outcome_accessed'] is False
+          assert p['outcome_reveal']['empty_tenderers_is_zero'] is False
+          assert m['terminal_state']=='COHORT_FROZEN_BLIND'
+          assert m['sampling']['selected_event_count']==40
+          assert all(value is False for value in m['blinding'].values())
+          assert m['readiness']['analysis_allowed'] is False
+          assert m['readiness']['stage10_unblocked'] is False
+          PY
+          sha256sum "$COMPONENT"/{README.md,SCALE_UP_PROTOCOL.json,FREEZE.json,cohort_selector.py,test_cohort_selector.py,ci_external.py} "$EVIDENCE/synthetic-cohort-manifest.json" > "$EVIDENCE/source-sha256.txt"
+
+      - name: Validate GitHub OIDC identity
+        shell: bash
+        run: |
+          set -euo pipefail; umask 077
+          response="$(curl -fsSL -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${OIDC_AUDIENCE}")"
+          token="$(printf '%s' "$response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])')"
+          echo "::add-mask::$token"
+          printf '%s' "$token" > "$RUNNER_TEMP/oidc-token.jwt"
+          python3 "$COMPONENT/ci_external.py" validate-oidc --token "$RUNNER_TEMP/oidc-token.jwt" --output "$EVIDENCE/oidc-safe-claims.json"
+
+      - name: Sign and verify exact preregistered protocol
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" -o "$RUNNER_TEMP/cosign"
+          printf '%s  %s\n' "$COSIGN_SHA256" "$RUNNER_TEMP/cosign" | sha256sum -c -
+          chmod 0755 "$RUNNER_TEMP/cosign"
+          "$RUNNER_TEMP/cosign" version > "$EVIDENCE/cosign-version.txt"
+          token="$(cat "$RUNNER_TEMP/oidc-token.jwt")"
+          echo "::add-mask::$token"
+          "$RUNNER_TEMP/cosign" sign-blob --yes --identity-token "$token" --bundle "$EVIDENCE/protocol.sigstore.json" "$PROTOCOL" > "$EVIDENCE/sign.log" 2>&1
+          rm -f "$RUNNER_TEMP/oidc-token.jwt"
+          "$RUNNER_TEMP/cosign" verify-blob "$PROTOCOL" --bundle "$EVIDENCE/protocol.sigstore.json" --certificate-identity "$EXPECTED_CERTIFICATE_IDENTITY" --certificate-oidc-issuer "$OIDC_ISSUER" --certificate-github-workflow-repository "$GITHUB_REPOSITORY" --certificate-github-workflow-sha "$GITHUB_SHA" --certificate-github-workflow-trigger "$GITHUB_EVENT_NAME" > "$EVIDENCE/verify.log" 2>&1
+          grep -Fq 'Verified OK' "$EVIDENCE/verify.log"
+          python3 "$COMPONENT/ci_external.py" finalize --evidence "$EVIDENCE" --output "$EVIDENCE/external-receipt.json"
+          sha256sum "$EVIDENCE"/* > "$EVIDENCE/MANIFEST.sha256"
+
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-v14-3-analyze-scaleup-protocol
+          path: data-science-v14-3-analyze-scaleup-protocol-evidence
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce terminal receipt
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('data-science-v14-3-analyze-scaleup-protocol-evidence/external-receipt.json')
+          if not p.exists(): raise SystemExit('external receipt missing')
+          r=json.loads(p.read_text())
+          assert r['verdict']=='PASS_STAGE09_SCALEUP_PROTOCOL_FROZEN_EXTERNAL'
+          assert all(r['checks'].values())
+          assert r['tests']=='48/48 PASS'
+          assert r['real_cohort_selected'] is False
+          assert r['outcome_accessed'] is False
+          assert r['analysis_executed'] is False
+          assert r['stage10_unblocked'] is False
+          assert r['production_modified'] is False
+          print(r['verdict'])
+          PY
