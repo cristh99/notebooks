@@ -1,0 +1,155 @@
+name: Data Science v14.2 - real Analyze minimum-cell canary
+
+on:
+  push:
+    branches: [agent/data-science-v14-2-analyze-real-not-evaluable-v2]
+    paths:
+      - '.github/workflows/data-science-v14-2-analyze-real-not-evaluable.yml'
+      - 'data_science_pipeline_v14_2_analyze_real_not_evaluable/**'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+
+concurrency:
+  group: data-science-v14-2-analyze-real-not-evaluable-v2
+  cancel-in-progress: true
+
+env:
+  COMPONENT: data_science_pipeline_v14_2_analyze_real_not_evaluable
+  CONTRACT: data_science_pipeline_v14_2_analyze_real_not_evaluable/ANALYZE_REAL_GATE_CONTRACT.json
+  EVIDENCE: data-science-v14-2-analyze-real-not-evaluable-evidence
+  SEMANTIC_ARTIFACT_ID: '8982588063'
+  SEMANTIC_ARTIFACT_DIGEST: sha256:96c151dd16bcdc64cc21ad88cd26f1d10cc44555d3e809f75a6be006a00b8a77
+  SEMANTIC_SNAPSHOT_SHA256: f2032c782da735cafe4bb29d76f49f04fbd580a8d810f59a77d588908271371b
+  EXPECTED_REPOSITORY: cristh99/notebooks
+  EXPECTED_REPOSITORY_ID: '616013328'
+  EXPECTED_OWNER_ID: '87334928'
+  EXPECTED_BRANCH: agent/data-science-v14-2-analyze-real-not-evaluable-v2
+  EXPECTED_WORKFLOW_PATH: .github/workflows/data-science-v14-2-analyze-real-not-evaluable.yml
+  EXPECTED_CERTIFICATE_IDENTITY: https://github.com/cristh99/notebooks/.github/workflows/data-science-v14-2-analyze-real-not-evaluable.yml@refs/heads/agent/data-science-v14-2-analyze-real-not-evaluable-v2
+  OIDC_ISSUER: https://token.actions.githubusercontent.com
+  OIDC_AUDIENCE: sigstore
+  COSIGN_VERSION: 3.0.6
+  COSIGN_SHA256: c956e5dfcac53d52bcf058360d579472f0c1d2d9b69f55209e256fe7783f4c74
+
+jobs:
+  analyze-min-cell:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Resolve exact externally verified Semantic snapshot
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "$EXPECTED_REPOSITORY"
+          test "$GITHUB_REF" = "refs/heads/$EXPECTED_BRANCH"
+          case "$GITHUB_EVENT_NAME" in push|workflow_dispatch) ;; *) exit 1 ;; esac
+          mkdir -p "$EVIDENCE" "$RUNNER_TEMP/semantic-artifact" "$RUNNER_TEMP/input"
+          meta="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$SEMANTIC_ARTIFACT_ID")"
+          printf '%s\n' "$meta" > "$EVIDENCE/semantic-artifact-metadata.json"
+          actual_digest="$(printf '%s' "$meta" | python3 -c 'import json,sys; print(json.load(sys.stdin)["digest"])')"
+          test "$actual_digest" = "$SEMANTIC_ARTIFACT_DIGEST"
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$SEMANTIC_ARTIFACT_ID/zip" -o "$RUNNER_TEMP/semantic-artifact.zip"
+          unzip -q "$RUNNER_TEMP/semantic-artifact.zip" -d "$RUNNER_TEMP/semantic-artifact"
+          mapfile -t snapshots < <(find "$RUNNER_TEMP/semantic-artifact" -type f -name 'replay-snapshot.json' -print)
+          test "${#snapshots[@]}" -eq 1
+          cp "${snapshots[0]}" "$RUNNER_TEMP/input/semantic-snapshot.json"
+          printf '%s  %s\n' "$SEMANTIC_SNAPSHOT_SHA256" "$RUNNER_TEMP/input/semantic-snapshot.json" | sha256sum -c -
+
+      - name: Execute preregistered eligibility gate and 36 tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q "$COMPONENT"
+          (cd "$COMPONENT" && python3 -m unittest -v test_analyze_real_gate.py) |& tee "$EVIDENCE/tests.log"
+          grep -Fq 'Ran 36 tests' "$EVIDENCE/tests.log"
+          grep -Fq 'OK' "$EVIDENCE/tests.log"
+          python3 "$COMPONENT/analyze_real_gate.py" --contract "$CONTRACT" --input "$RUNNER_TEMP/input/semantic-snapshot.json" --output "$EVIDENCE/analysis-result.json" | tee "$EVIDENCE/analysis.log"
+          python3 "$COMPONENT/analyze_real_gate.py" --contract "$CONTRACT" --input "$RUNNER_TEMP/input/semantic-snapshot.json" --output "$RUNNER_TEMP/analysis-repeat.json" > "$RUNNER_TEMP/analysis-repeat.log"
+          cmp "$EVIDENCE/analysis-result.json" "$RUNNER_TEMP/analysis-repeat.json"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('data-science-v14-2-analyze-real-not-evaluable-evidence/analysis-result.json').read_text())
+          assert r['verdict']=='PASS_STAGE09_REAL_CANARY_NOT_EVALUABLE_MIN_CELL_SIZE'
+          assert r['terminal_state']=='ANALYSIS_NOT_EVALUABLE'
+          assert r['reason_code']=='NOT_EVALUABLE_MIN_CELL_SIZE'
+          assert r['input']['semantic_row_count']==2
+          assert r['population']['eligible_contract_rows']==1
+          assert r['population']['excluded_role_counts']=={'PAYMENT':1}
+          assert r['population']['minimum_cell_n']==5
+          assert r['population']['minimum_observed_evaluable_cell_n']<5
+          assert r['registered_analysis']['executed'] is False
+          assert all(value is None for value in r['statistical_outputs'].values())
+          assert r['readiness']['stage10_canary_input_ready'] is False
+          assert r['readiness']['stage10_global_unblocked'] is False
+          assert r['governance']['production_modified'] is False
+          PY
+          sha256sum "$COMPONENT"/{README.md,ANALYZE_REAL_GATE_CONTRACT.json,FREEZE.json,analyze_real_gate.py,test_analyze_real_gate.py,ci_external.py} "$EVIDENCE/analysis-result.json" > "$EVIDENCE/source-sha256.txt"
+
+      - name: Validate exact GitHub OIDC identity
+        shell: bash
+        run: |
+          set -euo pipefail; umask 077
+          response="$(curl -fsSL -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${OIDC_AUDIENCE}")"
+          token="$(printf '%s' "$response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])')"
+          echo "::add-mask::$token"
+          printf '%s' "$token" > "$RUNNER_TEMP/oidc-token.jwt"
+          python3 "$COMPONENT/ci_external.py" validate-oidc --token "$RUNNER_TEMP/oidc-token.jwt" --output "$EVIDENCE/oidc-safe-claims.json"
+
+      - name: Sign and verify fail-closed Analyze result
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" -o "$RUNNER_TEMP/cosign"
+          printf '%s  %s\n' "$COSIGN_SHA256" "$RUNNER_TEMP/cosign" | sha256sum -c -
+          chmod 0755 "$RUNNER_TEMP/cosign"
+          "$RUNNER_TEMP/cosign" version > "$EVIDENCE/cosign-version.txt"
+          token="$(cat "$RUNNER_TEMP/oidc-token.jwt")"
+          echo "::add-mask::$token"
+          "$RUNNER_TEMP/cosign" sign-blob --yes --identity-token "$token" --bundle "$EVIDENCE/analyze-real.sigstore.json" "$EVIDENCE/analysis-result.json" > "$EVIDENCE/sign.log" 2>&1
+          rm -f "$RUNNER_TEMP/oidc-token.jwt"
+          "$RUNNER_TEMP/cosign" verify-blob "$EVIDENCE/analysis-result.json" --bundle "$EVIDENCE/analyze-real.sigstore.json" --certificate-identity "$EXPECTED_CERTIFICATE_IDENTITY" --certificate-oidc-issuer "$OIDC_ISSUER" --certificate-github-workflow-repository "$GITHUB_REPOSITORY" --certificate-github-workflow-sha "$GITHUB_SHA" --certificate-github-workflow-trigger "$GITHUB_EVENT_NAME" > "$EVIDENCE/verify.log" 2>&1
+          grep -Fq 'Verified OK' "$EVIDENCE/verify.log"
+          python3 "$COMPONENT/ci_external.py" finalize --evidence "$EVIDENCE" --output "$EVIDENCE/external-receipt.json"
+          sha256sum "$EVIDENCE"/* > "$EVIDENCE/MANIFEST.sha256"
+
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-v14-2-analyze-real-not-evaluable
+          path: data-science-v14-2-analyze-real-not-evaluable-evidence
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce terminal receipt
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('data-science-v14-2-analyze-real-not-evaluable-evidence/external-receipt.json')
+          if not p.exists(): raise SystemExit('external receipt missing')
+          r=json.loads(p.read_text())
+          assert r['verdict']=='PASS_STAGE09_REAL_CANARY_NOT_EVALUABLE_MIN_CELL_SIZE_EXTERNAL'
+          assert all(r['checks'].values())
+          assert r['tests']=='36/36 PASS'
+          assert r['terminal_state']=='ANALYSIS_NOT_EVALUABLE'
+          assert r['reason_code']=='NOT_EVALUABLE_MIN_CELL_SIZE'
+          assert r['statistical_outputs_emitted']==0
+          assert r['stage10_canary_input_ready'] is False
+          assert r['stage10_global_unblocked'] is False
+          assert r['production_modified'] is False
+          print(r['verdict'])
+          PY
