@@ -1,4 +1,4 @@
-name: Data Science v17 â€” Lane E independent OIDC signature
+name: Data Science v17 - Lane E independent OIDC signature
 
 on:
   push:
@@ -68,4 +68,128 @@ jobs:
           python3 "$COMPONENT/verify.py" --output "$EVIDENCE/local-receipt.json" | tee "$EVIDENCE/local-verification.log"
           printf '%s  %s\n' "$LOCAL_RECEIPT_SHA256" "$EVIDENCE/local-receipt.json" | sha256sum -c -
           cmp "$COMPONENT/LOCAL_RESULT.json" "$EVIDENCE/local-receipt.json"
-          sha256sum "$SUBJECT" "$POINTER" "$COMPONENT"/{FREEYEH¹©Í½¸±1=1}IMU1P¹©Í½¸±I5¹µ±Ù•É¥™ä¹Áä±Ñ•ÍÑ}Ù•É¥™ä¹Áåô€ø€ˆ‘Y%9½Í½ÕÉ”µÍ¡„ÈÔØ¹ÑáÐˆ((€€€€€€´¹…µ”è%¹ÍÑ…±°Á¥¹¹•½Í¥¸(€€€€€€€Í¡•±°è‰…Í (€€€€€€€ÉÕ¸èð(€€€€€€€€€Í•Ð€µ•Õ¼Á¥Á•™…¥°(€€€€€€€€€ÕÉ°€µ™ÍM0€‰¡ÑÑÁÌè¼½¥Ñ¡Õˆ¹½´½Í¥ÍÑ½É”½½Í¥¸½É•±•…Í•Ì½‘½Ý¹±½…½Ø‘í=M%9}YIM%=9ô½½Í¥¸µ±¥¹Õàµ…µØÐˆ€µ¼€ˆ‘IU99I}Q5@½½Í¥¸ˆ(€€€€€€€€€ÁÉ¥¹Ñ˜€œ•Ì€€•Íq¸œ€ˆ‘=M%9}M!ÈÔØˆ€ˆ‘IU99I}Q5@½½Í¥¸ˆðÍ¡„ÈÔÙÍÕ´€µŒ€´(€€€€€€€€€¡µ½€ÀÜÔÔ€ˆ‘IU99I}Q5@½½Í¥¸ˆ(€€€€€€€€€€ˆ‘IU99I}Q5@½½Í¥¸ˆÙ•ÉÍ¥½¸€ø€ˆ‘Y%9½½Í¥¸µÙ•ÉÍ¥½¸¹ÑáÐˆ((€€€€€€´¹…µ”èM¥¸…¹Ù•É¥™ä•á…ÐÝ½É­™±½Ü¥‘•¹Ñ¥Ñä(€€€€€€€Í¡•±°è‰…Í (€€€€€€€ÉÕ¸èð(€€€€€€€€€Í•Ð€µ•Õ¼Á¥Á•™…¥°(€€€€€€€€€Ñ•ÍÐ€µ¸€ˆ‘íQ%=9M}%}Q=-9}IEUMQ}UI0èµôˆ(€€€€€€€€€Ñ•ÍÐ€µ¸€ˆ‘íQ%=9M}%}Q=-9}IEUMQ}Q=-8èµôˆ(€€€€€€€€€É•ÍÁ½¹Í”ôˆ¡ÕÉ°€µ™ÍM0€µ €‰ÕÑ¡½É¥é…Ñ¥½¸è‰•…É•È€‘Q%=9M}%}Q=-9}IEUMQ}Q=-8ˆ€ˆ‘íQ%=9M}%}Q=-9}IEUMQ}UI1ô™…Õ‘¥•¹”õÍ¥ÍÑ½É”ˆ¤ˆ(€€€€€€€€€Ñ½­•¸ôˆ¡ÁÉ¥¹Ñ˜€œ•Ìœ€ˆ‘É•ÍÁ½¹Í”ˆðÁåÑ¡½¸Ì€µŒ€¥µÁ½ÉÐ©Í½¸±ÍåÌìØõ©Í½¸¹±½…¡ÍåÌ¹ÍÑ‘¥¸¥l‰Ù…±Õ”‰tìÁÉ¥¹Ð¡Ø¤œ¤ˆ(€€€€€€€€€•¡¼€ˆèé…‘µµ…Í¬èè‘Ñ½­•¸ˆ(€€€€€€€€€€ˆ‘IU99I}Q5@½½Í¥¸ˆÍ¥¸µ‰±½ˆ€´µå•Ì€´µ¥‘•¹Ñ¥ÑäµÑ½­•¸€ˆ‘Ñ½­•¸ˆ€´µ‰Õ¹‘±”€ˆ‘Y%9½±…¹”µ”¹Í¥ÍÑ½É”¹©Í½¸ˆ€ˆ‘MU	)Pˆ€ø€ˆ‘Y%9½Í¥¸¹±½œˆ€Èø˜Ä(€€€€€€€€€Õ¹Í•ÐÑ½­•¸É•ÍÁ½¹Í”(€€€€€€€€€€ˆ‘IU99I}Q5@½½Í¥¸ˆÙ•É¥™äµ‰±½ˆ€ˆ‘MU	)Pˆp(€€€€€€€€€€€€´µ‰Õ¹‘±”€ˆ‘Y%9½±…¹”µ”¹Í¥ÍÑ½É”¹©Í½¸ˆp(€€€€€€€€€€€€´µ•ÉÑ¥™¥…Ñ”µ¥‘•¹Ñ¥Ñä€ˆ‘IQ}%ˆp(€€€€€€€€€€€€´µ•ÉÑ¥™¥…Ñ”µ½¥‘Œµ¥ÍÍÕ•È€ˆ‘=%}%MMUHˆp(€€€€€€€€€€€€´µ•ÉÑ¥™¥…Ñ”µ¥Ñ¡ÕˆµÝ½É­™±½ÜµÉ•Á½Í¥Ñ½Éä€ˆ‘%Q!U	}IA=M%Q=Idˆp(€€€€€€€€€€€€´µ•ÉÑ¥™¥…Ñ”µ¥Ñ¡ÕˆµÝ½É­™±½ÜµÍ¡„€ˆ‘%Q!U	}M!ˆp(€€€€€€€€€€€€´µ•ÉÑ¥™¥…Ñ”µ¥Ñ¡ÕˆµÝ½É­™±½ÜµÑÉ¥•È€ˆ‘%Q!U	}Y9Q}95ˆp(€€€€€€€€€€€€ø€ˆ‘Y%9½Ù•É¥™ä¹±½œˆ€Èø˜Ä(€€€€€€€€€É•À€µÄ€Y•É¥™¥•=,œ€ˆ‘Y%9½Ù•É¥™ä¹±½œˆ((€€€€€€´¹…µ”è¥¹…±¥é”‰½Õ¹‘••áÑ•É¹…°É••¥ÁÐ(€€€€€€€Í¡•±°è‰…Í (€€€€€€€ÉÕ¸èð(€€€€€€€€€Í•Ð€µ•Õ¼Á¥Á•™…¥°(€€€€€€€€€ÁåÑ¡½¸Ì€´€ððAdœ(€€€€€€€€€¥µÁ½ÉÐ¡…Í¡±¥ˆ°©Í½¸°½Ì(€€€€€€€€€™É½´Á…Ñ¡±¥ˆ¥µÁ½ÉÐA…Ñ (€€€€€€€€€É½½ÐõA…Ñ ¡½Ì¹•¹Ù¥É½¹lY%9t¤ìÍÕ‰©•ÐõA…Ñ ¡½Ì¹•¹Ù¥É½¹lMU	)Pt¤ìÁ½¥¹Ñ•ÈõA…Ñ ¡½Ì¹•¹Ù¥É½¹lA=%9QHt¤(€€€€€€€€€‰Õ¹‘±•}Á…Ñ õÉ½½Ð¼±…¹”µ”¹Í¥ÍÑ½É”¹©Í½¸œì‰Õ¹‘±”õ©Í½¸¹±½…‘Ì¡‰Õ¹‘±•}Á…Ñ ¹É•…‘}Ñ•áÐ ¤¤ì•¹Ù•±½Á”õ©Í½¸¹±½…‘Ì¡ÍÕ‰©•Ð¹É•…‘}Ñ•áÐ ¤¤(€€€€€€€€€±½…±}Á…Ñ õÉ½½Ð¼±½…°µÉ••¥ÁÐ¹©Í½¸œì±½…°õ©Í½¸¹±½…‘Ì¡±½…±}Á…Ñ ¹É•…‘}Ñ•áÐ ¤¤ìÙ•É¥™å}Á…Ñ õÉ½½Ð¼Ù•É¥™ä¹±½œœ(€€€€€€€€€Í¡„õ±…µ‰‘„Àè¡…Í¡±¥ˆ¹Í¡„ÈÔØ¡À¹É•…‘}‰åÑ•Ì ¤¤¹¡•á‘¥•ÍÐ ¤(€€€€€€€€€µ…Ñ•É¥…°õ‰Õ¹‘±”¹•Ð Ù•É¥™¥…Ñ¥½¹5…Ñ•É¥…°œ±íô¤ì•¹ÑÉ¥•Ìõµ…Ñ•É¥…°¹•Ð Ñ±½¹ÑÉ¥•Ìœ±mt¤(€€€€€€€€€¡•­Ìõì(€€€€€€€€€€€€‰Õ¹‘±•}µ•‘¥…}ÑåÁ”œéÍÑÈ¡‰Õ¹‘±”¹•Ð µ•‘¥…QåÁ”œ°œœ¤¤¹ÍÑ…ÉÑÍÝ¥Ñ  …ÁÁ±¥…Ñ¥½¸½Ù¹¹‘•Ø¹Í¥ÍÑ½É”¹‰Õ¹‘±”œ¤°(€€€€€€€€€€€€Ù•É¥™¥…Ñ¥½¹}µ…Ñ•É¥…°œé‰½½°¡µ…Ñ•É¥…°¤°(€€€€€€€€€€€€ÑÉ…¹ÍÁ…É•¹å}±½œœé¥Í¥¹ÍÑ…¹”¡•¹ÑÉ¥•Ì±±¥ÍÐ¤…¹±•¸¡•¹ÑÉ¥•Ì¤øôÄ°(€€€€€€€€€€€€Í¥¹•‘}½¹Ñ•¹Ðœé‰½½°¡‰Õ¹‘±”¹•Ð µ•ÍÍ…•M¥¹…ÑÕÉ”œ¤½È‰Õ¹‘±”¹•Ð ‘ÍÍ•¹Ù•±½Á”œ¤¤°(€€€€€€€€€€€€½Í¥¹}Ù•É¥™¥•œèY•É¥™¥•=,œ¥¸Ù•É¥™å}Á…Ñ ¹É•…‘}Ñ•áÐ ¤°(€€€€€€€€€€€€•¹Ù•±½Á•}¡…Í œéÍ¡„¡ÍÕ‰©•Ð¤ôõ½Ì¹•¹Ù¥É½¹l9Y1=A}M!ÈÔØt°(€€€€€€€€€€€€Á½¥¹Ñ•É}¡…Í œéÍ¡„¡Á½¥¹Ñ•È¤ôõ½Ì¹•¹Ù¥É½¹lA=%9QI}M!ÈÔØt°(€€€€€€€€€€€€±½…±}É••¥ÁÑ}¡…Í œéÍ¡„¡±½…±}Á…Ñ ¤ôõ½Ì¹•¹Ù¥É½¹l1=1}I%AQ}M!ÈÔØt°(€€€€€€€€€€€€±½…±}Ù•É‘¥Ðœé±½…°¹•Ð Ù•É‘¥Ðœ¤ôôAMM}19}}!M!}	%9%9}M=Q]I}=91dœ°(€€€€€€€€€€€€•á±ÕÍ¥Ù•}±…¹•}”œé•¹Ù•±½Á•lÍ½Á”ul•á±ÕÍ¥Ù•}Í½Á”t¥ÌQÉÕ”…¹•¹Ù•±½Á•lÍ½Á”ul‘½•Í}¹½Ñ}Ñ½Õ¡}±…¹•}´t¥ÌQÉÕ”°(€€€€€€€€€€€€•á…Ñ}‰åÑ•Í}¹½Ñ}±…¥µ•œé±½…±l•á…Ñ}É••¥ÁÑ}‰åÑ•Í}ÁÉ•Í•¹Ðt¥Ì…±Í”°(€€€€€€€€€€€€ÍÑ…”Àá}‰±½­•œé•¹Ù•±½Á•l½Ù•É¹…¹”ulÍÑ…”Àá}Õ¹‰±½­•t¥Ì…±Í”°(€€€€€€€€€ô(€€€€€€€€€¥˜¹½Ð…±°¡¡•­Ì¹Ù…±Õ•Ì ¤¤èÉ…¥Í”MåÍÑ•µá¥Ð¡¡•­Ì¤(€€€€€€€€€É••¥ÁÐõì(€€€€€€€€€€€€Í¡•µ„œè‘…Ñ„µÍ¥•¹”µÁ¥Á•±¥¹”½±…¹”µ”µ¥¹‘•Á•¹‘•¹Ðµ½¥‘Œµ•áÑ•É¹…°µÉ••¥ÁÐ¼Äœ°(€€€€€€€€€€€€Ù•É‘¥ÐœèAMM}19}}=%}M%MQ=I}!M!}	%9%9œ°(€€€€€€€€€€€€¥Ñ¡Õ‰}ÉÕ¹}¥œé¥¹Ð¡½Ì¹•¹Ù¥É½¹l%Q!U	}IU9}%t¤°€¥Ñ¡Õ‰}ÉÕ¹}…ÑÑ•µÁÐœé¥¹Ð¡½Ì¹•¹Ù¥É½¹l%Q!U	}IU9}QQ5APt¤°(€€€€€€€€€€€€¥Ñ¡Õ‰}Í¡„œé½Ì¹•¹Ù¥É½¹l%Q!U	}M!t°€¥Ñ¡Õ‰}É•˜œé½Ì¹•¹Ù¥É½¹l%Q!U	}It°€É•Á½Í¥Ñ½Éäœé½Ì¹•¹Ù¥É½¹l%Q!U	}IA=M%Q=Idt°(€€€€€€€€€€€€•¹Ù•±½Á•}Í¡„ÈÔØœéÍ¡„¡ÍÕ‰©•Ð¤°€¥¹ÍÁ•Ñ¥½¹}Á½¥¹Ñ•É}Í¡„ÈÔØœéÍ¡„¡Á½¥¹Ñ•È¤°€±½…±}É••¥ÁÑ}Í¡„ÈÔØœéÍ¡„¡±½…±}Á…Ñ ¤°(€€€€€€€€€€€€Í¥ÍÑ½É•}‰Õ¹‘±•}Í¡„ÈÔØœéÍ¡„¡‰Õ¹‘±•}Á…Ñ ¤°€½Í¥¹}Ù•É¥™å}±½}Í¡„ÈÔØœéÍ¡„¡Ù•É¥™å}Á…Ñ ¤°(€€€€€€€€€€€€ÉåÁÑ½É…Á¡¥}¡•­Ìœé¡•­Ì°€‰¥¹‘¥¹Ìœé•¹Ù•±½Á•l‰¥¹‘¥¹Ìt°€•á…Ñ}™¥•±‘}É•ÍÕ±Ðœé•¹Ù•±½Á•l•á…Ñ}™¥•±‘}É•ÍÕ±Ðt°(€€€€€€€€€€€€Í¥¹…ÑÕÉ•}Í½Á”œé•¹Ù•±½Á•l±…¥µ}‰½Õ¹‘…Éät°€•á…Ñ}É••¥ÁÑ}‰åÑ•Í}ÁÉ•Í•¹Ðœé…±Í”°(€€€€€€€€€€€€¥¹‘•Á•¹‘•¹Ñ}±…¹•}•}Í¥¹…ÑÕÉ•}É•…Ñ•œéQÉÕ”°€¥¹‘•Á•¹‘•¹Ñ}±…¹•}µ}Í¥¹…ÑÕÉ•}ÁÉ•Í•¹Ðœé…±Í”°(€€€€€€€€€€€€•áÑ•É¹…±}½ÍÑ}ÕÍœèÀ¸À°€ÁÉ½‘ÕÑ¥½¹}µ½‘¥™¥•œé…±Í”°€Í¥•¹Ñ¥™¥}ÁÉ½µ½Ñ¥½¹}É•‘¥ÐœèÀ°€ÍÑ…”Àá}Õ¹‰±½­•œé…±Í”°(€€€€€€€€€€€€¹•áÑ}…Ñ”œè…ÑÑ…¡}•á…Ñ}½Á•É…Ñ¥½¹…±}É••¥ÁÑ}‰åÑ•Í}…¹‘}½‰Ñ…¥¹}¥¹‘•Á•¹‘•¹Ñ}±…¹•}µ}Í¥¹…ÑÕÉ”œ°(€€€€€€€€€ô(€€€€€€€€€Á…å±½…õ©Í½¸¹‘ÕµÁÌ¡É••¥ÁÐ±•¹ÍÕÉ•}…Í¥¤õ…±Í”±Í½ÉÑ}­•åÌõQÉÕ”±Í•Á…É…Ñ½ÉÌô œ°œ°œèœ¤¤¬q¸œ(€€€€€€€€€€¡É½½Ð¼•áÑ•É¹…°µÉ••¥ÁÐ¹©Í½¸œ¤¹ÝÉ¥Ñ•}Ñ•áÐ¡Á…å±½…¤(€€€€€€€€€€¡É½½Ð¼•áÑ•É¹…°µÉ••¥ÁÐ¹Í¡„ÈÔØœ¤¹ÝÉ¥Ñ•}Ñ•áÐ¡¡…Í¡±¥ˆ¹Í¡„ÈÔØ¡Á…å±½…¹•¹½‘” ¤¤¹¡•á‘¥•ÍÐ ¤¬œ€•áÑ•É¹…°µÉ••¥ÁÐ¹©Í½¹q¸œ¤(€€€€€€€€€Ad((€€€€€€´¥˜è…±Ý…åÌ ¤(€€€€€€€ÕÍ•Ìè…Ñ¥½¹Ì½ÕÁ±½…µ…ÉÑ¥™…Ñ•„ÄØÕ˜áØÕˆÙ”ÜÕˆÔÐÀÐÐå”äÉˆÐààÙ˜ÐÌØÀÝ™„ÀÈ(€€€€€€€Ý¥Ñ è(€€€€€€€€€¹…µ”è‘…Ñ„µÍ¥•¹”µØÄÜµ±…¹”µ”µ½¥‘Œ(€€€€€€€€€Á…Ñ è‘…Ñ„µÍ¥•¹”µØÄÜµ±…¹”µ”µ½¥‘Œµ•Ù¥‘•¹”(€€€€€€€€€¥˜µ¹¼µ™¥±•Ìµ™½Õ¹è•ÉÉ½È(€€€€€€€€€É•Ñ•¹Ñ¥½¸µ‘…åÌè€äÀ((€€€€€€´¹…µ”è¹™½É”Ñ•Éµ¥¹…°É••¥ÁÐ(€€€€€€€¥˜è…±Ý…åÌ ¤(€€€€€€€Í¡•±°è‰…Í (€€€€€€€ÉÕ¸èð(€€€€€€€€€ÁåÑ¡½¸Ì€´€ððAdœ(€€€€€€€€€¥µÁ½ÉÐ©Í½¸(€€€€€€€€€™É½´Á…Ñ¡±¥ˆ¥µÁ½ÉÐA…Ñ (€€€€€€€€€ÀõA…Ñ  ‘…Ñ„µÍ¥•¹”µØÄÜµ±…¹”µ”µ½¥‘Œµ•Ù¥‘•¹”½•áÑ•É¹…°µÉ••¥ÁÐ¹©Í½¸œ¤(€€€€€€€€€¥˜¹½ÐÀ¹•á¥ÍÑÌ ¤èÉ…¥Í”MåÍÑ•µá¥Ð •áÑ•É¹…°É••¥ÁÐµ¥ÍÍ¥¹œœ¤(€€€€€€€€€Èõ©Í½¸¹±½…‘Ì¡À¹É•…‘}Ñ•áÐ ¤¤(€€€€€€€€€…ÍÍ•ÉÐÉlÙ•É‘¥ÐtôôAMM}19}}=%}M%MQ=I}!M!}	%9%9œ(€€€€€€€€€…ÍÍ•ÉÐ…±°¡ÉlÉåÁÑ½É…Á¡¥}¡•­Ìt¹Ù…±Õ•Ì ¤¤(€€€€€€€€€…ÍÍ•ÉÐÉl¥¹‘•Á•¹‘•¹Ñ}±…¹•}•}Í¥¹…ÑÕÉ•}É•…Ñ•t¥ÌQÉÕ”(€€€€€€€€€…ÍÍ•ÉÐÉl¥¹‘•Á•¹‘•¹Ñ}±…¹•}µ}Í¥¹…ÑÕÉ•}ÁÉ•Í•¹Ðt¥Ì…±Í”(€€€€€€€€€…ÍÍ•ÉÐÉl•á…Ñ}É••¥ÁÑ}‰åÑ•Í}ÁÉ•Í•¹Ðt¥Ì…±Í”(€€€€€€€€€…ÍÍ•ÉÐÉlÍÑ…”Àá}Õ¹‰±½­•t¥Ì…±Í”(€€€€€€€€€ÁÉ¥¹Ð¡ÉlÙ•É‘¥Ðt¤(€€€€€€€€€Ad(
+          sha256sum "$SUBJECT" "$POINTER" "$COMPONENT"/{FREEZE.json,LOCAL_RESULT.json,README.md,verify.py,test_verify.py} > "$EVIDENCE/source-sha256.txt"
+
+      - name: Install pinned Cosign
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" -o "$RUNNER_TEMP/cosign"
+          printf '%s  %s\n' "$COSIGN_SHA256" "$RUNNER_TEMP/cosign" | sha256sum -c -
+          chmod 0755 "$RUNNER_TEMP/cosign"
+          "$RUNNER_TEMP/cosign" version > "$EVIDENCE/cosign-version.txt"
+
+      - name: Sign and verify exact workflow identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}"
+          test -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}"
+          response="$(curl -fsSL -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sigstore")"
+          token="$(printf '%s' "$response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])')"
+          echo "::add-mask::$token"
+          "$RUNNER_TEMP/cosign" sign-blob --yes --identity-token "$token" --bundle "$EVIDENCE/lane-e.sigstore.json" "$SUBJECT" > "$EVIDENCE/sign.log" 2>&1
+          unset token response
+          "$RUNNER_TEMP/cosign" verify-blob "$SUBJECT" \
+            --bundle "$EVIDENCE/lane-e.sigstore.json" \
+            --certificate-identity "$CERT_ID" \
+            --certificate-oidc-issuer "$OIDC_ISSUER" \
+            --certificate-github-workflow-repository "$GITHUB_REPOSITORY" \
+            --certificate-github-workflow-sha "$GITHUB_SHA" \
+            --certificate-github-workflow-trigger "$GITHUB_EVENT_NAME" \
+            > "$EVIDENCE/verify.log" 2>&1
+          grep -Fq 'Verified OK' "$EVIDENCE/verify.log"
+
+      - name: Finalize bounded external receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root = Path(os.environ['EVIDENCE'])
+          subject = Path(os.environ['SUBJECT'])
+          pointer = Path(os.environ['POINTER'])
+          bundle_path = root / 'lane-e.sigstore.json'
+          bundle = json.loads(bundle_path.read_text())
+          envelope = json.loads(subject.read_text())
+          local_path = root / 'local-receipt.json'
+          local = json.loads(local_path.read_text())
+          verify_path = root / 'verify.log'
+          sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
+          material = bundle.get('verificationMaterial', {})
+          entries = material.get('tlogEntries', [])
+          checks = {
+              'bundle_media_type': str(bundle.get('mediaType', '')).startswith('application/vnd.dev.sigstore.bundle'),
+              'verification_material': bool(material),
+              'transparency_log': isinstance(entries, list) and len(entries) >= 1,
+              'signed_content': bool(bundle.get('messageSignature') or bundle.get('dsseEnvelope')),
+              'cosign_verified': 'Verified OK' in verify_path.read_text(),
+              'envelope_hash': sha(subject) == os.environ['ENVELOPE_SHA256'],
+              'pointer_hash': sha(pointer) == os.environ['POINTER_SHA256'],
+              'local_receipt_hash': sha(local_path) == os.environ['LOCAL_RECEIPT_SHA256'],
+              'local_verdict': local.get('verdict') == 'PASS_LANE_E_HASH_BINDING_SOFTWARE_ONLY',
+              'exclusive_lane_e': envelope['scope']['exclusive_scope'] is True and envelope['scope']['does_not_touch_lane_m'] is True,
+              'exact_bytes_not_claimed': local['exact_receipt_bytes_present'] is False,
+              'stage08_blocked': envelope['governance']['stage08_unblocked'] is False,
+          }
+          if not all(checks.values()):
+              raise SystemExit(checks)
+          receipt = {
+              'schema': 'data-science-pipeline/lane-e-independent-oidc-external-receipt/1',
+              'verdict': 'PASS_LANE_E_OIDC_SIGSTORE_HASH_BINDING',
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_run_attempt': int(os.environ['GITHUB_RUN_ATTEMPT']),
+              'github_sha': os.environ['GITHUB_SHA'],
+              'github_ref': os.environ['GITHUB_REF'],
+              'repository': os.environ['GITHUB_REPOSITORY'],
+              'envelope_sha256': sha(subject),
+              'inspection_pointer_sha256': sha(pointer),
+              'local_receipt_sha256': sha(local_path),
+              'sigstore_bundle_sha256': sha(bundle_path),
+              'cosign_verify_log_sha256': sha(verify_path),
+              'cryptographic_checks': checks,
+              'bindings': envelope['bindings'],
+              'exact_field_result': envelope['exact_field_result'],
+              'signature_scope': envelope['claim_boundary'],
+              'exact_receipt_bytes_present': False,
+              'independent_lane_e_signature_created': True,
+              'independent_lane_m_signature_present': False,
+              'external_cost_usd': 0.0,
+              'production_modified': False,
+              'scientific_promotion_credit': 0,
+              'stage08_unblocked': False,
+              'next_gate': 'attach_exact_operational_receipt_bytes_and_obtain_independent_lane_m_signature',
+          }
+          payload = json.dumps(receipt, ensure_ascii=False, sort_keys=True, separators=(',', ':')) + '\n'
+          (root / 'external-receipt.json').write_text(payload)
+          (root / 'external-receipt.sha256').write_text(hashlib.sha256(payload.encode()).hexdigest() + '  external-receipt.json\n')
+          PY
+
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-v17-lane-e-oidc
+          path: data-science-v17-lane-e-oidc-evidence
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce terminal receipt
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('data-science-v17-lane-e-oidc-evidence/external-receipt.json')
+          if not p.exists():
+              raise SystemExit('external receipt missing')
+          r = json.loads(p.read_text())
+          assert r['verdict'] == 'PASS_LANE_E_OIDC_SIGSTORE_HASH_BINDING'
+          assert all(r['cryptographic_checks'].values())
+          assert r['independent_lane_e_signature_created'] is True
+          assert r['independent_lane_m_signature_present'] is False
+          assert r['exact_receipt_bytes_present'] is False
+          assert r['stage08_unblocked'] is False
+          print(r['verdict'])
+          PY
