@@ -1,0 +1,156 @@
+{
+  "claim_boundary": "No Google Batch job was launched. Only small immutable worker assets, Flight source/config versions, and schedule metadata changed.",
+  "cumulative_skill_application": {
+    "additional_runs_per_week_avoided": 10,
+    "approx_runs_per_30_days_avoided": 17402.85714285714,
+    "runs_per_day_avoided": 579
+  },
+  "incremental": {
+    "approx_runs_per_30_days_avoided": 12960,
+    "runs_per_day_avoided": 432
+  },
+  "lifecycle": "canary",
+  "mode": "repair_then_read_only_preflight_and_reversible_metadata_only",
+  "observed_at_utc": "2026-08-05T04:08:20Z",
+  "preflight": {
+    "action": "PREFLIGHT_READY",
+    "attempt": 1,
+    "batch_launched": false,
+    "compute_guard_usd_per_attempt": 12.831744,
+    "covered": 0,
+    "flight_id": "4f7ec518-a5bb-4a81-8b99-aece1b9d855b",
+    "flight_version": 6,
+    "launch_decision": "BLOCKED_NO_SPEND_AUTHORITY",
+    "machine_type": "c3d-highcpu-4",
+    "max_attempts": 3,
+    "max_retry_count": 1,
+    "max_run_seconds": 172800,
+    "maximum_declared_compute_guard_usd_all_attempts": 38.495232,
+    "provisioning_model": "SPOT",
+    "remaining": 9000,
+    "run_number": 7,
+    "source_rows": 9000,
+    "task_count": 4,
+    "worker_sha256": "68bf84400c3bd21aee4d317da2ab59387ec1477123fd85a5deccef2722f2494d",
+    "writes_performed": 0
+  },
+  "receipt_digest": "3f0c3296fd33d05721d0075dea51e1e245175819e779d00c40ed97a19046ebf0",
+  "repair": {
+    "builder_contract_repair": {
+      "failed_contract": "run identity expected one match, found zero",
+      "failed_run": 14,
+      "failed_version": 11,
+      "flight_id": "8efb54e6-cc13-4903-a063-6516a995a147",
+      "repair": "Attach batch_job_id next to compute_backend in recipe instead of patching absent flight_run_id.",
+      "repaired_version": 12,
+      "successful_run": 15
+    },
+    "worker_v2_publish": {
+      "action": "PUBLISH_ONLY",
+      "asset_uri": "gs://unified-cortex-282107-fuentes/iaip/continuation_v1_20260804/ocr/assets/ocr_worker_v2.py",
+      "flight_id": "3902f92b-72a4-4e78-b60f-7f5cca2bd592",
+      "flight_version": 5,
+      "run_number": 3,
+      "sha256": "ebb232078f94549047ccb1bba28d46bf4260dc36976413e5edf0b20860b7a90d",
+      "writes_performed": 1
+    },
+    "worker_v3_build": {
+      "manifest_generation": 1785902616945046,
+      "manifest_uri": "gs://unified-cortex-282107-fuentes/iaip/continuation_v1_20260804/ocr/assets/ocr_worker_gcp_batch_v3.manifest.json",
+      "source_sha256": "ebb232078f94549047ccb1bba28d46bf4260dc36976413e5edf0b20860b7a90d",
+      "target_bytes": 29448,
+      "target_generation": 1785902616757438,
+      "target_sha256": "68bf84400c3bd21aee4d317da2ab59387ec1477123fd85a5deccef2722f2494d",
+      "target_uri": "gs://unified-cortex-282107-fuentes/iaip/continuation_v1_20260804/ocr/assets/ocr_worker_gcp_batch_v3.py",
+      "writes_performed": 2
+    }
+  },
+  "reversal_conditions": [
+    "Explicit authorization to spend up to the declared compute guard and launch the initial 9000 Batch.",
+    "A valid current_wave pointer appears.",
+    "Any worker family begins producing material outputs.",
+    "The v2 launcher regains a documented role not covered by v3."
+  ],
+  "root_cause": {
+    "failed_flight_id": "4f7ec518-a5bb-4a81-8b99-aece1b9d855b",
+    "failed_flight_name": "hn-iaip-gcp-batch-initial9000-recovery-v3-20260804",
+    "failed_runs": [4, 5, 6],
+    "failure": "404 missing iaip/continuation_v1_20260804/ocr/assets/ocr_worker_gcp_batch_v3.manifest.json",
+    "upstream_missing_asset": "iaip/continuation_v1_20260804/ocr/assets/ocr_worker_v2.py"
+  },
+  "safety": {
+    "batch_jobs_launched": 0,
+    "flights_deleted": 0,
+    "production_runs_cancelled": 0,
+    "receipts_deleted": 0,
+    "versions_deleted": 0
+  },
+  "schedule_decisions": [
+    {
+      "after": null,
+      "before": "*/15 * * * *",
+      "flight_id": "4f7ec518-a5bb-4a81-8b99-aece1b9d855b",
+      "reason": "Three deterministic failures before repair; launch remains cost-blocked.",
+      "recommendation": "RETIRE_SCHEDULE",
+      "runs_per_day_avoided": 96
+    },
+    {
+      "after": "0 * * * *",
+      "before": "*/15 * * * *",
+      "flight_id": "0fa89344-13eb-42aa-805c-0acaa5aba6de",
+      "reason": "Three heavy WAIT_INITIAL runs, 10000/10000 missing, writes_performed 0.",
+      "recommendation": "BACKOFF",
+      "runs_per_day_avoided": 72
+    },
+    {
+      "after": null,
+      "before": "*/15 * * * *",
+      "flight_id": "264577e2-2a94-4e30-a7ed-676705c8047b",
+      "reason": "Rolling launcher v2 superseded by v3.",
+      "recommendation": "RETIRE_SCHEDULE",
+      "runs_per_day_avoided": 96
+    },
+    {
+      "after": "5 * * * *",
+      "before": "*/15 * * * *",
+      "flight_id": "dd129e46-d9a8-446b-88c8-4db7ea13009e",
+      "reason": "WAIT_POINTER while launch is cost-blocked.",
+      "recommendation": "BACKOFF",
+      "runs_per_day_avoided": 72
+    },
+    {
+      "after": "10 * * * *",
+      "before": "*/30 * * * *",
+      "flight_id": "7af77c73-cf8e-425b-95c1-5620b60d5906",
+      "reason": "Three WAIT_POINTER runs in shared worker family.",
+      "recommendation": "BACKOFF",
+      "runs_per_day_avoided": 24
+    },
+    {
+      "after": "20 * * * *",
+      "before": "*/30 * * * *",
+      "flight_id": "eeaf5317-265b-499b-8559-03e053bfccb0",
+      "reason": "Shared pointer absent; family-level repeated WAIT_POINTER.",
+      "recommendation": "BACKOFF",
+      "runs_per_day_avoided": 24
+    },
+    {
+      "after": "30 * * * *",
+      "before": "*/30 * * * *",
+      "flight_id": "9c32e503-dc74-405a-8c31-f25c080b09de",
+      "reason": "Shared pointer absent; family-level repeated WAIT_POINTER.",
+      "recommendation": "BACKOFF",
+      "runs_per_day_avoided": 24
+    },
+    {
+      "after": "40 * * * *",
+      "before": "*/30 * * * *",
+      "flight_id": "ff46a693-31c4-409e-b19b-b18378bf6926",
+      "reason": "Shared pointer absent; family-level repeated WAIT_POINTER.",
+      "recommendation": "BACKOFF",
+      "runs_per_day_avoided": 24
+    }
+  ],
+  "schema": "motherduck-ops-governor-shadow-application/v4",
+  "skill": "motherduck-ops-governor"
+}

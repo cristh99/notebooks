@@ -1,0 +1,105 @@
+{
+  "authorization_mode": "none",
+  "default_mode": "read-only",
+  "description": "Use before creating, scheduling, running, repairing, slowing, retiring, or replacing MotherDuck Flights and before adding persistent MotherDuck analytics, so the next operation is the lowest-risk action that changes a live decision without disturbing active work.",
+  "evaluation_gates": [
+    "No recommendation interrupts a leased active run, controller, shard, or external job",
+    "Every selected operation separates at least one live operational decision conflict",
+    "Terminal, superseded, repeated-failure, and repeated-NOOP fixtures receive the exact expected recommendation",
+    "Unknown or observationally indistinguishable cases remain UNKNOWN or IMPOSSIBLE instead of being mutated",
+    "Deterministic replay produces the same decision packet and semantic digest",
+    "Persistent schema or Dive changes require an explicit diff, rollback, and separate confirmation"
+  ],
+  "inputs": [
+    "Operational decision and terminal property",
+    "MotherDuck definitions, schedules, versions, recent runs, and log fingerprints",
+    "External job states, leases, watermarks, costs, permissions, and provenance locations"
+  ],
+  "kill_switch": true,
+  "lifecycle": "canary",
+  "name": "motherduck-ops-governor",
+  "outputs": [
+    "Lease-safe KEEP, BACKOFF, RETIRE, REPAIR, ON-DEMAND, ANALYTIC-ASSET, or BLOCKED recommendation",
+    "Minimum separating observation and counterfactual reversal condition",
+    "Provenance-preserving decision packet with deterministic digest"
+  ],
+  "owner": "Data and operations governance",
+  "permissions": [
+    "artifact:write",
+    "compute:local",
+    "data:read",
+    "github:read",
+    "notion:read"
+  ],
+  "resources": [
+    "skills/motherduck-ops-governor/reference.py",
+    "tests/test_skill_governor_motherduck_ops.py",
+    "evidence/motherduck-ops-governor-v1/candidate-evaluation.json",
+    "evidence/motherduck-ops-governor-v1/candidate-to-draft.json",
+    "evidence/motherduck-ops-governor-v1/draft-to-canary.json",
+    "evidence/motherduck-ops-governor-v1/shadow-application-v2.json",
+    "evidence/motherduck-ops-governor-v1/shadow-application-v3.json",
+    "evidence/motherduck-ops-governor-v1/shadow-application-v4.json",
+    "dives/motherduck-operations-control.tsx",
+    "sql/motherduck-ops-control-plane.sql",
+    "sql/motherduck-ops-control-plane.rollback.sql"
+  ],
+  "schema_version": "1.0",
+  "sources": [
+    {
+      "commit": "ba10d0edc7eb20d499d0481fda2537e782b6efb2",
+      "id": "logic-power-v10",
+      "notes": "Proof-carrying finite experimental separation, exact obstruction, and honest stopping semantics.",
+      "role": "normative",
+      "url": "https://github.com/cristh99/my_first_repository/pull/53"
+    },
+    {
+      "commit": "ec530d91f43172aa339f3d8d2fbf17e773d9bc29",
+      "id": "logic-power-problem-solver-v1",
+      "notes": "Typed Problem IR, capability routing, fail-closed terminals, exact planning, and evidence ledger architecture.",
+      "role": "normative",
+      "url": "https://github.com/cristh99/my_first_repository/pull/84"
+    },
+    {
+      "commit": "6e4f88c4ba23c67f7bd44f62b8754f9ab6b51a1f",
+      "id": "skill-power-foundation-v1",
+      "notes": "Machine-checkable skill lifecycle, trust tiers, permissions, provenance, and deterministic validation.",
+      "role": "implementation",
+      "url": "https://github.com/cristh99/my_first_repository/pull/110"
+    },
+    {
+      "commit": "30ba1e7d798e53d64040cbde6960e66abf6975a4",
+      "id": "motherduck-ops-governor-public-capsule",
+      "notes": "Independent public finite Canary: static findings 0, secret findings 0, 22/22 fixtures, 62,208 exhaustive configurations, 0 candidate-oracle mismatches, five tests PASS, run 30972065130 SUCCESS, artifact 8916879166.",
+      "role": "evidence",
+      "url": "https://github.com/cristh99/notebooks/pull/93"
+    },
+    {
+      "id": "motherduck-flight-governor-guide",
+      "notes": "Live workspace rules for leases, no-interference, NOOP backoff, terminal monitors, and receipt preservation.",
+      "role": "evidence",
+      "url": "notion://motherduck-flight-governor-20260805"
+    },
+    {
+      "id": "optimal-experimental-design-2024",
+      "notes": "Sequential and decision-theoretic experimental design supports adaptive, coordinated acquisition policies.",
+      "role": "evidence",
+      "url": "https://consensus.app/papers/optimal-experimental-design-formulations-and-huan-jagalur/e8563dea9dea53aea2d5e50d6e66bcae/"
+    },
+    {
+      "id": "transparent-provenance-2020",
+      "notes": "Execution-time provenance can support reproducibility with low measured overhead.",
+      "role": "evidence",
+      "url": "https://consensus.app/papers/improving-reproducibility-of-data-science-pipelines-rupprecht-davis/7066ab0bd4675aaf9cf832d6f535b041/"
+    }
+  ],
+  "terminals": [
+    "PASS",
+    "UNKNOWN",
+    "IMPOSSIBLE",
+    "INCONSISTENT",
+    "REJECTED"
+  ],
+  "trust_tier": "T1",
+  "version": "0.3.4"
+}
