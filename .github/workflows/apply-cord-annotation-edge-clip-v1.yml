@@ -1,51 +1,82 @@
-name: Apply CORD annotation edge clipping v1
+name: Apply OpenVINO review fixes v1
 
 on:
   push:
     branches:
-      - agent/ocr-cord-external-validation-v1
+      - agent/openvino-v7-smoke-16-stacked-v2
     paths:
-      - '.github/patches/cord-annotation-edge-clip-v1.patch'
-      - '.github/workflows/apply-cord-annotation-edge-clip-v1.yml'
+      - '.openvino-review-fixes-trigger-v1'
   workflow_dispatch:
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
-  group: apply-cord-annotation-edge-clip-v1-${{ github.ref }}
+  group: apply-openvino-review-fixes-v1-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   apply-and-record:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 1
 
-      - name: Verify and apply the outcome-blind geometry patch
-        run: |
-          patch=.github/patches/cord-annotation-edge-clip-v1.patch
-          git apply --check "${patch}"
-          git apply "${patch}"
-          python -m py_compile \
-            ocr_real_risk_v1/cord_natural_holdout.py \
-            ocr_real_risk_v1/test_cord_natural_holdout.py
-          test "$(git diff --name-only | sort)" = \
-            $'ocr_real_risk_v1/cord_natural_holdout.py\nocr_real_risk_v1/test_cord_natural_holdout.py'
-          grep -q 'numeric_annotations_clipped_to_image' \
-            ocr_real_risk_v1/cord_natural_holdout.py
-          grep -q 'test_annotation_bbox_is_clipped_before_selection' \
-            ocr_real_risk_v1/test_cord_natural_holdout.py
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
 
-      - name: Commit the mechanical pre-OCR correction
+      - name: Install frozen test dependency
         run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir \
+            Pillow==12.2.0
+
+      - name: Apply exact deterministic replacements
+        run: |
+          set -euo pipefail
+          python scripts/apply_openvino_review_fixes_v1.py
+          python -m compileall -q \
+            ocr_real_risk_v1/openvino_prior_registry_v7.py \
+            ocr_real_risk_v1/openvino_prior_registry_entry_v7.py \
+            ocr_real_risk_v1/openvino_full_gate_registry_v7.py \
+            ocr_real_risk_v1/openvino_full_gate_execution_v7.py \
+            ocr_real_risk_v1/test_openvino_prior_registry_v7.py \
+            ocr_real_risk_v1/test_openvino_prior_loader_v7.py \
+            ocr_real_risk_v1/test_openvino_full_gate_v7.py \
+            ocr_real_risk_v1/test_openvino_execution_cas_v7.py
+          git diff --check
+
+      - name: Prove affected contracts before commit
+        run: |
+          set -euo pipefail
+          python -m unittest -v \
+            ocr_real_risk_v1.test_openvino_prior_registry_v7 \
+            ocr_real_risk_v1.test_openvino_prior_loader_v7 \
+            ocr_real_risk_v1.test_openvino_full_gate_v7 \
+            ocr_real_risk_v1.test_openvino_execution_cas_v7
+
+      - name: Commit only tested implementation changes
+        run: |
+          set -euo pipefail
+          git rm \
+            scripts/apply_openvino_review_fixes_v1.py \
+            .openvino-review-fixes-trigger-v1
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add \
-            ocr_real_risk_v1/cord_natural_holdout.py \
-            ocr_real_risk_v1/test_cord_natural_holdout.py
-          git commit -m 'Clip CORD annotation edge coordinates before selection'
+            ocr_real_risk_v1/openvino_prior_registry_v7.py \
+            ocr_real_risk_v1/openvino_prior_registry_entry_v7.py \
+            ocr_real_risk_v1/openvino_full_gate_registry_v7.py \
+            ocr_real_risk_v1/openvino_full_gate_execution_v7.py \
+            ocr_real_risk_v1/test_openvino_prior_registry_v7.py \
+            ocr_real_risk_v1/test_openvino_prior_loader_v7.py \
+            ocr_real_risk_v1/test_openvino_full_gate_v7.py \
+            ocr_real_risk_v1/test_openvino_execution_cas_v7.py \
+            .github/workflows/ocr-openvino-v7-full-gate-contract.yml
+          git diff --cached --check
+          git commit -m 'Close OpenVINO authorization and prior-registry review blockers'
           git push origin "HEAD:${GITHUB_REF_NAME}"
