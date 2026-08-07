@@ -102,7 +102,10 @@ jobs:
           grep -Fq 'OK' "$EVIDENCE/tests.log"
           python3 "$COMPONENT/verify_protocol.py" --output "$EVIDENCE/local-result.json" > "$EVIDENCE/local-verification.log"
           cmp "$LOCAL_RESULT" "$EVIDENCE/local-result.json"
-          sha256sum "$TRANSPORT_MANIFEST" "$PACKAGE_MANIFEST" "$PUBLIC_README" "$TRANSPORT_DIR"/* "$COMPONENT"/* > "$EVIDENCE/source-sha256.txt"
+          {
+            sha256sum "$TRANSPORT_MANIFEST" "$PACKAGE_MANIFEST" "$PUBLIC_README"
+            find "$TRANSPORT_DIR" "$COMPONENT" -maxdepth 1 -type f -print0 | sort -z | xargs -0 sha256sum
+          } > "$EVIDENCE/source-sha256.txt"
 
       - name: Validate GitHub OIDC identity
         shell: bash
