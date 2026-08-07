@@ -20,7 +20,7 @@ concurrency:
 env:
   COMPONENT: data_science_pipeline_v18_1_documentary_quarantine_source_replay
   SOURCE_MANIFEST: data_science_pipeline_v18_1_documentary_quarantine_source_replay/SOURCE_TRANSPORT_MANIFEST.json
-  SOURCE_BUNDLE: ${{ runner.temp }}/source_bundle.zip
+  SOURCE_BUNDLE: source_bundle.zip
   EVIDENCE: data-science-v18-1-documentary-quarantine-source-replay-evidence
   SOURCE_MANIFEST_SHA256: 15c994ac3ff6be80672dbd97c6f8939570721fce6bb2899ff297e476c3628d4b
   SOURCE_BUNDLE_SHA256: 8f5238b98654e8fe0821d200b55b9367108d3020adf465fe89214afbad8493ba
