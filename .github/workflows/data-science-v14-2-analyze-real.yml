@@ -1,0 +1,118 @@
+name: Data Science v14.2 - bounded real Analyze canary
+
+on:
+  push:
+    branches: [agent/data-science-v14-2-analyze-real-not-evaluable-v1]
+    paths:
+      - '.github/workflows/data-science-v14-2-analyze-real.yml'
+      - 'data_science_pipeline_v14_2_analyze_real/**'
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+
+concurrency:
+  group: data-science-v14-2-analyze-real-not-evaluable-v1
+  cancel-in-progress: true
+
+env:
+  COMPONENT: data_science_pipeline_v14_2_analyze_real
+  EVIDENCE: data-science-v14-2-analyze-real-evidence
+  CORE_PACKAGE: data_science_pipeline_v14_2_analyze_real/source.zip
+  CORE_PACKAGE_SHA256: eb6973c037a00217067a458a77fc2889ec0c22cacae2e0a30274a6a7790912f7
+  CORE_PACKAGE_BLOB: 6000f8eb3fd0e4532ce12c07ffd8fd5a30c6a4d7
+  CI_PACKAGE: data_science_pipeline_v14_2_analyze_real/ci.zip
+  CI_PACKAGE_SHA256: f876409423b500a9d8b4844fdb6fc2e35a3593236b72b8fd0d62ba73cddfcc30
+  CI_PACKAGE_BLOB: 0b497f822f082af1f44ffcbd1e24de2e20a6af16
+  FREEZE_SHA256: 854e8693e989fe0d0ebca3235e5208b6200eb0c8d4c60bec5b827f7ed0df38a6
+
+jobs:
+  analyze-real-canary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Reconstruct exact verifier and execute bounded canary
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = cristh99/notebooks
+          test "$GITHUB_REF" = refs/heads/agent/data-science-v14-2-analyze-real-not-evaluable-v1
+          test "$GITHUB_EVENT_NAME" = push
+          mkdir -p "$EVIDENCE"
+          printf '%s  %s\n' "$CORE_PACKAGE_SHA256" "$CORE_PACKAGE" | sha256sum -c -
+          printf '%s  %s\n' "$CI_PACKAGE_SHA256" "$CI_PACKAGE" | sha256sum -c -
+          test "$(git hash-object "$CORE_PACKAGE")" = "$CORE_PACKAGE_BLOB"
+          test "$(git hash-object "$CI_PACKAGE")" = "$CI_PACKAGE_BLOB"
+          python3 - "$CORE_PACKAGE" "$CI_PACKAGE" "$COMPONENT" <<'PY'
+          from pathlib import Path, PurePosixPath
+          from zipfile import ZipFile
+          import hashlib, sys
+          core, ci, out = map(Path, sys.argv[1:])
+          expected = {
+              core: {
+                  'run_real_canary.py': (11660, 'd94914f765da7ef270c39b09b0feb2772bb10b6a750ef484887271b84bf8915c'),
+                  'test_real_canary.py': (9578, '51db8d3abd2d736f44419740446462f2260485aa99370bd1d85eec4845f2f81a'),
+              },
+              ci: {
+                  'ci_external.py': (30531, '906a2c2c38a9222d8f89a1e523416696b65e6c03a83267abfb3e7d59f4727149'),
+                  'test_reference_contract.py': (6724, '863711b78a23f055cf34b505a419f4be1ca4966bfd07280f7ea1f12780c7419a'),
+              },
+          }
+          for archive, members in expected.items():
+              with ZipFile(archive) as zf:
+                  names = zf.namelist()
+                  if len(names) != len(set(names)) or set(names) != set(members):
+                      raise SystemExit(f'unexpected members in {archive}: {names}')
+                  for name in names:
+                      path = PurePosixPath(name)
+                      if path.is_absolute() or '..' in path.parts or len(path.parts) != 1:
+                          raise SystemExit(f'unsafe member: {name}')
+                      data = zf.read(name); size, digest = members[name]
+                      if len(data) != size or hashlib.sha256(data).hexdigest() != digest:
+                          raise SystemExit(f'member mismatch: {name}')
+                  zf.extractall(out)
+          PY
+          printf '%s  %s\n' "$FREEZE_SHA256" "$COMPONENT/FREEZE.json" | sha256sum -c -
+          python3 -m py_compile "$COMPONENT"/{run_real_canary.py,test_real_canary.py,ci_external.py}
+          python3 "$COMPONENT/ci_external.py"
+
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-v14-2-analyze-real-not-evaluable
+          path: data-science-v14-2-analyze-real-evidence
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce terminal receipt
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('data-science-v14-2-analyze-real-evidence/external-receipt.json')
+          if not path.exists():
+              raise SystemExit('external receipt missing')
+          receipt = json.loads(path.read_text())
+          assert receipt['verdict'] == 'PASS_STAGE09_REAL_CANARY_NOT_EVALUABLE_EXTERNAL'
+          assert all(receipt['checks'].values())
+          assert receipt['tests'] == '144/144 PASS'
+          assert receipt['terminal_state'] == 'ANALYSIS_NOT_EVALUABLE'
+          assert receipt['reason_code'] == 'NOT_EVALUABLE_MIN_CELL_SIZE'
+          assert receipt['test_executed'] is False
+          assert receipt['p_value'] is None and receipt['effect_size'] is None
+          assert receipt['stage10_canary_input_ready'] is False
+          assert receipt['stage10_global_unblocked'] is False
+          assert receipt['external_cost_usd'] == 0.0
+          assert receipt['production_modified'] is False
+          print(receipt['verdict'])
+          PY
