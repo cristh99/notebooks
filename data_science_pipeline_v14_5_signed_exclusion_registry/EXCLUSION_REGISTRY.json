@@ -1,0 +1,151 @@
+{
+  "schema": "data-science-pipeline/stage09-contamination-exclusion-registry/1",
+  "coordination_id": "COORD-2026-08-06-PARALLEL-V2",
+  "stage": "09 — Analyze",
+  "registry_status": "FROZEN_BEFORE_FUTURE_RANDOMNESS",
+  "authority": {
+    "canonical_stage09_pr": 153,
+    "canonical_stage09_head": "499ff89d5c2b8a97b70f1d871d64345875192f98",
+    "recovery_protocol_pr": 161,
+    "recovery_protocol_head": "9eba1bdec80dc9fedd763bb1d0afc9637203c3b4",
+    "recovery_protocol_sha256": "c206d9a93792cc015171ee4266d29d133c042de975f7010169259edce8e0911c",
+    "recovery_protocol_self_hash": "8a190fb642129357f105ca05e6727aab78fd7425a49427585d784c1ca6582560",
+    "contamination_ledger_sha256": "99d950e6395c32b1fef6e3e428988e3b9ab23be01fd911c41d4fa2106ec04971",
+    "contamination_ledger_self_hash": "402f0cd5edc5d6c67e1fdbac5ff5ed54ee82d15d9821b62e501af5d5927a9fd8"
+  },
+  "entries": [
+    {
+      "flight_id": "3d8728b9-99fb-45e5-a78d-3e6d85541be4",
+      "run_attempt": 1,
+      "receipt_sha256": "6c43baefc7e9f7a357a958f621f02575a6c98d0011f3ba2999075d43728c7580",
+      "selected_candidate_count_disclosed": 0,
+      "outcome_accessed": true,
+      "identity_accessed": true,
+      "candidate_commitments_available": false,
+      "exclusion_scope": ["all_rows_read_under_receipt", "all_candidates_selected_or_disclosed_under_receipt", "all_transitive_derivatives_and_replays"]
+    },
+    {
+      "flight_id": "306cb066-c977-4929-9762-b28654ed8e82",
+      "run_attempt": 1,
+      "receipt_sha256": "0353798bb530b096c99a7544040a81667f691d818c0a9663d1a447ada48391b5",
+      "selected_candidate_count_disclosed": 0,
+      "outcome_accessed": true,
+      "identity_accessed": true,
+      "candidate_commitments_available": false,
+      "exclusion_scope": ["all_rows_read_under_receipt", "all_candidates_selected_or_disclosed_under_receipt", "all_transitive_derivatives_and_replays"]
+    },
+    {
+      "flight_id": "57893e09-a6a2-4b31-bc05-65bf31f12cf8",
+      "run_attempt": 1,
+      "receipt_sha256": "53cf07adc936062c2bd043b62d0033329d071d92d667049386bc41b064e58e5f",
+      "selected_candidate_count_disclosed": 0,
+      "outcome_accessed": true,
+      "identity_accessed": false,
+      "candidate_commitments_available": false,
+      "exclusion_scope": ["all_rows_read_under_receipt", "all_candidates_selected_or_disclosed_under_receipt", "all_transitive_derivatives_and_replays"]
+    },
+    {
+      "flight_id": "110090a3-e03b-45fb-bbc1-ae000dcf4018",
+      "run_attempt": 1,
+      "receipt_sha256": "e118e573193792b30be58d42ed4439ce223de4ae568234d678eac552cd9486fb",
+      "selected_candidate_count_disclosed": 0,
+      "outcome_accessed": true,
+      "identity_accessed": true,
+      "candidate_commitments_available": false,
+      "exclusion_scope": ["all_rows_read_under_receipt", "all_candidates_selected_or_disclosed_under_receipt", "all_transitive_derivatives_and_replays"]
+    },
+    {
+      "flight_id": "9af07943-a7f0-422e-a306-9bdf2f14fd74",
+      "run_attempt": 2,
+      "receipt_sha256": "dd9e9135c5f2085f7ee0b0a14bf6394bcc5ed83f9373ab53959f2ffc079b1697",
+      "selected_candidate_count_disclosed": 3,
+      "outcome_accessed": false,
+      "identity_accessed": true,
+      "candidate_commitments_available": false,
+      "exclusion_scope": ["all_rows_read_under_receipt", "all_candidates_selected_or_disclosed_under_receipt", "all_transitive_derivatives_and_replays"]
+    },
+    {
+      "flight_id": "0be6dfca-63f6-4f8a-9c37-07be1dc67bff",
+      "run_attempt": 2,
+      "receipt_sha256": "13eb146f65ff37e09e442a8dc63299653f1d146bdb2cc6140ffd2c3b3b9c7f11",
+      "selected_candidate_count_disclosed": 3,
+      "outcome_accessed": true,
+      "identity_accessed": true,
+      "candidate_commitments_available": false,
+      "exclusion_scope": ["all_rows_read_under_receipt", "all_candidates_selected_or_disclosed_under_receipt", "all_transitive_derivatives_and_replays"]
+    },
+    {
+      "flight_id": "0772e7d9-1613-4547-ac3c-4f8bdd845c1c",
+      "run_attempt": 1,
+      "receipt_sha256": "2927e37506fd29cdc2dcf33a6be3d4da4a08126dfa5e6acee324a5f612ceaacf",
+      "selected_candidate_count_disclosed": 20,
+      "outcome_accessed": true,
+      "identity_accessed": true,
+      "candidate_commitments_available": false,
+      "exclusion_scope": ["all_rows_read_under_receipt", "all_candidates_selected_or_disclosed_under_receipt", "all_transitive_derivatives_and_replays"]
+    },
+    {
+      "flight_id": "4adb5856-8c47-4a5e-aee3-7ee14171c888",
+      "run_attempt": 2,
+      "receipt_sha256": "9c227104e39c9ef720fcd402e9e4b563c7f5555c90027888a3b062f686ead6c3",
+      "selected_candidate_count_disclosed": 0,
+      "outcome_accessed": true,
+      "identity_accessed": true,
+      "candidate_commitments_available": false,
+      "exclusion_scope": ["all_rows_read_under_receipt", "all_candidates_selected_or_disclosed_under_receipt", "all_transitive_derivatives_and_replays"]
+    }
+  ],
+  "aggregate": {
+    "receipt_count": 8,
+    "disclosed_selected_candidate_count": 26,
+    "outcome_accessed_receipt_count": 7,
+    "identity_accessed_receipt_count": 7,
+    "candidate_commitments_enumerated": 0,
+    "candidate_commitments_unavailable": true
+  },
+  "exclusion_policy": {
+    "match_keys": ["receipt_sha256", "flight_id_plus_run_attempt"],
+    "mandatory_actions": [
+      "exclude_every_record_whose_lineage_references_a_registry_entry",
+      "exclude_every_selected_or_disclosed_candidate_from_a_registry_entry",
+      "exclude_every_transitive_derivative_replay_or_export",
+      "reject_missing_or_ambiguous_provenance_fail_closed"
+    ],
+    "candidate_ids_fabricated": false,
+    "fuzzy_or_manual_identity_reconstruction": false,
+    "outcome_value_based_exclusion": false,
+    "scope": "provenance_wide_not_outcome_conditioned"
+  },
+  "future_randomness": {
+    "source": "NIST Randomness Beacon 2.0",
+    "earliest_acceptable_pulse_utc": "2026-08-08T00:00:00Z",
+    "pulse_consumed": false,
+    "pulse_uri": null,
+    "pulse_output_commitment_sha256": null
+  },
+  "governance": {
+    "cohort_selected": false,
+    "fresh_outcome_accessed": false,
+    "analysis_executed": false,
+    "stage10_unblocked": false,
+    "production_modified": false,
+    "merge_authorized": false,
+    "external_cost_usd": 0.0,
+    "scientific_promotion_credit": 0
+  },
+  "claim_boundary": {
+    "establishes": [
+      "eight contaminated receipt provenances are frozen",
+      "twenty-six disclosed selections are excluded by provenance",
+      "missing candidate identifiers are not fabricated",
+      "future selection must fail closed on missing provenance"
+    ],
+    "does_not_establish": [
+      "complete enumeration of every row read by contaminated runs",
+      "a clean cohort",
+      "outcome validity",
+      "an association or causal effect",
+      "Stage 10 readiness"
+    ]
+  }
+}
