@@ -1,0 +1,20 @@
+{
+  "schema": "university-cs1200-ps6/source-lock/2",
+  "official_repository": "Harvard-CS-1200/2026-Spring",
+  "official_commit": "0b967fe320ecf2141a6f3b8165d3d096c99fb3ac",
+  "official_tree": "de8ba1477998a406b2d747bd680a8728b40435b0",
+  "files": {
+    "psets/ps6/ps6.py": "82762aecd9ce86a83183db31584c49b83e5c7687",
+    "psets/ps6/ps6_tests.py": "497b3bbcf1570ed463439a23d28d9871e59df2dc",
+    "psets/ps6/ps6_helpers.py": "5e165e16473305412013455ab2f197501647895d",
+    "psets/ps6/ps6_experiments.py": "afe2475d478460235812328e49a8e3ec96f1bc5f",
+    "psets/ps6/ps6.tex": "884d3973e7597cc14c51e1d9a68ddac8afd28f72",
+    "psets/ps6/README.md": "9c1eeb76c806307d4396f6f7f3025daba108250f"
+  },
+  "official_public_test_timeout_seconds": 1,
+  "bounded_experiment_timeout_seconds": 0.25,
+  "independent_oracle_serial_workers": 1,
+  "independent_oracle_parallel_workers": 4,
+  "coordination_surface": "Notion",
+  "coordination_id": "COORD-2026-08-06-PARALLEL-V2"
+}
