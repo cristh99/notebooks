@@ -1,5 +1,6 @@
 patch_script_commit=33de66c23e70837a4ff6c7987289f7b00afd41af
-applicator_commit=aefe0ad34544e61f207b1bff8a543927f2426e23
+applicator_commit=d7eebd9ee5ce063364e6ce42682aba510e54a939
+attempt=2
 scope=authorization_commitment,cas,prior_registry_loader,base_constants
 openvino_scientific_images_opened=0
 ocr_runs=0
