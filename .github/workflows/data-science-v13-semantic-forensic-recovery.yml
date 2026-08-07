@@ -1,0 +1,225 @@
+name: Data Science v13 - semantic forensic recovery
+
+on:
+  push:
+    branches: [agent/data-science-v13-semantic-real-probe-v1]
+    paths:
+      - '.github/workflows/data-science-v13-semantic-forensic-recovery.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: data-science-v13-semantic-forensic-recovery
+  cancel-in-progress: true
+
+jobs:
+  recover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Recover entries by exact local filename, CRC, and frozen hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=data_science_pipeline_v13_semantic_snapshot
+          out=semantic-v13-forensic-recovery-evidence
+          runtime="$out/runtime"
+          mkdir -p "$runtime"
+          cat "$root"/transport/part_*.b64 | base64 --decode > "$out/broken.zip"
+          python3 - "$out/broken.zip" "$runtime" "$root/FREEZE.json" "$out" <<'PY'
+          from pathlib import Path
+          import binascii, hashlib, json, struct, sys, zlib
+
+          archive = Path(sys.argv[1])
+          runtime = Path(sys.argv[2])
+          freeze_path = Path(sys.argv[3])
+          out = Path(sys.argv[4])
+          data = archive.read_bytes()
+          runtime.mkdir(parents=True, exist_ok=True)
+
+          CENTRAL = b'PK\x01\x02'
+          LOCAL = b'PK\x03\x04'
+          EOCD = b'PK\x05\x06'
+
+          central_positions = []
+          pos = 0
+          while True:
+              pos = data.find(CENTRAL, pos)
+              if pos < 0:
+                  break
+              central_positions.append(pos)
+              pos += 1
+
+          entries = []
+          for pos in central_positions:
+              if pos + 46 > len(data):
+                  continue
+              try:
+                  fields = struct.unpack_from('<4s6H3I5H2I', data, pos)
+              except struct.error:
+                  continue
+              sig, made, needed, flag, method, mtime, mdate, crc, csize, usize, nlen, elen, clen, disk, iattr, eattr, lhoff = fields
+              end = pos + 46 + nlen + elen + clen
+              if end > len(data) or nlen == 0 or nlen > 4096:
+                  continue
+              name_bytes = data[pos+46:pos+46+nlen]
+              try:
+                  name = name_bytes.decode('utf-8')
+              except UnicodeDecodeError:
+                  continue
+              if not name.startswith('data_science_pipeline_v13_semantic_snapshot/'):
+                  continue
+              entries.append({
+                  'name': name, 'flag': flag, 'method': method, 'crc': crc,
+                  'csize': csize, 'usize': usize, 'declared_local_offset': lhoff,
+                  'central_offset': pos,
+              })
+
+          if len(entries) != 11:
+              raise SystemExit(f'expected 11 central entries, found {len(entries)}')
+
+          local_positions = []
+          pos = 0
+          while True:
+              pos = data.find(LOCAL, pos)
+              if pos < 0:
+                  break
+              local_positions.append(pos)
+              pos += 1
+
+          locals_by_name = {}
+          local_inventory = []
+          for pos in local_positions:
+              if pos + 30 > len(data):
+                  continue
+              try:
+                  fields = struct.unpack_from('<4s5H3I2H', data, pos)
+              except struct.error:
+                  continue
+              sig, needed, flag, method, mtime, mdate, crc, csize, usize, nlen, elen = fields
+              if nlen == 0 or nlen > 4096 or pos + 30 + nlen + elen > len(data):
+                  continue
+              name_bytes = data[pos+30:pos+30+nlen]
+              try:
+                  name = name_bytes.decode('utf-8')
+              except UnicodeDecodeError:
+                  continue
+              if not name.startswith('data_science_pipeline_v13_semantic_snapshot/'):
+                  continue
+              item = {
+                  'name': name, 'actual_local_offset': pos, 'flag': flag, 'method': method,
+                  'header_crc': crc, 'header_csize': csize, 'header_usize': usize,
+                  'data_start': pos + 30 + nlen + elen,
+              }
+              local_inventory.append(item)
+              locals_by_name.setdefault(name, []).append(item)
+
+          recovered = []
+          failures = []
+          for entry in entries:
+              name = entry['name']
+              if name.endswith('/'):
+                  (runtime / name).mkdir(parents=True, exist_ok=True)
+                  recovered.append({**entry, 'actual_local_offset': None, 'offset_delta': None, 'directory': True})
+                  continue
+              candidates = locals_by_name.get(name, [])
+              success = None
+              candidate_errors = []
+              for local in candidates:
+                  start = local['data_start']
+                  compressed = data[start:start+entry['csize']]
+                  try:
+                      if entry['method'] == 0:
+                          raw = compressed
+                      elif entry['method'] == 8:
+                          raw = zlib.decompress(compressed, -15)
+                      else:
+                          raise ValueError(f'unsupported method {entry["method"]}')
+                      crc = binascii.crc32(raw) & 0xffffffff
+                      if len(raw) != entry['usize']:
+                          raise ValueError(f'usize {len(raw)} != {entry["usize"]}')
+                      if crc != entry['crc']:
+                          raise ValueError(f'crc {crc:08x} != {entry["crc"]:08x}')
+                  except Exception as exc:
+                      candidate_errors.append({'actual_local_offset': local['actual_local_offset'], 'error': str(exc)})
+                      continue
+                  target = runtime / name
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  target.write_bytes(raw)
+                  success = {
+                      **entry,
+                      'actual_local_offset': local['actual_local_offset'],
+                      'offset_delta': local['actual_local_offset'] - entry['declared_local_offset'],
+                      'directory': False,
+                      'sha256': hashlib.sha256(raw).hexdigest(),
+                  }
+                  break
+              if success is None:
+                  failures.append({'name': name, 'candidate_count': len(candidates), 'candidate_errors': candidate_errors})
+              else:
+                  recovered.append(success)
+
+          freeze = json.loads(freeze_path.read_text())
+          mapping = {
+              'contract':'SEMANTIC_CONTRACT.json', 'input':'SYNTHETIC_RESOLVED_EVENTS.jsonl',
+              'readme':'README.md', 'snapshot':'SYNTHETIC_SEMANTIC_SNAPSHOT.json',
+              'source':'semantic.py', 'tests':'test_semantic.py', 'verifier':'verify.py'
+          }
+          internal_checks = {}
+          for key, basename in mapping.items():
+              path = runtime / 'data_science_pipeline_v13_semantic_snapshot' / basename
+              internal_checks[key] = path.is_file() and hashlib.sha256(path.read_bytes()).hexdigest() == freeze['file_sha256'][key]
+
+          report = {
+              'schema':'data-science-pipeline/semantic-forensic-recovery/1',
+              'broken_zip_bytes':len(data),
+              'broken_zip_sha256':hashlib.sha256(data).hexdigest(),
+              'declared_zip_sha256':'dcd591d430012ea713acc81c1b65cf6b6c6c599a77552a432b35c6cbde188408',
+              'central_entry_count':len(entries),
+              'valid_local_header_count':len(local_inventory),
+              'recovered_entry_count':len(recovered),
+              'failures':failures,
+              'recovered':recovered,
+              'internal_frozen_hash_checks':internal_checks,
+              'all_internal_frozen_hashes_pass':all(internal_checks.values()),
+              'external_cost_usd':0.0,
+              'production_modified':False,
+              'scientific_promotion_credit':0,
+              'real_data_evaluations':0,
+              'stage09_unblocked':False,
+          }
+          (out/'FORENSIC_REPORT.json').write_text(json.dumps(report, ensure_ascii=False, sort_keys=True, separators=(',',':'))+'\n')
+          (out/'LOCAL_HEADER_INVENTORY.json').write_text(json.dumps(local_inventory, ensure_ascii=False, sort_keys=True, separators=(',',':'))+'\n')
+          if failures:
+              raise SystemExit(json.dumps(failures, sort_keys=True))
+          if not all(internal_checks.values()):
+              raise SystemExit(json.dumps(internal_checks, sort_keys=True))
+          PY
+
+          recovered="$runtime/data_science_pipeline_v13_semantic_snapshot"
+          (
+            cd "$recovered"
+            python3 -m unittest -v test_semantic.py |& tee "$GITHUB_WORKSPACE/$out/tests.log"
+            python3 verify.py | tee "$GITHUB_WORKSPACE/$out/verify.stdout"
+          )
+          cp "$recovered"/{FREEZE.json,LOCAL_RESULT.json,README.md,SEMANTIC_CONTRACT.json,SYNTHETIC_RESOLVED_EVENTS.jsonl,SYNTHETIC_SEMANTIC_SNAPSHOT.json,VERIFY_OUTPUT.json,semantic.py,test_semantic.py,verify.py} "$out/"
+          (
+            cd "$out"
+            sha256sum * > SHA256SUMS.txt
+            sha256sum --check SHA256SUMS.txt
+          )
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: semantic-v13-forensic-recovery-evidence
+          path: semantic-v13-forensic-recovery-evidence
+          if-no-files-found: error
+          retention-days: 90
