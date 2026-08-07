@@ -1,0 +1,9 @@
+purpose=trigger_exact_signed_exclusion_registry_workflow
+registry_sha256=38323cd86b606b70be3f94ecc16ecb0bab91317384b1aeb28f1985116168b73e
+registry_self_hash=a2c7a4fa95528dbcb5eefec2e1258e64a2a2d3b163279a772267a2facfbe247d
+beacon_consumed=false
+cohort_selected=false
+outcome_accessed=false
+stage10_unblocked=false
+production_modified=false
+external_cost_usd=0.00
