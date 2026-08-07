@@ -1,0 +1,28 @@
+{
+  "adversarial_replay_v2_receipt_sha256": "756a53cabac04e800d653ff649d19e7ad77edd1ccd827b8ef097b93197446d8e",
+  "baseline_f7": 66,
+  "baseline_total": 655,
+  "blocks": {
+    "F7A_SOURCE_BOUND_DOCUMENT_SET": true,
+    "F7B_AMOUNT_ROLE_AND_CHRONOLOGY": true,
+    "F7C_REPRODUCIBLE_CASE_BUNDLE": true,
+    "F7D_INDEPENDENT_ADVERSARIAL_REPLAY": true
+  },
+  "boundary": "F7 v2 promotion is bound to executed negative attacks. It does not compensate for financial lifecycle, external ground truth, utility or generalization gaps.",
+  "case_bundle_receipt_sha256": "ab87fb74280438880ecec399a296369d5f881f934cb37a0d21fbd86f6e0c5ca0",
+  "corruption_claims_created": 0,
+  "f7_after": 82,
+  "f7_cap": 82,
+  "f7_change": 16,
+  "is_god_mode": false,
+  "passed_blocks": 4,
+  "receipt_sha256": "502c3954baef512e6056f881aab3616d098e47d9cc150bbcae0d1789fae72e7a",
+  "remaining_noncompensable_gates": ["F2", "F6", "F8", "F9"],
+  "rule_commit": "d3bd70db9334cec5ef1b951d305b94d607769dfc",
+  "schema_version": "hn_for_abs_001_f7_promotion_audit/v2",
+  "status": "PASS_F7_PROMOTION_AUDIT_V2",
+  "superseded_replay_v1_receipt_sha256": "a9c74579aefec288edb1e6e056911d01528c6c5226a0fe92623ffe647e25bfc5",
+  "test_holdout_open_count": 0,
+  "total_after": 671,
+  "total_change": 16
+}
