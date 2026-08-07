@@ -1,8 +1,8 @@
 """Unified pre-source gate for the OpenVINO v7 scientific execution.
 
 Every source-reading entry point calls this gate after authorization validation
-and before any dataset access.  It proves the exact runtime lock is active and
-that the irreversible terminal-ledger implementation was frozen in advance.
+and before any dataset access. It proves the exact runtime lock, canonical setup
+recipe, and irreversible terminal-ledger implementation were frozen in advance.
 """
 from __future__ import annotations
 
@@ -15,16 +15,25 @@ from .openvino_runtime_lock_v7 import verify_runtime_lock
 from .openvino_terminal_ledger_v7 import terminal_source_sha256
 
 RUNTIME_ROOT_ENV = "OPENVINO_RUNTIME_LOCK_ROOT"
+RUNTIME_SETUP_PATH = Path(__file__).resolve().parents[1] / "scripts/openvino_runtime_setup_v7.sh"
 
 
 def preexecution_source_sha256() -> str:
     return sha256_file(Path(__file__).resolve())
 
 
+def runtime_setup_source_sha256() -> str:
+    if not RUNTIME_SETUP_PATH.is_file():
+        raise RuntimeError("canonical runtime setup script is missing")
+    return sha256_file(RUNTIME_SETUP_PATH)
+
+
 def verify_preexecution_gate(authorization: Mapping[str, Any]) -> dict[str, Any]:
     """Fail before source access unless runtime and terminal code are frozen."""
     if authorization.get("preexecution_gate_source_sha256") != preexecution_source_sha256():
         raise RuntimeError("preexecution gate source differs from authorization")
+    if authorization.get("runtime_setup_source_sha256") != runtime_setup_source_sha256():
+        raise RuntimeError("runtime setup recipe differs from authorization")
     if authorization.get("terminal_ledger_source_sha256") != terminal_source_sha256():
         raise RuntimeError("terminal ledger source differs from authorization")
     root_value = os.environ.get(RUNTIME_ROOT_ENV)
@@ -33,6 +42,7 @@ def verify_preexecution_gate(authorization: Mapping[str, Any]) -> dict[str, Any]
     runtime = verify_runtime_lock(Path(root_value), authorization)
     return {
         "preexecution_gate_source_sha256": preexecution_source_sha256(),
+        "runtime_setup_source_sha256": runtime_setup_source_sha256(),
         "terminal_ledger_source_sha256": terminal_source_sha256(),
         "runtime": runtime,
         "source_access_authorized": True,
