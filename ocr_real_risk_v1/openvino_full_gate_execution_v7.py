@@ -1,6 +1,13 @@
-"""Atomic-execution, code-bundle, and one-shot claim contracts for OpenVINO v7."""
+"""Atomic-execution, code-bundle, and one-shot claim contracts for OpenVINO v7.
+
+The ledger transition records only identities available before GitHub's atomic
+contents update: the current ledger blob and parent commit.  The resulting claim
+commit/blob are recorded afterwards in a separate execution-claim receipt.  This
+avoids an impossible self-reference while preserving one-shot compare-and-swap.
+"""
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -24,11 +31,12 @@ MANIFEST_ARTIFACT_ID = 8983596179
 MANIFEST_ARTIFACT_SHA256 = (
     "fda92bb57ba4088481b6cedded374366b6c6635951942cd3e4f42688292fe182"
 )
-EXECUTION_LEDGER_SCHEMA = "eaat.openvino_v7_execution_ledger/1"
-EXECUTION_CLAIM_SCHEMA = "eaat.openvino_v7_execution_claim/1"
+EXECUTION_LEDGER_SCHEMA = "eaat.openvino_v7_execution_ledger/2"
+EXECUTION_CLAIM_SCHEMA = "eaat.openvino_v7_execution_claim/2"
 LEDGER_APPROVED = "APPROVED_NOT_CLAIMED"
 LEDGER_CLAIMED = "CLAIMED_FULL_EXTERNAL_GATE_ONCE"
 LEDGER_TERMINAL = "TERMINAL_FULL_EXTERNAL_GATE"
+CAS_STRATEGY = "github_contents_api_blob_sha_compare_and_swap"
 
 CRITICAL_CODE_PATHS = (
     "ocr_real_risk_v1/core.py",
@@ -76,6 +84,21 @@ def _valid_code_bundle(value: object) -> bool:
         and set(value) == set(CRITICAL_CODE_PATHS)
         and all(_is_sha256(item) for item in value.values())
     )
+
+
+def _is_git_oid(value: object) -> bool:
+    text = str(value or "").lower()
+    return len(text) == 40 and all(character in "0123456789abcdef" for character in text)
+
+
+def _synthetic_authorization(authorization: Mapping[str, Any]) -> bool:
+    return str(authorization.get("execution_id") or "").startswith(
+        "openvino-v7-synthetic-test-"
+    )
+
+
+def _synthetic_git_oid(label: str) -> str:
+    return hashlib.sha1(label.encode("utf-8"), usedforsecurity=False).hexdigest()
 
 
 def verify_bound_execution_authorization(
@@ -159,9 +182,16 @@ def claim_execution_once(
     *,
     github_run_id: int,
     github_sha: str,
-    ledger_claim_commit_sha: str,
+    ledger_parent_commit_sha: str | None = None,
+    ledger_blob_sha_before: str | None = None,
+    ledger_claim_commit_sha: str | None = None,
 ) -> dict[str, Any]:
-    """Pure transition used by an atomic GitHub compare-and-swap ledger update."""
+    """Create the pre-CAS ledger transition without future commit self-reference.
+
+    ``ledger_claim_commit_sha`` is retained only as a deprecated alias for the
+    pre-CAS parent commit so historical synthetic tests remain readable.  Real
+    execution must also provide ``ledger_blob_sha_before``.
+    """
     if not verify_stable_payload(ledger):
         raise RuntimeError("execution ledger stable replay failed")
     if (
@@ -177,15 +207,27 @@ def claim_execution_once(
         or ledger.get("code_bundle") != authorization.get("code_bundle")
     ):
         raise RuntimeError("execution authorization is already consumed or mismatched")
+    if ledger_parent_commit_sha is None:
+        ledger_parent_commit_sha = ledger_claim_commit_sha
+    elif (
+        ledger_claim_commit_sha is not None
+        and ledger_claim_commit_sha != ledger_parent_commit_sha
+    ):
+        raise RuntimeError("legacy and explicit parent commit identities differ")
+    if ledger_blob_sha_before is None:
+        if not _synthetic_authorization(authorization):
+            raise RuntimeError("real execution requires the pre-CAS ledger blob SHA")
+        ledger_blob_sha_before = _synthetic_git_oid(
+            "before:" + str(ledger["stable_payload_sha256"])
+        )
     if (
         not isinstance(github_run_id, int)
         or github_run_id <= 0
-        or not isinstance(github_sha, str)
-        or len(github_sha) != 40
-        or not isinstance(ledger_claim_commit_sha, str)
-        or len(ledger_claim_commit_sha) != 40
+        or not _is_git_oid(github_sha)
+        or not _is_git_oid(ledger_parent_commit_sha)
+        or not _is_git_oid(ledger_blob_sha_before)
     ):
-        raise RuntimeError("invalid GitHub execution claim identity")
+        raise RuntimeError("invalid GitHub pre-CAS execution identity")
     return stable_payload(
         {
             **{
@@ -198,7 +240,9 @@ def claim_execution_once(
             "claim": {
                 "github_run_id": github_run_id,
                 "github_sha": github_sha,
-                "ledger_claim_commit_sha": ledger_claim_commit_sha,
+                "cas_strategy": CAS_STRATEGY,
+                "ledger_parent_commit_sha": ledger_parent_commit_sha,
+                "ledger_blob_sha_before": ledger_blob_sha_before,
                 "previous_ledger_stable_payload_sha256": ledger[
                     "stable_payload_sha256"
                 ],
@@ -208,17 +252,43 @@ def claim_execution_once(
 
 
 def execution_claim_receipt(
-    claimed_ledger: Mapping[str, Any], authorization: Mapping[str, Any]
+    claimed_ledger: Mapping[str, Any],
+    authorization: Mapping[str, Any],
+    *,
+    ledger_claim_commit_sha: str | None = None,
+    ledger_claim_blob_sha: str | None = None,
 ) -> dict[str, Any]:
+    """Bind the post-CAS GitHub result to the already-written claimed ledger."""
     if (
         not verify_stable_payload(claimed_ledger)
+        or claimed_ledger.get("schema") != EXECUTION_LEDGER_SCHEMA
         or claimed_ledger.get("status") != LEDGER_CLAIMED
         or claimed_ledger.get("claim_count") != 1
+        or claimed_ledger.get("execution_id") != authorization.get("execution_id")
+        or claimed_ledger.get("authorization_nonce_sha256")
+        != authorization.get("authorization_nonce_sha256")
+        or claimed_ledger.get("code_bundle") != authorization.get("code_bundle")
     ):
         raise RuntimeError("claimed ledger is invalid")
     claim = claimed_ledger.get("claim")
     if not isinstance(claim, Mapping):
         raise RuntimeError("claimed ledger lacks claim identity")
+    if ledger_claim_commit_sha is None or ledger_claim_blob_sha is None:
+        if not _synthetic_authorization(authorization):
+            raise RuntimeError("real execution claim requires post-CAS commit and blob SHAs")
+        ledger_claim_commit_sha = ledger_claim_commit_sha or _synthetic_git_oid(
+            "claim-commit:" + str(claimed_ledger["stable_payload_sha256"])
+        )
+        ledger_claim_blob_sha = ledger_claim_blob_sha or _synthetic_git_oid(
+            "claim-blob:" + str(claimed_ledger["stable_payload_sha256"])
+        )
+    if (
+        not _is_git_oid(ledger_claim_commit_sha)
+        or not _is_git_oid(ledger_claim_blob_sha)
+        or ledger_claim_commit_sha == claim.get("ledger_parent_commit_sha")
+        or ledger_claim_blob_sha == claim.get("ledger_blob_sha_before")
+    ):
+        raise RuntimeError("invalid or non-advancing post-CAS GitHub identity")
     return stable_payload(
         {
             "schema": EXECUTION_CLAIM_SCHEMA,
@@ -233,12 +303,20 @@ def execution_claim_receipt(
             "initial_ledger_stable_payload_sha256": authorization[
                 "execution_ledger_initial_stable_payload_sha256"
             ],
+            "previous_ledger_stable_payload_sha256": claim[
+                "previous_ledger_stable_payload_sha256"
+            ],
             "claimed_ledger_stable_payload_sha256": claimed_ledger[
                 "stable_payload_sha256"
             ],
             "github_run_id": claim["github_run_id"],
             "github_sha": claim["github_sha"],
-            "ledger_claim_commit_sha": claim["ledger_claim_commit_sha"],
+            "cas_strategy": claim["cas_strategy"],
+            "ledger_parent_commit_sha": claim["ledger_parent_commit_sha"],
+            "ledger_blob_sha_before": claim["ledger_blob_sha_before"],
+            "ledger_claim_commit_sha": ledger_claim_commit_sha,
+            "ledger_claim_blob_sha": ledger_claim_blob_sha,
+            "claim_commit_is_post_cas_result": True,
             "code_bundle": dict(authorization["code_bundle"]),
             "consumed_once": True,
         }
@@ -258,6 +336,8 @@ def verify_execution_claim(
         payload.get("schema") != EXECUTION_CLAIM_SCHEMA
         or payload.get("status") != LEDGER_CLAIMED
         or payload.get("consumed_once") is not True
+        or payload.get("claim_commit_is_post_cas_result") is not True
+        or payload.get("cas_strategy") != CAS_STRATEGY
         or not verify_stable_payload(payload)
         or payload.get("execution_id") != authorization.get("execution_id")
         or payload.get("authorization_stable_payload_sha256")
@@ -266,14 +346,21 @@ def verify_execution_claim(
         != authorization.get("authorization_nonce_sha256")
         or payload.get("initial_ledger_stable_payload_sha256")
         != authorization.get("execution_ledger_initial_stable_payload_sha256")
+        or payload.get("previous_ledger_stable_payload_sha256")
+        != authorization.get("execution_ledger_initial_stable_payload_sha256")
         or payload.get("code_bundle") != authorization.get("code_bundle")
         or not _is_sha256(payload.get("claimed_ledger_stable_payload_sha256"))
         or not isinstance(payload.get("github_run_id"), int)
         or payload.get("github_run_id") <= 0
-        or not isinstance(payload.get("github_sha"), str)
-        or len(payload["github_sha"]) != 40
-        or not isinstance(payload.get("ledger_claim_commit_sha"), str)
-        or len(payload["ledger_claim_commit_sha"]) != 40
+        or not _is_git_oid(payload.get("github_sha"))
+        or not _is_git_oid(payload.get("ledger_parent_commit_sha"))
+        or not _is_git_oid(payload.get("ledger_blob_sha_before"))
+        or not _is_git_oid(payload.get("ledger_claim_commit_sha"))
+        or not _is_git_oid(payload.get("ledger_claim_blob_sha"))
+        or payload.get("ledger_claim_commit_sha")
+        == payload.get("ledger_parent_commit_sha")
+        or payload.get("ledger_claim_blob_sha")
+        == payload.get("ledger_blob_sha_before")
     ):
         raise RuntimeError("execution claim contract failed")
     return payload
@@ -299,10 +386,17 @@ def claim_binding(
             "stable_payload_sha256"
         ],
         "execution_claim_file_sha256": claim_file_sha256,
+        "previous_ledger_stable_payload_sha256": claim[
+            "previous_ledger_stable_payload_sha256"
+        ],
         "claimed_ledger_stable_payload_sha256": claim[
             "claimed_ledger_stable_payload_sha256"
         ],
+        "cas_strategy": claim["cas_strategy"],
+        "ledger_parent_commit_sha": claim["ledger_parent_commit_sha"],
+        "ledger_blob_sha_before": claim["ledger_blob_sha_before"],
         "ledger_claim_commit_sha": claim["ledger_claim_commit_sha"],
+        "ledger_claim_blob_sha": claim["ledger_claim_blob_sha"],
         "github_run_id": claim["github_run_id"],
         "github_sha": claim["github_sha"],
     }
