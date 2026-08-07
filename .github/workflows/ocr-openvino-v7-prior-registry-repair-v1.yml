@@ -1,66 +1,18 @@
-name: Diagnose OpenVINO v7 runtime replay failure
+name: RETIRED — OpenVINO v7 runtime replay diagnostic
 
+# Root cause: moving hosted-runner image label. The executable dependency closure
+# remains the enforced scientific identity. Diagnostic run: 31178103710.
 on:
   push:
     branches:
-      - agent/openvino-v7-smoke-16-stacked-v2
-    paths:
-      - ".github/workflows/ocr-openvino-v7-prior-registry-repair-v1.yml"
+      - __retired_openvino_workflows__
 
 permissions:
-  actions: read
   contents: read
 
 jobs:
-  diagnose:
+  retired:
+    if: ${{ false }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    env:
-      GH_TOKEN: ${{ github.token }}
-      FAILED_JOB_ID: "92860580340"
     steps:
-      - name: Download and isolate failed step traceback
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir evidence
-          gh api \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "/repos/${GITHUB_REPOSITORY}/actions/jobs/${FAILED_JOB_ID}/logs" \
-            > evidence/full-job.log
-          python - <<'PY'
-          from pathlib import Path
-          text = Path('evidence/full-job.log').read_text(
-              encoding='utf-8-sig', errors='replace'
-          )
-          needles = (
-              'Traceback (most recent call last):',
-              'RuntimeError:',
-              'AssertionError',
-              'Process completed with exit code',
-          )
-          lines = text.splitlines()
-          selected = []
-          for index, line in enumerate(lines):
-              if any(needle in line for needle in needles):
-                  start = max(0, index - 25)
-                  end = min(len(lines), index + 35)
-                  selected.extend(lines[start:end])
-          if not selected:
-              selected = lines[-180:]
-          deduped = []
-          for line in selected:
-              if not deduped or deduped[-1] != line:
-                  deduped.append(line)
-          Path('evidence/failure-excerpt.log').write_text(
-              '\n'.join(deduped) + '\n', encoding='utf-8'
-          )
-          print('\n'.join(deduped[-220:]))
-          PY
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: openvino-runtime-replay-failure-excerpt
-          path: evidence/failure-excerpt.log
-          if-no-files-found: error
-          retention-days: 14
+      - run: exit 1
