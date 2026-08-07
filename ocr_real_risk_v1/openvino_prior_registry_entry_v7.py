@@ -2,8 +2,8 @@
 
 Historical SROIE terminal manifests predate the explicit source-path field.
 They remain bound by repository, immutable revision, exact Parquet SHA-256, and
-row count. This entry point also corrects the full-population denominator: all
-SROIE rows count, not only its previously selected numeric rows.
+row count. This entry point also corrects the full-population denominator and
+the recovery-artifact digests from live GitHub artifact metadata.
 """
 from __future__ import annotations
 
@@ -13,6 +13,12 @@ from . import openvino_prior_registry_v7 as implementation
 
 EXPECTED_TOTAL_ROWS = 38_601
 implementation.EXPECTED_TOTAL_ROWS = EXPECTED_TOTAL_ROWS
+implementation.SOURCE_SPECS["sroie-train"]["artifact_sha256"] = (
+    "ada46e3e9a5ac2d0a29c7f2af20ee493959e4114e299f94cfc00218e8076badd"
+)
+implementation.SOURCE_SPECS["sroie-test"]["artifact_sha256"] = (
+    "0dc86b73e14029fd45867ed7bbd2b83e3f6d1f22a0791a0a75371ecd3a841f90"
+)
 
 
 def _dataset_matches(dataset: Mapping[str, Any], spec: Mapping[str, Any]) -> bool:
