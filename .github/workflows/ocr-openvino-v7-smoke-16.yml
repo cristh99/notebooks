@@ -123,7 +123,7 @@ jobs:
           rm -rf smoke-output
           mkdir -p smoke-output
           /usr/local/bin/tesseract --version
-          python ocr_real_risk_v1/openvino_smoke_v7.py \
+          python -m ocr_real_risk_v1.openvino_smoke_v7 \
             --model-zip /tmp/digit-forest-v3.zip \
             --output-dir smoke-output
 
