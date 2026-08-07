@@ -50,26 +50,34 @@ def main() -> int:
     clean = ANSI_RE.sub("", completed.stdout)
     args.log.write_text(clean)
 
-    passed = 0
+    passed_lines = 0
     failed = 0
     timeouts = 0
     for line in clean.splitlines():
         stripped = line.strip()
-        if not stripped:
+        if not stripped or stripped.startswith("Tests Passed"):
             continue
-        if ": Passed" in stripped:
-            passed += 1
-        elif ": Failed" in stripped:
+        if re.search(r"\bPassed\b", stripped):
+            passed_lines += 1
+        elif re.search(r"\bFailed\b", stripped):
             failed += 1
-        elif ": Timeout" in stripped:
+        elif re.search(r"\bTimeout\b", stripped):
             timeouts += 1
 
-    summary_matches = re.findall(r"Tests Passed\s+(\d+)/(\d+)", clean)
+    summary_matches = [
+        (int(left), int(right))
+        for left, right in re.findall(r"Tests Passed\s+(\d+)/(\d+)", clean)
+    ]
+    summary_passed = sum(left for left, _ in summary_matches)
+    summary_total = sum(right for _, right in summary_matches)
+    passed = max(passed_lines, summary_passed)
+    denominator = max(passed + failed + timeouts, summary_total + timeouts)
+
     if completed.returncode != 0:
         status = "FAIL_PUBLIC_TEST_PROCESS"
     elif failed:
         status = "FAIL_PUBLIC_TEST_FUNCTIONAL"
-    elif passed == 0:
+    elif passed == 0 or denominator == 0:
         status = "FAIL_NO_PUBLIC_TEST_RESULT"
     elif timeouts:
         status = "PASS_PUBLIC_TEST_REPLAY_WITH_RETAINED_TIMEOUTS"
@@ -83,9 +91,10 @@ def main() -> int:
         "passed": passed,
         "failed": failed,
         "timeouts": timeouts,
-        "denominator": passed + failed + timeouts,
+        "denominator": denominator,
+        "individual_pass_lines": passed_lines,
         "official_runner_summaries": [
-            {"passed": int(left), "counted_total": int(right)}
+            {"passed": left, "counted_total": right}
             for left, right in summary_matches
         ],
         "official_timeout_seconds_per_case": 10,
