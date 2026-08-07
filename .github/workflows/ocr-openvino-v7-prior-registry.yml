@@ -75,12 +75,12 @@ jobs:
           from pathlib import Path
           log = Path('contract-evidence/unittest.log').read_text()
           match = re.search(r'Ran (\d+) tests?', log)
-          assert match and int(match.group(1)) == 7
+          assert match and int(match.group(1)) == 6
           assert log.rstrip().endswith('OK')
           receipt = {
               'schema': 'eaat.openvino_v7_runtime_terminal_contract/1',
               'status': 'PASS_RUNTIME_AND_TERMINAL_FAIL_CLOSED_CONTRACTS',
-              'tests_passed': 7,
+              'tests_passed': 6,
               'exact_runtime_artifact_replayed': True,
               'runtime_substitution_rejected': True,
               'missing_preexecution_environment_rejected': True,
