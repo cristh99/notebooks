@@ -32,6 +32,7 @@ from ocr_real_risk_v1.openvino_full_gate_execution_v7 import (
 from ocr_real_risk_v1.openvino_preexecution_gate_v7 import (
     RUNTIME_ROOT_ENV,
     preexecution_source_sha256,
+    runtime_setup_source_sha256,
     verify_preexecution_gate,
 )
 from ocr_real_risk_v1.openvino_runtime_lock_v7 import (
@@ -96,6 +97,7 @@ def authorization() -> dict:
         "runtime_required": True,
         "speed_claim_authorized": False,
         "runtime_verifier_source_sha256": verifier_source_sha256(),
+        "runtime_setup_source_sha256": runtime_setup_source_sha256(),
         "terminal_ledger_source_sha256": terminal_source_sha256(),
         "preexecution_gate_source_sha256": preexecution_source_sha256(),
     }
@@ -172,6 +174,10 @@ class RuntimeLockTests(unittest.TestCase):
                     tampered["terminal_ledger_source_sha256"] = h("tampered")
                     with self.assertRaises(RuntimeError):
                         verify_preexecution_gate(tampered)
+                    tampered_setup = copy.deepcopy(auth)
+                    tampered_setup["runtime_setup_source_sha256"] = h("tampered-setup")
+                    with self.assertRaises(RuntimeError):
+                        verify_preexecution_gate(tampered_setup)
 
 
 class TerminalLedgerTests(unittest.TestCase):
