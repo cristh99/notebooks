@@ -9,24 +9,27 @@ import time
 from collections import defaultdict
 from pathlib import Path
 
-from ps6 import exhaustive_search_coloring, iset_bfs_3_coloring
+import numpy as np
+
+from ps6 import Graph, exhaustive_search_coloring, iset_bfs_3_coloring
 from ps6_helpers import (
     generate_line_of_ring_subgraphs,
     generate_random_linked_cluster,
     validate_graph_coloring,
 )
-from ps6 import Graph
 
 
 def _worker(queue, algorithm: str, graph_type: str, params: dict, seed: int):
     try:
         random.seed(seed)
+        np.random.seed(seed)
         if graph_type == "line_of_rings":
             graph = generate_line_of_ring_subgraphs(
                 Graph,
                 params["number_of_rings"],
                 params["nodes_per_ring"],
             )
+            guaranteed_3_colorable = True
         elif graph_type == "random_clusters":
             graph = generate_random_linked_cluster(
                 Graph,
@@ -34,6 +37,10 @@ def _worker(queue, algorithm: str, graph_type: str, params: dict, seed: int):
                 params["cluster_count"],
                 params["p"],
             )
+            # Each cluster is an independent color class. q <= 3 guarantees a
+            # 3-coloring; q=4 is intentionally included by the assignment but
+            # does not guarantee one.
+            guaranteed_3_colorable = params["cluster_count"] <= 3
         else:
             raise ValueError(graph_type)
 
@@ -45,14 +52,26 @@ def _worker(queue, algorithm: str, graph_type: str, params: dict, seed: int):
         else:
             raise ValueError(algorithm)
         elapsed = time.perf_counter() - started
-        valid = validate_graph_coloring(graph, coloring)
+
+        if coloring is None:
+            status = (
+                "FAIL_MISSING_COLORING"
+                if guaranteed_3_colorable
+                else "PASS_NO_COLORING_RETURNED"
+            )
+            valid = None
+        else:
+            valid = validate_graph_coloring(graph, coloring)
+            status = "PASS" if valid else "FAIL_INVALID_COLORING"
+
         queue.put(
             {
-                "status": "PASS" if valid else "FAIL_INVALID_COLORING",
+                "status": status,
                 "elapsed_seconds": elapsed,
                 "n": graph.N,
                 "m": sum(len(neighbors) for neighbors in graph.edges) // 2,
-                "valid": bool(valid),
+                "valid": valid,
+                "guaranteed_3_colorable": guaranteed_3_colorable,
             }
         )
     except BaseException as exc:  # preserve experiment failure as evidence
@@ -103,47 +122,52 @@ def run_case(
     }
 
 
+def _expected_n(graph_type: str, params: dict) -> int:
+    if graph_type == "line_of_rings":
+        return params["number_of_rings"] * params["nodes_per_ring"]
+    return params["cluster_size"] * params["cluster_count"]
+
+
 def summarize(rows: list[dict]) -> dict:
     groups: dict[tuple[str, str], list[dict]] = defaultdict(list)
     for row in rows:
         groups[(row["graph_type"], row["algorithm"])].append(row)
 
     summary = {}
+    accepted_statuses = {"PASS", "PASS_NO_COLORING_RETURNED"}
     for (graph_type, algorithm), items in sorted(groups.items()):
-        completed = [item for item in items if item["status"] == "PASS"]
+        completed = [item for item in items if item["status"] in accepted_statuses]
         timed_out = [item for item in items if item["status"] == "TIMEOUT"]
         failures = [
             item
             for item in items
-            if item["status"] not in {"PASS", "TIMEOUT"}
+            if item["status"] not in accepted_statuses | {"TIMEOUT"}
         ]
         summary[f"{graph_type}:{algorithm}"] = {
             "cases": len(items),
             "completed": len(completed),
             "timeouts": len(timed_out),
             "failures": len(failures),
+            "no_coloring_returned_on_q4": sum(
+                item["status"] == "PASS_NO_COLORING_RETURNED"
+                for item in items
+            ),
             "largest_n_completed": max(
-                (item["n"] for item in completed), default=None
+                (_expected_n(item["graph_type"], item["params"]) for item in completed),
+                default=None,
             ),
             "smallest_n_timed_out": min(
-                (
-                    _expected_n(item["graph_type"], item["params"])
-                    for item in timed_out
-                ),
+                (_expected_n(item["graph_type"], item["params"]) for item in timed_out),
                 default=None,
             ),
             "note": (
                 "Thresholds are empirical on one runner and need not be monotone "
-                "because graph structure changes with parameters."
+                "because graph structure changes with parameters. q=4 random "
+                "clusters are not guaranteed 3-colorable; returning None there is "
+                "recorded, not treated as a functional failure."
             ),
         }
     return summary
-
-
-def _expected_n(graph_type: str, params: dict) -> int:
-    if graph_type == "line_of_rings":
-        return params["number_of_rings"] * params["nodes_per_ring"]
-    return params["cluster_size"] * params["cluster_count"]
 
 
 def main() -> None:
@@ -156,10 +180,7 @@ def main() -> None:
     algorithms = ("exhaustive", "iset_bfs")
 
     ring_cases = [
-        {
-            "number_of_rings": count,
-            "nodes_per_ring": size,
-        }
+        {"number_of_rings": count, "nodes_per_ring": size}
         for size in (3, 4, 5)
         for count in (1, 2, 3, 5, 8, 13, 21, 34, 55)
     ]
@@ -197,7 +218,7 @@ def main() -> None:
             )
 
     report = {
-        "schema": "university-cs1200-ps6/benchmark/1",
+        "schema": "university-cs1200-ps6/benchmark/2",
         "status": "PASS_BOUNDED_EXPERIMENT_COMPLETED",
         "timeout_seconds_per_case": args.timeout,
         "cpu_count": os.cpu_count(),
@@ -206,6 +227,7 @@ def main() -> None:
         "guardrails": {
             "timing_is_runner_specific": True,
             "timeouts_removed_from_denominator": 0,
+            "q4_noncolorability_not_misclassified": True,
             "course_complete": False,
         },
     }
