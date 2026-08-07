@@ -1,0 +1,163 @@
+name: Data Science v14.3 - preregistered real Analyze scale-up
+
+on:
+  push:
+    branches: [agent/data-science-v14-3-analyze-scaleup-execution-v1]
+    paths:
+      - '.github/workflows/data-science-v14-3-analyze-scaleup.yml'
+      - 'data_science_pipeline_v14_3_analyze_scaleup/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: data-science-v14-3-analyze-scaleup-v1
+  cancel-in-progress: true
+
+env:
+  COMPONENT: data_science_pipeline_v14_3_analyze_scaleup
+  EVIDENCE: data-science-v14-3-analyze-scaleup-evidence
+  SOURCE_URL: https://data.open-contracting.org/en/publication/122/download?name=2024.jsonl.gz
+  EXPECTED_REPOSITORY: cristh99/notebooks
+  EXPECTED_BRANCH: agent/data-science-v14-3-analyze-scaleup-execution-v1
+  EXPECTED_CERTIFICATE_IDENTITY: https://github.com/cristh99/notebooks/.github/workflows/data-science-v14-3-analyze-scaleup.yml@refs/heads/agent/data-science-v14-3-analyze-scaleup-execution-v1
+  OIDC_ISSUER: https://token.actions.githubusercontent.com
+  OIDC_AUDIENCE: sigstore
+  COSIGN_VERSION: 3.0.6
+  COSIGN_SHA256: c956e5dfcac53d52bcf058360d579472f0c1d2d9b69f55209e256fe7783f4c74
+
+jobs:
+  execute:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Enforce preregistration freeze before source access
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "$EXPECTED_REPOSITORY"
+          test "$GITHUB_REF" = "refs/heads/$EXPECTED_BRANCH"
+          case "$GITHUB_EVENT_NAME" in push|workflow_dispatch) ;; *) exit 1 ;; esac
+          mkdir -p "$EVIDENCE" "$RUNNER_TEMP/runtime-a" "$RUNNER_TEMP/runtime-b"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('data_science_pipeline_v14_3_analyze_scaleup')
+          protocol=json.loads((root/'PREREGISTERED_SCALEUP_PROTOCOL.json').read_text())
+          freeze=json.loads((root/'FREEZE.json').read_text())
+          assert protocol['status']=='FROZEN_BEFORE_COHORT_DISCOVERY'
+          assert freeze['source_bytes_accessed_before_freeze'] is False
+          assert freeze['cohort_counts_observed_before_freeze'] is False
+          assert freeze['hypothesis_or_threshold_changed'] is False
+          assert protocol['analysis_contract']['hypothesis_id']=='H09-001'
+          assert protocol['analysis_contract']['test']=='two_sided_fisher_exact'
+          assert protocol['analysis_contract']['minimum_cell_n']==5
+          assert protocol['analysis_contract']['fdr_method']=='Benjamini-Hochberg'
+          assert protocol['analysis_contract']['fdr_q']==0.05
+          PY
+          protocol_commit="$(git log --diff-filter=A --format=%H -- "$COMPONENT/PREREGISTERED_SCALEUP_PROTOCOL.json" | tail -n1)"
+          test -n "$protocol_commit"
+          printf '%s\n' "$protocol_commit" > "$EVIDENCE/protocol-freeze-commit.txt"
+          git show "$protocol_commit:$COMPONENT/PREREGISTERED_SCALEUP_PROTOCOL.json" > "$EVIDENCE/frozen-protocol.json"
+          git show "$protocol_commit:$COMPONENT/FREEZE.json" > "$EVIDENCE/frozen-freeze.json"
+          cmp "$COMPONENT/PREREGISTERED_SCALEUP_PROTOCOL.json" "$EVIDENCE/frozen-protocol.json"
+          cmp "$COMPONENT/FREEZE.json" "$EVIDENCE/frozen-freeze.json"
+
+      - name: Download and retain exact official ONCAE source
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5 --retry-all-errors --connect-timeout 30 --max-time 1200 "$SOURCE_URL" -o "$RUNNER_TEMP/oncae_2024.jsonl.gz"
+          test -s "$RUNNER_TEMP/oncae_2024.jsonl.gz"
+          gzip -t "$RUNNER_TEMP/oncae_2024.jsonl.gz"
+          mkdir -p "$EVIDENCE/source"
+          cp "$RUNNER_TEMP/oncae_2024.jsonl.gz" "$EVIDENCE/source/"
+          sha256sum "$RUNNER_TEMP/oncae_2024.jsonl.gz" > "$EVIDENCE/source-archive.sha256"
+          stat -c '%s' "$RUNNER_TEMP/oncae_2024.jsonl.gz" > "$EVIDENCE/source-archive.bytes"
+
+      - name: Execute twice, test 50 invariants, and verify exact replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "$COMPONENT/scaleup.py" --archive "$RUNNER_TEMP/oncae_2024.jsonl.gz" --protocol "$COMPONENT/PREREGISTERED_SCALEUP_PROTOCOL.json" --freeze "$COMPONENT/FREEZE.json" --output-dir "$RUNNER_TEMP/runtime-a" | tee "$EVIDENCE/execution-a.log"
+          python3 "$COMPONENT/scaleup.py" --archive "$RUNNER_TEMP/oncae_2024.jsonl.gz" --protocol "$COMPONENT/PREREGISTERED_SCALEUP_PROTOCOL.json" --freeze "$COMPONENT/FREEZE.json" --output-dir "$RUNNER_TEMP/runtime-b" | tee "$EVIDENCE/execution-b.log"
+          for name in SOURCE_IDENTITY.json SCALEUP_COHORT.jsonl SCALEUP_RESULT.json QUARANTINE.jsonl SCALEUP_MANIFEST.json; do cmp "$RUNNER_TEMP/runtime-a/$name" "$RUNNER_TEMP/runtime-b/$name"; done
+          SCALEUP_OUTPUT_DIR="$RUNNER_TEMP/runtime-a" SCALEUP_PROTOCOL="$COMPONENT/PREREGISTERED_SCALEUP_PROTOCOL.json" SCALEUP_FREEZE="$COMPONENT/FREEZE.json" python3 -m unittest -v "$COMPONENT/test_scaleup.py" |& tee "$EVIDENCE/tests.log"
+          grep -Fq 'Ran 50 tests' "$EVIDENCE/tests.log"
+          grep -Fq 'OK' "$EVIDENCE/tests.log"
+          python3 "$COMPONENT/verify.py" --output-dir "$RUNNER_TEMP/runtime-a" --protocol "$COMPONENT/PREREGISTERED_SCALEUP_PROTOCOL.json" --freeze "$COMPONENT/FREEZE.json" --receipt "$EVIDENCE/local-receipt.json" | tee "$EVIDENCE/local-verification.log"
+          python3 "$COMPONENT/verify.py" --output-dir "$RUNNER_TEMP/runtime-b" --protocol "$COMPONENT/PREREGISTERED_SCALEUP_PROTOCOL.json" --freeze "$COMPONENT/FREEZE.json" --receipt "$EVIDENCE/local-receipt-repeat.json" > "$EVIDENCE/local-verification-repeat.log"
+          cmp "$EVIDENCE/local-receipt.json" "$EVIDENCE/local-receipt-repeat.json"
+          cp "$RUNNER_TEMP/runtime-a"/* "$EVIDENCE/"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('data-science-v14-3-analyze-scaleup-evidence/SCALEUP_RESULT.json').read_text())
+          assert r['terminal']=='ANALYSIS_EXECUTION_VALIDATED'
+          assert r['reason']=='BOUNDED_PREREGISTERED_CANARY_SUFFICIENT'
+          assert all(v>=5 for v in r['selected_group_counts'].values())
+          assert r['negative_control']['promoted'] is False
+          assert r['governance']['stage10_unblocked'] is False
+          PY
+          sha256sum "$COMPONENT"/*.json "$COMPONENT"/*.py "$COMPONENT"/*.md "$EVIDENCE"/*.json "$EVIDENCE"/*.jsonl > "$EVIDENCE/source-and-output-sha256.txt"
+
+      - name: Validate exact GitHub OIDC identity
+        shell: bash
+        run: |
+          set -euo pipefail; umask 077
+          response="$(curl -fsSL -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${OIDC_AUDIENCE}")"
+          token="$(printf '%s' "$response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])')"
+          echo "::add-mask::$token"
+          printf '%s' "$token" > "$RUNNER_TEMP/oidc-token.jwt"
+          python3 "$COMPONENT/ci_external.py" validate-oidc --token "$RUNNER_TEMP/oidc-token.jwt" --output "$EVIDENCE/oidc-safe-claims.json" > "$EVIDENCE/oidc-validation.log"
+
+      - name: Sign and verify exact scale-up result
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" -o "$RUNNER_TEMP/cosign"
+          printf '%s  %s\n' "$COSIGN_SHA256" "$RUNNER_TEMP/cosign" | sha256sum -c -
+          chmod 0755 "$RUNNER_TEMP/cosign"
+          "$RUNNER_TEMP/cosign" version > "$EVIDENCE/cosign-version.txt"
+          token="$(cat "$RUNNER_TEMP/oidc-token.jwt")"; echo "::add-mask::$token"
+          "$RUNNER_TEMP/cosign" sign-blob --yes --identity-token "$token" --bundle "$EVIDENCE/scaleup-result.sigstore.json" "$RUNNER_TEMP/runtime-a/SCALEUP_RESULT.json" > "$EVIDENCE/sign.log" 2>&1
+          rm -f "$RUNNER_TEMP/oidc-token.jwt"
+          "$RUNNER_TEMP/cosign" verify-blob "$RUNNER_TEMP/runtime-a/SCALEUP_RESULT.json" --bundle "$EVIDENCE/scaleup-result.sigstore.json" --certificate-identity "$EXPECTED_CERTIFICATE_IDENTITY" --certificate-oidc-issuer "$OIDC_ISSUER" --certificate-github-workflow-repository "$GITHUB_REPOSITORY" --certificate-github-workflow-sha "$GITHUB_SHA" --certificate-github-workflow-trigger "$GITHUB_EVENT_NAME" > "$EVIDENCE/verify.log" 2>&1
+          grep -Fq 'Verified OK' "$EVIDENCE/verify.log"
+          python3 "$COMPONENT/ci_external.py" finalize --evidence "$EVIDENCE" --runtime "$RUNNER_TEMP/runtime-a" --output "$EVIDENCE/external-receipt.json" > "$EVIDENCE/finalize.log"
+          sha256sum "$EVIDENCE/external-receipt.json" "$EVIDENCE/scaleup-result.sigstore.json" "$EVIDENCE/verify.log" > "$EVIDENCE/terminal-sha256.txt"
+
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-v14-3-analyze-scaleup
+          path: data-science-v14-3-analyze-scaleup-evidence
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 6
+
+      - name: Enforce terminal receipt
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path=Path('data-science-v14-3-analyze-scaleup-evidence/external-receipt.json')
+          if not path.exists(): raise SystemExit('external receipt missing')
+          receipt=json.loads(path.read_text())
+          assert receipt['verdict']=='PASS_STAGE09_PREREGISTERED_SCALEUP_EXTERNAL'
+          assert all(receipt['checks'].values())
+          assert receipt['terminal']=='ANALYSIS_EXECUTION_VALIDATED'
+          assert receipt['stage10_canary_input_ready'] is True
+          assert receipt['stage10_global_unblocked'] is False
+          assert receipt['production_modified'] is False
+          print(receipt['verdict'])
+          PY
