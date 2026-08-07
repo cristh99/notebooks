@@ -1,0 +1,260 @@
+name: University Harvard CS1200 PS6-PS10 preflight v1
+
+on:
+  push:
+    branches:
+      - agent/university-harvard-cs1200-ps6-10-preflight-v1
+    paths:
+      - '.github/workflows/university-cs1200-ps6-10-preflight-v1.yml'
+      - 'university_cs1200_ps6_10_v1/**'
+  pull_request:
+    paths:
+      - '.github/workflows/university-cs1200-ps6-10-preflight-v1.yml'
+      - 'university_cs1200_ps6_10_v1/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: university-cs1200-ps6-10-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  audit-pset:
+    name: Audit PS${{ matrix.pset }} twice
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        pset: [6, 7, 8, 9, 10]
+    steps:
+      - name: Checkout audit capsule
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Set up Python
+        uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.12'
+
+      - name: Verify frozen contract and source code
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          lock = json.loads(Path('university_cs1200_ps6_10_v1/SOURCE_LOCK.json').read_text())
+          assert lock['coordination_surface'] == 'Notion'
+          assert lock['coordination_id'] == 'COORD-2026-08-06-PARALLEL-V2'
+          assert lock['official_repository'] == 'Harvard-CS-1200/2026-Spring'
+          assert lock['official_commit'] == '0b967fe320ecf2141a6f3b8165d3d096c99fb3ac'
+          assert lock['official_tree'] == 'de8ba1477998a406b2d747bd680a8728b40435b0'
+          assert lock['psets'] == [6, 7, 8, 9, 10]
+          assert lock['parallel_lanes'] == 5
+          assert lock['replay_copies'] == 2
+          assert lock['cost_usd'] == 0
+          PY
+          python -m py_compile university_cs1200_ps6_10_v1/audit_pset.py
+          mkdir -p evidence
+          sha256sum \
+            university_cs1200_ps6_10_v1/SOURCE_LOCK.json \
+            university_cs1200_ps6_10_v1/README.md \
+            university_cs1200_ps6_10_v1/audit_pset.py \
+            > evidence/capsule-source-sha256.txt
+
+      - name: Acquire two independent frozen source trees
+        shell: bash
+        run: |
+          set -euo pipefail
+          COMMIT='0b967fe320ecf2141a6f3b8165d3d096c99fb3ac'
+          TREE='de8ba1477998a406b2d747bd680a8728b40435b0'
+          for destination in official-primary official-replay; do
+            git init -q "$destination"
+            git -C "$destination" remote add origin https://github.com/Harvard-CS-1200/2026-Spring.git
+            git -C "$destination" fetch -q --depth=1 origin "$COMMIT"
+            git -C "$destination" checkout -q --detach FETCH_HEAD
+            test "$(git -C "$destination" rev-parse HEAD)" = "$COMMIT"
+            test "$(git -C "$destination" rev-parse 'HEAD^{tree}')" = "$TREE"
+            test -d "$destination/psets/ps${{ matrix.pset }}"
+          done
+          printf '%s\n' \
+            'repository=Harvard-CS-1200/2026-Spring' \
+            "commit=$COMMIT" \
+            "tree=$TREE" \
+            "pset=${{ matrix.pset }}" \
+            > evidence/source-binding.txt
+
+      - name: Run primary and replay audits concurrently
+        shell: bash
+        run: |
+          set -euo pipefail
+          python university_cs1200_ps6_10_v1/audit_pset.py \
+            --repo official-primary \
+            --pset '${{ matrix.pset }}' \
+            --out evidence/primary \
+            > evidence/primary.log 2>&1 &
+          PRIMARY_PID=$!
+          python university_cs1200_ps6_10_v1/audit_pset.py \
+            --repo official-replay \
+            --pset '${{ matrix.pset }}' \
+            --out evidence/replay \
+            > evidence/replay.log 2>&1 &
+          REPLAY_PID=$!
+          PRIMARY_RC=0
+          REPLAY_RC=0
+          wait "$PRIMARY_PID" || PRIMARY_RC=$?
+          wait "$REPLAY_PID" || REPLAY_RC=$?
+          cat evidence/primary.log
+          cat evidence/replay.log
+          test "$PRIMARY_RC" -eq 0
+          test "$REPLAY_RC" -eq 0
+
+      - name: Require deterministic replay and emit receipt
+        shell: bash
+        env:
+          EVENT_SHA: ${{ github.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          cmp evidence/primary/manifest.json evidence/replay/manifest.json
+          cmp evidence/primary/scientific.json evidence/replay/scientific.json
+          cmp evidence/primary/scientific.sha256 evidence/replay/scientific.sha256
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          pset = int('${{ matrix.pset }}')
+          primary_path = Path('evidence/primary/scientific.json')
+          replay_path = Path('evidence/replay/scientific.json')
+          primary = json.loads(primary_path.read_text())
+          replay = json.loads(replay_path.read_text())
+          assert primary == replay
+          assert primary['pset'] == pset
+          assert primary['status'] == 'PASS_SCOPED_SOURCE_PREFLIGHT'
+          receipt = {
+              'schema': 'university-cs1200-pset/preflight-receipt/1',
+              'status': primary['status'],
+              'coordination_surface': 'Notion',
+              'coordination_id': 'COORD-2026-08-06-PARALLEL-V2',
+              'repository': 'cristh99/notebooks',
+              'event_sha': os.environ['EVENT_SHA'],
+              'head_sha': os.environ['HEAD_SHA'],
+              'official_repository': primary['official_repository'],
+              'official_commit': primary['official_commit'],
+              'pset': pset,
+              'manifest_sha256': primary['manifest_sha256'],
+              'scientific_sha256': hashlib.sha256(primary_path.read_bytes()).hexdigest(),
+              'clean_replay_identical': primary_path.read_bytes() == replay_path.read_bytes(),
+              'summary': primary['summary'],
+              'problem_set_solved': False,
+              'problem_set_complete': False,
+              'course_complete': False,
+              'cost_usd': 0,
+              'scope_boundary': primary['scope_boundary'],
+          }
+          path = Path('evidence/receipt.json')
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          Path('evidence/receipt.sha256').write_text(
+              f"{hashlib.sha256(path.read_bytes()).hexdigest()}  receipt.json\n"
+          )
+          print(json.dumps(receipt, indent=2, sort_keys=True))
+          PY
+          find university_cs1200_ps6_10_v1 evidence -type f \
+            ! -name SHA256SUMS -print0 \
+            | sort -z | xargs -0 sha256sum > evidence/SHA256SUMS
+          sha256sum -c evidence/SHA256SUMS
+
+      - name: Upload per-pset evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cs1200-ps${{ matrix.pset }}-preflight
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 90
+
+  aggregate:
+    name: Aggregate five independent lanes
+    needs: audit-pset
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout capsule
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Download all five evidence artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: cs1200-ps*-preflight
+          path: downloads
+
+      - name: Verify five receipts and emit combined receipt
+        shell: bash
+        env:
+          EVENT_SHA: ${{ github.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p final-evidence
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          receipts = []
+          for path in sorted(Path('downloads').glob('cs1200-ps*-preflight/receipt.json')):
+              receipt = json.loads(path.read_text())
+              assert receipt['status'] == 'PASS_SCOPED_SOURCE_PREFLIGHT'
+              assert receipt['clean_replay_identical'] is True
+              assert receipt['problem_set_complete'] is False
+              assert receipt['course_complete'] is False
+              receipts.append(receipt)
+          assert [row['pset'] for row in receipts] == [6, 7, 8, 9, 10]
+          combined = {
+              'schema': 'university-cs1200-ps6-10/combined-receipt/1',
+              'status': 'PASS_SCOPED_SOURCE_PREFLIGHT_5_OF_5',
+              'coordination_surface': 'Notion',
+              'coordination_id': 'COORD-2026-08-06-PARALLEL-V2',
+              'repository': 'cristh99/notebooks',
+              'event_sha': os.environ['EVENT_SHA'],
+              'head_sha': os.environ['HEAD_SHA'],
+              'official_repository': 'Harvard-CS-1200/2026-Spring',
+              'official_commit': '0b967fe320ecf2141a6f3b8165d3d096c99fb3ac',
+              'psets': [6, 7, 8, 9, 10],
+              'parallel_lanes': 5,
+              'replay_copies_per_lane': 2,
+              'receipts': receipts,
+              'problem_sets_solved': 0,
+              'problem_sets_complete': 0,
+              'course_complete': False,
+              'cost_usd': 0,
+              'scope_boundary': (
+                  'Five frozen public-source preflights only; no problem-set solutions, '
+                  'grader success, course completion or university mastery.'
+              ),
+              'next_gate': (
+                  'Promote obligation inventories to Notion, select disjoint technical cores, '
+                  'then execute solution/oracle/replay gates with failures retained.'
+              ),
+          }
+          path = Path('final-evidence/combined-receipt.json')
+          path.write_text(json.dumps(combined, indent=2, sort_keys=True) + '\n')
+          Path('final-evidence/combined-receipt.sha256').write_text(
+              f"{hashlib.sha256(path.read_bytes()).hexdigest()}  combined-receipt.json\n"
+          )
+          print(json.dumps(combined, indent=2, sort_keys=True))
+          PY
+          find downloads final-evidence -type f ! -name SHA256SUMS -print0 \
+            | sort -z | xargs -0 sha256sum > final-evidence/SHA256SUMS
+          sha256sum -c final-evidence/SHA256SUMS
+
+      - name: Upload combined preflight evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: university-cs1200-ps6-10-preflight-v1-evidence
+          path: final-evidence/
+          if-no-files-found: error
+          retention-days: 90
