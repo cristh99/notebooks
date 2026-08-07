@@ -2,7 +2,9 @@
 
 The lock is quality-only: it freezes every executable/package/native file that
 can affect OCR or candidate inference, while explicitly refusing a speed claim.
-Verification must complete before any OpenVINO source byte is read.
+Hosted-runner image labels and the full unrelated dpkg inventory are retained as
+provenance, not treated as scientific identity. Verification must complete before
+any OpenVINO source byte is read.
 """
 from __future__ import annotations
 
@@ -197,15 +199,16 @@ def _verify_current_runtime(root: Path, lock: Mapping[str, Any]) -> None:
         raise RuntimeError("Python runtime version drift")
     if os.environ.get("ImageOS") != RUNTIME_IMAGE_OS:
         raise RuntimeError("GitHub runner image OS drift")
-    if os.environ.get("ImageVersion") != RUNTIME_IMAGE_VERSION:
-        raise RuntimeError("GitHub runner image version drift")
     if os.environ.get("RUNNER_OS") != "Linux" or os.environ.get("RUNNER_ARCH") != "X64":
         raise RuntimeError("GitHub runner platform drift")
     for key, expected in THREAD_ENV.items():
         if os.environ.get(key) != expected:
             raise RuntimeError(f"runtime environment drift: {key}")
     executable = Path(sys.executable).resolve()
-    if str(executable) != lock["python"]["executable"] or _sha(executable) != RUNTIME_PYTHON_EXECUTABLE_SHA256:
+    if (
+        str(executable) != lock["python"]["executable"]
+        or _sha(executable) != RUNTIME_PYTHON_EXECUTABLE_SHA256
+    ):
         raise RuntimeError("Python executable identity drift")
     observed_versions = {
         name: importlib.metadata.version(name) for name in EXPECTED_PACKAGE_VERSIONS
@@ -216,13 +219,18 @@ def _verify_current_runtime(root: Path, lock: Mapping[str, Any]) -> None:
         raise RuntimeError("Python package file identity drift")
     if _native_manifest() != (root / "native-files.sha256").read_text(encoding="utf-8"):
         raise RuntimeError("native library identity drift")
-    freeze = "\n".join(sorted(_command_text([sys.executable, "-m", "pip", "freeze", "--all"]).splitlines())) + "\n"
+    freeze = (
+        "\n".join(
+            sorted(
+                _command_text(
+                    [sys.executable, "-m", "pip", "freeze", "--all"]
+                ).splitlines()
+            )
+        )
+        + "\n"
+    )
     if freeze != (root / "python-freeze.txt").read_text(encoding="utf-8"):
         raise RuntimeError("pip freeze drift")
-    dpkg = _command_text(["dpkg-query", "-W", "-f=${Package}\\t${Version}\\t${Architecture}\\n"])
-    dpkg = "\n".join(sorted(dpkg.splitlines())) + "\n"
-    if dpkg != (root / "dpkg-packages.txt").read_text(encoding="utf-8"):
-        raise RuntimeError("system package manifest drift")
     tesseract = Path(lock["tesseract"]["binary"])
     traineddata = Path(lock["tesseract"]["eng_traineddata"])
     if _sha(tesseract) != RUNTIME_TESSERACT_BINARY_SHA256:
@@ -242,7 +250,7 @@ def verify_runtime_lock(
     *,
     verify_current: bool = True,
 ) -> dict[str, Any]:
-    """Verify artifact, authorization, and current runtime before source access."""
+    """Verify artifact, authorization, and executable dependency closure."""
     root = Path(root)
     _authorization_fields(authorization)
     _verify_hash_manifest(root)
@@ -278,7 +286,10 @@ def verify_runtime_lock(
         "runtime_lock_stable_payload_sha256": RUNTIME_STABLE_PAYLOAD_SHA256,
         "runtime_verifier_source_sha256": verifier_source_sha256(),
         "image_os": RUNTIME_IMAGE_OS,
-        "image_version": RUNTIME_IMAGE_VERSION,
+        "lock_creation_image_version": RUNTIME_IMAGE_VERSION,
+        "host_image_version_enforced": False,
+        "system_package_inventory_enforced": False,
+        "executable_dependency_closure_enforced": True,
         "python": RUNTIME_PYTHON_VERSION,
         "tesseract": RUNTIME_TESSERACT_VERSION,
         "quality_claim_authorized": True,
