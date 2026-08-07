@@ -1,0 +1,58 @@
+name: Data Science v17 - fetch SEFIN final verification summary
+
+on:
+  push:
+    branches: [agent/data-science-lane-v-event-binding-canary-v1]
+    paths:
+      - .github/workflows/data-science-v17-sefin-final-summary-fetch.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: data-science-v17-sefin-final-summary-fetch
+  cancel-in-progress: true
+
+jobs:
+  fetch-summary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Fetch public-safe verification summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          URL='https://storage.googleapis.com/unified-cortex-282107-fuentes/data_science/sefin_primary_document_independent_verifier/v1/FINAL_VERIFIED.json'
+          curl --fail --silent --show-error --location --max-time 45 "$URL" -o evidence/FINAL_VERIFIED.json
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          p=Path('evidence/FINAL_VERIFIED.json')
+          d=json.loads(p.read_text())
+          required=['schema','verdict','gate_state','remaining_gate_count','receipt_sha256','claim_limit']
+          missing=[k for k in required if k not in d]
+          if missing: raise SystemExit(f'missing fields: {missing}')
+          safe={k:d.get(k) for k in [
+            'schema','verdict','gate_state','input_qualified_candidates',
+            'independently_verified_candidates','remaining_noncompensable_gates',
+            'remaining_gate_count','stage08_evidence_ready','stage08_unblocked',
+            'relationship_state','cross_source_relationship_asserted',
+            'scientific_promotion_credit','production_modified','external_cost_usd',
+            'receipt_sha256','claim_limit'
+          ]}
+          safe['source_file_sha256']=hashlib.sha256(p.read_bytes()).hexdigest()
+          Path('evidence/PUBLIC_SUMMARY.json').write_text(json.dumps(safe,ensure_ascii=False,sort_keys=True,separators=(',',':'))+'\n')
+          print(json.dumps(safe,ensure_ascii=False,indent=2,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-v17-sefin-final-summary
+          path: evidence
+          if-no-files-found: error
+          retention-days: 30
