@@ -19,11 +19,9 @@ concurrency:
 
 env:
   PACKAGE_DIR: data_science_pipeline_v14_5_signed_exclusion_registry
-  TRANSPORT_DIR: data_science_pipeline_v14_5_signed_exclusion_registry/transport
-  TRANSPORT_MANIFEST: data_science_pipeline_v14_5_signed_exclusion_registry/TRANSPORT_MANIFEST.json
+  CAPSULE: data_science_pipeline_v14_5_signed_exclusion_registry/capsule.zip
   PACKAGE_MANIFEST: data_science_pipeline_v14_5_signed_exclusion_registry/PACKAGE_MANIFEST.json
   PUBLIC_README: data_science_pipeline_v14_5_signed_exclusion_registry/README.md
-  PACKAGE: /tmp/stage09-exclusion-registry-package.zip
   COMPONENT: /tmp/data_science_pipeline_v14_5_signed_exclusion_registry
   SUBJECT: /tmp/data_science_pipeline_v14_5_signed_exclusion_registry/EXCLUSION_REGISTRY.json
   CONTRACT: /tmp/data_science_pipeline_v14_5_signed_exclusion_registry/REGISTRY_CONTRACT.json
@@ -39,7 +37,9 @@ env:
   COSIGN_VERSION: 3.0.6
   COSIGN_SHA256: c956e5dfcac53d52bcf058360d579472f0c1d2d9b69f55209e256fe7783f4c74
   PACKAGE_MANIFEST_SHA256: a0686654025cfdac0fd9979ae9a6a073517679dba329f80919c40b8a066a2be5
-  TRANSPORT_MANIFEST_SHA256: b393e7de5c91051b0e9c1f0370653379d9e9fa4091649de165163f57e4c90759
+  CAPSULE_SHA256: 375b45755e46925da22183e2fbdbf73267992aac73324aad050cb2c7ad05e5e6
+  CAPSULE_GIT_BLOB_SHA1: 08e23f756439e5f2b17720d3459fe775780e137f
+  CAPSULE_BYTES: '10338'
   README_SHA256: 972874134aaffb754ec11c7a55d5dddd933a684ac9042787dbcc804bf8304eb6
 
 jobs:
@@ -63,39 +63,24 @@ jobs:
           now_unix="$(date -u +%s)"
           test "$now_unix" -lt "$BEACON_NOT_BEFORE_UNIX"
           mkdir -p "$EVIDENCE" "$COMPONENT"
-          printf '%s  %s\n' "$TRANSPORT_MANIFEST_SHA256" "$TRANSPORT_MANIFEST" | sha256sum -c -
+          printf '%s  %s\n' "$CAPSULE_SHA256" "$CAPSULE" | sha256sum -c -
+          test "$(wc -c < "$CAPSULE")" -eq "$CAPSULE_BYTES"
+          test "$(git hash-object "$CAPSULE")" = "$CAPSULE_GIT_BLOB_SHA1"
           printf '%s  %s\n' "$PACKAGE_MANIFEST_SHA256" "$PACKAGE_MANIFEST" | sha256sum -c -
           printf '%s  %s\n' "$README_SHA256" "$PUBLIC_README" | sha256sum -c -
           printf '%s\n' "$now_unix" > "$EVIDENCE/signed-registry-preflight-unix.txt"
-          python3 - "$TRANSPORT_DIR" "$TRANSPORT_MANIFEST" "$PACKAGE_MANIFEST" "$PACKAGE" "$COMPONENT" <<'PY'
+          python3 - "$CAPSULE" "$PACKAGE_MANIFEST" "$COMPONENT" <<'PY'
           from pathlib import Path, PurePosixPath
           from zipfile import ZipFile
-          import base64, hashlib, json, sys
+          import hashlib, json, sys
 
-          transport_dir, tm_path, pm_path, archive, out = map(Path, sys.argv[1:])
-          tm=json.loads(tm_path.read_text())
+          archive, pm_path, out = map(Path, sys.argv[1:])
           pm=json.loads(pm_path.read_text())
           sha=lambda data: hashlib.sha256(data).hexdigest()
           blob=lambda data: hashlib.sha1(f"blob {len(data)}\0".encode()+data).hexdigest()
-          actual=sorted(p.name for p in transport_dir.glob("part_*.b64"))
-          if actual != tm["part_order"]:
-              raise SystemExit("transport part set mismatch")
-          chunks=[]
-          for name in tm["part_order"]:
-              data=(transport_dir/name).read_bytes()
-              expected=tm["parts"][name]
-              if len(data)!=expected["bytes"] or sha(data)!=expected["sha256"] or blob(data)!=expected["git_blob_sha1"]:
-                  raise SystemExit(f"transport mismatch: {name}")
-              chunks.append(data)
-          encoded=b"".join(chunks)
-          if len(encoded)!=tm["base64_characters"]:
-              raise SystemExit("base64 length mismatch")
-          decoded=base64.b64decode(encoded, validate=True)
-          if len(decoded)!=tm["decoded_bytes"] or sha(decoded)!=tm["decoded_sha256"] or blob(decoded)!=tm["decoded_git_blob_sha1"]:
-              raise SystemExit("decoded package mismatch")
-          if len(decoded)!=pm["package_bytes"] or sha(decoded)!=pm["package_sha256"] or blob(decoded)!=pm["package_git_blob_sha1"]:
+          package=archive.read_bytes()
+          if len(package)!=pm["package_bytes"] or sha(package)!=pm["package_sha256"] or blob(package)!=pm["package_git_blob_sha1"]:
               raise SystemExit("package manifest mismatch")
-          archive.write_bytes(decoded)
           with ZipFile(archive) as zf:
               names=zf.namelist()
               if len(names)!=len(set(names)) or set(names)!=set(pm["members"]):
@@ -116,8 +101,8 @@ jobs:
           grep -Fq 'OK' "$EVIDENCE/tests.log"
           python3 "$COMPONENT/verify_registry.py" --registry "$SUBJECT" --contract "$CONTRACT" --output "$EVIDENCE/local-result.json" > "$EVIDENCE/local-verification.log"
           cmp "$LOCAL_RESULT" "$EVIDENCE/local-result.json"
-          find "$TRANSPORT_DIR" "$COMPONENT" -type f -print0 | sort -z | xargs -0 sha256sum > "$EVIDENCE/source-sha256.txt"
-          sha256sum "$TRANSPORT_MANIFEST" "$PACKAGE_MANIFEST" "$PUBLIC_README" "$PACKAGE" >> "$EVIDENCE/source-sha256.txt"
+          find "$COMPONENT" -type f -print0 | sort -z | xargs -0 sha256sum > "$EVIDENCE/source-sha256.txt"
+          sha256sum "$CAPSULE" "$PACKAGE_MANIFEST" "$PUBLIC_README" >> "$EVIDENCE/source-sha256.txt"
 
       - name: Request and validate GitHub OIDC identity
         shell: bash
