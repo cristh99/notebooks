@@ -1,0 +1,67 @@
+name: Data Science v13 - semantic real-run probe
+
+on:
+  push:
+    branches: [agent/data-science-v13-semantic-real-probe-v1]
+    paths:
+      - '.github/workflows/data-science-v13-semantic-real-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: data-science-v13-semantic-real-probe-v1
+  cancel-in-progress: true
+
+jobs:
+  reconstruct:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Reconstruct and verify exact semantic capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = cristh99/notebooks
+          test "$GITHUB_REF" = refs/heads/agent/data-science-v13-semantic-real-probe-v1
+          bash data_science_pipeline_v13_semantic_snapshot/reconstruct.sh . | tee semantic-probe-reconstruct.log
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path('data_science_pipeline_v13_semantic_snapshot')
+          expected = {
+              'FREEZE.json','LOCAL_RESULT.json','README.md','SEMANTIC_CONTRACT.json',
+              'SYNTHETIC_RESOLVED_EVENTS.jsonl','SYNTHETIC_SEMANTIC_SNAPSHOT.json',
+              'VERIFY_OUTPUT.json','semantic.py','test_semantic.py','verify.py'
+          }
+          missing = sorted(name for name in expected if not (root / name).is_file())
+          if missing:
+              raise SystemExit(f'missing reconstructed files: {missing}')
+          PY
+
+      - name: Seal reconstructed source artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=data_science_pipeline_v13_semantic_snapshot
+          out=semantic-v13-real-probe-evidence
+          mkdir -p "$out"
+          cp semantic-probe-reconstruct.log "$out/"
+          cp "$root"/{FREEZE.json,LOCAL_RESULT.json,README.md,SEMANTIC_CONTRACT.json,SYNTHETIC_RESOLVED_EVENTS.jsonl,SYNTHETIC_SEMANTIC_SNAPSHOT.json,VERIFY_OUTPUT.json,semantic.py,test_semantic.py,verify.py,verification.stdout} "$out/"
+          (
+            cd "$out"
+            sha256sum * > SHA256SUMS.txt
+            sha256sum --check SHA256SUMS.txt
+          )
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: semantic-v13-real-probe-evidence
+          path: semantic-v13-real-probe-evidence
+          if-no-files-found: error
+          retention-days: 30
