@@ -18,9 +18,16 @@ from .openvino_full_gate_contract_v7 import (
     PARTITION_COUNT,
     canonical_pixel_sha256,
     stable_payload,
-    verify_execution_authorization,
     verify_manifest_bundle,
     write_hash_manifest,
+)
+from .openvino_full_gate_execution_v7 import (
+    claim_execution_once,
+    current_code_bundle,
+    execution_claim_receipt,
+    new_execution_ledger,
+    verify_bound_execution_authorization,
+    verify_execution_claim,
 )
 from .openvino_full_gate_prepare_v7 import prepare_registry_from_source
 from .openvino_full_gate_registry_v7 import (
@@ -29,6 +36,8 @@ from .openvino_full_gate_registry_v7 import (
     write_registry_bundle,
 )
 from .openvino_full_gate_runner_v7 import evaluate_partition_from_source
+
+verify_execution_authorization = verify_bound_execution_authorization
 
 __all__ = [
     "ABSTAIN_DEDUP_OR_INTEGRITY",
@@ -40,16 +49,28 @@ __all__ = [
     "aggregate_partition_reports",
     "build_physical_registry",
     "canonical_pixel_sha256",
+    "claim_execution_once",
+    "current_code_bundle",
     "evaluate_partition_from_source",
     "exact_summary",
+    "execution_claim_receipt",
+    "new_execution_ledger",
     "prepare_registry_from_source",
     "stable_payload",
     "verify_execution_authorization",
+    "verify_execution_claim",
     "verify_manifest_bundle",
     "verify_registry_bundle",
     "write_hash_manifest",
     "write_registry_bundle",
 ]
+
+
+def _claim_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--authorization", type=Path, required=True)
+    parser.add_argument("--authorization-sha256", required=True)
+    parser.add_argument("--execution-claim", type=Path, required=True)
+    parser.add_argument("--execution-claim-sha256", required=True)
 
 
 def main() -> int:
@@ -63,8 +84,7 @@ def main() -> int:
     prepare.add_argument("--manifest-root", type=Path, required=True)
     prepare.add_argument("--prior-registry", type=Path, required=True)
     prepare.add_argument("--prior-registry-sha256", required=True)
-    prepare.add_argument("--authorization", type=Path, required=True)
-    prepare.add_argument("--authorization-sha256", required=True)
+    _claim_arguments(prepare)
     prepare.add_argument("--output-dir", type=Path, required=True)
 
     evaluate = commands.add_parser("evaluate")
@@ -72,15 +92,13 @@ def main() -> int:
     evaluate.add_argument("--registry-root", type=Path, required=True)
     evaluate.add_argument("--partition", type=int, required=True)
     evaluate.add_argument("--model-zip", type=Path, required=True)
-    evaluate.add_argument("--authorization", type=Path, required=True)
-    evaluate.add_argument("--authorization-sha256", required=True)
+    _claim_arguments(evaluate)
     evaluate.add_argument("--output-dir", type=Path, required=True)
 
     aggregate = commands.add_parser("aggregate")
     aggregate.add_argument("--registry-root", type=Path, required=True)
     aggregate.add_argument("report_roots", nargs="+", type=Path)
-    aggregate.add_argument("--authorization", type=Path, required=True)
-    aggregate.add_argument("--authorization-sha256", required=True)
+    _claim_arguments(aggregate)
     aggregate.add_argument("--output-dir", type=Path, required=True)
 
     args = parser.parse_args()
@@ -93,6 +111,8 @@ def main() -> int:
             prior_registry_sha256=args.prior_registry_sha256,
             authorization_path=args.authorization,
             authorization_sha256=args.authorization_sha256,
+            execution_claim_path=args.execution_claim,
+            execution_claim_sha256=args.execution_claim_sha256,
             output_dir=args.output_dir,
         )
     elif args.command == "evaluate":
@@ -103,6 +123,8 @@ def main() -> int:
             model_zip=args.model_zip,
             authorization_path=args.authorization,
             authorization_sha256=args.authorization_sha256,
+            execution_claim_path=args.execution_claim,
+            execution_claim_sha256=args.execution_claim_sha256,
             output_dir=args.output_dir,
         )
     else:
@@ -111,6 +133,8 @@ def main() -> int:
             report_roots=args.report_roots,
             authorization_path=args.authorization,
             authorization_sha256=args.authorization_sha256,
+            execution_claim_path=args.execution_claim,
+            execution_claim_sha256=args.execution_claim_sha256,
             output_dir=args.output_dir,
         )
     printable = dict(result)
