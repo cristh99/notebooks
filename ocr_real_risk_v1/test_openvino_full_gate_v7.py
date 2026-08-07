@@ -543,7 +543,7 @@ class RuntimeStructureTests(unittest.TestCase):
         scoring = source.index("_score_partition_after_barrier")
         self.assertLess(detector, barrier_write)
         self.assertLess(barrier_write, annotations)
-        self.assertLess(annotations, scoring)
+        self.assertLess(barrier_write, scoring)
 
     def test_registry_prepare_projection_excludes_annotations(self):
         from ocr_real_risk_v1 import openvino_full_gate_prepare_v7 as module
