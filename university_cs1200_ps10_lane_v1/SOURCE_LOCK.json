@@ -1,0 +1,17 @@
+{
+  "schema": "university-cs1200-ps10/source-lock/1",
+  "official_repository": "Harvard-CS-1200/2026-Spring",
+  "official_commit": "0b967fe320ecf2141a6f3b8165d3d096c99fb3ac",
+  "official_tree": "de8ba1477998a406b2d747bd680a8728b40435b0",
+  "files": {
+    "psets/ps10/ps10.tex": "107d2a25d70bf71173af6a4d371c669489652e1e",
+    "psets/ps10/ps10.pdf": "3735774e949362b2151ace804f0c1c25830027d5",
+    "psets/ps10/IntroAlgorithmsAndLimitations.sty": "38763041bb87e43b6e0f62d683a76adad6c8408c",
+    "psets/ps10/cs1200.sty": "aa6539ca09fdef139a8d042736008c5e2bbb64ae"
+  },
+  "public_test_files": 0,
+  "independent_oracle_serial_workers": 1,
+  "independent_oracle_parallel_workers": 4,
+  "coordination_surface": "Notion",
+  "coordination_id": "COORD-2026-08-06-PARALLEL-V2"
+}
