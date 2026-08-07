@@ -1,0 +1,156 @@
+name: University PRISM runtime v1
+
+on:
+  push:
+    branches:
+      - agent/university-prism-runtime-v1
+  pull_request:
+    paths:
+      - '.github/workflows/university-prism-runtime-v1.yml'
+      - 'university_prism_runtime_v1/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Verify frozen runtime contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reports prism-dist
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          lock = json.loads(Path('university_prism_runtime_v1/SOURCE_LOCK.json').read_text())
+          assert lock['official_repository'] == 'prismmodelchecker/prism'
+          assert lock['release_tag'] == 'v4.10.1'
+          assert lock['linux_x86_asset'] == 'prism-4.10.1-linux64-x86.tar.gz'
+          assert lock['linux_x86_sha256'] == '9f2135b1d49293cdc9b16b1756a24f99beff320b78134825c1f477f43942ab17'
+          assert lock['engine'] == 'explicit'
+          assert lock['absolute_tolerance'] == 1e-8
+          assert lock['parallel_workers'] == 4
+          print(json.dumps(lock, indent=2, sort_keys=True))
+          PY
+          python -m py_compile university_prism_runtime_v1/verify_prism.py
+
+      - name: Acquire official PRISM 4.10.1 binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 \
+            https://github.com/prismmodelchecker/prism/releases/download/v4.10.1/prism-4.10.1-linux64-x86.tar.gz \
+            -o prism-4.10.1-linux64-x86.tar.gz
+          echo '9f2135b1d49293cdc9b16b1756a24f99beff320b78134825c1f477f43942ab17  prism-4.10.1-linux64-x86.tar.gz' \
+            | sha256sum -c -
+          tar xzf prism-4.10.1-linux64-x86.tar.gz -C prism-dist
+          PRISM_BIN="$(find "$PWD/prism-dist" -type f -path '*/bin/prism' -print -quit)"
+          test -n "$PRISM_BIN"
+          PRISM_HOME="$(cd "$(dirname "$PRISM_BIN")/.." && pwd)"
+          ORIGINAL_LAUNCHER_SHA="$(sha256sum "$PRISM_BIN" | awk '{print $1}')"
+          python - "$PRISM_BIN" "$PRISM_HOME" <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+
+          launcher = Path(sys.argv[1])
+          prism_home = sys.argv[2]
+          text = launcher.read_text()
+          matches = re.findall(r'^PRISM_DIR=.*$', text, flags=re.MULTILINE)
+          if len(matches) != 1:
+              raise SystemExit(f'Expected exactly one PRISM_DIR assignment, found {len(matches)}')
+          Path('reports/original-prism-dir.txt').write_text(matches[0] + '\n')
+          patched = re.sub(
+              r'^PRISM_DIR=.*$',
+              f'PRISM_DIR={prism_home}',
+              text,
+              count=1,
+              flags=re.MULTILINE,
+          )
+          if patched == text:
+              raise SystemExit('PRISM_DIR relocation produced no change')
+          launcher.write_text(patched)
+          PY
+          PATCHED_LAUNCHER_SHA="$(sha256sum "$PRISM_BIN" | awk '{print $1}')"
+          test "$ORIGINAL_LAUNCHER_SHA" != "$PATCHED_LAUNCHER_SHA"
+          chmod +x "$PRISM_BIN"
+          echo "PRISM_BIN=$PRISM_BIN" >> "$GITHUB_ENV"
+          printf '%s\n' \
+            'release=v4.10.1' \
+            'asset=prism-4.10.1-linux64-x86.tar.gz' \
+            'asset_sha256=9f2135b1d49293cdc9b16b1756a24f99beff320b78134825c1f477f43942ab17' \
+            "prism_home=$PRISM_HOME" \
+            "original_launcher_sha256=$ORIGINAL_LAUNCHER_SHA" \
+            "relocated_launcher_sha256=$PATCHED_LAUNCHER_SHA" \
+            'launcher_path_relocated=true' \
+            'launcher_logic_changed=false' \
+            > reports/runtime-binding.txt
+
+      - name: Execute serial, parallel and negative-control gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -version 2>&1 | tee reports/java-version.log
+          "$PRISM_BIN" -version 2>&1 | tee reports/prism-version-direct.log
+          python university_prism_runtime_v1/verify_prism.py \
+            --prism "$PRISM_BIN" \
+            --out reports \
+            --workers 4 \
+            --tolerance 1e-8
+
+      - name: Bind receipt and verify SHA-256 ledger
+        shell: bash
+        env:
+          EVENT_SHA: ${{ github.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          report_path = Path('reports/report.json')
+          report = json.loads(report_path.read_text())
+          assert report['status'] == 'PASS_SCOPED_PRISM_RUNTIME'
+          receipt = {
+              'schema': 'university-prism-runtime/receipt/1',
+              'status': report['status'],
+              'repository': 'cristh99/notebooks',
+              'event_sha': os.environ['EVENT_SHA'],
+              'head_sha': os.environ['HEAD_SHA'],
+              'official_repository': 'prismmodelchecker/prism',
+              'release_tag': 'v4.10.1',
+              'asset_sha256': '9f2135b1d49293cdc9b16b1756a24f99beff320b78134825c1f477f43942ab17',
+              'launcher_path_relocated': True,
+              'launcher_logic_changed': False,
+              'report_sha256': hashlib.sha256(report_path.read_bytes()).hexdigest(),
+              'scope_boundary': report['scope_boundary'],
+          }
+          path = Path('reports/receipt.json')
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path('reports/receipt.sha256').write_text(f'{digest}  receipt.json\n')
+          print(json.dumps(receipt, indent=2, sort_keys=True))
+          PY
+          find university_prism_runtime_v1 reports -type f \
+            ! -name SHA256SUMS -print0 \
+            | sort -z \
+            | xargs -0 sha256sum > reports/SHA256SUMS
+          sha256sum -c reports/SHA256SUMS
+
+      - name: Upload PRISM runtime evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: university-prism-runtime-v1-evidence
+          path: |
+            university_prism_runtime_v1/
+            reports/

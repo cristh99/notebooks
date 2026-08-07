@@ -1,0 +1,12 @@
+{
+  "schema": "university-prism-runtime/source-lock/1",
+  "official_repository": "prismmodelchecker/prism",
+  "release_tag": "v4.10.1",
+  "release_published_at": "2026-04-02T14:02:11Z",
+  "linux_x86_asset": "prism-4.10.1-linux64-x86.tar.gz",
+  "linux_x86_url": "https://github.com/prismmodelchecker/prism/releases/download/v4.10.1/prism-4.10.1-linux64-x86.tar.gz",
+  "linux_x86_sha256": "9f2135b1d49293cdc9b16b1756a24f99beff320b78134825c1f477f43942ab17",
+  "engine": "explicit",
+  "absolute_tolerance": 1e-8,
+  "parallel_workers": 4
+}
