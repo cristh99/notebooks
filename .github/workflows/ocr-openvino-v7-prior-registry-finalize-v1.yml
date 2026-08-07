@@ -6,6 +6,7 @@ on:
       - agent/openvino-v7-smoke-16-stacked-v2
     paths:
       - ".openvino-prior-registry-finalize-trigger-v1"
+      - ".github/workflows/ocr-openvino-v7-prior-registry-finalize-v1.yml"
   workflow_dispatch:
 
 permissions:
