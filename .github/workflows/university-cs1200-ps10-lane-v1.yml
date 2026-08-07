@@ -1,0 +1,248 @@
+name: University CS1200 PS10 lane v1
+
+on:
+  push:
+    branches:
+      - agent/university-cs1200-ps10-lane-v1
+  pull_request:
+    paths:
+      - '.github/workflows/university-cs1200-ps10-lane-v1.yml'
+      - 'university_cs1200_ps10_lane_v1/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHONHASHSEED: '0'
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Verify lane and freeze official PS10
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reports
+          python - <<'PY'
+          import ast
+          import json
+          from pathlib import Path
+
+          root = Path('university_cs1200_ps10_lane_v1')
+          lock = json.loads((root / 'SOURCE_LOCK.json').read_text())
+          assert lock['official_repository'] == 'Harvard-CS-1200/2026-Spring'
+          assert lock['official_commit'] == '0b967fe320ecf2141a6f3b8165d3d096c99fb3ac'
+          assert lock['official_tree'] == 'de8ba1477998a406b2d747bd680a8728b40435b0'
+          assert lock['public_test_files'] == 0
+          for source in ('ps10_models.py', 'lane_oracle.py'):
+              tree = ast.parse((root / source).read_text())
+              forbidden = [
+                  node for node in ast.walk(tree)
+                  if isinstance(node, ast.Pass)
+                  or (
+                      isinstance(node, ast.Raise)
+                      and isinstance(node.exc, ast.Call)
+                      and getattr(node.exc.func, 'id', None) == 'NotImplementedError'
+                  )
+              ]
+              assert not forbidden, (source, forbidden)
+          print(json.dumps(lock, indent=2, sort_keys=True))
+          PY
+
+          git clone --filter=blob:none https://github.com/Harvard-CS-1200/2026-Spring.git official
+          git -C official checkout --detach 0b967fe320ecf2141a6f3b8165d3d096c99fb3ac
+          test "$(git -C official rev-parse HEAD)" = '0b967fe320ecf2141a6f3b8165d3d096c99fb3ac'
+          test "$(git -C official rev-parse 'HEAD^{tree}')" = 'de8ba1477998a406b2d747bd680a8728b40435b0'
+
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          lock = json.loads(Path('university_cs1200_ps10_lane_v1/SOURCE_LOCK.json').read_text())
+          observed = {}
+          for path, expected in lock['files'].items():
+              actual = subprocess.check_output(
+                  ['git', '-C', 'official', 'hash-object', path], text=True
+              ).strip()
+              if actual != expected:
+                  raise SystemExit(f'{path}: expected {expected}, observed {actual}')
+              observed[path] = actual
+          Path('reports/official-source-binding.json').write_text(
+              json.dumps(observed, indent=2, sort_keys=True) + '\n'
+          )
+          PY
+
+          PUBLIC_TEST_COUNT="$(find official/psets/ps10 -maxdepth 1 -type f \( -iname '*test*.py' -o -iname '*tests*.py' \) | wc -l)"
+          test "$PUBLIC_TEST_COUNT" -eq 0
+          printf '%s\n' \
+            '{' \
+            '  "schema": "university-cs1200-ps10/public-denominator/1",' \
+            '  "official_public_test_files": 0,' \
+            '  "status": "PASS_NO_PUBLIC_TEST_FILES_IN_FROZEN_DIRECTORY",' \
+            '  "note": "Independent oracles are required because the official PS10 directory contains no public test script."' \
+            '}' > reports/public-denominator.json
+
+      - name: Compile executable models
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            university_cs1200_ps10_lane_v1/ps10_models.py \
+            university_cs1200_ps10_lane_v1/lane_oracle.py
+
+      - name: Run independent oracle serially and in parallel
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="$GITHUB_WORKSPACE/university_cs1200_ps10_lane_v1" \
+            python university_cs1200_ps10_lane_v1/lane_oracle.py \
+            --workers 1 --output reports/oracle-serial.json \
+            2>&1 | tee reports/oracle-serial.log
+          PYTHONPATH="$GITHUB_WORKSPACE/university_cs1200_ps10_lane_v1" \
+            python university_cs1200_ps10_lane_v1/lane_oracle.py \
+            --workers 4 --output reports/oracle-parallel.json \
+            2>&1 | tee reports/oracle-parallel.log
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          serial = json.loads(Path('reports/oracle-serial.json').read_text())
+          parallel = json.loads(Path('reports/oracle-parallel.json').read_text())
+          keys = [
+              'status',
+              'arithmetic_pairs',
+              'arithmetic_checks',
+              'finite_programs',
+              'fixed_word_decider_cases',
+              'fixed_word_overflow_yes',
+              'guarded_simulation_cases',
+              'smaller_word_checks',
+              'halting_to_overflow_positive_cases',
+              'halting_to_overflow_negative_cases',
+              'waiting_for_godot_positive_cases',
+              'waiting_for_godot_negative_cases',
+              'runtime_comparison_cases',
+              'source_mul_zero_defect_control',
+              'scientific_digest',
+          ]
+          for key in keys:
+              assert serial[key] == parallel[key], (
+                  key, serial[key], parallel[key]
+              )
+          parity = {
+              'status': 'PASS_SERIAL_PARALLEL_SCIENTIFIC_PARITY',
+              'compared_fields': keys,
+              'scientific_digest': serial['scientific_digest'],
+              'serial_seconds': serial['elapsed_seconds'],
+              'parallel_seconds': parallel['elapsed_seconds'],
+              'speedup': serial['elapsed_seconds'] / parallel['elapsed_seconds'],
+          }
+          Path('reports/oracle-parity.json').write_text(
+              json.dumps(parity, indent=2, sort_keys=True) + '\n'
+          )
+          PY
+
+      - name: Emit proof-carrying receipt and ledger
+        shell: bash
+        env:
+          EVENT_SHA: ${{ github.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path('university_cs1200_ps10_lane_v1')
+          reports = Path('reports')
+          lock = json.loads((root / 'SOURCE_LOCK.json').read_text())
+          denominator = json.loads((reports / 'public-denominator.json').read_text())
+          oracle = json.loads((reports / 'oracle-serial.json').read_text())
+          parity = json.loads((reports / 'oracle-parity.json').read_text())
+
+          assert denominator['status'] == 'PASS_NO_PUBLIC_TEST_FILES_IN_FROZEN_DIRECTORY'
+          assert oracle['status'] == 'PASS_PS10_INDEPENDENT_ORACLES'
+          assert parity['status'] == 'PASS_SERIAL_PARALLEL_SCIENTIFIC_PARITY'
+
+          receipt = {
+              'schema': 'university-cs1200-ps10/receipt/1',
+              'status': 'PASS_SCOPED_PS10_MANDATORY_TECHNICAL_LANE',
+              'repository': 'cristh99/notebooks',
+              'event_sha': os.environ['EVENT_SHA'],
+              'head_sha': os.environ['HEAD_SHA'],
+              'official_repository': lock['official_repository'],
+              'official_commit': lock['official_commit'],
+              'official_tree': lock['official_tree'],
+              'public_denominator': denominator,
+              'independent_oracles': {
+                  key: oracle[key]
+                  for key in (
+                      'arithmetic_pairs',
+                      'arithmetic_checks',
+                      'finite_programs',
+                      'fixed_word_decider_cases',
+                      'fixed_word_overflow_yes',
+                      'guarded_simulation_cases',
+                      'smaller_word_checks',
+                      'halting_to_overflow_positive_cases',
+                      'halting_to_overflow_negative_cases',
+                      'waiting_for_godot_positive_cases',
+                      'waiting_for_godot_negative_cases',
+                      'runtime_comparison_cases',
+                      'source_mul_zero_defect_control',
+                      'scientific_digest',
+                  )
+              },
+              'serial_parallel': parity,
+              'mandatory_technical_obligations_closed': True,
+              'proof_obligations': {
+                  'which_algorithm_is_faster': 'SOLVABLE_PROMISED_TOTALITY',
+                  'tm_vs_wordram': 'SOLVABLE_CONSTANT_YES_POLYNOMIAL_SIMULATION',
+                  'waiting_for_godot': 'UNSOLVABLE_HALTS_ON_EMPTY_REDUCTION',
+                  'overflow_free_simulation_c1_c2_c3': 'PROVED_WITH_Y_ZERO_REPAIR',
+                  'arithmetic_overflow': 'UNSOLVABLE_HALTS_ON_EMPTY_REDUCTION',
+                  'fixed_word_arithmetic_overflow': 'SOLVABLE_FINITE_STATE_REPETITION',
+              },
+              'scope_boundary': {
+                  'optional_np_hardness_solved': False,
+                  'personal_reflection_answered': False,
+                  'optional_survey_submitted': False,
+                  'private_grader_accessed': False,
+                  'official_grade_claimed': False,
+                  'problem_set_complete': False,
+                  'course_complete': False,
+                  'additional_cost_usd': 0,
+              },
+          }
+          path = reports / 'receipt.json'
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          (reports / 'receipt.sha256').write_text(f'{digest}  receipt.json\n')
+          print(json.dumps(receipt, indent=2, sort_keys=True))
+          PY
+
+          find university_cs1200_ps10_lane_v1 reports -type f \
+            ! -name SHA256SUMS -print0 \
+            | sort -z \
+            | xargs -0 sha256sum > reports/SHA256SUMS
+          sha256sum -c reports/SHA256SUMS
+
+      - name: Upload PS10 lane evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: university-cs1200-ps10-lane-v1-evidence
+          path: |
+            university_cs1200_ps10_lane_v1/
+            reports/
