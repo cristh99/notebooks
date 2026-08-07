@@ -18,7 +18,7 @@ concurrency:
 
 env:
   OLD_RUN_ID: "31166514017"
-  OLD_HEAD_SHA: "e66d1fded1410785f91fc9be8dd772c584807fab"
+  OLD_HEAD_SHA: "5f614a0c1d62e596b1c44851f810c2b78c137a63"
   PYTHONHASHSEED: "0"
   OMP_THREAD_LIMIT: "1"
   OPENBLAS_NUM_THREADS: "1"
@@ -64,9 +64,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     steps:
-      - name: Wait for original run to finish without relaunching its work
+      - name: Wait for exact original run to finish without relaunching its work
         run: |
           set -euo pipefail
+          observed_head="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/runs/${OLD_RUN_ID}" --jq .head_sha)"
+          test "$observed_head" = "$OLD_HEAD_SHA"
           status=""
           for attempt in $(seq 1 240); do
             status="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/runs/${OLD_RUN_ID}" --jq .status)"
