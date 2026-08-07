@@ -1,0 +1,20 @@
+name: RETIRED — OpenVINO v7 frozen 16-row engineering smoke
+
+# Terminal engineering evidence:
+# run 31150056085, artifact 8983062669,
+# digest sha256:b5f85ee61caf92883fd273161bf6c82094e53bcad5667d2c9e380e4ab09aaef9.
+# The fixed 16 rows remain permanently excluded from scientific claims.
+on:
+  push:
+    branches:
+      - __retired_openvino_workflows__
+
+permissions:
+  contents: read
+
+jobs:
+  retired:
+    if: ${{ false }}
+    runs-on: ubuntu-24.04
+    steps:
+      - run: exit 1

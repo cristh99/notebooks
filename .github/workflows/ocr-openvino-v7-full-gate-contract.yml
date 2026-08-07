@@ -1,0 +1,183 @@
+name: OpenVINO v7 complete zero-science contract suite
+
+on:
+  push:
+    branches:
+      - agent/openvino-v7-smoke-16-stacked-v2
+    paths:
+      - "scripts/openvino_runtime_setup_v7.sh"
+      - "ocr_real_risk_v1/openvino_*.py"
+      - ".github/workflows/ocr-openvino-v7-full-gate-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: openvino-v7-complete-zero-science-contract
+  cancel-in-progress: false
+
+env:
+  MANIFEST_ARTIFACT_ID: "8983596179"
+  MANIFEST_ARTIFACT_SHA256: "fda92bb57ba4088481b6cedded374366b6c6635951942cd3e4f42688292fe182"
+  RUNTIME_ARTIFACT_ID: "8992594936"
+  RUNTIME_ARTIFACT_SHA256: "b75a52b7b7d4105e623a90a98243dd0db815d057c42bb700282df12c6ceaf190"
+  SCIENTIFIC_MANIFEST_SHA256: "3340183dca08229e3cd1d17472043316867381d8b4f70e6f2d74e3592cd89d4c"
+  CANDIDATE_STABLE_SHA256: "160a3e79c6075a6741a1a6365b0c833115bfc6e156176cb4cb5744b1189119cd"
+  PYTHONHASHSEED: "0"
+  OMP_THREAD_LIMIT: "1"
+  OMP_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  NUMEXPR_NUM_THREADS: "1"
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  contract:
+    name: Complete adversarial contracts with real immutable inputs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: "3.11.15"
+
+      - name: Install test-only dependency
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir Pillow==12.2.0
+
+      - name: Recover exact terminal manifest and runtime lock
+        run: |
+          set -euo pipefail
+          for item in \
+            "manifest:${MANIFEST_ARTIFACT_ID}:${MANIFEST_ARTIFACT_SHA256}" \
+            "runtime:${RUNTIME_ARTIFACT_ID}:${RUNTIME_ARTIFACT_SHA256}"; do
+            IFS=: read -r name artifact_id expected <<< "$item"
+            gh api \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" \
+              > "${name}.zip"
+            echo "${expected}  ${name}.zip" | sha256sum --check --strict
+            mkdir "${name}"
+            unzip -q "${name}.zip" -d "${name}"
+            (cd "${name}" && sha256sum --check --strict SHA256SUMS.txt)
+          done
+          echo "OPENVINO_MANIFEST_ROOT=${GITHUB_WORKSPACE}/manifest" >> "$GITHUB_ENV"
+          echo "OPENVINO_TEST_RUNTIME_LOCK_ROOT=${GITHUB_WORKSPACE}/runtime" >> "$GITHUB_ENV"
+
+      - name: Run every zero-science adversarial contract
+        run: |
+          set -euo pipefail
+          mkdir contract-evidence
+          python -m unittest -v \
+            ocr_real_risk_v1.test_openvino_prior_registry_v7 \
+            ocr_real_risk_v1.test_openvino_prior_loader_v7 \
+            ocr_real_risk_v1.test_openvino_full_gate_v7 \
+            ocr_real_risk_v1.test_openvino_execution_cas_v7 \
+            ocr_real_risk_v1.test_openvino_runtime_terminal_v7 \
+            ocr_real_risk_v1.test_openvino_preexecution_entrypoints_v7 \
+            ocr_real_risk_v1.test_openvino_aggregate_registry_binding_v7 \
+            2>&1 | tee contract-evidence/unittest.log
+          python -m compileall -q \
+            ocr_real_risk_v1/openvino_prior_registry_v7.py \
+            ocr_real_risk_v1/openvino_prior_registry_entry_v7.py \
+            ocr_real_risk_v1/openvino_full_gate_contract_v7.py \
+            ocr_real_risk_v1/openvino_full_gate_execution_v7.py \
+            ocr_real_risk_v1/openvino_runtime_lock_v7.py \
+            ocr_real_risk_v1/openvino_preexecution_gate_v7.py \
+            ocr_real_risk_v1/openvino_terminal_ledger_v7.py \
+            ocr_real_risk_v1/openvino_full_gate_prepare_v7.py \
+            ocr_real_risk_v1/openvino_full_gate_registry_v7.py \
+            ocr_real_risk_v1/openvino_full_gate_runner_v7.py \
+            ocr_real_risk_v1/openvino_full_gate_aggregate_v7.py \
+            ocr_real_risk_v1/openvino_full_gate_v7.py
+          python -m ocr_real_risk_v1.openvino_full_gate_v7 \
+            verify-manifest --manifest-root manifest \
+            > contract-evidence/manifest-replay.json
+
+      - name: Seal complete zero-science receipt
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          log = Path('contract-evidence/unittest.log').read_text()
+          match = re.search(r'Ran (\d+) tests?', log)
+          assert match and int(match.group(1)) >= 43
+          assert log.rstrip().endswith('OK')
+          replay = json.loads(Path('contract-evidence/manifest-replay.json').read_text())
+          assert replay['scientific_count'] == 20613
+          assert replay['scientific_manifest_sha256'] == os.environ[
+              'SCIENTIFIC_MANIFEST_SHA256'
+          ]
+          assert replay['full_gate_authorized'] is False
+          receipt = {
+              'schema': 'eaat.openvino_v7_complete_zero_science_contract/1',
+              'status': 'PASS_COMPLETE_FAIL_CLOSED_CONTRACT_SUITE',
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_sha': os.environ['GITHUB_SHA'],
+              'tests_passed': int(match.group(1)),
+              'manifest_artifact_id': int(os.environ['MANIFEST_ARTIFACT_ID']),
+              'manifest_artifact_sha256': os.environ['MANIFEST_ARTIFACT_SHA256'],
+              'runtime_artifact_id': int(os.environ['RUNTIME_ARTIFACT_ID']),
+              'runtime_artifact_sha256': os.environ['RUNTIME_ARTIFACT_SHA256'],
+              'candidate_stable_payload_sha256': os.environ[
+                  'CANDIDATE_STABLE_SHA256'
+              ],
+              'scientific_manifest_sha256': os.environ[
+                  'SCIENTIFIC_MANIFEST_SHA256'
+              ],
+              'verification': {
+                  'terminal_manifest_replayed': True,
+                  'runtime_lock_replayed': True,
+                  'prior_population_and_loader_hardened': True,
+                  'real_cas_contract_hardened': True,
+                  'authorization_substitution_rejected': True,
+                  'runtime_and_setup_substitution_rejected': True,
+                  'all_source_entrypoints_gate_before_access': True,
+                  'outcome_quarantine_and_streaming_tested': True,
+                  'partition_reports_bound_to_exact_active_registry_rows': True,
+                  'leave_one_macrofold_out_stability_tested': True,
+                  'abstain_forbids_retry': True,
+                  'terminalization_is_one_shot': True,
+              },
+              'scientific_images_opened': 0,
+              'ocr_runs': 0,
+              'candidate_inference_runs': 0,
+              'production_modified': False,
+              'full_execution_authorized': False,
+              'speed_claim_authorized': False,
+              'next_gate': 'INDEPENDENT_FINAL_CHANGE_REVIEW',
+          }
+          raw = json.dumps(
+              receipt, sort_keys=True, separators=(',', ':'), ensure_ascii=False
+          ).encode()
+          receipt['stable_payload_sha256'] = hashlib.sha256(raw).hexdigest()
+          Path('contract-evidence/complete-contract-receipt.json').write_text(
+              json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          )
+          PY
+          (cd contract-evidence && \
+            find . -type f ! -name SHA256SUMS.txt -print0 \
+              | sort -z | xargs -0 sha256sum \
+              | sed 's#  \./#  #' > SHA256SUMS.txt)
+          (cd contract-evidence && sha256sum --check --strict SHA256SUMS.txt)
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: openvino-v7-complete-zero-science-contract-${{ github.sha }}
+          path: contract-evidence/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 9

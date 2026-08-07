@@ -1,0 +1,7 @@
+trigger_commit=0bd553ceaf6bd1d45aebbf7e1774a6ab3e0ecc55
+old_run_id=31166514017
+old_head_sha=5f614a0c1d62e596b1c44851f810c2b78c137a63
+repair_scope=sroie-train,sroie-test
+reuse_scope=11_non_sroie_source_bundles
+openvino_scientific_images_opened=0
+ocr_runs=0

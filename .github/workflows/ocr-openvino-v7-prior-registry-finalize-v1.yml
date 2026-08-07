@@ -1,0 +1,20 @@
+name: RETIRED — OpenVINO v7 prior-registry finalization
+
+# Final registry artifact: 8992196050.
+# ZIP digest: sha256:0b60a20a41cc3774bf820800fe58b3ee6dbb40846fd22a343ebddd3cad2acecd
+# Terminal receipt artifact: 8992204287.
+# Registry stable payload: 93cd5acfb0c7996cb263ee2bc0fca889b70ec597a657a49bbe9430a6f6e8fc95
+on:
+  push:
+    branches:
+      - __retired_openvino_workflows__
+
+permissions:
+  contents: read
+
+jobs:
+  retired:
+    if: ${{ false }}
+    runs-on: ubuntu-24.04
+    steps:
+      - run: exit 1

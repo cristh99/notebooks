@@ -1,0 +1,18 @@
+name: RETIRED — OpenVINO v7 runtime replay diagnostic
+
+# Root cause: moving hosted-runner image label. The executable dependency closure
+# remains the enforced scientific identity. Diagnostic run: 31178103710.
+on:
+  push:
+    branches:
+      - __retired_openvino_workflows__
+
+permissions:
+  contents: read
+
+jobs:
+  retired:
+    if: ${{ false }}
+    runs-on: ubuntu-24.04
+    steps:
+      - run: exit 1

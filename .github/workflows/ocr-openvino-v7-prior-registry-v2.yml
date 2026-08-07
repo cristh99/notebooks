@@ -1,0 +1,226 @@
+name: OpenVINO v7 exact runtime independent replay
+
+on:
+  push:
+    branches:
+      - agent/openvino-v7-smoke-16-stacked-v2
+    paths:
+      - "scripts/openvino_runtime_setup_v7.sh"
+      - "ocr_real_risk_v1/openvino_runtime_lock_v7.py"
+      - "ocr_real_risk_v1/openvino_preexecution_gate_v7.py"
+      - "ocr_real_risk_v1/openvino_terminal_ledger_v7.py"
+      - ".github/workflows/ocr-openvino-v7-prior-registry-v2.yml"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: openvino-v7-runtime-independent-replay
+  cancel-in-progress: false
+
+env:
+  RUNTIME_ARTIFACT_ID: "8992594936"
+  RUNTIME_ARTIFACT_SHA256: "b75a52b7b7d4105e623a90a98243dd0db815d057c42bb700282df12c6ceaf190"
+  PRIOR_REGISTRY_FILE_SHA256: "a9bfaebd8e7aad1469cfe4b10e029d129eae297683196594e575d5d44390fcb7"
+  PRIOR_REGISTRY_STABLE_SHA256: "93cd5acfb0c7996cb263ee2bc0fca889b70ec597a657a49bbe9430a6f6e8fc95"
+  PYTHONHASHSEED: "0"
+  OMP_THREAD_LIMIT: "1"
+  OMP_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  NUMEXPR_NUM_THREADS: "1"
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  replay:
+    name: Rebuild, compare, and gate exact runtime
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: "3.11.15"
+
+      - name: Rebuild runtime from canonical hash-bound recipe
+        shell: bash
+        run: |
+          set -euo pipefail
+          source scripts/openvino_runtime_setup_v7.sh
+
+      - name: Recover exact immutable runtime lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${RUNTIME_ARTIFACT_ID}/zip" \
+            > runtime-lock.zip
+          echo "${RUNTIME_ARTIFACT_SHA256}  runtime-lock.zip" | sha256sum --check --strict
+          mkdir runtime-lock
+          unzip -q runtime-lock.zip -d runtime-lock
+          (cd runtime-lock && sha256sum --check --strict SHA256SUMS.txt)
+          echo "OPENVINO_RUNTIME_LOCK_ROOT=${GITHUB_WORKSPACE}/runtime-lock" >> "$GITHUB_ENV"
+
+      - name: Build exact authorization and execute production pre-source gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir runtime-replay-evidence
+          python - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          from ocr_real_risk_v1.core import canonical_json, sha256_file
+          from ocr_real_risk_v1.openvino_full_gate_contract_v7 import (
+              AUTHORIZATION_SCHEMA,
+              CANDIDATE_STABLE_PAYLOAD_SHA256,
+              MODEL_ARTIFACT_ID,
+              MODEL_ZIP_SHA256,
+              PARTITION_COUNT,
+              SCIENTIFIC_MANIFEST_SHA256,
+              SOURCE_OBJECT_SHA256,
+              stable_payload,
+          )
+          from ocr_real_risk_v1.openvino_full_gate_execution_v7 import (
+              MANIFEST_ARTIFACT_ID,
+              MANIFEST_ARTIFACT_SHA256,
+              current_code_bundle,
+              new_execution_ledger,
+              verify_bound_execution_authorization,
+          )
+          from ocr_real_risk_v1.openvino_preexecution_gate_v7 import (
+              preexecution_source_sha256,
+              runtime_setup_source_sha256,
+              verify_preexecution_gate,
+          )
+          from ocr_real_risk_v1.openvino_runtime_lock_v7 import (
+              RUNTIME_ARTIFACT_ID,
+              RUNTIME_ARTIFACT_SHA256,
+              RUNTIME_IMAGE_OS,
+              RUNTIME_IMAGE_VERSION,
+              RUNTIME_LOCK_FILE_SHA256,
+              RUNTIME_PYTHON_VERSION,
+              RUNTIME_STABLE_PAYLOAD_SHA256,
+              RUNTIME_TESSERACT_VERSION,
+              verifier_source_sha256,
+          )
+          from ocr_real_risk_v1.openvino_terminal_ledger_v7 import (
+              terminal_source_sha256,
+          )
+
+          def h(value: str) -> str:
+              return hashlib.sha256(value.encode()).hexdigest()
+
+          fields = {
+              'schema': AUTHORIZATION_SCHEMA,
+              'status': 'APPROVED_FULL_EXTERNAL_GATE_ONCE',
+              'authorized': True,
+              'scope': ['PREPARE_REGISTRY', 'EVALUATE_PARTITIONS', 'AGGREGATE'],
+              'candidate_stable_payload_sha256': CANDIDATE_STABLE_PAYLOAD_SHA256,
+              'scientific_manifest_sha256': SCIENTIFIC_MANIFEST_SHA256,
+              'source_object_sha256': SOURCE_OBJECT_SHA256,
+              'run_once': True,
+              'retuning_authorized': False,
+              'post_outcome_retry_authorized': False,
+              'execution_id': f"openvino-v7-runtime-replay-{os.environ['GITHUB_RUN_ID']}",
+              'authorization_nonce_sha256': h(
+                  f"runtime-replay:{os.environ['GITHUB_RUN_ID']}:{os.environ['GITHUB_SHA']}"
+              ),
+              'manifest_artifact_id': MANIFEST_ARTIFACT_ID,
+              'manifest_artifact_sha256': MANIFEST_ARTIFACT_SHA256,
+              'model_artifact_id': MODEL_ARTIFACT_ID,
+              'model_artifact_sha256': MODEL_ZIP_SHA256,
+              'partition_count': PARTITION_COUNT,
+              'runner_image': 'ubuntu-24.04',
+              'python_major_minor': '3.11',
+              'tesseract_version': '5.3.4',
+              'prior_registry_file_sha256': os.environ['PRIOR_REGISTRY_FILE_SHA256'],
+              'prior_registry_stable_payload_sha256': os.environ[
+                  'PRIOR_REGISTRY_STABLE_SHA256'
+              ],
+              'execution_ledger_branch': 'openvino-v7-runtime-replay-ledger',
+              'execution_ledger_path': 'openvino-v7/execution-ledger.json',
+              'code_bundle': current_code_bundle(),
+              'runtime_lock_artifact_id': RUNTIME_ARTIFACT_ID,
+              'runtime_lock_artifact_sha256': RUNTIME_ARTIFACT_SHA256,
+              'runtime_lock_file_sha256': RUNTIME_LOCK_FILE_SHA256,
+              'runtime_lock_stable_payload_sha256': RUNTIME_STABLE_PAYLOAD_SHA256,
+              'runtime_image_os': RUNTIME_IMAGE_OS,
+              'runtime_image_version': RUNTIME_IMAGE_VERSION,
+              'runtime_python_version': RUNTIME_PYTHON_VERSION,
+              'runtime_tesseract_version': RUNTIME_TESSERACT_VERSION,
+              'runtime_required': True,
+              'speed_claim_authorized': False,
+              'runtime_verifier_source_sha256': verifier_source_sha256(),
+              'runtime_setup_source_sha256': runtime_setup_source_sha256(),
+              'terminal_ledger_source_sha256': terminal_source_sha256(),
+              'preexecution_gate_source_sha256': preexecution_source_sha256(),
+          }
+          seed = new_execution_ledger(fields)
+          fields['execution_ledger_initial_stable_payload_sha256'] = seed[
+              'stable_payload_sha256'
+          ]
+          authorization = stable_payload(fields)
+          authorization_path = Path('runtime-replay-evidence/authorization.json')
+          authorization_path.write_text(
+              json.dumps(authorization, indent=2, sort_keys=True) + '\n'
+          )
+          authorization_file_sha = sha256_file(authorization_path)
+          verified = verify_bound_execution_authorization(
+              authorization_path,
+              authorization_file_sha,
+              'PREPARE_REGISTRY',
+          )
+          binding = verify_preexecution_gate(verified)
+          receipt = stable_payload(
+              {
+                  'schema': 'eaat.openvino_v7_runtime_independent_replay/1',
+                  'status': 'PASS_EXACT_RUNTIME_REBUILT_AND_PREEXECUTION_GATED',
+                  'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+                  'github_sha': os.environ['GITHUB_SHA'],
+                  'authorization_file_sha256': authorization_file_sha,
+                  'authorization_stable_payload_sha256': authorization[
+                      'stable_payload_sha256'
+                  ],
+                  'execution_ledger_initial_stable_payload_sha256': seed[
+                      'stable_payload_sha256'
+                  ],
+                  'preexecution_binding': binding,
+                  'current_code_bundle': current_code_bundle(),
+                  'source_access_performed': False,
+                  'scientific_execution_authorized': False,
+                  'speed_claim_authorized': False,
+                  'openvino_scientific_images_opened': 0,
+                  'ocr_runs': 0,
+                  'candidate_inference_runs': 0,
+                  'external_spend_usd': 0,
+              }
+          )
+          Path('runtime-replay-evidence/runtime-replay-receipt.json').write_text(
+              json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          )
+          PY
+          (cd runtime-replay-evidence && \
+            find . -type f ! -name SHA256SUMS.txt -print0 \
+              | sort -z | xargs -0 sha256sum \
+              | sed 's#  \./#  #' > SHA256SUMS.txt)
+          (cd runtime-replay-evidence && sha256sum --check --strict SHA256SUMS.txt)
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: openvino-v7-runtime-independent-replay-${{ github.sha }}
+          path: runtime-replay-evidence/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 9
