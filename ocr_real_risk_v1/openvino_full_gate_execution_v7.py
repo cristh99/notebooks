@@ -83,7 +83,6 @@ def verify_bound_execution_authorization(
     expected_file_sha256: str,
     required_scope: str,
 ) -> dict[str, Any]:
-    """Verify approval plus immutable code, prior-registry, and artifact bindings."""
     payload = verify_base_authorization(path, expected_file_sha256, required_scope)
     if payload.get("schema") != AUTHORIZATION_SCHEMA:
         raise RuntimeError("unexpected authorization schema")
@@ -114,31 +113,44 @@ def verify_bound_execution_authorization(
         or payload.get("source_object_sha256") != SOURCE_OBJECT_SHA256
     ):
         raise RuntimeError("authorization scientific identity drift")
+    if new_execution_ledger(payload)["stable_payload_sha256"] != payload[
+        "execution_ledger_initial_stable_payload_sha256"
+    ]:
+        raise RuntimeError("authorization does not bind its initial execution ledger")
     return payload
 
 
+def _ledger_fields(authorization: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "schema": EXECUTION_LEDGER_SCHEMA,
+        "status": LEDGER_APPROVED,
+        "execution_id": authorization["execution_id"],
+        "authorization_nonce_sha256": authorization[
+            "authorization_nonce_sha256"
+        ],
+        "candidate_stable_payload_sha256": CANDIDATE_STABLE_PAYLOAD_SHA256,
+        "scientific_manifest_sha256": SCIENTIFIC_MANIFEST_SHA256,
+        "source_object_sha256": SOURCE_OBJECT_SHA256,
+        "code_bundle": dict(authorization["code_bundle"]),
+        "claim_count": 0,
+        "terminal": None,
+    }
+
+
 def new_execution_ledger(authorization: Mapping[str, Any]) -> dict[str, Any]:
-    if not verify_stable_payload(authorization):
-        raise RuntimeError("authorization stable replay failed")
-    return stable_payload(
-        {
-            "schema": EXECUTION_LEDGER_SCHEMA,
-            "status": LEDGER_APPROVED,
-            "execution_id": authorization["execution_id"],
-            "authorization_stable_payload_sha256": authorization[
-                "stable_payload_sha256"
-            ],
-            "authorization_nonce_sha256": authorization[
-                "authorization_nonce_sha256"
-            ],
-            "candidate_stable_payload_sha256": CANDIDATE_STABLE_PAYLOAD_SHA256,
-            "scientific_manifest_sha256": SCIENTIFIC_MANIFEST_SHA256,
-            "source_object_sha256": SOURCE_OBJECT_SHA256,
-            "code_bundle": dict(authorization["code_bundle"]),
-            "claim_count": 0,
-            "terminal": None,
-        }
+    """Build the non-circular ledger seed later pinned by authorization."""
+    required = (
+        "execution_id",
+        "authorization_nonce_sha256",
+        "code_bundle",
     )
+    if any(key not in authorization for key in required):
+        raise RuntimeError("authorization fields are insufficient for ledger seed")
+    ledger = stable_payload(_ledger_fields(authorization))
+    expected = authorization.get("execution_ledger_initial_stable_payload_sha256")
+    if expected is not None and expected != ledger["stable_payload_sha256"]:
+        raise RuntimeError("execution ledger seed differs from authorization")
+    return ledger
 
 
 def claim_execution_once(
@@ -157,9 +169,9 @@ def claim_execution_once(
         or ledger.get("status") != LEDGER_APPROVED
         or ledger.get("claim_count") != 0
         or ledger.get("terminal") is not None
+        or ledger.get("stable_payload_sha256")
+        != authorization.get("execution_ledger_initial_stable_payload_sha256")
         or ledger.get("execution_id") != authorization.get("execution_id")
-        or ledger.get("authorization_stable_payload_sha256")
-        != authorization.get("stable_payload_sha256")
         or ledger.get("authorization_nonce_sha256")
         != authorization.get("authorization_nonce_sha256")
         or ledger.get("code_bundle") != authorization.get("code_bundle")
