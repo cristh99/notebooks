@@ -1,0 +1,143 @@
+name: Data Science v14.2 - real Stage 09 minimum-cell canary
+
+on:
+  push:
+    branches: [agent/data-science-v14-2-stage09-real-min-cell-v1]
+    paths:
+      - '.github/workflows/data-science-v14-2-stage09-real-min-cell.yml'
+      - 'data_science_pipeline_v14_2_stage09_real_min_cell/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: data-science-v14-2-stage09-real-min-cell-v1
+  cancel-in-progress: true
+
+env:
+  COMPONENT: data_science_pipeline_v14_2_stage09_real_min_cell
+  CONTRACT: data_science_pipeline_v14_2_stage09_real_min_cell/ANALYSIS_CONTRACT_V14_1.json
+  SNAPSHOT: data_science_pipeline_v14_2_stage09_real_min_cell/REAL_SEMANTIC_SNAPSHOT.json
+  BINDING: data_science_pipeline_v14_2_stage09_real_min_cell/COMPATIBILITY_BINDING.json
+  RESULT: data_science_pipeline_v14_2_stage09_real_min_cell/LOCAL_RESULT.json
+  LOCAL_RECEIPT: data_science_pipeline_v14_2_stage09_real_min_cell/LOCAL_VERIFICATION_RECEIPT.json
+  FREEZE: data_science_pipeline_v14_2_stage09_real_min_cell/FREEZE.json
+  EVIDENCE: data-science-v14-2-stage09-real-min-cell-evidence
+  EXPECTED_REPOSITORY: cristh99/notebooks
+  EXPECTED_BRANCH: agent/data-science-v14-2-stage09-real-min-cell-v1
+  EXPECTED_WORKFLOW_PATH: .github/workflows/data-science-v14-2-stage09-real-min-cell.yml
+  EXPECTED_CERTIFICATE_IDENTITY: https://github.com/cristh99/notebooks/.github/workflows/data-science-v14-2-stage09-real-min-cell.yml@refs/heads/agent/data-science-v14-2-stage09-real-min-cell-v1
+  OIDC_ISSUER: https://token.actions.githubusercontent.com
+  OIDC_AUDIENCE: sigstore
+  COSIGN_VERSION: 3.0.6
+  COSIGN_SHA256: c956e5dfcac53d52bcf058360d579472f0c1d2d9b69f55209e256fe7783f4c74
+  CONTRACT_SHA256: d0e94b6d1c558132cfc1d35e988b6219cd4eda28865320801b75ab780ea7600c
+  SNAPSHOT_SHA256: f2032c782da735cafe4bb29d76f49f04fbd580a8d810f59a77d588908271371b
+  BINDING_SHA256: dd0dc176b6be5590d354843a9b983dc01c9309679f2269be0c65387a526a7c86
+  RESULT_SHA256: d269b14a6a08215fd3697f99d9c9022aea127479f67d9c08cd13a28c340cd066
+  LOCAL_RECEIPT_SHA256: 717c1de3a9516fadeb523dca79ceaab67852af2d5127e9aa05dec510a3a0e946
+  FREEZE_SHA256: e1b2f504af241a2f0b11866e8618783468617571ae7406b85d89e1d274e16654
+  SOURCE_SHA256: c3172c6bf2af8e1fe2b50cd4d19bebe44ad24606732d0ec590846c6db96a5e06
+  TESTS_SHA256: 7ff642408dc518fefc33736d4f4e94d57285abe3c420a03fe4865c745a591b5c
+  VERIFIER_SHA256: 7bd49d22b253f119335335384165b641d670d7b749153019191dc759a4201405
+  CI_EXTERNAL_SHA256: b4fe4f346afb14ba209e112c8c242472a834c27a50d27a83177b3a5d6eccdfe5
+  README_SHA256: 8de9382ea05cabbc98040ff74dc263976dcff598d2fe815db48b525feb0bad6d
+
+jobs:
+  validate-and-sign:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact frozen canary and replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "$EXPECTED_REPOSITORY"
+          test "$GITHUB_REF" = "refs/heads/$EXPECTED_BRANCH"
+          case "$GITHUB_EVENT_NAME" in push|workflow_dispatch) ;; *) exit 1 ;; esac
+          mkdir -p "$EVIDENCE"
+          printf '%s  %s\n' "$CONTRACT_SHA256" "$CONTRACT" | sha256sum -c -
+          printf '%s  %s\n' "$SNAPSHOT_SHA256" "$SNAPSHOT" | sha256sum -c -
+          printf '%s  %s\n' "$BINDING_SHA256" "$BINDING" | sha256sum -c -
+          printf '%s  %s\n' "$RESULT_SHA256" "$RESULT" | sha256sum -c -
+          printf '%s  %s\n' "$LOCAL_RECEIPT_SHA256" "$LOCAL_RECEIPT" | sha256sum -c -
+          printf '%s  %s\n' "$FREEZE_SHA256" "$FREEZE" | sha256sum -c -
+          printf '%s  %s\n' "$SOURCE_SHA256" "$COMPONENT/stage09_real.py" | sha256sum -c -
+          printf '%s  %s\n' "$TESTS_SHA256" "$COMPONENT/test_stage09_real.py" | sha256sum -c -
+          printf '%s  %s\n' "$VERIFIER_SHA256" "$COMPONENT/verify.py" | sha256sum -c -
+          printf '%s  %s\n' "$CI_EXTERNAL_SHA256" "$COMPONENT/ci_external.py" | sha256sum -c -
+          printf '%s  %s\n' "$README_SHA256" "$COMPONENT/README.md" | sha256sum -c -
+          python3 -m compileall -q "$COMPONENT"
+          (cd "$COMPONENT" && PYTHONHASHSEED=0 python3 -m unittest -v test_stage09_real.py) |& tee "$EVIDENCE/tests.log"
+          grep -Fq 'Ran 60 tests' "$EVIDENCE/tests.log"
+          grep -Fq 'OK' "$EVIDENCE/tests.log"
+          python3 "$COMPONENT/verify.py" --output "$EVIDENCE/local-receipt.json" > "$EVIDENCE/local-verification.log"
+          cmp "$LOCAL_RECEIPT" "$EVIDENCE/local-receipt.json"
+          python3 "$COMPONENT/stage09_real.py" --contract "$CONTRACT" --snapshot "$SNAPSHOT" --binding "$BINDING" --output "$EVIDENCE/replay-result.json"
+          cmp "$RESULT" "$EVIDENCE/replay-result.json"
+          sha256sum "$COMPONENT"/*.json "$COMPONENT"/*.py "$COMPONENT"/*.md > "$EVIDENCE/source-sha256.txt"
+
+      - name: Validate GitHub OIDC identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          response="$(curl -fsSL -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${OIDC_AUDIENCE}")"
+          token="$(printf '%s' "$response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])')"
+          echo "::add-mask::$token"
+          printf '%s' "$token" > "$RUNNER_TEMP/oidc-token.jwt"
+          python3 "$COMPONENT/ci_external.py" validate-oidc --token "$RUNNER_TEMP/oidc-token.jwt" --output "$EVIDENCE/oidc-safe-claims.json"
+
+      - name: Sign and verify exact fail-closed result
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" -o "$RUNNER_TEMP/cosign"
+          printf '%s  %s\n' "$COSIGN_SHA256" "$RUNNER_TEMP/cosign" | sha256sum -c -
+          chmod 0755 "$RUNNER_TEMP/cosign"
+          "$RUNNER_TEMP/cosign" version > "$EVIDENCE/cosign-version.txt"
+          token="$(cat "$RUNNER_TEMP/oidc-token.jwt")"
+          echo "::add-mask::$token"
+          "$RUNNER_TEMP/cosign" sign-blob --yes --identity-token "$token" --bundle "$EVIDENCE/stage09-real.sigstore.json" "$RESULT" > "$EVIDENCE/cosign-sign.log" 2>&1
+          rm -f "$RUNNER_TEMP/oidc-token.jwt"
+          "$RUNNER_TEMP/cosign" verify-blob "$RESULT" --bundle "$EVIDENCE/stage09-real.sigstore.json" --certificate-identity "$EXPECTED_CERTIFICATE_IDENTITY" --certificate-oidc-issuer "$OIDC_ISSUER" --certificate-github-workflow-repository "$GITHUB_REPOSITORY" --certificate-github-workflow-sha "$GITHUB_SHA" --certificate-github-workflow-trigger "$GITHUB_EVENT_NAME" > "$EVIDENCE/cosign-verify.log" 2>&1
+          grep -Fq 'Verified OK' "$EVIDENCE/cosign-verify.log"
+          python3 "$COMPONENT/ci_external.py" finalize --evidence "$EVIDENCE" --result "$RESULT" --local-receipt "$LOCAL_RECEIPT" --output "$EVIDENCE/external-receipt.json"
+
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-v14-2-stage09-real-min-cell
+          path: data-science-v14-2-stage09-real-min-cell-evidence
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce external terminal receipt
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('data-science-v14-2-stage09-real-min-cell-evidence/external-receipt.json')
+          if not path.exists():
+              raise SystemExit('external receipt missing')
+          receipt = json.loads(path.read_text())
+          assert receipt['verdict'] == 'PASS_STAGE09_REAL_CANARY_EXTERNAL_FAIL_CLOSED_MINIMUM_CELL'
+          assert all(receipt['checks'].values())
+          assert receipt['tests'] == '60/60 PASS'
+          assert receipt['terminal_state'] == 'ANALYSIS_NOT_EVALUABLE'
+          assert receipt['terminal_detail'] == 'ANALYSIS_NOT_EVALUABLE_MINIMUM_CELL_SIZE'
+          assert receipt['inferential_outputs_emitted'] == 0
+          assert receipt['stage10_canary_input_ready'] is False
+          assert receipt['stage10_global_unblocked'] is False
+          assert receipt['production_modified'] is False
+          print(receipt['verdict'])
+          PY
