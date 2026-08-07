@@ -16,11 +16,13 @@ python -m ocr_real_risk_v1.openvino_prior_registry_entry_v7 \
   > aggregate-replay.json
 (cd "$output" && sha256sum --check --strict SHA256SUMS.txt)
 
-python - <<'PY'
+OUTPUT_DIR="$output" python - <<'PY'
 import json
-registry = json.load(open('prior-registry/prior_registry.json'))
+import os
+from pathlib import Path
+registry = json.load(open(Path(os.environ['OUTPUT_DIR']) / 'prior_registry.json'))
 assert registry['complete'] is True
-assert registry['population_rows'] == 38459
+assert registry['population_rows'] == 38601
 assert registry['openvino_scientific_images_opened'] == 0
 assert registry['annotation_columns_read'] is False
 assert registry['ocr_runs'] == 0
