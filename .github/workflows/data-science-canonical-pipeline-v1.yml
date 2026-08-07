@@ -1,0 +1,46 @@
+name: Data Science canonical pipeline v1
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+
+      - name: Reconstruct hash-locked source bundle
+        run: bash data_science_pipeline_v1/reconstruct.sh
+
+      - name: Run 20 local and adversarial tests
+        working-directory: data_science_pipeline_v1/materialized/canonical_data_science_pipeline_v1
+        run: PYTHONPATH=src python -m unittest discover -s tests -v
+
+      - name: Compile sources and tests
+        working-directory: data_science_pipeline_v1/materialized/canonical_data_science_pipeline_v1
+        run: python -m compileall -q src tests
+
+      - name: Verify frozen evidence receipt
+        working-directory: data_science_pipeline_v1/materialized/canonical_data_science_pipeline_v1
+        run: |
+          echo '8732826a49333619ec23047b3f92c16ea788e1e9517e8c0b29d298b31b6596c4  evidence/receipt.json' | sha256sum -c -
+          echo 'd10202fc0c01be5ac398dd27dc5bec0b2c2fad4936b5dc7a790d7d3b86985592' > /tmp/expected-manifest
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path('evidence/receipt.json').read_text())
+          assert receipt['tests']['passed'] == 20
+          assert receipt['tests']['failed'] == 0
+          assert receipt['demo']['status'] == 'degraded'
+          assert receipt['demo']['quarantined'] == 1
+          assert receipt['external_cost_usd'] == 0.0
+          print('receipt: PASS')
+          PY
