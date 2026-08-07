@@ -38,6 +38,17 @@ jobs:
       - name: Apply exact deterministic replacements
         run: |
           set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/apply_openvino_review_fixes_v1.py')
+          text = path.read_text(encoding='utf-8')
+          old = 'raw = (json.dumps(payload, sort_keys=True) + "\\n").encode()'
+          new = 'raw = (json.dumps(payload, sort_keys=True) + "\\\\n").encode()'
+          count = text.count(old)
+          if count != 2:
+              raise RuntimeError(f'expected two generated newline literals, found {count}')
+          path.write_text(text.replace(old, new), encoding='utf-8')
+          PY
           python scripts/apply_openvino_review_fixes_v1.py
           python -m compileall -q \
             ocr_real_risk_v1/openvino_prior_registry_v7.py \
