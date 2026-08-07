@@ -1,0 +1,16 @@
+{
+  "schema": "verified-power-frontier/public-source-binding/1",
+  "private_repository": "cristh99/my_first_repository",
+  "private_branch": "agent/verified-power-frontier-v1",
+  "private_head": "4375d757982b8ad9bf2776a682e8d6519ff6c73d",
+  "private_pull_request": 98,
+  "private_issue": 97,
+  "private_base": "agent/capability-power-calculus-v6",
+  "scope": "finite authority-bounded power calculus and preregistered benchmark only",
+  "expected_source_sha256": {
+    "power.py": "574d6db2cd24693cd7ad7eb4125824f05fb4fa36a7eb41587a3c0e7fdec80a3b",
+    "benchmark.py": "651b05d261f9d16be059b7bf7944bfa7bbc4f0352312cf2658a759a507efb715",
+    "test_power.py": "009930181ad3be634421dad37794db43f26f4d8bf94e1c38c55a57c91b3d9f3a",
+    "verify_receipt.js": "3ae12ac4cd68e1dc0b6ac85948d8915aeaff025967ff03ba2cf0c6fe24c9ed6b"
+  }
+}

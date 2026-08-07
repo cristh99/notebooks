@@ -1,0 +1,171 @@
+name: Verified Power Frontier v1 public verification
+
+on:
+  pull_request:
+    paths:
+      - 'verified_power_frontier_v1/**'
+      - '.github/workflows/verified-power-frontier-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Verify source binding and frozen preregistration
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('verified_power_frontier_v1')
+          binding = json.loads((root / 'SOURCE_BINDING.json').read_text())
+          prereg = json.loads((root / 'preregistration.json').read_text())
+          assert binding['schema'] == 'verified-power-frontier/public-source-binding/1'
+          assert binding['private_repository'] == 'cristh99/my_first_repository'
+          assert binding['private_branch'] == 'agent/verified-power-frontier-v1'
+          assert binding['private_head'] == '4375d757982b8ad9bf2776a682e8d6519ff6c73d'
+          assert binding['private_pull_request'] == 98
+          assert binding['private_issue'] == 97
+          assert prereg['schema'] == 'verified-power-frontier/preregistration/1'
+          assert prereg['status'] == 'FROZEN_BEFORE_PUBLIC_CI'
+          assert prereg['scenario_count'] == 72
+          assert prereg['unit_test_count'] == 12
+          assert len(prereg['domains']) == 6
+          assert len(prereg['archetypes']) == 12
+          assert prereg['acceptance_gates']['exact_conformance'] == 1.0
+          assert prereg['god_level_rubric']['maximum'] == 1000
+          PY
+          echo 'be1f76d7bb161c88ba45cc6e5d4117c622bbe79577adc95669b8df00fe8930c1  verified_power_frontier_v1/source_bundle.tar.gz.b64' | sha256sum -c -
+
+      - name: Decode and verify exact private-source bundle
+        run: |
+          set -euo pipefail
+          base64 --decode verified_power_frontier_v1/source_bundle.tar.gz.b64 > source_bundle.tar.gz
+          echo '7754573b9db7931b4d209dda7cbf951f88f1fc9c22abbf6f4ca11a33d6556f21  source_bundle.tar.gz' | sha256sum -c -
+          tar -xzf source_bundle.tar.gz
+          sha256sum -c verified_power_frontier_v1/SHA256SUMS
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          root = Path('verified_power_frontier_v1')
+          binding = json.loads((root / 'SOURCE_BINDING.json').read_text())
+          for name, expected in binding['expected_source_sha256'].items():
+              actual = hashlib.sha256((root / name).read_bytes()).hexdigest()
+              assert actual == expected, (name, actual, expected)
+          PY
+
+      - name: Compile and execute frozen benchmark
+        run: |
+          set -euo pipefail
+          cd verified_power_frontier_v1
+          python -m compileall -q .
+          python benchmark.py --output reports
+          python -m unittest -v test_power.py 2>&1 | tee reports/unittest.log
+
+      - name: Enforce preregistered acceptance gates
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('verified_power_frontier_v1/reports')
+          summary = json.loads((root / 'benchmark_summary.json').read_text())
+          receipt = json.loads((root / 'benchmark_receipt.json').read_text())
+          assert summary['scenario_count'] == 72
+          assert summary['passed'] == 72
+          assert summary['failed'] == 0
+          assert summary['exact_conformance'] == 1.0
+          assert receipt['status'] == 'PASS'
+          assert receipt['scenario_count'] == 72
+          assert receipt['passed'] == 72
+          PY
+          node verified_power_frontier_v1/verify_receipt.js verified_power_frontier_v1/reports/benchmark_receipt.json
+
+      - name: Reject altered evidence
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          source = Path('verified_power_frontier_v1/reports/benchmark_receipt.json')
+          data = json.loads(source.read_text())
+          data['passed'] = 71
+          Path('verified_power_frontier_v1/reports/tampered_receipt.json').write_text(json.dumps(data, sort_keys=True))
+          PY
+          if node verified_power_frontier_v1/verify_receipt.js verified_power_frontier_v1/reports/tampered_receipt.json; then
+            echo 'tampered receipt was incorrectly accepted'
+            exit 1
+          fi
+
+      - name: Build public receipt and evidence hashes
+        env:
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root = Path('verified_power_frontier_v1')
+          reports = root / 'reports'
+          def sha(path):
+              return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+          local = json.loads((reports / 'benchmark_receipt.json').read_text())
+          body = {
+              'schema': 'verified-power-frontier/public-receipt/1',
+              'status': 'PASS',
+              'private_repository': 'cristh99/my_first_repository',
+              'private_head': '4375d757982b8ad9bf2776a682e8d6519ff6c73d',
+              'private_pull_request': 98,
+              'private_issue': 97,
+              'public_repository': 'cristh99/notebooks',
+              'public_head': os.environ['PUBLIC_HEAD_SHA'],
+              'event_sha': os.environ['EVENT_SHA'],
+              'scenario_count': local['scenario_count'],
+              'passed': local['passed'],
+              'exact_conformance': 1.0,
+              'source_bundle_sha256': sha(root / 'source_bundle.tar.gz.b64'),
+              'binding_sha256': sha(root / 'SOURCE_BINDING.json'),
+              'preregistration_sha256': sha(root / 'preregistration.json'),
+              'power_sha256': sha(root / 'power.py'),
+              'benchmark_sha256': sha(root / 'benchmark.py'),
+              'tests_sha256': sha(root / 'test_power.py'),
+              'node_verifier_sha256': sha(root / 'verify_receipt.js'),
+              'manifest_sha256': sha(reports / 'scenario_manifest.json'),
+              'summary_sha256': sha(reports / 'benchmark_summary.json'),
+              'matrix_sha256': sha(reports / 'benchmark_matrix.csv'),
+              'local_receipt_sha256': sha(reports / 'benchmark_receipt.json')
+          }
+          canonical = json.dumps(body, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
+          receipt = {**body, 'sha256': hashlib.sha256(canonical).hexdigest()}
+          path = reports / 'verified-power-public-receipt-v1.json'
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          (reports / 'verified-power-public-receipt-v1.sha256').write_text(
+              f"{hashlib.sha256(path.read_bytes()).hexdigest()}  verified-power-public-receipt-v1.json\n"
+          )
+          print(path.read_text())
+          PY
+          cd verified_power_frontier_v1
+          sha256sum \
+            SOURCE_BINDING.json preregistration.json README.md source_bundle.tar.gz.b64 \
+            power.py benchmark.py test_power.py verify_receipt.js \
+            reports/scenario_manifest.json reports/benchmark_summary.json \
+            reports/benchmark_matrix.csv reports/benchmark_receipt.json \
+            reports/verified-power-public-receipt-v1.json \
+            > reports/SHA256SUMS-PUBLIC
+          cat reports/SHA256SUMS-PUBLIC
+
+      - name: Upload public evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: verified-power-frontier-v1-public
+          path: |
+            verified_power_frontier_v1/
+          if-no-files-found: error
+          retention-days: 90
