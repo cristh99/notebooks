@@ -1,0 +1,222 @@
+name: University Harvard CS1200 PS6-PS10 public baseline v1
+
+on:
+  push:
+    branches:
+      - agent/university-harvard-cs1200-ps6-10-preflight-v1
+    paths:
+      - '.github/workflows/university-cs1200-ps6-10-public-baseline-v1.yml'
+      - 'university_cs1200_ps6_10_v1/**'
+  pull_request:
+    paths:
+      - '.github/workflows/university-cs1200-ps6-10-public-baseline-v1.yml'
+      - 'university_cs1200_ps6_10_v1/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: university-cs1200-ps6-10-public-baseline-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  baseline:
+    name: Baseline PS${{ matrix.pset }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        pset: [6, 7, 8, 9, 10]
+    steps:
+      - name: Checkout capsule
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Set up Python
+        uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.12'
+
+      - name: Compile baseline runner
+        run: python -m py_compile university_cs1200_ps6_10_v1/baseline_public_tests.py university_cs1200_ps6_10_v1/audit_pset.py
+
+      - name: Acquire frozen official source twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          COMMIT='0b967fe320ecf2141a6f3b8165d3d096c99fb3ac'
+          TREE='de8ba1477998a406b2d747bd680a8728b40435b0'
+          for destination in official-primary official-replay; do
+            git init -q "$destination"
+            git -C "$destination" remote add origin https://github.com/Harvard-CS-1200/2026-Spring.git
+            git -C "$destination" fetch -q --depth=1 origin "$COMMIT"
+            git -C "$destination" checkout -q --detach FETCH_HEAD
+            test "$(git -C "$destination" rev-parse HEAD)" = "$COMMIT"
+            test "$(git -C "$destination" rev-parse 'HEAD^{tree}')" = "$TREE"
+          done
+
+      - name: Recompute source preflight for both copies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python university_cs1200_ps6_10_v1/audit_pset.py \
+            --repo official-primary --pset '${{ matrix.pset }}' --out evidence/preflight-primary
+          python university_cs1200_ps6_10_v1/audit_pset.py \
+            --repo official-replay --pset '${{ matrix.pset }}' --out evidence/preflight-replay
+          cmp evidence/preflight-primary/manifest.json evidence/preflight-replay/manifest.json
+          cmp evidence/preflight-primary/scientific.json evidence/preflight-replay/scientific.json
+
+      - name: Execute unmodified public-test baseline twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          python university_cs1200_ps6_10_v1/baseline_public_tests.py \
+            --repo official-primary \
+            --pset '${{ matrix.pset }}' \
+            --preflight evidence/preflight-primary/scientific.json \
+            --out evidence/baseline-primary \
+            --timeout 45
+          python university_cs1200_ps6_10_v1/baseline_public_tests.py \
+            --repo official-replay \
+            --pset '${{ matrix.pset }}' \
+            --preflight evidence/preflight-replay/scientific.json \
+            --out evidence/baseline-replay \
+            --timeout 45
+          cmp evidence/baseline-primary/baseline.json evidence/baseline-replay/baseline.json
+          cmp evidence/baseline-primary/baseline.sha256 evidence/baseline-replay/baseline.sha256
+
+      - name: Emit fail-closed receipt
+        shell: bash
+        env:
+          EVENT_SHA: ${{ github.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          pset = int('${{ matrix.pset }}')
+          baseline_path = Path('evidence/baseline-primary/baseline.json')
+          baseline = json.loads(baseline_path.read_text())
+          assert baseline['status'] == 'PASS_BASELINE_CAPTURED'
+          assert baseline['pset'] == pset
+          assert baseline['guardrails']['failures_removed_from_denominator'] == 0
+          assert baseline['guardrails']['problem_set_complete'] is False
+          receipt = {
+              'schema': 'university-cs1200-pset/public-baseline-receipt/1',
+              'status': 'PASS_BASELINE_CAPTURED',
+              'coordination_surface': 'Notion',
+              'coordination_id': 'COORD-2026-08-06-PARALLEL-V2',
+              'repository': 'cristh99/notebooks',
+              'event_sha': os.environ['EVENT_SHA'],
+              'head_sha': os.environ['HEAD_SHA'],
+              'official_repository': baseline['official_repository'],
+              'official_commit': baseline['official_commit'],
+              'pset': pset,
+              'baseline_state': baseline['baseline_state'],
+              'test_files': baseline['test_files'],
+              'status_distribution': baseline['status_distribution'],
+              'baseline_sha256': hashlib.sha256(baseline_path.read_bytes()).hexdigest(),
+              'clean_replay_identical': True,
+              'dependencies_installed': False,
+              'starter_files_modified': False,
+              'failures_removed_from_denominator': 0,
+              'problem_set_solved': False,
+              'problem_set_complete': False,
+              'course_complete': False,
+              'cost_usd': 0,
+          }
+          path = Path('evidence/receipt.json')
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          Path('evidence/receipt.sha256').write_text(
+              f"{hashlib.sha256(path.read_bytes()).hexdigest()}  receipt.json\n"
+          )
+          print(json.dumps(receipt, indent=2, sort_keys=True))
+          PY
+          find university_cs1200_ps6_10_v1 evidence -type f ! -name SHA256SUMS -print0 \
+            | sort -z | xargs -0 sha256sum > evidence/SHA256SUMS
+          sha256sum -c evidence/SHA256SUMS
+
+      - name: Upload per-pset baseline evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cs1200-ps${{ matrix.pset }}-public-baseline
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 90
+
+  aggregate:
+    name: Aggregate five public baselines
+    needs: baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download all baseline artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: cs1200-ps*-public-baseline
+          path: downloads
+
+      - name: Reconcile five immutable denominators
+        shell: bash
+        env:
+          EVENT_SHA: ${{ github.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p final-evidence
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          receipts = []
+          for path in sorted(Path('downloads').glob('cs1200-ps*-public-baseline/receipt.json')):
+              row = json.loads(path.read_text())
+              assert row['status'] == 'PASS_BASELINE_CAPTURED'
+              assert row['clean_replay_identical'] is True
+              assert row['failures_removed_from_denominator'] == 0
+              receipts.append(row)
+          assert [row['pset'] for row in receipts] == [6, 7, 8, 9, 10]
+          aggregate = {
+              'schema': 'university-cs1200-ps6-10/public-baseline-combined/1',
+              'status': 'PASS_PUBLIC_BASELINE_CAPTURED_5_OF_5',
+              'coordination_surface': 'Notion',
+              'coordination_id': 'COORD-2026-08-06-PARALLEL-V2',
+              'repository': 'cristh99/notebooks',
+              'event_sha': os.environ['EVENT_SHA'],
+              'head_sha': os.environ['HEAD_SHA'],
+              'official_repository': 'Harvard-CS-1200/2026-Spring',
+              'official_commit': '0b967fe320ecf2141a6f3b8165d3d096c99fb3ac',
+              'psets': [6, 7, 8, 9, 10],
+              'parallel_lanes': 5,
+              'receipts': receipts,
+              'failures_removed_from_denominator': 0,
+              'problem_sets_solved': 0,
+              'problem_sets_complete': 0,
+              'course_complete': False,
+              'cost_usd': 0,
+              'next_gate': 'Repair environment blockers, then solve disjoint technical obligations against this frozen denominator.',
+          }
+          path = Path('final-evidence/combined-baseline.json')
+          path.write_text(json.dumps(aggregate, indent=2, sort_keys=True) + '\n')
+          Path('final-evidence/combined-baseline.sha256').write_text(
+              f"{hashlib.sha256(path.read_bytes()).hexdigest()}  combined-baseline.json\n"
+          )
+          print(json.dumps(aggregate, indent=2, sort_keys=True))
+          PY
+          find downloads final-evidence -type f ! -name SHA256SUMS -print0 \
+            | sort -z | xargs -0 sha256sum > final-evidence/SHA256SUMS
+          sha256sum -c final-evidence/SHA256SUMS
+
+      - name: Upload combined baseline evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: university-cs1200-ps6-10-public-baseline-v1-evidence
+          path: final-evidence/
+          if-no-files-found: error
+          retention-days: 90
