@@ -34,212 +34,322 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p cas-evidence
-          ledger_path='openvino-v7/cas-proof-ledger.json'
-          full_ref="refs/heads/${PROOF_BRANCH}"
-          api_ref="heads/${PROOF_BRANCH}"
-          base_commit="${GITHUB_SHA}"
-          base_tree="$(gh api "/repos/${GITHUB_REPOSITORY}/git/commits/${base_commit}" --jq .tree.sha)"
-
           python - <<'PY'
-          import hashlib, json, os
+          from __future__ import annotations
+
+          import base64
+          import hashlib
+          import json
+          import os
+          import traceback
+          import urllib.error
+          import urllib.request
           from pathlib import Path
-          payload = {
-              'schema': 'eaat.openvino_v7_real_cas_proof_ledger/1',
-              'status': 'APPROVED_NOT_CLAIMED',
-              'execution_id': f"openvino-v7-cas-proof-{os.environ['GITHUB_RUN_ID']}",
-              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
-              'scientific_execution_authorized': False,
-              'openvino_scientific_images_opened': 0,
-              'ocr_runs': 0,
-              'claim_count': 0,
-          }
-          raw = json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()
-          payload['stable_payload_sha256'] = hashlib.sha256(raw).hexdigest()
-          Path('initial-ledger.json').write_text(
-              json.dumps(payload, sort_keys=True, separators=(',', ':')) + '\n'
-          )
+          from typing import Any
+
+          repo = os.environ['GITHUB_REPOSITORY']
+          token = os.environ['GH_TOKEN']
+          run_id = int(os.environ['GITHUB_RUN_ID'])
+          base_commit = os.environ['GITHUB_SHA']
+          proof_branch = os.environ['PROOF_BRANCH']
+          full_ref = f'refs/heads/{proof_branch}'
+          api_ref = f'heads/{proof_branch}'
+          ledger_path = 'openvino-v7/cas-proof-ledger.json'
+          evidence = Path('cas-evidence')
+          ref_created = False
+
+          def api(
+              method: str,
+              path: str,
+              payload: dict[str, Any] | None = None,
+          ) -> dict[str, Any] | None:
+              data = None
+              headers = {
+                  'Accept': 'application/vnd.github+json',
+                  'Authorization': f'Bearer {token}',
+                  'X-GitHub-Api-Version': '2022-11-28',
+                  'User-Agent': 'OpenVINO-v7-real-CAS-proof',
+              }
+              if payload is not None:
+                  data = json.dumps(payload).encode()
+                  headers['Content-Type'] = 'application/json'
+              request = urllib.request.Request(
+                  f'https://api.github.com/repos/{repo}{path}',
+                  data=data,
+                  headers=headers,
+                  method=method,
+              )
+              with urllib.request.urlopen(request, timeout=60) as response:
+                  raw = response.read()
+              return json.loads(raw) if raw else None
+
+          def stable(payload: dict[str, Any]) -> dict[str, Any]:
+              result = dict(payload)
+              raw = json.dumps(
+                  result, sort_keys=True, separators=(',', ':'), ensure_ascii=False
+              ).encode()
+              result['stable_payload_sha256'] = hashlib.sha256(raw).hexdigest()
+              return result
+
+          def ledger_bytes(payload: dict[str, Any]) -> bytes:
+              return (
+                  json.dumps(
+                      payload,
+                      sort_keys=True,
+                      separators=(',', ':'),
+                      ensure_ascii=False,
+                  )
+                  + '\n'
+              ).encode()
+
+          def create_blob(content: bytes) -> str:
+              result = api(
+                  'POST',
+                  '/git/blobs',
+                  {
+                      'content': content.decode('utf-8'),
+                      'encoding': 'utf-8',
+                  },
+              )
+              assert isinstance(result, dict)
+              return str(result['sha'])
+
+          def create_tree(base_tree: str, blob: str) -> str:
+              result = api(
+                  'POST',
+                  '/git/trees',
+                  {
+                      'base_tree': base_tree,
+                      'tree': [
+                          {
+                              'path': ledger_path,
+                              'mode': '100644',
+                              'type': 'blob',
+                              'sha': blob,
+                          }
+                      ],
+                  },
+              )
+              assert isinstance(result, dict)
+              return str(result['sha'])
+
+          def create_commit(message: str, tree: str, parent: str) -> str:
+              result = api(
+                  'POST',
+                  '/git/commits',
+                  {'message': message, 'tree': tree, 'parents': [parent]},
+              )
+              assert isinstance(result, dict)
+              return str(result['sha'])
+
+          def ref_sha() -> str:
+              result = api('GET', f'/git/ref/{api_ref}')
+              assert isinstance(result, dict)
+              return str(result['object']['sha'])
+
+          def commit_tree(commit: str) -> str:
+              result = api('GET', f'/git/commits/{commit}')
+              assert isinstance(result, dict)
+              return str(result['tree']['sha'])
+
+          def path_blob(tree: str) -> str:
+              result = api('GET', f'/git/trees/{tree}?recursive=1')
+              assert isinstance(result, dict)
+              matches = [
+                  row for row in result['tree'] if row.get('path') == ledger_path
+              ]
+              if len(matches) != 1:
+                  raise RuntimeError(f'ledger path match count: {len(matches)}')
+              return str(matches[0]['sha'])
+
+          try:
+              base_tree = commit_tree(base_commit)
+              initial = stable(
+                  {
+                      'schema': 'eaat.openvino_v7_real_cas_proof_ledger/1',
+                      'status': 'APPROVED_NOT_CLAIMED',
+                      'execution_id': f'openvino-v7-cas-proof-{run_id}',
+                      'github_run_id': run_id,
+                      'scientific_execution_authorized': False,
+                      'openvino_scientific_images_opened': 0,
+                      'ocr_runs': 0,
+                      'claim_count': 0,
+                  }
+              )
+              initial_raw = ledger_bytes(initial)
+              initial_blob = create_blob(initial_raw)
+              initial_tree = create_tree(base_tree, initial_blob)
+              initial_commit = create_commit(
+                  'Initialize OpenVINO v7 CAS proof ledger',
+                  initial_tree,
+                  base_commit,
+              )
+              create_ref = api(
+                  'POST', '/git/refs', {'ref': full_ref, 'sha': initial_commit}
+              )
+              evidence.joinpath('create-ref-response.json').write_text(
+                  json.dumps(create_ref, indent=2, sort_keys=True) + '\n'
+              )
+              ref_created = True
+              if ref_sha() != initial_commit:
+                  raise RuntimeError('initial ref identity mismatch')
+              if path_blob(commit_tree(initial_commit)) != initial_blob:
+                  raise RuntimeError('initial recursive tree/blob mismatch')
+
+              claimed = stable(
+                  {
+                      **{
+                          key: value
+                          for key, value in initial.items()
+                          if key != 'stable_payload_sha256'
+                      },
+                      'status': 'CLAIMED_FULL_EXTERNAL_GATE_ONCE',
+                      'claim_count': 1,
+                      'claim': {
+                          'cas_strategy': 'github_git_data_fast_forward_ref_cas',
+                          'ledger_parent_commit_sha': initial_commit,
+                          'ledger_blob_sha_before': initial_blob,
+                          'github_run_id': run_id,
+                          'scientific_execution_authorized': False,
+                      },
+                  }
+              )
+              claimed_raw = ledger_bytes(claimed)
+              claimed_blob = create_blob(claimed_raw)
+              claimed_tree = create_tree(initial_tree, claimed_blob)
+              claimed_commit = create_commit(
+                  'Claim OpenVINO v7 CAS proof ledger once',
+                  claimed_tree,
+                  initial_commit,
+              )
+              claim_ref = api(
+                  'PATCH',
+                  f'/git/refs/{api_ref}',
+                  {'sha': claimed_commit, 'force': False},
+              )
+              evidence.joinpath('claim-ref-response.json').write_text(
+                  json.dumps(claim_ref, indent=2, sort_keys=True) + '\n'
+              )
+              if ref_sha() != claimed_commit:
+                  raise RuntimeError('claimed ref identity mismatch')
+              claimed_commit_payload = api('GET', f'/git/commits/{claimed_commit}')
+              assert isinstance(claimed_commit_payload, dict)
+              if claimed_commit_payload['parents'][0]['sha'] != initial_commit:
+                  raise RuntimeError('claimed commit parent mismatch')
+              if path_blob(str(claimed_commit_payload['tree']['sha'])) != claimed_blob:
+                  raise RuntimeError('claimed recursive tree/blob mismatch')
+              blob_payload = api('GET', f'/git/blobs/{claimed_blob}')
+              assert isinstance(blob_payload, dict)
+              roundtrip = base64.b64decode(
+                  str(blob_payload['content']).replace('\n', '')
+              )
+              if roundtrip != claimed_raw:
+                  raise RuntimeError('claimed blob roundtrip mismatch')
+              evidence.joinpath('claimed-roundtrip.json').write_bytes(roundtrip)
+
+              stale = stable(
+                  {
+                      'schema': 'eaat.openvino_v7_real_cas_proof_ledger/1',
+                      'status': 'STALE_SECOND_WRITER',
+                      'scientific_execution_authorized': False,
+                  }
+              )
+              stale_raw = ledger_bytes(stale)
+              stale_blob = create_blob(stale_raw)
+              stale_tree = create_tree(initial_tree, stale_blob)
+              stale_commit = create_commit(
+                  'Stale OpenVINO CAS writer must fail',
+                  stale_tree,
+                  initial_commit,
+              )
+              try:
+                  api(
+                      'PATCH',
+                      f'/git/refs/{api_ref}',
+                      {'sha': stale_commit, 'force': False},
+                  )
+              except urllib.error.HTTPError as exc:
+                  stale_error = exc.read().decode('utf-8', errors='replace')
+                  evidence.joinpath('stale-update-error.json').write_text(
+                      stale_error + ('\n' if not stale_error.endswith('\n') else '')
+                  )
+                  if exc.code not in {409, 422}:
+                      raise
+              else:
+                  raise RuntimeError('stale non-fast-forward update succeeded')
+              if ref_sha() != claimed_commit:
+                  raise RuntimeError('ref changed after stale update attempt')
+
+              api('DELETE', f'/git/refs/{api_ref}')
+              ref_created = False
+              try:
+                  api('GET', f'/git/ref/{api_ref}')
+              except urllib.error.HTTPError as exc:
+                  if exc.code != 404:
+                      raise
+              else:
+                  raise RuntimeError('temporary ref remains after deletion')
+
+              receipt = stable(
+                  {
+                      'schema': 'eaat.openvino_v7_real_github_cas_proof/2',
+                      'status': 'PASS_REAL_GITHUB_FAST_FORWARD_CAS',
+                      'github_run_id': run_id,
+                      'github_sha': base_commit,
+                      'temporary_branch': proof_branch,
+                      'base_commit_sha': base_commit,
+                      'initial_commit_sha': initial_commit,
+                      'initial_tree_sha': initial_tree,
+                      'initial_blob_sha': initial_blob,
+                      'claimed_commit_sha': claimed_commit,
+                      'claimed_tree_sha': claimed_tree,
+                      'claimed_blob_sha': claimed_blob,
+                      'stale_commit_sha': stale_commit,
+                      'stale_tree_sha': stale_tree,
+                      'stale_blob_sha': stale_blob,
+                      'cas_strategy': 'github_git_data_fast_forward_ref_cas',
+                      'recursive_tree_verification': True,
+                      'initial_ref_created': True,
+                      'claim_fast_forward_succeeded': True,
+                      'claim_parent_verified': True,
+                      'claim_blob_roundtrip_verified': True,
+                      'stale_sibling_update_rejected': True,
+                      'ref_unchanged_after_stale_attempt': True,
+                      'temporary_ref_deleted': True,
+                      'main_branch_modified': False,
+                      'scientific_execution_authorized': False,
+                      'openvino_scientific_images_opened': 0,
+                      'ocr_runs': 0,
+                      'candidate_inference_runs': 0,
+                      'external_spend_usd': 0,
+                  }
+              )
+              evidence.joinpath('initial-ledger.json').write_bytes(initial_raw)
+              evidence.joinpath('claimed-ledger.json').write_bytes(claimed_raw)
+              evidence.joinpath('stale-ledger.json').write_bytes(stale_raw)
+              evidence.joinpath('cas-proof-receipt.json').write_text(
+                  json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+              )
+          except Exception:
+              evidence.joinpath('failure.txt').write_text(traceback.format_exc())
+              raise
+          finally:
+              if ref_created:
+                  try:
+                      api('DELETE', f'/git/refs/{api_ref}')
+                  except Exception:
+                      evidence.joinpath('cleanup-failure.txt').write_text(
+                          traceback.format_exc()
+                      )
           PY
-
-          initial_blob="$(jq -Rs '{content: ., encoding: "utf-8"}' initial-ledger.json | \
-            gh api --method POST "/repos/${GITHUB_REPOSITORY}/git/blobs" \
-              --input - --jq .sha)"
-          jq -n --arg base "$base_tree" --arg blob "$initial_blob" \
-            --arg path "$ledger_path" \
-            '{base_tree:$base,tree:[{path:$path,mode:"100644",type:"blob",sha:$blob}]}' \
-            > initial-tree-request.json
-          initial_tree="$(gh api --method POST "/repos/${GITHUB_REPOSITORY}/git/trees" \
-            --input initial-tree-request.json --jq .sha)"
-          jq -n --arg tree "$initial_tree" --arg parent "$base_commit" \
-            '{message:"Initialize OpenVINO v7 CAS proof ledger",tree:$tree,parents:[$parent]}' \
-            > initial-commit-request.json
-          initial_commit="$(gh api --method POST "/repos/${GITHUB_REPOSITORY}/git/commits" \
-            --input initial-commit-request.json --jq .sha)"
-          jq -n --arg ref "$full_ref" --arg sha "$initial_commit" \
-            '{ref:$ref,sha:$sha}' > create-ref-request.json
-          gh api --method POST "/repos/${GITHUB_REPOSITORY}/git/refs" \
-            --input create-ref-request.json > cas-evidence/create-ref-response.json
-          test "$(gh api "/repos/${GITHUB_REPOSITORY}/git/ref/${api_ref}" --jq .object.sha)" \
-            = "$initial_commit"
-          initial_observed_tree="$(gh api "/repos/${GITHUB_REPOSITORY}/git/commits/${initial_commit}" --jq .tree.sha)"
-          initial_observed_blob="$(gh api "/repos/${GITHUB_REPOSITORY}/git/trees/${initial_observed_tree}" \
-            --jq ".tree[] | select(.path == \"${ledger_path}\") | .sha")"
-          test "$initial_observed_blob" = "$initial_blob"
-
-          export INITIAL_COMMIT="$initial_commit" INITIAL_BLOB="$initial_blob"
-          python - <<'PY'
-          import hashlib, json, os
-          from pathlib import Path
-          previous = json.loads(Path('initial-ledger.json').read_text())
-          payload = {
-              **{k: v for k, v in previous.items() if k != 'stable_payload_sha256'},
-              'status': 'CLAIMED_FULL_EXTERNAL_GATE_ONCE',
-              'claim_count': 1,
-              'claim': {
-                  'cas_strategy': 'github_git_data_fast_forward_ref_cas',
-                  'ledger_parent_commit_sha': os.environ['INITIAL_COMMIT'],
-                  'ledger_blob_sha_before': os.environ['INITIAL_BLOB'],
-                  'github_run_id': int(os.environ['GITHUB_RUN_ID']),
-                  'scientific_execution_authorized': False,
-              },
-          }
-          raw = json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()
-          payload['stable_payload_sha256'] = hashlib.sha256(raw).hexdigest()
-          Path('claimed-ledger.json').write_text(
-              json.dumps(payload, sort_keys=True, separators=(',', ':')) + '\n'
-          )
-          PY
-
-          claimed_blob="$(jq -Rs '{content: ., encoding: "utf-8"}' claimed-ledger.json | \
-            gh api --method POST "/repos/${GITHUB_REPOSITORY}/git/blobs" \
-              --input - --jq .sha)"
-          jq -n --arg base "$initial_tree" --arg blob "$claimed_blob" \
-            --arg path "$ledger_path" \
-            '{base_tree:$base,tree:[{path:$path,mode:"100644",type:"blob",sha:$blob}]}' \
-            > claimed-tree-request.json
-          claimed_tree="$(gh api --method POST "/repos/${GITHUB_REPOSITORY}/git/trees" \
-            --input claimed-tree-request.json --jq .sha)"
-          jq -n --arg tree "$claimed_tree" --arg parent "$initial_commit" \
-            '{message:"Claim OpenVINO v7 CAS proof ledger once",tree:$tree,parents:[$parent]}' \
-            > claimed-commit-request.json
-          claimed_commit="$(gh api --method POST "/repos/${GITHUB_REPOSITORY}/git/commits" \
-            --input claimed-commit-request.json --jq .sha)"
-          jq -n --arg sha "$claimed_commit" '{sha:$sha,force:false}' > update-ref-request.json
-          gh api --method PATCH "/repos/${GITHUB_REPOSITORY}/git/refs/${api_ref}" \
-            --input update-ref-request.json > cas-evidence/claim-ref-response.json
-
-          test "$(gh api "/repos/${GITHUB_REPOSITORY}/git/ref/${api_ref}" --jq .object.sha)" \
-            = "$claimed_commit"
-          test "$(gh api "/repos/${GITHUB_REPOSITORY}/git/commits/${claimed_commit}" --jq .parents[0].sha)" \
-            = "$initial_commit"
-          claimed_observed_tree="$(gh api "/repos/${GITHUB_REPOSITORY}/git/commits/${claimed_commit}" --jq .tree.sha)"
-          claimed_observed_blob="$(gh api "/repos/${GITHUB_REPOSITORY}/git/trees/${claimed_observed_tree}" \
-            --jq ".tree[] | select(.path == \"${ledger_path}\") | .sha")"
-          test "$claimed_observed_blob" = "$claimed_blob"
-          gh api "/repos/${GITHUB_REPOSITORY}/git/blobs/${claimed_blob}" --jq .content \
-            | tr -d '\n' | base64 -d > cas-evidence/claimed-roundtrip.json
-          cmp claimed-ledger.json cas-evidence/claimed-roundtrip.json
-
-          python - <<'PY'
-          import hashlib, json
-          from pathlib import Path
-          payload = {
-              'schema': 'eaat.openvino_v7_real_cas_proof_ledger/1',
-              'status': 'STALE_SECOND_WRITER',
-              'scientific_execution_authorized': False,
-          }
-          raw = json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()
-          payload['stable_payload_sha256'] = hashlib.sha256(raw).hexdigest()
-          Path('stale-ledger.json').write_text(
-              json.dumps(payload, sort_keys=True, separators=(',', ':')) + '\n'
-          )
-          PY
-          stale_blob="$(jq -Rs '{content: ., encoding: "utf-8"}' stale-ledger.json | \
-            gh api --method POST "/repos/${GITHUB_REPOSITORY}/git/blobs" \
-              --input - --jq .sha)"
-          jq -n --arg base "$initial_tree" --arg blob "$stale_blob" \
-            --arg path "$ledger_path" \
-            '{base_tree:$base,tree:[{path:$path,mode:"100644",type:"blob",sha:$blob}]}' \
-            > stale-tree-request.json
-          stale_tree="$(gh api --method POST "/repos/${GITHUB_REPOSITORY}/git/trees" \
-            --input stale-tree-request.json --jq .sha)"
-          jq -n --arg tree "$stale_tree" --arg parent "$initial_commit" \
-            '{message:"Stale OpenVINO CAS writer must fail",tree:$tree,parents:[$parent]}' \
-            > stale-commit-request.json
-          stale_commit="$(gh api --method POST "/repos/${GITHUB_REPOSITORY}/git/commits" \
-            --input stale-commit-request.json --jq .sha)"
-          jq -n --arg sha "$stale_commit" '{sha:$sha,force:false}' > stale-update-request.json
-          if gh api --method PATCH "/repos/${GITHUB_REPOSITORY}/git/refs/${api_ref}" \
-              --input stale-update-request.json \
-              > cas-evidence/stale-update.stdout 2> cas-evidence/stale-update.stderr; then
-            echo 'stale non-fast-forward update unexpectedly succeeded' >&2
-            exit 1
-          fi
-          test "$(gh api "/repos/${GITHUB_REPOSITORY}/git/ref/${api_ref}" --jq .object.sha)" \
-            = "$claimed_commit"
-
-          gh api --method DELETE "/repos/${GITHUB_REPOSITORY}/git/refs/${api_ref}"
-          if gh api "/repos/${GITHUB_REPOSITORY}/git/ref/${api_ref}" >/dev/null 2>&1; then
-            echo 'temporary proof ref still exists' >&2
-            exit 1
-          fi
-
-          export BASE_COMMIT="$base_commit" INITIAL_TREE="$initial_tree"
-          export CLAIMED_COMMIT="$claimed_commit" CLAIMED_BLOB="$claimed_blob"
-          export STALE_COMMIT="$stale_commit" STALE_BLOB="$stale_blob"
-          python - <<'PY'
-          import hashlib, json, os
-          from pathlib import Path
-          receipt = {
-              'schema': 'eaat.openvino_v7_real_github_cas_proof/1',
-              'status': 'PASS_REAL_GITHUB_FAST_FORWARD_CAS',
-              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
-              'github_sha': os.environ['GITHUB_SHA'],
-              'temporary_branch': os.environ['PROOF_BRANCH'],
-              'base_commit_sha': os.environ['BASE_COMMIT'],
-              'initial_commit_sha': os.environ['INITIAL_COMMIT'],
-              'initial_tree_sha': os.environ['INITIAL_TREE'],
-              'initial_blob_sha': os.environ['INITIAL_BLOB'],
-              'claimed_commit_sha': os.environ['CLAIMED_COMMIT'],
-              'claimed_blob_sha': os.environ['CLAIMED_BLOB'],
-              'stale_commit_sha': os.environ['STALE_COMMIT'],
-              'stale_blob_sha': os.environ['STALE_BLOB'],
-              'cas_strategy': 'github_git_data_fast_forward_ref_cas',
-              'initial_ref_created': True,
-              'claim_fast_forward_succeeded': True,
-              'claim_parent_verified': True,
-              'claim_blob_roundtrip_verified': True,
-              'stale_sibling_update_rejected': True,
-              'ref_unchanged_after_stale_attempt': True,
-              'temporary_ref_deleted': True,
-              'main_branch_modified': False,
-              'scientific_execution_authorized': False,
-              'openvino_scientific_images_opened': 0,
-              'ocr_runs': 0,
-              'candidate_inference_runs': 0,
-              'external_spend_usd': 0,
-          }
-          raw = json.dumps(receipt, sort_keys=True, separators=(',', ':')).encode()
-          receipt['stable_payload_sha256'] = hashlib.sha256(raw).hexdigest()
-          Path('cas-evidence/cas-proof-receipt.json').write_text(
-              json.dumps(receipt, indent=2, sort_keys=True) + '\n'
-          )
-          PY
-          cp initial-ledger.json claimed-ledger.json stale-ledger.json cas-evidence/
           (cd cas-evidence && \
             find . -type f ! -name SHA256SUMS.txt -print0 \
               | sort -z | xargs -0 sha256sum \
               | sed 's#  \./#  #' > SHA256SUMS.txt)
           (cd cas-evidence && sha256sum --check --strict SHA256SUMS.txt)
 
-      - name: Ensure temporary proof ref is absent
+      - name: Upload immutable CAS proof or failure evidence
         if: always()
-        shell: bash
-        run: |
-          gh api --method DELETE \
-            "/repos/${GITHUB_REPOSITORY}/git/refs/heads/${PROOF_BRANCH}" \
-            >/dev/null 2>&1 || true
-
-      - name: Upload immutable CAS proof
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: openvino-v7-real-cas-proof-${{ github.sha }}
