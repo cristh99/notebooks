@@ -1,1 +1,3 @@
-2fe3645c5791b0e1c22b057c7138f17c8c6145ceee45a9ce28e435a56042b5c5  capsule.zip
+2fe3645c5791b0e1c22b057c7138f17c8c6145ceee45a9ce28e435a56042b5c5  canonical-decoded-capsule.zip
+# The repository path capsule.zip at commit 625e63718921e1256dbe26e6ff6fdbecd807d141 is noncanonical and must not be used.
+# Reconstruct the canonical archive from transport/part_*.b64 with reconstruct.sh.
