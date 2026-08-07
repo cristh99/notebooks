@@ -1,0 +1,10 @@
+OPENVINO_V7_PRIOR_REGISTRY_V3
+expected_total_rows=38601
+source_shards=13
+corpora=SROIE,CORD,WildReceipt,TextOCR,COCO-Text
+purpose=PHYSICAL_DEDUP_ONLY
+annotation_columns_read=false
+ocr_runs=0
+candidate_inference_runs=0
+openvino_scientific_images_opened=0
+external_spend_usd=0
