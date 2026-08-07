@@ -1,0 +1,61 @@
+name: CONATEL IAIP 2109517 exact-byte artifact
+
+on:
+  push:
+    branches:
+      - agent/conatel-2109517-artifact-20260807
+    paths:
+      - .github/workflows/conatel-iaip-2109517-exact-artifact.yml
+
+permissions:
+  contents: read
+
+jobs:
+  materialize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Download and verify exact bytes
+        env:
+          SOURCE_URL: "https://storage.googleapis.com/unified-cortex-282107-fuentes-us-central1/iaip/originals/sha256/b1/8b/b18b084e5cae3efd8cec52c3d551fe21991fcca81147aad7edd15487c2bb21ed.pdf?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=motherduckyy%40unified-cortex-282107.iam.gserviceaccount.com%2F20260807%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260807T024731Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=7e67b5ab01f824f4147ab3505eeb9a4df0383fc8184575ce46639f5ce090b591ec102a848259a6a0b52efb6c6c0f88c725598b12c45c27c27044e93cca88b4b3440c4ba19041b81092103c66e2f9b1eb44c6ecddfbe254c26bd666afb2aad54405d2d967fb9928c49cf252a2eaa8b6262d7dd305512015bc5232acd7f54049f8927d45168d346a3270e913ca52b70562f37e61fb968471fe78e87f8e269f349220a5fe1f177eabc3adf178b73957cb937ae6e908eb16237d28fb5ff1b7ecf6a772e2e239fd7928b46446ac1c109efaeb07a1b127902389ba27de2d21ea00cf827a1dc77bfdb4fb036b54145610768923ab051e88a33c91cad2ee7c21268ff7b7"
+          EXPECTED_SHA256: "b18b084e5cae3efd8cec52c3d551fe21991fcca81147aad7edd15487c2bb21ed"
+          EXPECTED_BYTES: "4275542"
+        run: |
+          set -euo pipefail
+          mkdir -p artifact
+          curl --fail --location --retry 3 --retry-all-errors "$SOURCE_URL" -o artifact/CONATEL_IAIP_2109517.pdf
+          test "$(stat -c%s artifact/CONATEL_IAIP_2109517.pdf)" = "$EXPECTED_BYTES"
+          printf '%s  %s\n' "$EXPECTED_SHA256" 'artifact/CONATEL_IAIP_2109517.pdf' | sha256sum --check --strict
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          p=Path('artifact/CONATEL_IAIP_2109517.pdf')
+          raw=p.read_bytes()
+          receipt={
+              'schema':'eaat.conatel_iaip_exact_byte_materialization.v1',
+              'document_portal_id':2109517,
+              'document_key':'b6cbbbf48b943da8064c99cf43249784ac1d35d0be532b7ea1ffd2f4a537f4be',
+              'source_gcs_uri':'gs://unified-cortex-282107-fuentes-us-central1/iaip/originals/sha256/b1/8b/b18b084e5cae3efd8cec52c3d551fe21991fcca81147aad7edd15487c2bb21ed.pdf',
+              'source_generation':1785933003308076,
+              'bytes':len(raw),
+              'sha256':hashlib.sha256(raw).hexdigest(),
+              'ocr_executed':False,
+              'transformation_applied':False,
+          }
+          b=(json.dumps(receipt,sort_keys=True,separators=(',',':'))+'\n').encode()
+          Path('artifact/receipt.json').write_bytes(b)
+          Path('artifact/SHA256SUMS.txt').write_text(
+              f"{receipt['sha256']}  CONATEL_IAIP_2109517.pdf\n"
+              f"{hashlib.sha256(b).hexdigest()}  receipt.json\n",
+              encoding='utf-8'
+          )
+          print('RECEIPT_SHA256='+hashlib.sha256(b).hexdigest())
+          PY
+
+      - name: Upload exact-byte artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: conatel-iaip-2109517-b18b084e
+          path: artifact/
+          if-no-files-found: error
+          retention-days: 30
