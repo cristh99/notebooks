@@ -1,138 +1,20 @@
-name: OpenVINO v7 frozen 16-row engineering smoke
+name: RETIRED — OpenVINO v7 frozen 16-row engineering smoke
 
+# Terminal engineering evidence:
+# run 31150056085, artifact 8983062669,
+# digest sha256:b5f85ee61caf92883fd273161bf6c82094e53bcad5667d2c9e380e4ab09aaef9.
+# The fixed 16 rows remain permanently excluded from scientific claims.
 on:
   push:
     branches:
-      - agent/openvino-v7-smoke-16-runtime-v1
-    paths:
-      - "ocr_real_risk_v1/openvino_smoke_v7.py"
-      - ".github/workflows/ocr-openvino-v7-smoke-16.yml"
-  workflow_dispatch:
+      - __retired_openvino_workflows__
 
 permissions:
   contents: read
-  actions: read
-
-concurrency:
-  group: openvino-v7-smoke-16-v1
-  cancel-in-progress: false
 
 jobs:
-  smoke:
-    name: Frozen runtime and 16 rows
+  retired:
+    if: ${{ false }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
-    env:
-      PYTHONHASHSEED: "0"
-      OMP_THREAD_LIMIT: "1"
-      OPENBLAS_NUM_THREADS: "1"
-      MKL_NUM_THREADS: "1"
-      NUMEXPR_NUM_THREADS: "1"
-      GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Checkout exact executor branch
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Verify frozen source ancestry
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "$(git merge-base HEAD fa20f6d210fa8be7272178b1f152e38b2d583637)" = "fa20f6d210fa8be7272178b1f152e38b2d583637"
-          git diff --exit-code fa20f6d210fa8be7272178b1f152e38b2d583637 -- \
-            ocr_real_risk_v1/core.py \
-            ocr_real_risk_v1/exact_bounds.py \
-            ocr_real_risk_v1/isolated_crop.py \
-            ocr_real_risk_v1/pixel_digit_alignment.py \
-            ocr_real_risk_v1/sroie_natural_holdout.py \
-            ocr_real_risk_v1/numeric_digit_forest.py \
-            ocr_real_risk_v1/cord_source_seal.py \
-            ocr_real_risk_v1/numeric_digit_forest_deterministic.py \
-            ocr_real_risk_v1/cord_natural_holdout.py \
-            ocr_real_risk_v1/cord_consensus_detector_v4.py \
-            ocr_real_risk_v1/cord_detector_crops_v4.py \
-            ocr_real_risk_v1/textocr_adapter_v6.py \
-            ocr_real_risk_v1/numeric_consensus_policy_v7.py
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-
-      - name: Build official Tesseract 5.3.4 tag
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
-            autoconf automake libtool pkg-config g++ make git ca-certificates \
-            libleptonica-dev libpng-dev libjpeg-dev libtiff-dev zlib1g-dev \
-            libwebp-dev libopenjp2-7-dev libarchive-dev libcurl4-openssl-dev \
-            libicu-dev libpango1.0-dev libcairo2-dev tesseract-ocr-eng
-          git clone --depth 1 --branch 5.3.4 \
-            https://github.com/tesseract-ocr/tesseract.git /tmp/tesseract-5.3.4
-          test "$(git -C /tmp/tesseract-5.3.4 rev-parse HEAD)" = \
-            "8ee020e14cf5be4e3f0e9beb09b6b050a1871854"
-          cd /tmp/tesseract-5.3.4
-          ./autogen.sh
-          ./configure --disable-doc
-          make -j2
-          sudo make install
-          sudo ldconfig
-          ENG_TRAINEDDATA="$(dpkg -L tesseract-ocr-eng | grep '/eng.traineddata$' | head -1)"
-          test -f "${ENG_TRAINEDDATA}"
-          sudo mkdir -p /usr/local/share/tessdata
-          sudo cp "${ENG_TRAINEDDATA}" /usr/local/share/tessdata/eng.traineddata
-          echo "TESSDATA_PREFIX=/usr/local/share/tessdata" >> "${GITHUB_ENV}"
-          /usr/local/bin/tesseract --version | tee /tmp/tesseract-version.txt
-          grep -Fx "tesseract 5.3.4" <(head -1 /tmp/tesseract-version.txt)
-
-      - name: Install frozen Python dependencies
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pip install --upgrade pip
-          python -m pip install \
-            Pillow==12.2.0 \
-            numpy==2.2.6 \
-            opencv-python-headless==4.10.0.84 \
-            scikit-learn==1.8.0 \
-            joblib==1.5.3 \
-            pyarrow==18.1.0 \
-            pytesseract==0.3.13 \
-            duckdb==1.5.5
-
-      - name: Download exact frozen digit-forest artifact
-        shell: bash
-        run: |
-          set -euo pipefail
-          gh api \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "/repos/${GITHUB_REPOSITORY}/actions/artifacts/8917522937/zip" \
-            > /tmp/digit-forest-v3.zip
-          echo "080b0efd4b91a180a1a5c6acd767d72e0a8f286718e64eb90d8ec9d370d2dc17  /tmp/digit-forest-v3.zip" \
-            | sha256sum --check -
-
-      - name: Run outcome-quarantined 16-row smoke once
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf smoke-output
-          mkdir -p smoke-output
-          /usr/local/bin/tesseract --version
-          python -m ocr_real_risk_v1.openvino_smoke_v7 \
-            --model-zip /tmp/digit-forest-v3.zip \
-            --output-dir smoke-output
-
-      - name: Upload immutable smoke evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: openvino-v7-smoke-16-${{ github.sha }}
-          path: smoke-output/
-          if-no-files-found: warn
-          retention-days: 30
-          compression-level: 9
+      - run: exit 1
