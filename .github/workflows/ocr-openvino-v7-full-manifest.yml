@@ -1,0 +1,75 @@
+name: OpenVINO v7 metadata-only full manifest
+
+on:
+  push:
+    branches:
+      - agent/openvino-v7-smoke-16-stacked-v2
+    paths:
+      - "ocr_real_risk_v1/openvino_full_manifest_v7.py"
+      - ".github/workflows/ocr-openvino-v7-full-manifest.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: openvino-v7-full-manifest-v1
+  cancel-in-progress: false
+
+jobs:
+  manifest:
+    name: Metadata-only selected set and 12 partitions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      PYTHONHASHSEED: "0"
+      OMP_THREAD_LIMIT: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      NUMEXPR_NUM_THREADS: "1"
+    steps:
+      - name: Checkout stacked branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify frozen metadata-selection sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git merge-base HEAD fa20f6d210fa8be7272178b1f152e38b2d583637)" = "fa20f6d210fa8be7272178b1f152e38b2d583637"
+          git diff --exit-code fa20f6d210fa8be7272178b1f152e38b2d583637 -- \
+            ocr_real_risk_v1/core.py \
+            ocr_real_risk_v1/textocr_adapter_v6.py
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install metadata-only dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install duckdb==1.5.5 pyarrow==18.1.0
+
+      - name: Generate exact selected set and partitions without image bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf openvino-full-manifest-output
+          python -m ocr_real_risk_v1.openvino_full_manifest_v7
+          test -s openvino-full-manifest-output/manifest_receipt.json
+          (cd openvino-full-manifest-output && sha256sum -c SHA256SUMS.txt)
+
+      - name: Upload immutable metadata-only manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openvino-v7-full-manifest-${{ github.sha }}
+          path: openvino-full-manifest-output/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 9
