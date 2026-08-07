@@ -1,0 +1,176 @@
+name: Data Science v13.2 - clean real source-native Semantic canary
+
+on:
+  push:
+    branches: [agent/data-science-v13-2-semantic-real-source-native-v1]
+    paths:
+      - '.github/workflows/data-science-v13-2-semantic-real.yml'
+      - 'data_science_pipeline_v13_2_semantic_real/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: data-science-v13-2-semantic-real-source-native-v1
+  cancel-in-progress: true
+
+env:
+  COMPONENT: data_science_pipeline_v13_2_semantic_real
+  PACKAGE: semantic-source.zip
+  PACKAGE_TRANSPORT_MANIFEST: data_science_pipeline_v13_2_semantic_real/PACKAGE_TRANSPORT_MANIFEST.json
+  PACKAGE_MANIFEST: data_science_pipeline_v13_2_semantic_real/SOURCE_PACKAGE_MANIFEST.json
+  SUBJECT: data_science_pipeline_v13_2_semantic_real/REAL_SEMANTIC_SNAPSHOT.json
+  INPUT: data_science_pipeline_v13_2_semantic_real/SOURCE_NATIVE_EVENTS.jsonl
+  CONTRACT: data_science_pipeline_v13_2_semantic_real/SEMANTIC_REAL_CONTRACT.json
+  RECOVERY: data_science_pipeline_v13_2_semantic_real/PR141_RECOVERY_RECEIPT.json
+  LOCAL_RESULT: data_science_pipeline_v13_2_semantic_real/LOCAL_RESULT.json
+  EVIDENCE: data-science-v13-2-semantic-real-evidence
+  EXPECTED_REPOSITORY: cristh99/notebooks
+  EXPECTED_REPOSITORY_ID: '616013328'
+  EXPECTED_OWNER_ID: '87334928'
+  EXPECTED_BRANCH: agent/data-science-v13-2-semantic-real-source-native-v1
+  EXPECTED_WORKFLOW_PATH: .github/workflows/data-science-v13-2-semantic-real.yml
+  EXPECTED_CERTIFICATE_IDENTITY: https://github.com/cristh99/notebooks/.github/workflows/data-science-v13-2-semantic-real.yml@refs/heads/agent/data-science-v13-2-semantic-real-source-native-v1
+  OIDC_ISSUER: https://token.actions.githubusercontent.com
+  OIDC_AUDIENCE: sigstore
+  COSIGN_VERSION: 3.0.6
+  COSIGN_SHA256: c956e5dfcac53d52bcf058360d579472f0c1d2d9b69f55209e256fe7783f4c74
+  PACKAGE_SHA256: 114b40590a9e4c4c32e8843fc1be347a8e877f0f9a18044c82a8c16c78295575
+  PACKAGE_GIT_BLOB_SHA1: 346caa6901d504fcb7da5b5cdc47812a33049ad2
+  PACKAGE_MANIFEST_SHA256: fa19c95c820f045e2395f117cf79e0121c6e94a4ae0ec1c2880cd0c54e8aefa5
+  PACKAGE_TRANSPORT_MANIFEST_SHA256: 3aa6e8a3cca405403b424a921c22d97d257dad317263b393495fd0b1124fb06a
+  FREEZE_SHA256: a4da79c583d3b04bbc5cc2ec2ad5741bd66f5f78910fa4a44e0e25c6bcd5eea8
+  LOCAL_RESULT_SHA256: c22c97ab28c0972538f94dd6e19233f29f788819e8944e3748c8d25752b41d2a
+  RECOVERY_SHA256: 44500ef12c4ad98075581a40972d3b618f6c06607db25580d4981256953f988c
+  README_SHA256: 01a58a249f0f99160f6114c7a7e5f6ad9ae0270bc2b2f5d9a0a80b25bc87fcc3
+  SNAPSHOT_SHA256: f2032c782da735cafe4bb29d76f49f04fbd580a8d810f59a77d588908271371b
+  CONTRACT_SHA256: c6d4e1596fb1174c59a25c56cdd9eadcbd3454c64ab4a99cf98058fdddf5d9a7
+  INPUT_SHA256: d3a4403c718c5d92a86d21407351ec0459cc772d8a5a2dd0498291af7926449e
+  CI_EXTERNAL_SHA256: 83557e4de9d91c82be4f28b83fcf1d7e9c9ff2da9fd50b1e96c5ff8bcdf8a4e8
+  SOURCE_SHA256: 3f773c813019003d43595cbb8c6ebdaa796ee8ffccb7d75b90cc6efafe4e87cc
+  TESTS_SHA256: 3596600efd25eb962c3bfdf18bfaef837b1f4bf7accb3553b89fbc5cd0a81a04
+  VERIFIER_SHA256: ab017f43efc73734567f74b84e1bcffa827350383df807831e25527aa5393a23
+
+jobs:
+  validate-and-sign:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify and extract exact package
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "$EXPECTED_REPOSITORY"
+          test "$GITHUB_REF" = "refs/heads/$EXPECTED_BRANCH"
+          case "$GITHUB_EVENT_NAME" in push|workflow_dispatch) ;; *) exit 1 ;; esac
+          mkdir -p "$EVIDENCE"
+          printf '%s  %s\n' "$PACKAGE_MANIFEST_SHA256" "$PACKAGE_MANIFEST" | sha256sum -c -
+          printf '%s  %s\n' "$PACKAGE_TRANSPORT_MANIFEST_SHA256" "$PACKAGE_TRANSPORT_MANIFEST" | sha256sum -c -
+          python3 - "$COMPONENT" "$PACKAGE_TRANSPORT_MANIFEST" "$PACKAGE" "$PACKAGE_MANIFEST" <<'PY'
+          from pathlib import Path, PurePosixPath
+          from zipfile import ZipFile
+          import base64, hashlib, json, sys
+          component, transport_manifest_path, archive, package_manifest_path = map(Path, sys.argv[1:])
+          t = json.loads(transport_manifest_path.read_text()); p = json.loads(package_manifest_path.read_text())
+          sha = lambda data: hashlib.sha256(data).hexdigest()
+          blob = lambda data: hashlib.sha1(f'blob {len(data)}\0'.encode()+data).hexdigest()
+          actual = sorted(path.name for path in (component/'transport').glob('part_*.b64'))
+          if actual != t['part_order']: raise SystemExit('transport part set mismatch')
+          chunks=[]
+          for name in t['part_order']:
+              data=(component/'transport'/name).read_bytes(); expected=t['parts'][name]
+              if len(data)!=expected['bytes'] or sha(data)!=expected['sha256'] or blob(data)!=expected['git_blob_sha1']:
+                  raise SystemExit(f'transport mismatch: {name}')
+              chunks.append(data)
+          encoded=b''.join(chunks)
+          if len(encoded)!=t['base64_characters']: raise SystemExit('base64 length mismatch')
+          decoded=base64.b64decode(encoded,validate=True)
+          if len(decoded)!=t['decoded_bytes'] or sha(decoded)!=t['decoded_sha256'] or blob(decoded)!=t['decoded_git_blob_sha1']:
+              raise SystemExit('decoded package mismatch')
+          archive.write_bytes(decoded)
+          with ZipFile(archive) as zf:
+              names=zf.namelist()
+              if len(names)!=len(set(names)) or set(names)!=set(p['members']): raise SystemExit('unexpected package members')
+              for name in names:
+                  member=PurePosixPath(name)
+                  if member.is_absolute() or '..' in member.parts or len(member.parts)!=1: raise SystemExit(f'unsafe member: {name}')
+                  data=zf.read(name); expected=p['members'][name]
+                  if len(data)!=expected['bytes'] or sha(data)!=expected['sha256']: raise SystemExit(f'member mismatch: {name}')
+              zf.extractall(component)
+          PY
+          printf '%s  %s\n' "$PACKAGE_SHA256" "$PACKAGE" | sha256sum -c -
+          test "$(git hash-object "$PACKAGE")" = "$PACKAGE_GIT_BLOB_SHA1"
+          printf '%s  %s\n' "$FREEZE_SHA256" "$COMPONENT/FREEZE.json" | sha256sum -c -
+          printf '%s  %s\n' "$LOCAL_RESULT_SHA256" "$LOCAL_RESULT" | sha256sum -c -
+          printf '%s  %s\n' "$RECOVERY_SHA256" "$RECOVERY" | sha256sum -c -
+          printf '%s  %s\n' "$README_SHA256" "$COMPONENT/README.md" | sha256sum -c -
+          printf '%s  %s\n' "$SNAPSHOT_SHA256" "$SUBJECT" | sha256sum -c -
+          printf '%s  %s\n' "$CONTRACT_SHA256" "$CONTRACT" | sha256sum -c -
+          printf '%s  %s\n' "$INPUT_SHA256" "$INPUT" | sha256sum -c -
+          printf '%s  %s\n' "$CI_EXTERNAL_SHA256" "$COMPONENT/ci_external.py" | sha256sum -c -
+          printf '%s  %s\n' "$SOURCE_SHA256" "$COMPONENT/semantic_real.py" | sha256sum -c -
+          printf '%s  %s\n' "$TESTS_SHA256" "$COMPONENT/test_semantic_real.py" | sha256sum -c -
+          printf '%s  %s\n' "$VERIFIER_SHA256" "$COMPONENT/verify.py" | sha256sum -c -
+          (cd "$COMPONENT" && python3 -m unittest -v test_semantic_real.py) |& tee "$EVIDENCE/tests.log"
+          grep -Fq 'Ran 60 tests' "$EVIDENCE/tests.log"; grep -Fq 'OK' "$EVIDENCE/tests.log"
+          python3 "$COMPONENT/verify.py" --output "$EVIDENCE/local-receipt.json" > "$EVIDENCE/local-verification.log"
+          cmp "$LOCAL_RESULT" "$EVIDENCE/local-receipt.json"
+          python3 "$COMPONENT/semantic_real.py" --contract "$CONTRACT" --input "$INPUT" --output "$EVIDENCE/replay-snapshot.json"
+          cmp "$SUBJECT" "$EVIDENCE/replay-snapshot.json"
+          sha256sum "$PACKAGE" "$PACKAGE_MANIFEST" "$PACKAGE_TRANSPORT_MANIFEST" "$COMPONENT"/transport/* "$COMPONENT"/*.json "$COMPONENT"/*.py "$COMPONENT"/*.md > "$EVIDENCE/source-sha256.txt"
+
+      - name: Validate GitHub OIDC identity
+        shell: bash
+        run: |
+          set -euo pipefail; umask 077
+          response="$(curl -fsSL -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${OIDC_AUDIENCE}")"
+          token="$(printf '%s' "$response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])')"
+          echo "::add-mask::$token"; printf '%s' "$token" > "$RUNNER_TEMP/oidc-token.jwt"
+          python3 "$COMPONENT/ci_external.py" validate-oidc --token "$RUNNER_TEMP/oidc-token.jwt" --output "$EVIDENCE/oidc-safe-claims.json" > "$EVIDENCE/oidc-validation.log"
+
+      - name: Sign and verify exact snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" -o "$RUNNER_TEMP/cosign"
+          printf '%s  %s\n' "$COSIGN_SHA256" "$RUNNER_TEMP/cosign" | sha256sum -c -
+          chmod 0755 "$RUNNER_TEMP/cosign"; "$RUNNER_TEMP/cosign" version > "$EVIDENCE/cosign-version.txt"
+          token="$(cat "$RUNNER_TEMP/oidc-token.jwt")"; echo "::add-mask::$token"
+          "$RUNNER_TEMP/cosign" sign-blob --yes --identity-token "$token" --bundle "$EVIDENCE/semantic-real.sigstore.json" "$SUBJECT" > "$EVIDENCE/sign.log" 2>&1
+          rm -f "$RUNNER_TEMP/oidc-token.jwt"
+          "$RUNNER_TEMP/cosign" verify-blob "$SUBJECT" --bundle "$EVIDENCE/semantic-real.sigstore.json" --certificate-identity "$EXPECTED_CERTIFICATE_IDENTITY" --certificate-oidc-issuer "$OIDC_ISSUER" --certificate-github-workflow-repository "$GITHUB_REPOSITORY" --certificate-github-workflow-sha "$GITHUB_SHA" --certificate-github-workflow-trigger "$GITHUB_EVENT_NAME" > "$EVIDENCE/verify.log" 2>&1
+          grep -Fq 'Verified OK' "$EVIDENCE/verify.log"
+          python3 "$COMPONENT/ci_external.py" finalize --evidence "$EVIDENCE" --output "$EVIDENCE/external-receipt.json" > "$EVIDENCE/finalize.log"
+
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-v13-2-semantic-real
+          path: data-science-v13-2-semantic-real-evidence
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce terminal receipt
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('data-science-v13-2-semantic-real-evidence/external-receipt.json')
+          if not p.exists(): raise SystemExit('external receipt missing')
+          r=json.loads(p.read_text())
+          assert r['verdict']=='PASS_STAGE08_SEMANTIC_REAL_SOURCE_NATIVE_EXTERNAL'
+          assert all(r['cryptographic_and_semantic_checks'].values())
+          assert r['tests']=='60/60 PASS' and r['external_real_data_evaluations']==1
+          assert r['stage09_canary_input_ready'] is True and r['stage09_global_unblocked'] is False
+          assert r['production_modified'] is False
+          print(r['verdict'])
+          PY
