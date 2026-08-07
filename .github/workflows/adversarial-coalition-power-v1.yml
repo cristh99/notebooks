@@ -1,0 +1,181 @@
+name: Adversarial Coalition Power v1 public verification
+
+on:
+  pull_request:
+    paths:
+      - 'adversarial_coalition_power_v1/**'
+      - '.github/workflows/adversarial-coalition-power-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Verify source binding and frozen preregistration
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('adversarial_coalition_power_v1')
+          binding = json.loads((root / 'SOURCE_BINDING.json').read_text())
+          prereg = json.loads((root / 'preregistration.json').read_text())
+          assert binding['schema'] == 'adversarial-coalition-power/public-source-binding/1'
+          assert binding['private_repository'] == 'cristh99/my_first_repository'
+          assert binding['private_branch'] == 'agent/adversarial-coalition-power-v1'
+          assert binding['private_head'] == '07695675d3afe7a48b9c15e5aef33be5201067cc'
+          assert binding['private_pull_request'] == 103
+          assert binding['private_issue'] == 102
+          assert prereg['schema'] == 'adversarial-coalition-power/preregistration/1'
+          assert prereg['status'] == 'FROZEN_BEFORE_PUBLIC_CI'
+          assert prereg['scenario_count'] == 72
+          assert prereg['unit_test_count'] == 12
+          assert len(prereg['domains']) == 6
+          assert len(prereg['archetypes']) == 12
+          assert prereg['acceptance_gates']['exact_conformance'] == 1.0
+          assert prereg['score']['baseline_before_slice'] == 872
+          assert prereg['score']['eligible_after_public_pass'] == 896
+          PY
+          cd adversarial_coalition_power_v1
+          echo '34fbaa2e971b8f05f077619377e6b1233d852d02dc2bf1ebfe2045ba5c815c6d  coalition_power.py' | sha256sum -c -
+          echo '30240372c4042f825967862f5170dc923865ff34bc365a3a06b6625e889d97a6  benchmark.py' | sha256sum -c -
+          echo '8073b1c9d56602021c246f24df732e14f066774fe1ac38bd02cec1ac51548fa3  test_coalition_power.py' | sha256sum -c -
+          echo 'b5dc58a6ef28bc0fcf7b4735dabbdc8ef16b84cdc7da961da8534661900c1555  preregistration.json' | sha256sum -c -
+          echo '8f8abfe77b0e45013b4ef40a670b0bf0ccea50538d52dbe428f6bccf2db3edf2  README.md' | sha256sum -c -
+          echo '6971c62affa8c7c9793d80d754fd73f84f8b43b5d74042fce58df6daa4a6f7e9  verify_receipt.js' | sha256sum -c -
+          echo '6963fefa0266718c09699327aba9df83db2327e889f4fd1fcc4493b68e05259b  __init__.py' | sha256sum -c -
+
+      - name: Compile and execute frozen benchmark
+        run: |
+          set -euo pipefail
+          cd adversarial_coalition_power_v1
+          python -m compileall -q .
+          python benchmark.py --output reports
+          python -m unittest -v test_coalition_power.py 2>&1 | tee reports/unittest.log
+
+      - name: Enforce preregistered acceptance gates
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('adversarial_coalition_power_v1/reports')
+          summary = json.loads((root / 'benchmark_summary.json').read_text())
+          receipt = json.loads((root / 'benchmark_receipt.json').read_text())
+          assert summary['scenario_count'] == 72
+          assert summary['passed'] == 72
+          assert summary['failed'] == 0
+          assert summary['exact_conformance'] == 1.0
+          assert summary['rows_sha256'] == '79e7aa8b791c970342a10617ed5785549399f22e506a20df36727215c838b017'
+          assert receipt['schema'] == 'adversarial-coalition-power/receipt/1'
+          assert receipt['payload']['status'] == 'PASS'
+          assert receipt['payload']['scenario_count'] == 72
+          assert receipt['payload']['passed'] == 72
+          assert receipt['sha256'] == '77540a70cedc8d584bd779472713c6b781cb0fb510363a5d8b146dca6bc2ba7c'
+          PY
+          node adversarial_coalition_power_v1/verify_receipt.js adversarial_coalition_power_v1/reports/benchmark_receipt.json
+
+      - name: Verify blocking-coalition counterexample
+        run: |
+          set -euo pipefail
+          cd adversarial_coalition_power_v1
+          python - <<'PY'
+          from fractions import Fraction
+          from benchmark import unstable_shapley_game
+          game = unstable_shapley_game('counterexample')
+          shapley = game.shapley()
+          blockers = game.blocking_coalitions(shapley)
+          assert sum(shapley.values(), Fraction()) == game.value(game.players)
+          assert not game.in_core(shapley)
+          assert frozenset({'counterexample:u_a', 'counterexample:u_b'}) in blockers
+          print({'shapley': {k: str(v) for k, v in shapley.items()}, 'blockers': [sorted(c) for c in blockers]})
+          PY
+
+      - name: Reject altered evidence
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          source = Path('adversarial_coalition_power_v1/reports/benchmark_receipt.json')
+          data = json.loads(source.read_text())
+          data['payload']['passed'] = 71
+          Path('adversarial_coalition_power_v1/reports/tampered_receipt.json').write_text(json.dumps(data, sort_keys=True))
+          PY
+          if node adversarial_coalition_power_v1/verify_receipt.js adversarial_coalition_power_v1/reports/tampered_receipt.json; then
+            echo 'tampered receipt was incorrectly accepted'
+            exit 1
+          fi
+
+      - name: Build public receipt and evidence hashes
+        env:
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root = Path('adversarial_coalition_power_v1')
+          reports = root / 'reports'
+          def sha(path):
+              return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+          local = json.loads((reports / 'benchmark_receipt.json').read_text())
+          body = {
+              'schema': 'adversarial-coalition-power/public-receipt/1',
+              'status': 'PASS',
+              'private_repository': 'cristh99/my_first_repository',
+              'private_head': '07695675d3afe7a48b9c15e5aef33be5201067cc',
+              'private_pull_request': 103,
+              'private_issue': 102,
+              'public_repository': 'cristh99/notebooks',
+              'public_head': os.environ['PUBLIC_HEAD_SHA'],
+              'event_sha': os.environ['EVENT_SHA'],
+              'scenario_count': local['payload']['scenario_count'],
+              'passed': local['payload']['passed'],
+              'exact_conformance': 1.0,
+              'source_binding_sha256': sha(root / 'SOURCE_BINDING.json'),
+              'coalition_power_sha256': sha(root / 'coalition_power.py'),
+              'benchmark_sha256': sha(root / 'benchmark.py'),
+              'tests_sha256': sha(root / 'test_coalition_power.py'),
+              'preregistration_sha256': sha(root / 'preregistration.json'),
+              'readme_sha256': sha(root / 'README.md'),
+              'node_verifier_sha256': sha(root / 'verify_receipt.js'),
+              'manifest_sha256': sha(reports / 'scenario_manifest.json'),
+              'summary_sha256': sha(reports / 'benchmark_summary.json'),
+              'matrix_sha256': sha(reports / 'benchmark_matrix.csv'),
+              'local_receipt_sha256': sha(reports / 'benchmark_receipt.json')
+          }
+          canonical = json.dumps(body, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
+          receipt = {**body, 'sha256': hashlib.sha256(canonical).hexdigest()}
+          path = reports / 'adversarial-coalition-power-public-receipt-v1.json'
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          (reports / 'adversarial-coalition-power-public-receipt-v1.sha256').write_text(
+              f"{hashlib.sha256(path.read_bytes()).hexdigest()}  adversarial-coalition-power-public-receipt-v1.json\n"
+          )
+          print(path.read_text())
+          PY
+          cd adversarial_coalition_power_v1
+          sha256sum \
+            SOURCE_BINDING.json coalition_power.py benchmark.py test_coalition_power.py \
+            preregistration.json README.md verify_receipt.js __init__.py \
+            reports/scenario_manifest.json reports/benchmark_summary.json \
+            reports/benchmark_matrix.csv reports/benchmark_receipt.json \
+            reports/adversarial-coalition-power-public-receipt-v1.json \
+            > reports/SHA256SUMS-PUBLIC
+          cat reports/SHA256SUMS-PUBLIC
+
+      - name: Upload public evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: adversarial-coalition-power-v1-public
+          path: |
+            adversarial_coalition_power_v1/
+          if-no-files-found: error
+          retention-days: 90
