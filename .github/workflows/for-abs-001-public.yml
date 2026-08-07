@@ -1,0 +1,38 @@
+name: FOR-ABS-001 — public forensic-finance verification
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'for_abs_001_public/**'
+      - 'README_FOR_ABS_001_PUBLIC.md'
+      - '.github/workflows/for-abs-001-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile and test public contracts
+        run: |
+          python -m compileall -q for_abs_001_public
+          python -m unittest -v for_abs_001_public.test_contracts
+      - name: Verify published receipts
+        run: python -m for_abs_001_public.verify_receipts
+      - name: Reject prohibited automatic claims
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RniE '"(CLEAN|CORRUPT|FRAUD_PROVEN)"' for_abs_001_public/receipts.json; then
+            echo 'Prohibited automatic evidence state found.' >&2
+            exit 1
+          fi
