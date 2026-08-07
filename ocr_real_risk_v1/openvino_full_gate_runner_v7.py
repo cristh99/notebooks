@@ -7,7 +7,7 @@ import shutil
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Mapping, MutableMapping, Sequence
+from typing import Any, Iterable, Mapping, MutableMapping, Sequence
 
 from .core import mutate_one_digit, sha256_bytes, sha256_file
 from .openvino_full_gate_contract_v7 import (
@@ -21,21 +21,26 @@ from .openvino_full_gate_contract_v7 import (
     SCIENTIFIC_MANIFEST_SHA256,
     SOURCE_REVISION,
     SOURCE_URL,
+    _read_json,
     _read_jsonl,
     _write_json,
     _write_jsonl,
     canonical_pixel_sha256,
     stable_payload,
-    verify_execution_authorization,
     verify_manifest_bundle,
     write_hash_manifest,
+)
+from .openvino_full_gate_execution_v7 import (
+    claim_binding,
+    current_code_bundle,
+    verify_bound_execution_authorization,
+    verify_execution_claim,
 )
 from .openvino_full_gate_prepare_v7 import (
     _duckdb_connection,
     _image_bytes,
     _insert_manifest_table,
     _quote_sql,
-    prepare_registry_from_source,
 )
 from .openvino_full_gate_registry_v7 import (
     _image_id_from_path,
@@ -44,7 +49,6 @@ from .openvino_full_gate_registry_v7 import (
 
 
 def _load_model(model_zip: Path, extraction_root: Path) -> tuple[Any, dict[str, Any]]:
-    """Load the exact digit forest through the already-frozen loader."""
     import zipfile
 
     if sha256_file(model_zip) != MODEL_ZIP_SHA256:
@@ -85,46 +89,57 @@ def _fetch_partition_images(
     records: Sequence[Mapping[str, Any]],
     staging_dir: Path,
 ) -> list[dict[str, Any]]:
+    """Stream remote image bytes to disk; never materialize a partition in RAM."""
     _insert_manifest_table(connection, records)
     source = _quote_sql(SOURCE_URL)
-    rows = connection.execute(
+    cursor = connection.execute(
         "SELECT r.row_index, r.image_id, r.partition, r.selection_rank_sha256, "
         "p.image.path::VARCHAR, p.image.bytes "
         f"FROM read_parquet({source}, file_row_number=true) p "
         "JOIN requested_rows r ON r.row_index = p.file_row_number "
         "ORDER BY r.row_index"
-    ).fetchall()
+    )
     expected = {int(row["row_index"]): row for row in records}
-    if len(rows) != len(records):
-        raise RuntimeError("partition image query denominator drift")
     from PIL import Image
 
     shutil.rmtree(staging_dir, ignore_errors=True)
     staging_dir.mkdir(parents=True)
     result: list[dict[str, Any]] = []
-    for row_index, image_id, partition, rank, path, raw_value in rows:
-        record = expected.get(int(row_index))
-        raw = _image_bytes(raw_value)
-        if (
-            record is None
-            or str(record["image_id"]) != image_id
-            or _image_id_from_path(path) != image_id
-            or sha256_bytes(raw) != record["encoded_sha256"]
-        ):
-            raise RuntimeError("partition source identity/hash drift")
-        try:
-            with Image.open(io.BytesIO(raw)) as opened:
-                image = opened.convert("RGB")
-        except Exception as exc:
-            raise RuntimeError(f"partition image decode failed: {row_index}") from exc
-        if canonical_pixel_sha256(image) != record["pixel_sha256"]:
-            raise RuntimeError("partition decoded-pixel SHA-256 drift")
-        image_file = staging_dir / f"{record['encoded_sha256']}.img"
-        if image_file.exists():
-            raise RuntimeError("duplicate encoded image reached active partition")
-        image_file.write_bytes(raw)
-        result.append({**record, "image_file": str(image_file)})
-        del raw
+    seen: set[int] = set()
+    while True:
+        batch = cursor.fetchmany(4)
+        if not batch:
+            break
+        for row_index, image_id, partition, rank, path, raw_value in batch:
+            row_index = int(row_index)
+            record = expected.get(row_index)
+            raw = _image_bytes(raw_value)
+            if (
+                record is None
+                or row_index in seen
+                or str(record["image_id"]) != image_id
+                or int(record["partition"]) != int(partition)
+                or record["selection_rank_sha256"] != rank
+                or _image_id_from_path(path) != image_id
+                or sha256_bytes(raw) != record["encoded_sha256"]
+            ):
+                raise RuntimeError("partition source identity/hash drift")
+            try:
+                with Image.open(io.BytesIO(raw)) as opened:
+                    image = opened.convert("RGB")
+            except Exception as exc:
+                raise RuntimeError(f"partition image decode failed: {row_index}") from exc
+            if canonical_pixel_sha256(image) != record["pixel_sha256"]:
+                raise RuntimeError("partition decoded-pixel SHA-256 drift")
+            image_file = staging_dir / f"{record['encoded_sha256']}.img"
+            if image_file.exists():
+                raise RuntimeError("duplicate encoded image reached active partition")
+            image_file.write_bytes(raw)
+            result.append({**record, "image_file": str(image_file)})
+            seen.add(row_index)
+            del raw
+    if seen != set(expected):
+        raise RuntimeError("partition image query denominator drift")
     return result
 
 
@@ -181,30 +196,39 @@ def _run_outcome_blind_detector(
     return outputs
 
 
-def _fetch_partition_annotations(
+def _iter_partition_annotations(
     records: Sequence[Mapping[str, Any]],
-) -> dict[int, tuple[Any, Any, Any, Any]]:
+) -> Iterable[tuple[int, Any, Any, Any, Any]]:
+    """Stream annotation rows only after the detector barrier is persisted."""
     connection = _duckdb_connection()
     _insert_manifest_table(connection, records)
     source = _quote_sql(SOURCE_URL)
-    rows = connection.execute(
+    cursor = connection.execute(
         "SELECT r.row_index, p.texts, p.bboxes, p.polygons, p.num_text_regions "
         f"FROM read_parquet({source}, file_row_number=true) p "
         "JOIN requested_rows r ON r.row_index = p.file_row_number "
         "ORDER BY r.row_index"
-    ).fetchall()
-    if len(rows) != len(records):
+    )
+    seen: set[int] = set()
+    while True:
+        batch = cursor.fetchmany(16)
+        if not batch:
+            break
+        for row_index, texts, bboxes, polygons, num_regions in batch:
+            row_index = int(row_index)
+            if row_index in seen:
+                raise RuntimeError("duplicate annotation row")
+            seen.add(row_index)
+            yield row_index, texts, bboxes, polygons, num_regions
+    expected = {int(row["row_index"]) for row in records}
+    if seen != expected:
         raise RuntimeError("partition annotation query denominator drift")
-    return {
-        int(row_index): (texts, bboxes, polygons, num_regions)
-        for row_index, texts, bboxes, polygons, num_regions in rows
-    }
 
 
 def _score_partition_after_barrier(
     images: Sequence[MutableMapping[str, Any]],
     detector_outputs: Mapping[int, Mapping[str, Any]],
-    annotations: Mapping[int, tuple[Any, Any, Any, Any]],
+    annotation_rows: Iterable[tuple[int, Any, Any, Any, Any]],
     model: Any,
 ) -> list[dict[str, Any]]:
     from PIL import Image
@@ -218,10 +242,14 @@ def _score_partition_after_barrier(
     from .sroie_natural_holdout import crop_box, match_ocr_claim
     from .textocr_adapter_v6 import select_numeric_annotation
 
+    by_row = {int(record["row_index"]): record for record in images}
     results: list[dict[str, Any]] = []
-    for record in images:
-        row_index = int(record["row_index"])
-        texts, bboxes, polygons, num_regions = annotations[row_index]
+    processed: set[int] = set()
+    for row_index, texts, bboxes, polygons, num_regions in annotation_rows:
+        record = by_row.get(row_index)
+        detector = detector_outputs.get(row_index)
+        if record is None or detector is None or row_index in processed:
+            raise RuntimeError("annotation row is not bound to detector/image evidence")
         selected, _ = select_numeric_annotation(
             row_index=row_index,
             texts=texts,
@@ -238,7 +266,6 @@ def _score_partition_after_barrier(
         image_file = Path(str(record["image_file"]))
         with Image.open(image_file) as opened:
             image = opened.convert("RGB")
-        detector = detector_outputs[row_index]
         matched = match_ocr_claim(selected["bbox_xyxy"], detector["tokens"])
         claim, eligible, reason = inference_eligibility(matched)
         truth = str(selected["truth"])
@@ -252,9 +279,15 @@ def _score_partition_after_barrier(
         )
         counterfactual_prediction: str | None = None
         counterfactual_forest: Mapping[str, Any] | None = None
+        crop_sha256: str | None = None
+        crop_coordinates: list[int] | None = None
         if eligible and matched is not None:
             box = crop_box(image, matched["bbox"], margin=2)
+            crop_coordinates = list(box)
             crop = image.crop(box)
+            buffer = io.BytesIO()
+            crop.save(buffer, format="PNG", optimize=False)
+            crop_sha256 = sha256_bytes(buffer.getvalue())
             started = time.perf_counter()
             forest = infer_claim(
                 model,
@@ -305,6 +338,9 @@ def _score_partition_after_barrier(
                 "encoded_sha256": record["encoded_sha256"],
                 "pixel_sha256": record["pixel_sha256"],
                 "truth": truth,
+                "truth_bbox_xyxy": list(selected["bbox_xyxy"]),
+                "bbox_convention": selected.get("bbox_convention"),
+                "bbox_polygon_iou": selected.get("bbox_polygon_iou"),
                 "selection_rank_sha256": selected["selection_rank_sha256"],
                 "terminal": True,
                 "outcome_quarantine": {
@@ -322,39 +358,54 @@ def _score_partition_after_barrier(
                     "eligible": eligible,
                     "reason": reason,
                     "claim_correct": bool(eligible and claim == truth),
+                    "matched": matched,
                     "wall_seconds": detector["wall_seconds"],
                 },
                 "candidate": {
-                    "forest_prediction": (
-                        forest.get("prediction") if forest is not None else None
-                    ),
-                    "minimum_mean_probability": (
-                        forest.get("minimum_mean_probability")
-                        if forest is not None
-                        else None
-                    ),
+                    "forest": forest,
                     "guard": guard,
                     "final_prediction": final_prediction,
                     "accepted": final_prediction is not None,
                     "false_accept": bool(
                         final_prediction is not None and final_prediction != truth
                     ),
+                    "crop_box": crop_coordinates,
+                    "crop_sha256": crop_sha256,
                     "verifier_wall_seconds": verifier_seconds,
                 },
                 "counterfactual": {
                     "claim": counterfactual,
-                    "forest_prediction": (
-                        counterfactual_forest.get("prediction")
-                        if counterfactual_forest is not None
-                        else None
-                    ),
+                    "forest": counterfactual_forest,
+                    "final_prediction": counterfactual_prediction,
                     "accepted": counterfactual_prediction is not None,
                 },
             }
         )
         image_file.unlink(missing_ok=True)
         record.pop("image_file", None)
+        processed.add(row_index)
+    if processed != set(by_row):
+        raise RuntimeError("partition scoring denominator drift")
     return results
+
+
+def _verify_registry_for_execution(
+    registry_root: Path,
+    authorization: Mapping[str, Any],
+    expected_binding: Mapping[str, Any],
+) -> dict[str, Any]:
+    summary = verify_registry_bundle(registry_root)
+    receipt = _read_json(Path(registry_root) / "registry_receipt.json")
+    if (
+        summary.get("evaluation_authorized") is not True
+        or receipt.get("authorization_binding") != expected_binding
+        or receipt.get("code_bundle") != authorization.get("code_bundle")
+        or receipt.get("code_bundle") != current_code_bundle()
+        or receipt.get("prior_registry", {}).get("stable_payload_sha256")
+        != authorization.get("prior_registry_stable_payload_sha256")
+    ):
+        raise RuntimeError("physical registry is not bound to this one-shot execution")
+    return summary
 
 
 def evaluate_partition_from_source(
@@ -365,28 +416,28 @@ def evaluate_partition_from_source(
     model_zip: Path,
     authorization_path: Path,
     authorization_sha256: str,
+    execution_claim_path: Path,
+    execution_claim_sha256: str,
     output_dir: Path,
 ) -> dict[str, Any]:
     if not 0 <= partition < PARTITION_COUNT:
         raise RuntimeError("partition must lie in [0, 11]")
-    authorization = verify_execution_authorization(
+    authorization = verify_bound_execution_authorization(
         authorization_path, authorization_sha256, "EVALUATE_PARTITIONS"
     )
+    claim = verify_execution_claim(
+        execution_claim_path, execution_claim_sha256, authorization
+    )
+    expected_binding = claim_binding(
+        authorization,
+        claim,
+        authorization_file_sha256=authorization_sha256,
+        claim_file_sha256=execution_claim_sha256,
+    )
     verify_manifest_bundle(manifest_root)
-    registry_summary = verify_registry_bundle(registry_root)
-    if not registry_summary["evaluation_authorized"]:
-        raise RuntimeError("physical registry did not authorize evaluation")
-    registry_authorization = registry_summary.get("authorization_binding")
-    if (
-        not isinstance(registry_authorization, Mapping)
-        or registry_authorization.get("execution_id")
-        != authorization["execution_id"]
-        or registry_authorization.get("authorization_nonce_sha256")
-        != authorization["authorization_nonce_sha256"]
-        or registry_authorization.get("authorization_stable_payload_sha256")
-        != authorization["stable_payload_sha256"]
-    ):
-        raise RuntimeError("registry and evaluation authorization bindings differ")
+    registry_summary = _verify_registry_for_execution(
+        registry_root, authorization, expected_binding
+    )
     records = _read_jsonl(
         Path(registry_root) / f"active_partition_{partition:02d}.jsonl"
     )
@@ -420,13 +471,16 @@ def evaluate_partition_from_source(
         barrier_path = output_dir / "detector_barrier.jsonl"
         _write_jsonl(barrier_path, barrier_rows)
         detector_barrier = sha256_file(barrier_path)
-        # The annotation query is deliberately below the complete, persisted
-        # detector barrier. Do not reorder these statements.
-        annotations = _fetch_partition_annotations(records)
+        # Annotation projection begins only after the complete detector barrier
+        # exists on disk and is hash-bound above.
         observations = _score_partition_after_barrier(
-            images, detector_outputs, annotations, model
+            images,
+            detector_outputs,
+            _iter_partition_annotations(records),
+            model,
         )
         shutil.rmtree(output_dir / "_staged_images", ignore_errors=True)
+    code_bundle = current_code_bundle()
     report = stable_payload(
         {
             "schema": PARTITION_REPORT_SCHEMA,
@@ -438,11 +492,14 @@ def evaluate_partition_from_source(
                 "stable_payload_sha256"
             ],
             "scientific_manifest_sha256": SCIENTIFIC_MANIFEST_SHA256,
-            "authorization_binding": registry_authorization,
+            "authorization_binding": expected_binding,
+            "code_bundle": code_bundle,
             "source_identity": source_identity,
             "runtime": runtime,
             "model": model_identity,
-            "executor_source_sha256": sha256_file(Path(__file__)),
+            "executor_source_sha256": code_bundle[
+                "ocr_real_risk_v1/openvino_full_gate_runner_v7.py"
+            ],
             "detector_barrier_sha256": detector_barrier,
             "detector_barrier_rows": len(barrier_rows),
             "annotation_query_executed_after_detector_barrier": True,
