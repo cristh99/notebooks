@@ -1,0 +1,165 @@
+name: Data Science v14.4 - post-contamination scale-up recovery protocol
+
+on:
+  push:
+    branches:
+      - agent/data-science-v14-4-scaleup-recovery-protocol-v1
+    paths:
+      - '.github/workflows/data-science-v14-4-scaleup-recovery-protocol.yml'
+      - 'data_science_pipeline_v14_4_scaleup_recovery/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: data-science-v14-4-scaleup-recovery-protocol-v1
+  cancel-in-progress: true
+
+env:
+  PACKAGE_DIR: data_science_pipeline_v14_4_scaleup_recovery
+  TRANSPORT_DIR: data_science_pipeline_v14_4_scaleup_recovery/transport
+  TRANSPORT_MANIFEST: data_science_pipeline_v14_4_scaleup_recovery/TRANSPORT_MANIFEST.json
+  PACKAGE_MANIFEST: data_science_pipeline_v14_4_scaleup_recovery/PACKAGE_MANIFEST.json
+  PUBLIC_README: data_science_pipeline_v14_4_scaleup_recovery/README.md
+  PACKAGE: /tmp/stage09-scaleup-recovery-package.zip
+  COMPONENT: /tmp/data_science_pipeline_v14_4_scaleup_recovery
+  SUBJECT: /tmp/data_science_pipeline_v14_4_scaleup_recovery/RECOVERY_PROTOCOL.json
+  LEDGER: /tmp/data_science_pipeline_v14_4_scaleup_recovery/CONTAMINATION_LEDGER.json
+  LOCAL_RESULT: /tmp/data_science_pipeline_v14_4_scaleup_recovery/LOCAL_RESULT.json
+  EVIDENCE: data-science-v14-4-scaleup-recovery-evidence
+  EXPECTED_REPOSITORY: cristh99/notebooks
+  EXPECTED_BRANCH: agent/data-science-v14-4-scaleup-recovery-protocol-v1
+  EXPECTED_CERTIFICATE_IDENTITY: https://github.com/cristh99/notebooks/.github/workflows/data-science-v14-4-scaleup-recovery-protocol.yml@refs/heads/agent/data-science-v14-4-scaleup-recovery-protocol-v1
+  OIDC_ISSUER: https://token.actions.githubusercontent.com
+  OIDC_AUDIENCE: sigstore
+  COSIGN_VERSION: 3.0.6
+  COSIGN_SHA256: c956e5dfcac53d52bcf058360d579472f0c1d2d9b69f55209e256fe7783f4c74
+  PACKAGE_MANIFEST_SHA256: 08a2e09adb2db431ea0270f616d5014d4d0f401c0fc66a82dedef089786f22e6
+  TRANSPORT_MANIFEST_SHA256: c8794e13880ddecfff0e1d0ca3b9c5fb0b83b2c27b732fc9fb517a60f54eb686
+  README_SHA256: e0003d10528edd885a936b3f455b91889fca05a93c9b81c63e66b001dab2d85d
+
+jobs:
+  validate-and-sign:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Reconstruct exact package and run software gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "$EXPECTED_REPOSITORY"
+          test "$GITHUB_REF" = "refs/heads/$EXPECTED_BRANCH"
+          case "$GITHUB_EVENT_NAME" in push|workflow_dispatch) ;; *) exit 1 ;; esac
+          mkdir -p "$EVIDENCE" "$COMPONENT"
+          printf '%s  %s\n' "$TRANSPORT_MANIFEST_SHA256" "$TRANSPORT_MANIFEST" | sha256sum -c -
+          printf '%s  %s\n' "$PACKAGE_MANIFEST_SHA256" "$PACKAGE_MANIFEST" | sha256sum -c -
+          printf '%s  %s\n' "$README_SHA256" "$PUBLIC_README" | sha256sum -c -
+          python3 - "$TRANSPORT_DIR" "$TRANSPORT_MANIFEST" "$PACKAGE_MANIFEST" "$PACKAGE" "$COMPONENT" <<'PY'
+          from pathlib import Path, PurePosixPath
+          from zipfile import ZipFile
+          import base64, hashlib, json, sys
+          transport_dir, transport_manifest_path, package_manifest_path, archive, out = map(Path, sys.argv[1:])
+          tm=json.loads(transport_manifest_path.read_text()); pm=json.loads(package_manifest_path.read_text())
+          sha=lambda data: hashlib.sha256(data).hexdigest()
+          blob=lambda data: hashlib.sha1(f'blob {len(data)}\0'.encode()+data).hexdigest()
+          actual=sorted(p.name for p in transport_dir.glob('part_*.b64'))
+          if actual != tm['part_order']: raise SystemExit('transport part set mismatch')
+          chunks=[]
+          for name in tm['part_order']:
+              data=(transport_dir/name).read_bytes(); expected=tm['parts'][name]
+              if len(data)!=expected['bytes'] or sha(data)!=expected['sha256'] or blob(data)!=expected['git_blob_sha1']:
+                  raise SystemExit(f'transport mismatch: {name}')
+              chunks.append(data)
+          encoded=b''.join(chunks)
+          if len(encoded)!=tm['base64_characters']: raise SystemExit('base64 length mismatch')
+          decoded=base64.b64decode(encoded, validate=True)
+          if len(decoded)!=tm['decoded_bytes'] or sha(decoded)!=tm['decoded_sha256'] or blob(decoded)!=tm['decoded_git_blob_sha1']:
+              raise SystemExit('decoded package mismatch')
+          if sha(decoded)!=pm['package_sha256'] or len(decoded)!=pm['package_bytes'] or blob(decoded)!=pm['package_git_blob_sha1']:
+              raise SystemExit('package manifest mismatch')
+          archive.write_bytes(decoded)
+          with ZipFile(archive) as zf:
+              names=zf.namelist()
+              if len(names)!=len(set(names)) or set(names)!=set(pm['members']): raise SystemExit('package member set mismatch')
+              for name in names:
+                  member=PurePosixPath(name)
+                  if member.is_absolute() or '..' in member.parts or len(member.parts)!=1: raise SystemExit(f'unsafe member: {name}')
+                  data=zf.read(name); expected=pm['members'][name]
+                  if len(data)!=expected['bytes'] or sha(data)!=expected['sha256']: raise SystemExit(f'member mismatch: {name}')
+              zf.extractall(out)
+          PY
+          python3 -m compileall -q "$COMPONENT"
+          (cd "$COMPONENT" && python3 -m unittest -v test_protocol.py) |& tee "$EVIDENCE/tests.log"
+          grep -Fq 'Ran 36 tests' "$EVIDENCE/tests.log"
+          grep -Fq 'OK' "$EVIDENCE/tests.log"
+          python3 "$COMPONENT/verify_protocol.py" --output "$EVIDENCE/local-result.json" > "$EVIDENCE/local-verification.log"
+          cmp "$LOCAL_RESULT" "$EVIDENCE/local-result.json"
+          sha256sum "$TRANSPORT_MANIFEST" "$PACKAGE_MANIFEST" "$PUBLIC_README" "$TRANSPORT_DIR"/* "$COMPONENT"/* > "$EVIDENCE/source-sha256.txt"
+
+      - name: Validate GitHub OIDC identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          response="$(curl --fail --silent --show-error -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${OIDC_AUDIENCE}")"
+          token="$(printf '%s' "$response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])')"
+          echo "::add-mask::$token"
+          printf '%s' "$token" > "$RUNNER_TEMP/oidc-token.jwt"
+          python3 "$COMPONENT/ci_external.py" validate-oidc --token "$RUNNER_TEMP/oidc-token.jwt" --output "$EVIDENCE/oidc-safe-claims.json" > "$EVIDENCE/oidc-validation.log"
+
+      - name: Sign and verify exact recovery protocol
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --silent --show-error "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" --output "$RUNNER_TEMP/cosign"
+          printf '%s  %s\n' "$COSIGN_SHA256" "$RUNNER_TEMP/cosign" | sha256sum -c -
+          chmod 0755 "$RUNNER_TEMP/cosign"
+          "$RUNNER_TEMP/cosign" version > "$EVIDENCE/cosign-version.txt"
+          token="$(cat "$RUNNER_TEMP/oidc-token.jwt")"
+          echo "::add-mask::$token"
+          "$RUNNER_TEMP/cosign" sign-blob --yes --identity-token "$token" --bundle "$EVIDENCE/protocol.sigstore.json" "$SUBJECT" > "$EVIDENCE/sign.log" 2>&1
+          rm -f "$RUNNER_TEMP/oidc-token.jwt"
+          "$RUNNER_TEMP/cosign" verify-blob "$SUBJECT" --bundle "$EVIDENCE/protocol.sigstore.json" --certificate-identity "$EXPECTED_CERTIFICATE_IDENTITY" --certificate-oidc-issuer "$OIDC_ISSUER" --certificate-github-workflow-repository "$GITHUB_REPOSITORY" --certificate-github-workflow-sha "$GITHUB_SHA" --certificate-github-workflow-trigger "$GITHUB_EVENT_NAME" > "$EVIDENCE/verify.log" 2>&1
+          grep -Fq 'Verified OK' "$EVIDENCE/verify.log"
+          python3 "$COMPONENT/ci_external.py" finalize --evidence "$EVIDENCE" --output "$EVIDENCE/external-receipt.json" > "$EVIDENCE/finalize.log"
+
+      - name: Retain exact evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-v14-4-scaleup-recovery-protocol
+          path: data-science-v14-4-scaleup-recovery-evidence
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce terminal receipt
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path=Path('data-science-v14-4-scaleup-recovery-evidence/external-receipt.json')
+          if not path.exists(): raise SystemExit('external receipt missing')
+          receipt=json.loads(path.read_text())
+          assert receipt['verdict']=='PASS_STAGE09_SCALEUP_RECOVERY_PROTOCOL_EXTERNAL'
+          assert receipt['tests']=='36/36 PASS'
+          assert all(receipt['checks'].values())
+          assert receipt['contamination_entries']==8
+          assert receipt['cohort_selected'] is False
+          assert receipt['outcome_accessed'] is False
+          assert receipt['analysis_executed'] is False
+          assert receipt['stage10_unblocked'] is False
+          assert receipt['production_modified'] is False
+          assert receipt['external_cost_usd']==0.0
+          print(receipt['verdict'])
+          PY
