@@ -31,6 +31,7 @@ from .openvino_full_gate_contract_v7 import (
     TARGET_ERROR_REDUCTION,
     _is_sha256,
     _read_json,
+    _read_jsonl,
     _write_json,
     stable_payload,
     verify_hash_manifest,
@@ -155,6 +156,31 @@ def _validate_report_identity(
         raise RuntimeError("partition frozen identity/barrier contract failed")
 
 
+
+def _registry_observation_identity(row: Mapping[str, Any]) -> tuple[Any, ...]:
+    return (
+        int(row.get("row_index", -1)),
+        str(row.get("image_id") or ""),
+        int(row.get("partition_id", row.get("partition", -1))),
+        str(row.get("selection_rank_sha256") or ""),
+        str(row.get("encoded_sha256") or ""),
+        str(row.get("pixel_sha256") or ""),
+    )
+
+
+def _verify_partition_registry_rows(
+    partition: int,
+    observations: Sequence[Mapping[str, Any]],
+    expected_rows: Sequence[Mapping[str, Any]],
+) -> None:
+    if any(int(row.get("partition_id", -1)) != partition for row in observations):
+        raise RuntimeError("partition report contains rows assigned to another partition")
+    observed = [_registry_observation_identity(row) for row in observations]
+    expected = [_registry_observation_identity(row) for row in expected_rows]
+    if observed != expected:
+        raise RuntimeError("partition observations differ from active registry identities")
+
+
 def aggregate_partition_reports(
     reports: Sequence[Mapping[str, Any]],
     *,
@@ -163,6 +189,9 @@ def aggregate_partition_reports(
     expected_code_bundle: Mapping[str, str],
     authorization_binding: Mapping[str, Any],
     expected_preexecution: Mapping[str, Any] | None = None,
+    expected_registry_rows: Mapping[
+        int, Sequence[Mapping[str, Any]]
+    ] | None = None,
     minimum_active: int = MINIMUM_ACTIVE_AFTER_DEDUP,
 ) -> dict[str, Any]:
     if len(expected_partition_counts) != PARTITION_COUNT:
@@ -199,6 +228,17 @@ def aggregate_partition_reports(
             raise RuntimeError("partition report record count drift")
         if len(rows) != int(expected_partition_counts[partition]):
             raise RuntimeError("partition report differs from registry denominator")
+        if expected_registry_rows is not None:
+            expected_rows = expected_registry_rows.get(partition)
+            if expected_rows is None:
+                raise RuntimeError("active registry partition is missing")
+            _verify_partition_registry_rows(partition, rows, expected_rows)
+        elif any(
+            int(row.get("partition_id", -1)) != partition for row in rows
+        ):
+            raise RuntimeError(
+                "partition report contains rows assigned to another partition"
+            )
         by_partition[partition] = report
         observations.extend(dict(row) for row in rows)
     if set(by_partition) != set(range(PARTITION_COUNT)):
@@ -287,6 +327,7 @@ def aggregate_partition_reports(
                     "claim_authorized": False,
                 },
                 "retuning_authorized": False,
+                "post_outcome_retry_authorized": False,
                 "automatic_production_change": False,
             }
         )
@@ -402,6 +443,12 @@ def aggregate_from_files(
         != authorization["prior_registry_stable_payload_sha256"]
     ):
         raise RuntimeError("registry and aggregate one-shot bindings differ")
+    expected_registry_rows = {
+        partition: _read_jsonl(
+            Path(registry_root) / f"active_partition_{partition:02d}.jsonl"
+        )
+        for partition in range(PARTITION_COUNT)
+    }
     reports: list[dict[str, Any]] = []
     for root in report_roots:
         verify_hash_manifest(
@@ -420,6 +467,7 @@ def aggregate_from_files(
         expected_code_bundle=authorization["code_bundle"],
         authorization_binding=expected_binding,
         expected_preexecution=preexecution,
+        expected_registry_rows=expected_registry_rows,
     )
     shutil.rmtree(output_dir, ignore_errors=True)
     output_dir.mkdir(parents=True)
