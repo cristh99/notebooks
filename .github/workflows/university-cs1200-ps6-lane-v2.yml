@@ -1,0 +1,261 @@
+name: University CS1200 PS6 lane v2
+
+on:
+  push:
+    branches:
+      - agent/university-cs1200-ps6-lane-v2
+  pull_request:
+    paths:
+      - '.github/workflows/university-cs1200-ps6-lane-v2.yml'
+      - 'university_cs1200_ps6_lane_v2/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHONHASHSEED: '0'
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Verify lane source and freeze official PS6
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reports
+          python - <<'PY'
+          import ast
+          import json
+          from pathlib import Path
+
+          root = Path('university_cs1200_ps6_lane_v2')
+          lock = json.loads((root / 'SOURCE_LOCK.json').read_text())
+          assert lock['official_repository'] == 'Harvard-CS-1200/2026-Spring'
+          assert lock['official_commit'] == '0b967fe320ecf2141a6f3b8165d3d096c99fb3ac'
+          assert lock['official_tree'] == 'de8ba1477998a406b2d747bd680a8728b40435b0'
+          tree = ast.parse((root / 'ps6.py').read_text())
+          forbidden = [
+              node for node in ast.walk(tree)
+              if isinstance(node, ast.Pass)
+              or (
+                  isinstance(node, ast.Raise)
+                  and isinstance(node.exc, ast.Call)
+                  and getattr(node.exc.func, 'id', None) == 'NotImplementedError'
+              )
+          ]
+          assert not forbidden
+          print(json.dumps(lock, indent=2, sort_keys=True))
+          PY
+
+          git clone --filter=blob:none https://github.com/Harvard-CS-1200/2026-Spring.git official
+          git -C official checkout --detach 0b967fe320ecf2141a6f3b8165d3d096c99fb3ac
+          test "$(git -C official rev-parse HEAD)" = '0b967fe320ecf2141a6f3b8165d3d096c99fb3ac'
+          test "$(git -C official rev-parse 'HEAD^{tree}')" = 'de8ba1477998a406b2d747bd680a8728b40435b0'
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          lock = json.loads(Path('university_cs1200_ps6_lane_v2/SOURCE_LOCK.json').read_text())
+          observed = {}
+          for path, expected in lock['files'].items():
+              actual = subprocess.check_output(
+                  ['git', '-C', 'official', 'hash-object', path], text=True
+              ).strip()
+              if actual != expected:
+                  raise SystemExit(f'{path}: expected {expected}, observed {actual}')
+              observed[path] = actual
+          Path('reports/official-source-binding.json').write_text(
+              json.dumps(observed, indent=2, sort_keys=True) + '\n'
+          )
+          PY
+
+      - name: Install public-test dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --quiet numpy
+
+      - name: Overlay implementation and run exact public tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp university_cs1200_ps6_lane_v2/ps6.py official/psets/ps6/ps6.py
+          python -m py_compile \
+            university_cs1200_ps6_lane_v2/ps6.py \
+            university_cs1200_ps6_lane_v2/lane_oracle.py \
+            university_cs1200_ps6_lane_v2/benchmark.py \
+            university_cs1200_ps6_lane_v2/parse_public_tests.py
+
+          cd official/psets/ps6
+          timeout 300s python -m ps6_tests 2 2>&1 \
+            | tee "$GITHUB_WORKSPACE/reports/public-tests-2.log"
+          timeout 300s python -m ps6_tests 3 2>&1 \
+            | tee "$GITHUB_WORKSPACE/reports/public-tests-3.log"
+          cd "$GITHUB_WORKSPACE"
+
+          python university_cs1200_ps6_lane_v2/parse_public_tests.py \
+            --two reports/public-tests-2.log \
+            --three reports/public-tests-3.log \
+            --output reports/public-tests.json
+
+      - name: Run independent oracle serially and in parallel
+        shell: bash
+        run: |
+          set -euo pipefail
+          python university_cs1200_ps6_lane_v2/lane_oracle.py \
+            --workers 1 --output reports/oracle-serial.json \
+            2>&1 | tee reports/oracle-serial.log
+          python university_cs1200_ps6_lane_v2/lane_oracle.py \
+            --workers 4 --output reports/oracle-parallel.json \
+            2>&1 | tee reports/oracle-parallel.log
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          serial = json.loads(Path('reports/oracle-serial.json').read_text())
+          parallel = json.loads(Path('reports/oracle-parallel.json').read_text())
+          keys = [
+              'status',
+              'exhaustive_graphs',
+              'precolored_cases',
+              'maximal_isets_checked',
+              'interval_cases',
+              'two_colorable_graphs',
+              'three_colorable_graphs',
+              'source_defect_control',
+              'negative_controls',
+              'scientific_digest',
+          ]
+          for key in keys:
+              assert serial[key] == parallel[key], (
+                  key, serial[key], parallel[key]
+              )
+          speedup = serial['elapsed_seconds'] / parallel['elapsed_seconds']
+          Path('reports/oracle-parity.json').write_text(
+              json.dumps(
+                  {
+                      'status': 'PASS_SERIAL_PARALLEL_SCIENTIFIC_PARITY',
+                      'compared_fields': keys,
+                      'scientific_digest': serial['scientific_digest'],
+                      'serial_seconds': serial['elapsed_seconds'],
+                      'parallel_seconds': parallel['elapsed_seconds'],
+                      'speedup': speedup,
+                  },
+                  indent=2,
+                  sort_keys=True,
+              ) + '\n'
+          )
+          PY
+
+      - name: Run bounded official-generator experiments
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="$GITHUB_WORKSPACE/university_cs1200_ps6_lane_v2:$GITHUB_WORKSPACE/official/psets/ps6" \
+            python university_cs1200_ps6_lane_v2/benchmark.py \
+            --timeout 0.25 --output reports/benchmark.json \
+            2>&1 | tee reports/benchmark.log
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('reports/benchmark.json').read_text())
+          assert report['status'] == 'PASS_BOUNDED_EXPERIMENT_COMPLETED'
+          assert all(item['failures'] == 0 for item in report['summary'].values())
+          PY
+
+      - name: Emit proof-carrying receipt and ledger
+        shell: bash
+        env:
+          EVENT_SHA: ${{ github.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path('university_cs1200_ps6_lane_v2')
+          reports = Path('reports')
+          public = json.loads((reports / 'public-tests.json').read_text())
+          oracle = json.loads((reports / 'oracle-serial.json').read_text())
+          parity = json.loads((reports / 'oracle-parity.json').read_text())
+          benchmark = json.loads((reports / 'benchmark.json').read_text())
+          lock = json.loads((root / 'SOURCE_LOCK.json').read_text())
+
+          assert public['status'] == 'PASS_PUBLIC_TESTS_WITH_DECLARED_TIMEOUTS'
+          assert oracle['status'] == 'PASS_PS6_INDEPENDENT_ORACLES'
+          assert parity['status'] == 'PASS_SERIAL_PARALLEL_SCIENTIFIC_PARITY'
+          assert benchmark['status'] == 'PASS_BOUNDED_EXPERIMENT_COMPLETED'
+
+          receipt = {
+              'schema': 'university-cs1200-ps6/receipt/2',
+              'status': 'PASS_SCOPED_PS6_MANDATORY_TECHNICAL_LANE',
+              'repository': 'cristh99/notebooks',
+              'event_sha': os.environ['EVENT_SHA'],
+              'head_sha': os.environ['HEAD_SHA'],
+              'official_repository': lock['official_repository'],
+              'official_commit': lock['official_commit'],
+              'official_tree': lock['official_tree'],
+              'public_tests': {
+                  'two_coloring': public['two_coloring'],
+                  'three_coloring': public['three_coloring'],
+              },
+              'independent_oracles': {
+                  key: oracle[key]
+                  for key in (
+                      'exhaustive_graphs',
+                      'precolored_cases',
+                      'maximal_isets_checked',
+                      'interval_cases',
+                      'two_colorable_graphs',
+                      'three_colorable_graphs',
+                      'source_defect_control',
+                      'negative_controls',
+                      'scientific_digest',
+                  )
+              },
+              'serial_parallel': parity,
+              'experiment_summary': benchmark['summary'],
+              'mandatory_technical_obligations_closed': True,
+              'scope_boundary': {
+                  'personal_reflection_answered': False,
+                  'optional_survey_submitted': False,
+                  'private_grader_accessed': False,
+                  'official_grade_claimed': False,
+                  'problem_set_complete': False,
+                  'course_complete': False,
+                  'additional_cost_usd': 0,
+              },
+          }
+          path = reports / 'receipt.json'
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          (reports / 'receipt.sha256').write_text(f'{digest}  receipt.json\n')
+          print(json.dumps(receipt, indent=2, sort_keys=True))
+          PY
+
+          find university_cs1200_ps6_lane_v2 reports -type f \
+            ! -name SHA256SUMS -print0 \
+            | sort -z \
+            | xargs -0 sha256sum > reports/SHA256SUMS
+          sha256sum -c reports/SHA256SUMS
+
+      - name: Upload PS6 lane evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: university-cs1200-ps6-lane-v2-evidence
+          path: |
+            university_cs1200_ps6_lane_v2/
+            reports/
