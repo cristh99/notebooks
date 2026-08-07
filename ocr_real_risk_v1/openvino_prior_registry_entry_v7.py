@@ -33,6 +33,7 @@ implementation._dataset_matches = _dataset_matches
 SOURCE_SPECS = implementation.SOURCE_SPECS
 EXPECTED_SOURCE_IDS = implementation.EXPECTED_SOURCE_IDS
 EXPECTED_TOTAL_ROWS = implementation.EXPECTED_TOTAL_ROWS
+source_url = implementation.source_url
 source_spec = implementation.source_spec
 verify_terminal_artifact = implementation.verify_terminal_artifact
 fingerprint_source = implementation.fingerprint_source
