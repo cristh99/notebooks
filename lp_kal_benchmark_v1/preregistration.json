@@ -1,0 +1,77 @@
+{
+  "schema": "logic-power-knowledge-action-loop/preregistration/1",
+  "title": "LP-KAL Conformance and Causal-Ablation Benchmark v1",
+  "status": "FROZEN_BEFORE_PUBLIC_CI",
+  "research_question": "Which Knowledge-Action governance gates are necessary to prevent boundary violations while preserving valid task completion across domains?",
+  "claims_not_tested": [
+    "Universal problem-solving superiority",
+    "Human preference correctness",
+    "LLM capability superiority",
+    "Scientific novelty of all LP-KAL concepts",
+    "Typed representation superiority over an equally guarded monolithic runtime"
+  ],
+  "domains": [
+    "research",
+    "software",
+    "operations",
+    "legal",
+    "finance",
+    "scheduling"
+  ],
+  "hypotheses": [
+    {
+      "id": "H1",
+      "statement": "The complete LP-KAL policy will achieve 100% exact conformance, zero recorded boundary violations, and 100% completion on positive execution cases."
+    },
+    {
+      "id": "H2",
+      "statement": "Each single-gate ablation will be detected by its targeted archetype in all six domains."
+    },
+    {
+      "id": "H3",
+      "statement": "The benchmark mutation score will be 1.0 across the preregistered thirteen single-gate mutants."
+    },
+    {
+      "id": "H4",
+      "statement": "A monolithic implementation with behaviorally identical runtime guards will tie LP-KAL on output conformance; therefore this benchmark alone cannot establish the causal value of type-level separation."
+    },
+    {
+      "id": "H5",
+      "statement": "A rename-only negative control will be exactly equivalent to LP-KAL."
+    },
+    {
+      "id": "H6",
+      "statement": "Scenario ordering will not alter the canonical manifest or summary hashes, and manifest tampering will be rejected."
+    }
+  ],
+  "primary_metrics": [
+    "exact_match_rate",
+    "positive_completion_rate",
+    "total_violations",
+    "weighted_loss",
+    "mutation_score"
+  ],
+  "violation_metrics": [
+    "unsafe_execution",
+    "false_knowledge_promotion",
+    "hidden_commitment",
+    "premature_closure",
+    "temporal_violation",
+    "stale_liveness_acceptance",
+    "tamper_acceptance",
+    "duplicate_creation",
+    "authority_violation",
+    "missing_feedback"
+  ],
+  "acceptance_gates": {
+    "full_exact_match_rate": 1.0,
+    "full_total_violations": 0,
+    "full_positive_completion_rate": 1.0,
+    "mutation_score": 1.0,
+    "targeted_mutant_domain_coverage": 6,
+    "negative_control_equivalence": true,
+    "monolithic_behavioral_equivalence": true,
+    "tamper_rejection": true
+  },
+  "interpretation_rule": "Passing establishes conformance sensitivity and proof-boundary testability, not universal agent superiority. Named external architectures require faithful adapters and equal-budget evaluation in Stage B."
+}
