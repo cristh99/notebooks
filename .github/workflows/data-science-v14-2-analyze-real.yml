@@ -23,9 +23,9 @@ env:
   CORE_PACKAGE_SHA256: eb6973c037a00217067a458a77fc2889ec0c22cacae2e0a30274a6a7790912f7
   CORE_PACKAGE_BLOB: 6000f8eb3fd0e4532ce12c07ffd8fd5a30c6a4d7
   CI_PACKAGE: data_science_pipeline_v14_2_analyze_real/ci.zip
-  CI_PACKAGE_SHA256: 42b04b1581fca489e930c8e7d17dbdbf8d67bbf41bbed4932230637e08537a25
-  CI_PACKAGE_BLOB: d686c8a42f0415a6a25f69c8f2b727e7d0f96931
-  FREEZE_SHA256: 98d29251a91d0cae55b0449f53d65b58d52233a692c46ce9da78102382c9fd2c
+  CI_PACKAGE_SHA256: f93c07e88587d327876430c36bef0a436326ab415d5741a558b89d66592b6c7d
+  CI_PACKAGE_BLOB: b9e8250ff93197b1d0cdf1850f0510b3036655f5
+  FREEZE_SHA256: 3f948d01eb9b031e0eb1c812b2ae576969877a1ea87bd4d1bf8ee94165af7887
 
 jobs:
   analyze-real-canary:
@@ -62,7 +62,7 @@ jobs:
                   'test_real_canary.py': (9578, '51db8d3abd2d736f44419740446462f2260485aa99370bd1d85eec4845f2f81a'),
               },
               ci: {
-                  'ci_external.py': (24424, '4b412420d56f6ab07139deeb6eb56fc469c8b1a75cf1f94e6705c36a76fbbdc9'),
+                  'ci_external.py': (27112, 'c4760fa2f82a1bf31271a39432a7ac18695cd6025ceab4cf60e29f35f537df56'),
               },
           }
           for archive, members in expected.items():
