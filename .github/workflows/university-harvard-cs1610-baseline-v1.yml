@@ -1,0 +1,96 @@
+name: University Harvard CS1610 public baseline v1
+
+on:
+  push:
+    branches: [agent/university-harvard-cs1610-baseline-v1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Freeze upstream source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone https://github.com/CS161/chickadee-s26.git chickadee
+          cd chickadee
+          git checkout e0333c39946bb244edccfb5df962b1559514b884
+          test "$(git rev-parse HEAD)" = e0333c39946bb244edccfb5df962b1559514b884
+          git status --porcelain=v1
+          printf '%s\n' \
+            'repository=CS161/chickadee-s26' \
+            'commit=e0333c39946bb244edccfb5df962b1559514b884' \
+            "tree=$(git rev-parse HEAD^{tree})" > ../source-lock.txt
+
+      - name: Inventory public pset and test surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd chickadee
+          find psets -maxdepth 1 -type f -print | sort > ../pset-files.txt
+          find . -maxdepth 1 -type f \( -name 'p-test*.cc' -o -name 'k-test*.cc' \) -print | sort > ../public-tests.txt
+          test "$(find psets -maxdepth 1 -name 'pset*answers.md' | wc -l)" -eq 5
+          test "$(find psets -maxdepth 1 -name 'pset*collab.md' | wc -l)" -eq 5
+
+      - name: Build official Docker environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --platform linux/amd64 -t chickadee-baseline:2026 \
+            -f chickadee/docker/Dockerfile chickadee/docker \
+            2>&1 | tee docker-build.log
+
+      - name: Compile frozen Chickadee source
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --platform linux/amd64 \
+            -v "$PWD/chickadee:/home/cs61-user/chickadee" \
+            -w /home/cs61-user/chickadee \
+            chickadee-baseline:2026 \
+            bash -lc 'make -j2' 2>&1 | tee compile.log
+
+      - name: Emit baseline receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          receipt = {
+            'schema': 'university-harvard-cs1610/baseline/1',
+            'status': 'PASS_FROZEN_PUBLIC_BUILD',
+            'repository': 'CS161/chickadee-s26',
+            'commit': 'e0333c39946bb244edccfb5df962b1559514b884',
+            'tree': '2e582ca2bddc5c7f06cb26d66bc76b3fd98933e3',
+            'psets': 5,
+            'private_grader_accessed': False,
+            'source_modified': False,
+            'course_complete': False,
+            'scope_boundary': 'Environment/build baseline only; does not solve pset1-pset5.',
+          }
+          path = Path('receipt.json')
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          Path('receipt.sha256').write_text(hashlib.sha256(path.read_bytes()).hexdigest() + '  receipt.json\n')
+          PY
+          sha256sum source-lock.txt pset-files.txt public-tests.txt compile.log receipt.json > SHA256SUMS
+          sha256sum -c SHA256SUMS
+
+      - name: Upload evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: university-harvard-cs1610-baseline-v1
+          path: |
+            source-lock.txt
+            pset-files.txt
+            public-tests.txt
+            docker-build.log
+            compile.log
+            receipt.json
+            receipt.sha256
+            SHA256SUMS
