@@ -1,0 +1,240 @@
+name: Data Science v17 - Lane E exact receipt-byte OIDC attachment
+
+on:
+  push:
+    branches: [agent/data-science-v17-lane-e-oidc-signature-v1]
+    paths:
+      - .github/workflows/data-science-v17-lane-e-exact-receipt-oidc.yml
+      - data_science_pipeline_v17_lane_e_receipt_attachment/**
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+
+concurrency:
+  group: data-science-v17-lane-e-exact-receipt-oidc-v1
+  cancel-in-progress: true
+
+env:
+  COMPONENT: data_science_pipeline_v17_lane_e_receipt_attachment
+  ATTACHMENT: data_science_pipeline_v17_lane_e_receipt_attachment/LANE_E_EXACT_RECEIPT_ATTACHMENT_ENVELOPE.json
+  SUBJECT: data_science_pipeline_v17_lane_e_canonical_oidc/LANE_E_CANONICAL_SUBJECT.json
+  RECEIPT: data_science_pipeline_v17_lane_e_canonical_oidc/LANE_E_CANONICAL_RECEIPT.json
+  EVIDENCE: data-science-v17-lane-e-exact-receipt-oidc-evidence
+  ATTACHMENT_SHA256: 0962b0fc14c2e96542192f33b2fe87f4370130ac559c7a5dc12af5e22b77f2c3
+  SUBJECT_SHA256: 53b5112447a795fb7a902976cd9854c9ca2c6c46be16d05684e1975ed6b8f6b6
+  RECEIPT_SHA256: b5b8f70ebc278b65816b78e0065ad7827f39902b13d271c7f101a65daf8b8883
+  RECEIPT_SELF_SHA256: c002dc08d8536b9ba2109543a668d46d30397da7fe0968e7f850087d42c55f5b
+  README_SHA256: 63c3477cf31a7d221ac12e897c315c6acceab1bf5081be42c94288ca37a5e9e5
+  VERIFIER_SHA256: e761563f88e591677b6518b2c8f55847c3b46a4263e685e9753e95b934841df9
+  TESTS_SHA256: 253427daa0755842ddb5d4b2969a86a81b05b6a35385b4d4878555335f14bb72
+  FREEZE_SHA256: 33d27128e93950a0edbe6231d428bae96e6d1ed39d5342a8e7a4135619fb6e9f
+  LOCAL_RECEIPT_SHA256: a110532777f9b27b7f265e3872125f2b20ee41af073ae2feef0a64838597dece
+  PRIOR_ARTIFACT_ID: '8979257517'
+  PRIOR_ARTIFACT_SHA256: e16252c0be9e3a854daa764e960011081c876659afe495be4bc6d64856c03e98
+  PRIOR_EXTERNAL_RECEIPT_SHA256: e4085c2daf1e431f2a6c7327af6421939bf3207c9fd7a08687fc14a18437fe21
+  PRIOR_BUNDLE_SHA256: 324456fa4ce224e9bf7b77d475f89174a5a24a0b0ef32d323d7e27b4f2539753
+  PRIOR_VERIFY_SHA256: 80a53f76c7ed6969dade3b6ee47cdb753162db7c00be625448999d08bae77ed8
+  PRIOR_LOCAL_RECEIPT_SHA256: cbdb1087472e99777d6b11eecae40941c1734b108368bbde02bb51234434539e
+  PRIOR_GITHUB_SHA: 96787111628e6c38ac0262a8a988a17f291a6f28
+  PRIOR_CERT_ID: https://github.com/cristh99/notebooks/.github/workflows/data-science-v17-lane-e-canonical-oidc.yml@refs/heads/agent/data-science-v17-lane-e-oidc-signature-v1
+  CURRENT_CERT_ID: https://github.com/cristh99/notebooks/.github/workflows/data-science-v17-lane-e-exact-receipt-oidc.yml@refs/heads/agent/data-science-v17-lane-e-oidc-signature-v1
+  OIDC_ISSUER: https://token.actions.githubusercontent.com
+  COSIGN_VERSION: 3.0.6
+  COSIGN_SHA256: c956e5dfcac53d52bcf058360d579472f0c1d2d9b69f55209e256fe7783f4c74
+
+jobs:
+  bind-exact-receipt:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact receipt and attachment software
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = cristh99/notebooks
+          test "$GITHUB_REF" = refs/heads/agent/data-science-v17-lane-e-oidc-signature-v1
+          mkdir -p "$EVIDENCE" "$RUNNER_TEMP/prior"
+          printf '%s  %s\n' "$ATTACHMENT_SHA256" "$ATTACHMENT" | sha256sum -c -
+          printf '%s  %s\n' "$SUBJECT_SHA256" "$SUBJECT" | sha256sum -c -
+          printf '%s  %s\n' "$RECEIPT_SHA256" "$RECEIPT" | sha256sum -c -
+          printf '%s  %s\n' "$README_SHA256" "$COMPONENT/README.md" | sha256sum -c -
+          printf '%s  %s\n' "$VERIFIER_SHA256" "$COMPONENT/verify_attachment.py" | sha256sum -c -
+          printf '%s  %s\n' "$TESTS_SHA256" "$COMPONENT/test_attachment.py" | sha256sum -c -
+          printf '%s  %s\n' "$FREEZE_SHA256" "$COMPONENT/FREEZE_ATTACHMENT.json" | sha256sum -c -
+          printf '%s  %s\n' "$LOCAL_RECEIPT_SHA256" "$COMPONENT/LOCAL_ATTACHMENT_RESULT.json" | sha256sum -c -
+          (cd "$COMPONENT" && python3 -m unittest -v test_attachment.py) |& tee "$EVIDENCE/tests.log"
+          python3 "$COMPONENT/verify_attachment.py" --output "$EVIDENCE/local-receipt.json" | tee "$EVIDENCE/local-verification.log"
+          printf '%s  %s\n' "$LOCAL_RECEIPT_SHA256" "$EVIDENCE/local-receipt.json" | sha256sum -c -
+          cmp "$COMPONENT/LOCAL_ATTACHMENT_RESULT.json" "$EVIDENCE/local-receipt.json"
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          subject_path=Path(os.environ["SUBJECT"]); receipt_path=Path(os.environ["RECEIPT"])
+          subject=json.loads(subject_path.read_text()); receipt=json.loads(receipt_path.read_text())
+          canonical=lambda x:(json.dumps(x,ensure_ascii=False,sort_keys=True,separators=(",",":"))+"\n").encode()
+          raw=receipt_path.read_bytes()
+          assert raw==canonical(receipt)
+          assert len(raw)==1398
+          assert hashlib.sha256(raw).hexdigest()==os.environ["RECEIPT_SHA256"]
+          tmp=dict(receipt); embedded=tmp.pop("receipt_sha256")
+          assert embedded==os.environ["RECEIPT_SELF_SHA256"]
+          assert hashlib.sha256(canonical(tmp)).hexdigest()==embedded
+          binding=subject["receipt_binding"]
+          assert binding["canonical_receipt_file_sha256"]==os.environ["RECEIPT_SHA256"]
+          assert binding["canonical_receipt_self_hash_sha256"]==embedded
+          assert receipt["event_universe_sha256"]==binding["event_universe_sha256"]
+          assert receipt["review_item_commitment_sha256"]==binding["review_item_commitment_sha256"]
+          assert receipt["event_ids"]==subject["event_ids"]
+          assert receipt["raw_identity_exported"] is False
+          assert receipt["canonical_promotion"] is False
+          PY
+
+      - name: Download and pin prior canonical signature evidence
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$PRIOR_ARTIFACT_ID/zip" \
+            -o "$EVIDENCE/prior-artifact.zip"
+          printf '%s  %s\n' "$PRIOR_ARTIFACT_SHA256" "$EVIDENCE/prior-artifact.zip" | sha256sum -c -
+          unzip -q "$EVIDENCE/prior-artifact.zip" -d "$RUNNER_TEMP/prior"
+          printf '%s  %s\n' "$PRIOR_EXTERNAL_RECEIPT_SHA256" "$RUNNER_TEMP/prior/external-receipt.json" | sha256sum -c -
+          printf '%s  %s\n' "$PRIOR_BUNDLE_SHA256" "$RUNNER_TEMP/prior/lane-e-canonical.sigstore.json" | sha256sum -c -
+          printf '%s  %s\n' "$PRIOR_VERIFY_SHA256" "$RUNNER_TEMP/prior/verify.log" | sha256sum -c -
+          printf '%s  %s\n' "$PRIOR_LOCAL_RECEIPT_SHA256" "$RUNNER_TEMP/prior/local-receipt.json" | sha256sum -c -
+          cp "$RUNNER_TEMP/prior/external-receipt.json" "$EVIDENCE/prior-external-receipt.json"
+          cp "$RUNNER_TEMP/prior/lane-e-canonical.sigstore.json" "$EVIDENCE/prior-lane-e-canonical.sigstore.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])/"prior"
+          receipt=json.loads((root/"external-receipt.json").read_text())
+          assert receipt["verdict"]=="PASS_LANE_E_CANONICAL_SUBJECT_OIDC_SIGSTORE"
+          assert receipt["subject_sha256"]==os.environ["SUBJECT_SHA256"]
+          assert receipt["exact_canonical_subject_bytes_present"] is True
+          assert receipt["independent_lane_e_signature_created"] is True
+          assert receipt["stage08_unblocked"] is False
+          PY
+
+      - name: Install pinned Cosign
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" -o "$RUNNER_TEMP/cosign"
+          printf '%s  %s\n' "$COSIGN_SHA256" "$RUNNER_TEMP/cosign" | sha256sum -c -
+          chmod 0755 "$RUNNER_TEMP/cosign"
+          "$RUNNER_TEMP/cosign" version > "$EVIDENCE/cosign-version.txt"
+
+      - name: Reverify prior signature and sign attachment
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/cosign" verify-blob "$SUBJECT" \
+            --bundle "$RUNNER_TEMP/prior/lane-e-canonical.sigstore.json" \
+            --certificate-identity "$PRIOR_CERT_ID" \
+            --certificate-oidc-issuer "$OIDC_ISSUER" \
+            --certificate-github-workflow-repository "$GITHUB_REPOSITORY" \
+            --certificate-github-workflow-sha "$PRIOR_GITHUB_SHA" \
+            --certificate-github-workflow-trigger push \
+            > "$EVIDENCE/prior-reverify.log" 2>&1
+          grep -Fq 'Verified OK' "$EVIDENCE/prior-reverify.log"
+          response="$(curl -fsSL -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sigstore")"
+          token="$(printf '%s' "$response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])')"
+          echo "::add-mask::$token"
+          "$RUNNER_TEMP/cosign" sign-blob --yes --identity-token "$token" --bundle "$EVIDENCE/attachment.sigstore.json" "$ATTACHMENT" > "$EVIDENCE/sign.log" 2>&1
+          unset token response
+          "$RUNNER_TEMP/cosign" verify-blob "$ATTACHMENT" \
+            --bundle "$EVIDENCE/attachment.sigstore.json" \
+            --certificate-identity "$CURRENT_CERT_ID" \
+            --certificate-oidc-issuer "$OIDC_ISSUER" \
+            --certificate-github-workflow-repository "$GITHUB_REPOSITORY" \
+            --certificate-github-workflow-sha "$GITHUB_SHA" \
+            --certificate-github-workflow-trigger "$GITHUB_EVENT_NAME" \
+            > "$EVIDENCE/verify.log" 2>&1
+          grep -Fq 'Verified OK' "$EVIDENCE/verify.log"
+
+      - name: Finalize exact receipt-byte binding receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root=Path(os.environ["EVIDENCE"]); sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+          envelope_path=Path(os.environ["ATTACHMENT"]); subject_path=Path(os.environ["SUBJECT"]); receipt_path=Path(os.environ["RECEIPT"])
+          bundle_path=root/"attachment.sigstore.json"; verify_path=root/"verify.log"; prior_reverify=root/"prior-reverify.log"
+          bundle=json.loads(bundle_path.read_text()); envelope=json.loads(envelope_path.read_text())
+          media=str(bundle.get("mediaType","")); material=bundle.get("verificationMaterial",{}); entries=material.get("tlogEntries",[])
+          checks={
+            "attachment_envelope_hash":sha(envelope_path)==os.environ["ATTACHMENT_SHA256"],
+            "canonical_subject_hash":sha(subject_path)==os.environ["SUBJECT_SHA256"],
+            "exact_receipt_file_hash":sha(receipt_path)==os.environ["RECEIPT_SHA256"],
+            "prior_artifact_hash":sha(root/"prior-artifact.zip")==os.environ["PRIOR_ARTIFACT_SHA256"],
+            "prior_external_receipt_hash":sha(root/"prior-external-receipt.json")==os.environ["PRIOR_EXTERNAL_RECEIPT_SHA256"],
+            "prior_bundle_hash":sha(root/"prior-lane-e-canonical.sigstore.json")==os.environ["PRIOR_BUNDLE_SHA256"],
+            "prior_signature_reverified":"Verified OK" in prior_reverify.read_text(),
+            "attachment_bundle_media_type":media.startswith("application/vnd.dev.sigstore.bundle.") and media.endswith("+json"),
+            "attachment_verification_material":bool(material),
+            "attachment_transparency_log":isinstance(entries,list) and len(entries)>=1,
+            "attachment_signed_content":bool(bundle.get("messageSignature") or bundle.get("dsseEnvelope")),
+            "attachment_signature_verified":"Verified OK" in verify_path.read_text(),
+            "lane_m_absent":envelope["governance"]["independent_lane_m_signature_present"] is False,
+            "stage08_blocked":envelope["governance"]["stage08_unblocked"] is False,
+          }
+          if not all(checks.values()): raise SystemExit(checks)
+          result={
+            "schema":"data-science-pipeline/lane-e-exact-receipt-byte-binding-external-receipt/1",
+            "verdict":"PASS_LANE_E_EXACT_RECEIPT_BYTES_BOUND_TO_SIGNED_SUBJECT",
+            "github_run_id":int(os.environ["GITHUB_RUN_ID"]),"github_run_attempt":int(os.environ["GITHUB_RUN_ATTEMPT"]),"github_sha":os.environ["GITHUB_SHA"],"github_ref":os.environ["GITHUB_REF"],"repository":os.environ["GITHUB_REPOSITORY"],
+            "attachment_envelope_sha256":sha(envelope_path),"canonical_subject_sha256":sha(subject_path),"canonical_receipt_file_sha256":sha(receipt_path),"canonical_receipt_self_hash_sha256":os.environ["RECEIPT_SELF_SHA256"],
+            "prior_artifact_sha256":sha(root/"prior-artifact.zip"),"prior_signature_bundle_sha256":sha(root/"prior-lane-e-canonical.sigstore.json"),"prior_signature_reverify_log_sha256":sha(prior_reverify),
+            "attachment_sigstore_bundle_sha256":sha(bundle_path),"attachment_verify_log_sha256":sha(verify_path),"cryptographic_checks":checks,
+            "exact_canonical_subject_bytes_present":True,"exact_operational_receipt_bytes_present":True,"prior_signature_independently_reverified":True,"independent_lane_e_signature_present":True,"independent_lane_m_signature_present":False,
+            "bid_count_status":"ABSTAIN_MISSING_EXPLICIT_FIELD","sefin_source_document_status":"ABSTAIN_MISSING_EXPLICIT_DOCUMENT_REF","relationship_state":"CANDIDATE_REVIEW",
+            "external_cost_usd":0.0,"production_modified":False,"scientific_promotion_credit":0,"stage08_unblocked":False,
+            "next_gate":"independent_lane_m_signature_then_bid_count_and_sefin_document_resolution",
+          }
+          payload=json.dumps(result,ensure_ascii=False,sort_keys=True,separators=(",",":"))+"\n"
+          (root/"external-receipt.json").write_text(payload)
+          (root/"external-receipt.sha256").write_text(hashlib.sha256(payload.encode()).hexdigest()+"  external-receipt.json\n")
+          PY
+
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-v17-lane-e-exact-receipt-oidc
+          path: data-science-v17-lane-e-exact-receipt-oidc-evidence
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce exact receipt-byte terminal
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path=Path("data-science-v17-lane-e-exact-receipt-oidc-evidence/external-receipt.json")
+          if not path.exists(): raise SystemExit("external receipt missing")
+          result=json.loads(path.read_text())
+          assert result["verdict"]=="PASS_LANE_E_EXACT_RECEIPT_BYTES_BOUND_TO_SIGNED_SUBJECT"
+          assert all(result["cryptographic_checks"].values())
+          assert result["exact_operational_receipt_bytes_present"] is True
+          assert result["prior_signature_independently_reverified"] is True
+          assert result["independent_lane_m_signature_present"] is False
+          assert result["stage08_unblocked"] is False
+          print(result["verdict"])
+          PY
