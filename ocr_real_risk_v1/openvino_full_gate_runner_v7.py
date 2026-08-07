@@ -46,6 +46,7 @@ from .openvino_full_gate_registry_v7 import (
     _image_id_from_path,
     verify_registry_bundle,
 )
+from .openvino_preexecution_gate_v7 import verify_preexecution_gate
 
 
 def _load_model(model_zip: Path, extraction_root: Path) -> tuple[Any, dict[str, Any]]:
@@ -393,12 +394,14 @@ def _verify_registry_for_execution(
     registry_root: Path,
     authorization: Mapping[str, Any],
     expected_binding: Mapping[str, Any],
+    expected_preexecution: Mapping[str, Any],
 ) -> dict[str, Any]:
     summary = verify_registry_bundle(registry_root)
     receipt = _read_json(Path(registry_root) / "registry_receipt.json")
     if (
         summary.get("evaluation_authorized") is not True
         or receipt.get("authorization_binding") != expected_binding
+        or receipt.get("preexecution_binding") != expected_preexecution
         or receipt.get("code_bundle") != authorization.get("code_bundle")
         or receipt.get("code_bundle") != current_code_bundle()
         or receipt.get("prior_registry", {}).get("stable_payload_sha256")
@@ -425,6 +428,7 @@ def evaluate_partition_from_source(
     authorization = verify_bound_execution_authorization(
         authorization_path, authorization_sha256, "EVALUATE_PARTITIONS"
     )
+    preexecution = verify_preexecution_gate(authorization)
     claim = verify_execution_claim(
         execution_claim_path, execution_claim_sha256, authorization
     )
@@ -436,7 +440,7 @@ def evaluate_partition_from_source(
     )
     verify_manifest_bundle(manifest_root)
     registry_summary = _verify_registry_for_execution(
-        registry_root, authorization, expected_binding
+        registry_root, authorization, expected_binding, preexecution
     )
     records = _read_jsonl(
         Path(registry_root) / f"active_partition_{partition:02d}.jsonl"
@@ -493,6 +497,7 @@ def evaluate_partition_from_source(
             ],
             "scientific_manifest_sha256": SCIENTIFIC_MANIFEST_SHA256,
             "authorization_binding": expected_binding,
+            "preexecution_binding": preexecution,
             "code_bundle": code_bundle,
             "source_identity": source_identity,
             "runtime": runtime,

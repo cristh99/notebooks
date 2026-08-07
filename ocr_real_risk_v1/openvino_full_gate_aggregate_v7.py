@@ -44,6 +44,7 @@ from .openvino_full_gate_execution_v7 import (
     verify_execution_claim,
 )
 from .openvino_full_gate_registry_v7 import verify_registry_bundle
+from .openvino_preexecution_gate_v7 import verify_preexecution_gate
 
 
 def exact_summary(
@@ -119,12 +120,17 @@ def _validate_report_identity(
     *,
     expected_code_bundle: Mapping[str, str],
     authorization_binding: Mapping[str, Any],
+    expected_preexecution: Mapping[str, Any] | None = None,
 ) -> None:
     source = report.get("source_identity")
     runtime = report.get("runtime")
     model = report.get("model")
     if (
         report.get("authorization_binding") != authorization_binding
+        or (
+            expected_preexecution is not None
+            and report.get("preexecution_binding") != expected_preexecution
+        )
         or report.get("code_bundle") != expected_code_bundle
         or report.get("executor_source_sha256")
         != expected_code_bundle[
@@ -156,6 +162,7 @@ def aggregate_partition_reports(
     registry_stable_payload_sha256: str,
     expected_code_bundle: Mapping[str, str],
     authorization_binding: Mapping[str, Any],
+    expected_preexecution: Mapping[str, Any] | None = None,
     minimum_active: int = MINIMUM_ACTIVE_AFTER_DEDUP,
 ) -> dict[str, Any]:
     if len(expected_partition_counts) != PARTITION_COUNT:
@@ -182,6 +189,7 @@ def aggregate_partition_reports(
             report,
             expected_code_bundle=expected_code_bundle,
             authorization_binding=authorization_binding,
+            expected_preexecution=expected_preexecution,
         )
         partition = int(report.get("partition_id", -1))
         if not 0 <= partition < PARTITION_COUNT or partition in by_partition:
@@ -249,6 +257,7 @@ def aggregate_partition_reports(
         "registry_stable_payload_sha256": registry_stable_payload_sha256,
         "scientific_manifest_sha256": SCIENTIFIC_MANIFEST_SHA256,
         "authorization_binding": authorization_binding,
+        "preexecution_binding": expected_preexecution,
         "code_bundle": dict(expected_code_bundle),
     }
     if integrity_reasons:
@@ -372,6 +381,7 @@ def aggregate_from_files(
     authorization = verify_bound_execution_authorization(
         authorization_path, authorization_sha256, "AGGREGATE"
     )
+    preexecution = verify_preexecution_gate(authorization)
     claim = verify_execution_claim(
         execution_claim_path, execution_claim_sha256, authorization
     )
@@ -386,6 +396,7 @@ def aggregate_from_files(
     if (
         registry.get("evaluation_authorized") is not True
         or registry.get("authorization_binding") != expected_binding
+        or registry_receipt.get("preexecution_binding") != preexecution
         or registry_receipt.get("code_bundle") != authorization["code_bundle"]
         or registry_receipt.get("prior_registry", {}).get("stable_payload_sha256")
         != authorization["prior_registry_stable_payload_sha256"]
@@ -408,6 +419,7 @@ def aggregate_from_files(
         registry_stable_payload_sha256=registry["stable_payload_sha256"],
         expected_code_bundle=authorization["code_bundle"],
         authorization_binding=expected_binding,
+        expected_preexecution=preexecution,
     )
     shutil.rmtree(output_dir, ignore_errors=True)
     output_dir.mkdir(parents=True)
