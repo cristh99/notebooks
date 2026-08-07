@@ -1,14 +1,19 @@
-name: OpenVINO v7 runtime and terminal contract tests
+name: OpenVINO v7 preexecution, runtime, and terminal contracts
 
 on:
   push:
     branches:
       - agent/openvino-v7-smoke-16-stacked-v2
     paths:
+      - "scripts/openvino_runtime_setup_v7.sh"
       - "ocr_real_risk_v1/openvino_runtime_lock_v7.py"
       - "ocr_real_risk_v1/openvino_preexecution_gate_v7.py"
       - "ocr_real_risk_v1/openvino_terminal_ledger_v7.py"
+      - "ocr_real_risk_v1/openvino_full_gate_prepare_v7.py"
+      - "ocr_real_risk_v1/openvino_full_gate_runner_v7.py"
+      - "ocr_real_risk_v1/openvino_full_gate_aggregate_v7.py"
       - "ocr_real_risk_v1/test_openvino_runtime_terminal_v7.py"
+      - "ocr_real_risk_v1/test_openvino_preexecution_entrypoints_v7.py"
       - ".github/workflows/ocr-openvino-v7-prior-registry.yml"
   workflow_dispatch:
 
@@ -17,7 +22,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: openvino-v7-runtime-terminal-contract
+  group: openvino-v7-preexecution-runtime-terminal-contract
   cancel-in-progress: false
 
 env:
@@ -57,34 +62,49 @@ jobs:
           (cd runtime-lock && sha256sum --check --strict SHA256SUMS.txt)
           echo "OPENVINO_TEST_RUNTIME_LOCK_ROOT=${GITHUB_WORKSPACE}/runtime-lock" >> "$GITHUB_ENV"
 
-      - name: Run runtime and terminal adversarial contracts
+      - name: Run all preexecution/runtime/terminal adversarial contracts
         run: |
           set -euo pipefail
           mkdir contract-evidence
           python -m unittest -v \
             ocr_real_risk_v1.test_openvino_runtime_terminal_v7 \
+            ocr_real_risk_v1.test_openvino_preexecution_entrypoints_v7 \
             2>&1 | tee contract-evidence/unittest.log
           python -m compileall -q \
             ocr_real_risk_v1/openvino_runtime_lock_v7.py \
             ocr_real_risk_v1/openvino_preexecution_gate_v7.py \
             ocr_real_risk_v1/openvino_terminal_ledger_v7.py \
-            ocr_real_risk_v1/test_openvino_runtime_terminal_v7.py
+            ocr_real_risk_v1/openvino_full_gate_prepare_v7.py \
+            ocr_real_risk_v1/openvino_full_gate_runner_v7.py \
+            ocr_real_risk_v1/openvino_full_gate_aggregate_v7.py \
+            ocr_real_risk_v1/test_openvino_runtime_terminal_v7.py \
+            ocr_real_risk_v1/test_openvino_preexecution_entrypoints_v7.py
           python - <<'PY'
+          import hashlib
           import json
+          import os
           import re
           from pathlib import Path
+
           log = Path('contract-evidence/unittest.log').read_text()
           match = re.search(r'Ran (\d+) tests?', log)
-          assert match and int(match.group(1)) == 6
+          assert match and int(match.group(1)) == 7
           assert log.rstrip().endswith('OK')
           receipt = {
-              'schema': 'eaat.openvino_v7_runtime_terminal_contract/1',
-              'status': 'PASS_RUNTIME_AND_TERMINAL_FAIL_CLOSED_CONTRACTS',
-              'tests_passed': 6,
+              'schema': 'eaat.openvino_v7_preexecution_runtime_terminal_contract/2',
+              'status': 'PASS_ALL_PREEXECUTION_RUNTIME_TERMINAL_CONTRACTS',
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_sha': os.environ['GITHUB_SHA'],
+              'tests_passed': 7,
               'exact_runtime_artifact_replayed': True,
               'runtime_substitution_rejected': True,
+              'runtime_setup_recipe_substitution_rejected': True,
               'missing_preexecution_environment_rejected': True,
               'terminal_source_substitution_rejected': True,
+              'prepare_gates_before_source': True,
+              'partition_gates_before_source': True,
+              'aggregate_gates_before_registry': True,
+              'preexecution_cross_binding_enforced': True,
               'valid_pass_terminalized_once': True,
               'second_terminalization_rejected': True,
               'aggregate_substitution_rejected': True,
@@ -94,6 +114,10 @@ jobs:
               'ocr_runs': 0,
               'candidate_inference_runs': 0,
           }
+          raw = json.dumps(
+              receipt, sort_keys=True, separators=(',', ':'), ensure_ascii=False
+          ).encode()
+          receipt['stable_payload_sha256'] = hashlib.sha256(raw).hexdigest()
           Path('contract-evidence/contract-receipt.json').write_text(
               json.dumps(receipt, indent=2, sort_keys=True) + '\n'
           )
@@ -106,7 +130,7 @@ jobs:
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: openvino-v7-runtime-terminal-contract-${{ github.sha }}
+          name: openvino-v7-preexecution-runtime-terminal-contract-${{ github.sha }}
           path: contract-evidence/
           if-no-files-found: error
           retention-days: 90
