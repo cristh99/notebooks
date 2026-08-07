@@ -1,0 +1,13 @@
+{
+  "schema": "university-cs1200-ps6-10/source-lock/1",
+  "coordination_surface": "Notion",
+  "coordination_id": "COORD-2026-08-06-PARALLEL-V2",
+  "official_repository": "Harvard-CS-1200/2026-Spring",
+  "official_commit": "0b967fe320ecf2141a6f3b8165d3d096c99fb3ac",
+  "official_tree": "de8ba1477998a406b2d747bd680a8728b40435b0",
+  "psets": [6, 7, 8, 9, 10],
+  "parallel_lanes": 5,
+  "replay_copies": 2,
+  "cost_usd": 0,
+  "scope_boundary": "Source inventory, obligation extraction and Python syntax only; not solved problem sets, grader success, course completion or university mastery."
+}
