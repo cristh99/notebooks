@@ -2,14 +2,17 @@
 
 Historical SROIE terminal manifests predate the explicit source-path field.
 They remain bound by repository, immutable revision, exact Parquet SHA-256, and
-row count.  This entry point installs that single documented compatibility rule
-before exposing the otherwise frozen registry implementation.
+row count. This entry point also corrects the full-population denominator: all
+SROIE rows count, not only its previously selected numeric rows.
 """
 from __future__ import annotations
 
 from typing import Any, Mapping
 
 from . import openvino_prior_registry_v7 as implementation
+
+EXPECTED_TOTAL_ROWS = 38_601
+implementation.EXPECTED_TOTAL_ROWS = EXPECTED_TOTAL_ROWS
 
 
 def _dataset_matches(dataset: Mapping[str, Any], spec: Mapping[str, Any]) -> bool:
@@ -32,7 +35,6 @@ implementation._dataset_matches = _dataset_matches
 
 SOURCE_SPECS = implementation.SOURCE_SPECS
 EXPECTED_SOURCE_IDS = implementation.EXPECTED_SOURCE_IDS
-EXPECTED_TOTAL_ROWS = implementation.EXPECTED_TOTAL_ROWS
 source_url = implementation.source_url
 source_spec = implementation.source_spec
 verify_terminal_artifact = implementation.verify_terminal_artifact
