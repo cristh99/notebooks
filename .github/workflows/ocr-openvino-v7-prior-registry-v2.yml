@@ -1,11 +1,11 @@
-name: OpenVINO v7 full prior-corpus physical registry v2
+name: OpenVINO v7 exact quality-runtime freeze v1
 
 on:
   push:
     branches:
       - agent/openvino-v7-smoke-16-stacked-v2
     paths:
-      - ".openvino-prior-registry-trigger-v2"
+      - ".github/workflows/ocr-openvino-v7-prior-registry-v2.yml"
   workflow_dispatch:
 
 permissions:
@@ -13,262 +13,316 @@ permissions:
   contents: read
 
 concurrency:
-  group: openvino-v7-prior-registry-v2
+  group: openvino-v7-runtime-freeze-v1
   cancel-in-progress: false
 
 env:
   PYTHONHASHSEED: "0"
   OMP_THREAD_LIMIT: "1"
+  OMP_NUM_THREADS: "1"
   OPENBLAS_NUM_THREADS: "1"
   MKL_NUM_THREADS: "1"
   NUMEXPR_NUM_THREADS: "1"
-  GH_TOKEN: ${{ github.token }}
 
 jobs:
-  preflight:
-    name: Zero-source adversarial preflight
+  freeze:
+    name: Build and hash exact CPU quality runtime
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 1
+
       - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
         with:
-          python-version: "3.11"
-      - name: Install frozen test dependencies
-        run: |
-          python -m pip install --disable-pip-version-check --no-cache-dir \
-            Pillow==12.2.0 pyarrow==18.1.0
-      - name: Run registry and full-gate adversarial tests
+          python-version: "3.11.15"
+
+      - name: Build exact Tesseract 5.3.4 source commit
+        shell: bash
         run: |
           set -euo pipefail
-          mkdir -p preflight-evidence
-          bash -n scripts/openvino_prior_source_job_v7.sh
-          bash -n scripts/openvino_prior_aggregate_job_v7.sh
-          python -m unittest -v \
-            ocr_real_risk_v1.test_openvino_prior_registry_v7 \
-            ocr_real_risk_v1.test_openvino_full_gate_v7 \
-            2>&1 | tee preflight-evidence/unittest.log
-          python -m compileall -q \
-            ocr_real_risk_v1/openvino_prior_registry_v7.py \
-            ocr_real_risk_v1/openvino_prior_registry_entry_v7.py \
-            ocr_real_risk_v1/test_openvino_prior_registry_v7.py
-          python -m ocr_real_risk_v1.openvino_prior_registry_entry_v7 \
-            print-spec --source-id textocr \
-            > preflight-evidence/textocr-spec.json
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            autoconf automake libtool pkg-config g++ make git ca-certificates \
+            libleptonica-dev libpng-dev libjpeg-dev libtiff-dev zlib1g-dev \
+            libwebp-dev libopenjp2-7-dev libarchive-dev libcurl4-openssl-dev \
+            libicu-dev libpango1.0-dev libcairo2-dev tesseract-ocr-eng
+          git clone --filter=blob:none --no-checkout \
+            https://github.com/tesseract-ocr/tesseract.git /tmp/tesseract-5.3.4
+          git -C /tmp/tesseract-5.3.4 fetch --depth 1 origin \
+            8ee020e14cf5be4e3f0e9beb09b6b050a1871854
+          git -C /tmp/tesseract-5.3.4 checkout --detach \
+            8ee020e14cf5be4e3f0e9beb09b6b050a1871854
+          test "$(git -C /tmp/tesseract-5.3.4 rev-parse HEAD)" = \
+            "8ee020e14cf5be4e3f0e9beb09b6b050a1871854"
+          cd /tmp/tesseract-5.3.4
+          ./autogen.sh
+          ./configure --disable-doc
+          make -j2
+          sudo make install
+          sudo ldconfig
+          ENG_TRAINEDDATA="$(dpkg -L tesseract-ocr-eng | grep '/eng.traineddata$' | head -1)"
+          test -f "$ENG_TRAINEDDATA"
+          sudo mkdir -p /usr/local/share/tessdata
+          sudo cp "$ENG_TRAINEDDATA" /usr/local/share/tessdata/eng.traineddata
+          echo "TESSDATA_PREFIX=/usr/local/share/tessdata" >> "$GITHUB_ENV"
+          /usr/local/bin/tesseract --version | tee /tmp/tesseract-version.txt
+          test "$(head -1 /tmp/tesseract-version.txt)" = "tesseract 5.3.4"
+
+      - name: Install complete pinned Python dependency closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --only-binary=:all: \
+            Pillow==12.2.0 \
+            numpy==2.2.6 \
+            opencv-python-headless==4.10.0.84 \
+            scikit-learn==1.8.0 \
+            scipy==1.17.1 \
+            threadpoolctl==3.6.0 \
+            joblib==1.5.3 \
+            pyarrow==18.1.0 \
+            pytesseract==0.3.13 \
+            duckdb==1.5.5 \
+            packaging==26.3
+
+      - name: Capture complete file-level runtime identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf runtime-lock
+          mkdir runtime-lock
+          python -m pip freeze --all | LC_ALL=C sort > runtime-lock/python-freeze.txt
+          python -m pip debug --verbose > runtime-lock/pip-debug.txt
+          dpkg-query -W -f='${Package}\t${Version}\t${Architecture}\n' \
+            | LC_ALL=C sort > runtime-lock/dpkg-packages.txt
+          cp /tmp/tesseract-version.txt runtime-lock/tesseract-version.txt
+          uname -a > runtime-lock/uname.txt
+          lscpu > runtime-lock/lscpu.txt
+          locale > runtime-lock/locale.txt
+          cp /etc/os-release runtime-lock/os-release.txt
+
           python - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import importlib.metadata
           import json
-          spec = json.load(open('preflight-evidence/textocr-spec.json'))
-          assert spec['rows'] == 21778
-          assert spec['artifact_id'] == 8961886770
-          assert spec['source_sha256'] == 'f2d50b206923e4bdb70e9200e92b31bd8626acc37466bab8379fa48bb9c62823'
-          PY
-          (cd preflight-evidence && \
-            find . -type f ! -name SHA256SUMS.txt -print0 \
-              | sort -z | xargs -0 sha256sum \
-              | sed 's#  \./#  #' > SHA256SUMS.txt)
-          (cd preflight-evidence && sha256sum --check --strict SHA256SUMS.txt)
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: openvino-prior-registry-preflight-v2-${{ github.sha }}
-          path: preflight-evidence/
-          if-no-files-found: error
-          retention-days: 90
-          compression-level: 9
-
-  fingerprint:
-    name: Physical fingerprints — ${{ matrix.source_id }}
-    needs: preflight
-    runs-on: ubuntu-24.04
-    timeout-minutes: 240
-    strategy:
-      fail-fast: false
-      max-parallel: 13
-      matrix:
-        source_id:
-          - sroie-train
-          - sroie-test
-          - cord-train-0
-          - cord-train-1
-          - cord-train-2
-          - cord-train-3
-          - cord-validation
-          - cord-test
-          - wildreceipt-train-0
-          - wildreceipt-train-1
-          - wildreceipt-test
-          - textocr
-          - cocotext
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        with:
-          fetch-depth: 1
-      - name: Free standard-runner disk
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup || true
-          sudo rm -rf /var/lib/apt/lists/* || true
-          available_kb="$(df -Pk "$RUNNER_TEMP" | awk 'NR==2 {print $4}')"
-          test "$available_kb" -ge 10000000
-          df -h
-      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
-        with:
-          python-version: "3.11"
-      - name: Install frozen image-only runtime
-        run: |
-          python -m pip install --disable-pip-version-check --no-cache-dir \
-            Pillow==12.2.0 pyarrow==18.1.0
-      - name: Verify exact source and fingerprint every image row
-        run: |
-          set -euo pipefail
-          bash scripts/openvino_prior_source_job_v7.sh \
-            "${{ matrix.source_id }}"
-          df -h
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: openvino-prior-source-v2-${{ matrix.source_id }}-${{ github.sha }}
-          path: source-fingerprint-${{ matrix.source_id }}/
-          if-no-files-found: error
-          retention-days: 90
-          compression-level: 9
-
-  aggregate:
-    name: Combine all five prior corpora
-    needs: fingerprint
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    outputs:
-      artifact_id: ${{ steps.upload.outputs.artifact-id }}
-      artifact_digest: ${{ steps.upload.outputs.artifact-digest }}
-      registry_stable: ${{ steps.summary.outputs.registry_stable }}
-      population_rows: ${{ steps.summary.outputs.population_rows }}
-      unique_encoded: ${{ steps.summary.outputs.unique_encoded }}
-      unique_pixels: ${{ steps.summary.outputs.unique_pixels }}
-      cross_corpus_groups: ${{ steps.summary.outputs.cross_corpus_groups }}
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        with:
-          fetch-depth: 1
-      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
-        with:
-          python-version: "3.11"
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: openvino-prior-source-v2-*-${{ github.sha }}
-          path: prior-source-bundles
-          merge-multiple: false
-      - name: Build and replay combined registry
-        id: summary
-        run: |
-          set -euo pipefail
-          bash scripts/openvino_prior_aggregate_job_v7.sh \
-            prior-source-bundles prior-registry \
-            | tee aggregate-summary.json
-          python - <<'PY' >> "$GITHUB_OUTPUT"
-          import json
-          summary = json.load(open('aggregate-summary.json'))
-          for key, value in summary.items():
-              print(f'{key}={value}')
-          PY
-      - id: upload
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: openvino-v7-prior-corpus-registry-v2-${{ github.sha }}
-          path: prior-registry/
-          if-no-files-found: error
-          retention-days: 90
-          compression-level: 9
-
-  terminal-replay:
-    name: Terminal registry replay and boundary receipt
-    needs: aggregate
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        with:
-          fetch-depth: 1
-      - uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
-        with:
-          python-version: "3.11"
-      - name: Recover combined artifact by exact ID and digest
-        env:
-          REGISTRY_ARTIFACT_ID: ${{ needs.aggregate.outputs.artifact_id }}
-          REGISTRY_ARTIFACT_DIGEST: ${{ needs.aggregate.outputs.artifact_digest }}
-        run: |
-          set -euo pipefail
-          gh api \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${REGISTRY_ARTIFACT_ID}/zip" \
-            > prior-registry.zip
-          echo "${REGISTRY_ARTIFACT_DIGEST#sha256:}  prior-registry.zip" \
-            | sha256sum --check --strict
-          mkdir -p prior-registry
-          unzip -q prior-registry.zip -d prior-registry
-          (cd prior-registry && sha256sum --check --strict SHA256SUMS.txt)
-          python -m ocr_real_risk_v1.openvino_prior_registry_entry_v7 \
-            verify prior-registry > terminal-replay.json
-      - name: Seal terminal no-OpenVINO-outcomes receipt
-        env:
-          REGISTRY_ARTIFACT_ID: ${{ needs.aggregate.outputs.artifact_id }}
-          REGISTRY_ARTIFACT_DIGEST: ${{ needs.aggregate.outputs.artifact_digest }}
-          REGISTRY_STABLE: ${{ needs.aggregate.outputs.registry_stable }}
-          POPULATION_ROWS: ${{ needs.aggregate.outputs.population_rows }}
-          UNIQUE_ENCODED: ${{ needs.aggregate.outputs.unique_encoded }}
-          UNIQUE_PIXELS: ${{ needs.aggregate.outputs.unique_pixels }}
-          CROSS_CORPUS_GROUPS: ${{ needs.aggregate.outputs.cross_corpus_groups }}
-        run: |
-          set -euo pipefail
-          mkdir -p terminal-evidence
-          cp terminal-replay.json terminal-evidence/
-          python - <<'PY'
-          import hashlib, json, os
+          import os
+          import platform
+          import re
+          import subprocess
+          import sys
           from pathlib import Path
-          replay = json.load(open('terminal-replay.json'))
-          assert replay['complete'] is True
-          assert replay['population_rows'] == 38459
-          assert replay['openvino_scientific_images_opened'] == 0
-          receipt = {
-              'schema': 'eaat.openvino_v7_prior_registry_terminal/2',
-              'status': 'PASS_FULL_PRIOR_CORPUS_PHYSICAL_REGISTRY',
-              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
-              'github_sha': os.environ['GITHUB_SHA'],
-              'artifact_id': int(os.environ['REGISTRY_ARTIFACT_ID']),
-              'artifact_digest': os.environ['REGISTRY_ARTIFACT_DIGEST'],
-              'registry_stable_payload_sha256': os.environ['REGISTRY_STABLE'],
-              'population_rows': int(os.environ['POPULATION_ROWS']),
-              'unique_encoded_sha256': int(os.environ['UNIQUE_ENCODED']),
-              'unique_pixel_sha256': int(os.environ['UNIQUE_PIXELS']),
-              'cross_corpus_duplicate_groups': int(os.environ['CROSS_CORPUS_GROUPS']),
-              'corpora': ['SROIE', 'CORD', 'WildReceipt', 'TextOCR', 'COCO-Text'],
-              'source_shards': 13,
-              'full_source_hashes_verified': True,
-              'full_populations_fingerprinted': True,
-              'annotation_columns_read': False,
-              'ocr_runs': 0,
-              'candidate_inference_runs': 0,
-              'openvino_scientific_images_opened': 0,
-              'external_spend_usd': 0,
-              'automatic_production_change': False,
-              'full_openvino_execution_authorized': False,
-              'next_gate': 'ATOMIC_GITHUB_LEDGER_WORKFLOW_AND_FINAL_CHANGE_REVIEW',
+
+          root = Path('runtime-lock')
+          distributions = (
+              'Pillow', 'numpy', 'opencv-python-headless', 'scikit-learn',
+              'scipy', 'threadpoolctl', 'joblib', 'pyarrow', 'pytesseract',
+              'duckdb', 'packaging',
+          )
+
+          def sha(path: Path) -> str:
+              digest = hashlib.sha256()
+              with path.open('rb') as handle:
+                  for chunk in iter(lambda: handle.read(1024 * 1024), b''):
+                      digest.update(chunk)
+              return digest.hexdigest()
+
+          package_rows: list[str] = []
+          native_candidates: set[Path] = {
+              Path(sys.executable).resolve(),
+              Path('/usr/local/bin/tesseract').resolve(),
           }
-          raw = json.dumps(receipt, sort_keys=True, separators=(',', ':')).encode()
-          receipt['stable_payload_sha256'] = hashlib.sha256(raw).hexdigest()
-          Path('terminal-evidence/terminal-receipt.json').write_text(
-              json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          package_versions: dict[str, str] = {}
+          for name in distributions:
+              dist = importlib.metadata.distribution(name)
+              package_versions[name] = dist.version
+              for item in dist.files or ():
+                  path = Path(dist.locate_file(item))
+                  if not path.is_file():
+                      continue
+                  resolved = path.resolve()
+                  package_rows.append(
+                      f'{name}\t{item.as_posix()}\t{sha(resolved)}\t{resolved.stat().st_size}'
+                  )
+                  if resolved.suffix == '.so' or '.so.' in resolved.name:
+                      native_candidates.add(resolved)
+          package_rows.sort()
+          package_manifest = root / 'python-files.sha256'
+          package_manifest.write_text('\n'.join(package_rows) + '\n')
+
+          native_paths: set[Path] = set()
+          ldd_pattern = re.compile(r'(?:=>\s+)?(/[^\s]+)')
+          for candidate in sorted(native_candidates):
+              if not candidate.is_file():
+                  raise RuntimeError(f'missing native candidate: {candidate}')
+              native_paths.add(candidate)
+              result = subprocess.run(
+                  ['ldd', str(candidate)],
+                  text=True,
+                  stdout=subprocess.PIPE,
+                  stderr=subprocess.STDOUT,
+                  check=False,
+              )
+              if result.returncode not in {0, 1}:
+                  raise RuntimeError(f'ldd failed for {candidate}: {result.stdout}')
+              for match in ldd_pattern.finditer(result.stdout):
+                  path = Path(match.group(1))
+                  if path.is_file():
+                      native_paths.add(path.resolve())
+          native_rows = [
+              f'{path}\t{sha(path)}\t{path.stat().st_size}'
+              for path in sorted(native_paths)
+          ]
+          native_manifest = root / 'native-files.sha256'
+          native_manifest.write_text('\n'.join(native_rows) + '\n')
+
+          traineddata = Path('/usr/local/share/tessdata/eng.traineddata')
+          python_executable = Path(sys.executable).resolve()
+          tesseract_binary = Path('/usr/local/bin/tesseract').resolve()
+          first = subprocess.check_output(
+              [str(tesseract_binary), '--version'], text=True
+          ).splitlines()[0]
+          if first != 'tesseract 5.3.4':
+              raise RuntimeError(first)
+          runner = {
+              'runner_os': os.environ.get('RUNNER_OS'),
+              'runner_arch': os.environ.get('RUNNER_ARCH'),
+              'image_os': os.environ.get('ImageOS'),
+              'image_version': os.environ.get('ImageVersion'),
+          }
+          (root / 'runner-metadata.json').write_text(
+              json.dumps(runner, indent=2, sort_keys=True) + '\n'
+          )
+          lock = {
+              'schema': 'eaat.openvino_v7_quality_runtime_lock/1',
+              'status': 'FROZEN_QUALITY_RUNTIME_NO_SPEED_CLAIM',
+              'repository_commit': os.environ['GITHUB_SHA'],
+              'runner': runner,
+              'platform': {
+                  'python': platform.python_version(),
+                  'implementation': platform.python_implementation(),
+                  'machine': platform.machine(),
+                  'system': platform.system(),
+                  'release': platform.release(),
+              },
+              'python': {
+                  'version': platform.python_version(),
+                  'executable': str(python_executable),
+                  'executable_sha256': sha(python_executable),
+                  'package_versions': package_versions,
+                  'freeze_sha256': sha(root / 'python-freeze.txt'),
+                  'package_files_manifest_sha256': sha(package_manifest),
+                  'pip_debug_sha256': sha(root / 'pip-debug.txt'),
+              },
+              'tesseract': {
+                  'version': '5.3.4',
+                  'source_commit': '8ee020e14cf5be4e3f0e9beb09b6b050a1871854',
+                  'binary': str(tesseract_binary),
+                  'binary_sha256': sha(tesseract_binary),
+                  'eng_traineddata': str(traineddata),
+                  'eng_traineddata_sha256': sha(traineddata),
+                  'version_report_sha256': sha(root / 'tesseract-version.txt'),
+              },
+              'system': {
+                  'os_release_sha256': sha(root / 'os-release.txt'),
+                  'dpkg_manifest_sha256': sha(root / 'dpkg-packages.txt'),
+                  'native_files_manifest_sha256': sha(native_manifest),
+                  'uname_sha256': sha(root / 'uname.txt'),
+                  'lscpu_sha256': sha(root / 'lscpu.txt'),
+                  'locale_sha256': sha(root / 'locale.txt'),
+              },
+              'execution': {
+                  'pythonhashseed': '0',
+                  'omp_thread_limit': '1',
+                  'omp_num_threads': '1',
+                  'openblas_num_threads': '1',
+                  'mkl_num_threads': '1',
+                  'numexpr_num_threads': '1',
+                  'quality_claim_authorized': True,
+                  'speed_claim_authorized': False,
+                  'scientific_execution_authorized': False,
+                  'openvino_scientific_images_opened': 0,
+                  'ocr_runs': 0,
+                  'candidate_inference_runs': 0,
+                  'external_spend_usd': 0,
+              },
+          }
+          unsigned = json.dumps(
+              lock, sort_keys=True, separators=(',', ':'), ensure_ascii=False
+          ).encode()
+          lock['stable_payload_sha256'] = hashlib.sha256(unsigned).hexdigest()
+          (root / 'runtime-lock.json').write_text(
+              json.dumps(lock, indent=2, sort_keys=True) + '\n'
           )
           PY
-          (cd terminal-evidence && \
+
+          (cd runtime-lock && \
             find . -type f ! -name SHA256SUMS.txt -print0 \
               | sort -z | xargs -0 sha256sum \
               | sed 's#  \./#  #' > SHA256SUMS.txt)
-          (cd terminal-evidence && sha256sum --check --strict SHA256SUMS.txt)
+          (cd runtime-lock && sha256sum --check --strict SHA256SUMS.txt)
+
+      - name: Independently replay all declared file identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          def sha(path: Path) -> str:
+              digest = hashlib.sha256()
+              with path.open('rb') as handle:
+                  for chunk in iter(lambda: handle.read(1024 * 1024), b''):
+                      digest.update(chunk)
+              return digest.hexdigest()
+
+          root = Path('runtime-lock')
+          payload = json.loads((root / 'runtime-lock.json').read_text())
+          observed = payload.pop('stable_payload_sha256')
+          raw = json.dumps(
+              payload, sort_keys=True, separators=(',', ':'), ensure_ascii=False
+          ).encode()
+          assert observed == hashlib.sha256(raw).hexdigest()
+          assert payload['status'] == 'FROZEN_QUALITY_RUNTIME_NO_SPEED_CLAIM'
+          assert payload['platform']['python'] == '3.11.15'
+          assert payload['tesseract']['version'] == '5.3.4'
+          assert payload['tesseract']['source_commit'] == \
+              '8ee020e14cf5be4e3f0e9beb09b6b050a1871854'
+          assert payload['python']['executable_sha256'] == sha(
+              Path(payload['python']['executable'])
+          )
+          assert payload['tesseract']['binary_sha256'] == sha(
+              Path(payload['tesseract']['binary'])
+          )
+          assert payload['tesseract']['eng_traineddata_sha256'] == sha(
+              Path(payload['tesseract']['eng_traineddata'])
+          )
+          assert payload['python']['freeze_sha256'] == sha(
+              root / 'python-freeze.txt'
+          )
+          assert payload['python']['package_files_manifest_sha256'] == sha(
+              root / 'python-files.sha256'
+          )
+          assert payload['system']['native_files_manifest_sha256'] == sha(
+              root / 'native-files.sha256'
+          )
+          assert payload['system']['dpkg_manifest_sha256'] == sha(
+              root / 'dpkg-packages.txt'
+          )
+          assert payload['execution']['speed_claim_authorized'] is False
+          assert payload['execution']['scientific_execution_authorized'] is False
+          assert payload['execution']['openvino_scientific_images_opened'] == 0
+          PY
+
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: openvino-v7-prior-registry-terminal-v2-${{ github.sha }}
-          path: terminal-evidence/
+          name: openvino-v7-quality-runtime-lock-${{ github.sha }}
+          path: runtime-lock/
           if-no-files-found: error
           retention-days: 90
           compression-level: 9
