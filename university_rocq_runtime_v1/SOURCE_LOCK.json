@@ -1,0 +1,14 @@
+{
+  "schema": "university-software-foundations-rocq/source-lock/1",
+  "official_site": "https://softwarefoundations.cis.upenn.edu/",
+  "volume": "Logical Foundations",
+  "volume_version": "7.0",
+  "volume_date": "2026-01-09 13:17",
+  "minimum_rocq_coq": "9.0.0",
+  "source_url": "https://softwarefoundations.cis.upenn.edu/current/lf-current/lf.tgz",
+  "source_sha256": "3721c1f9a25243251a30e3be9b861707c8e1ab4ba2d1e5374ca8ef36f8dcf130",
+  "container_image": "rocq/rocq-prover:9.0",
+  "container_digest": "sha256:787ea5569c9bf40e03a2255224365cb2fb0ae4a446fc60565dd61b1656d1699d",
+  "serial_jobs": 1,
+  "parallel_jobs": 4
+}
