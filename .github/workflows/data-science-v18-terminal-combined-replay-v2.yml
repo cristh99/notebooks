@@ -1,0 +1,213 @@
+name: Data Science v18 - terminal combined replay v2
+
+on:
+  push:
+    branches: [agent/data-science-v18-terminal-combined-replay-v1]
+    paths:
+      - .github/workflows/data-science-v18-terminal-combined-replay-v2.yml
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+
+concurrency:
+  group: data-science-v18-terminal-combined-replay-v2
+  cancel-in-progress: true
+
+env:
+  COMPONENT: data_science_pipeline_v18_terminal_combiner
+  EVIDENCE: data-science-v18-terminal-combined-v2-evidence
+  CAPSULE_SHA256: 7d9778fd641d81c2f9e9d80dcf09493f55fe581b9cbc42961fd02ed7d9be24b5
+  COMBINED_RESULT_SHA256: 996ecd0c04019d129c29b505a2f3df0c47850a9631929387d0ff905e40362aa6
+  SOURCE_EVENTS_SHA256: 6350ad05def4cf5bd52f8d0c888a6f00ac03f31e423eee941356452c89ffb158
+  RELATIONSHIP_SHA256: 57a941c5d937856b792b285a2e97918b183d6b057739df6f8dfbfa94a47e2b02
+  LOCAL_RESULT_SHA256: 2789ea6c75cf31b67cd0e8d7f8e1b64a62117bbf2495165d744858ed2ceba992
+  LANE_E_ARTIFACT_ID: '8979525631'
+  LANE_E_OFFICIAL_DIGEST: sha256:2fcf8adfcadc56a16f4b8905cebeaf0818527e554d8648bde511d0b5a90a588e
+  LANE_E_EXTERNAL_RECEIPT_SHA256: 073b58c8a32f4db343cfe7f6ef6ba4ca7cddafb137712a82dc5ead6ebb71d1ec
+  LANE_E_ATTACHMENT_BUNDLE_SHA256: 22e82a196ae89c14edab587f980b26884c52ced93b95fbaa355f0bf957884141
+  LANE_E_PRIOR_BUNDLE_SHA256: 324456fa4ce224e9bf7b77d475f89174a5a24a0b0ef32d323d7e27b4f2539753
+  LANE_E_PRIOR_SHA: 96787111628e6c38ac0262a8a988a17f291a6f28
+  LANE_E_ATTACHMENT_SHA: b1ed005d6ea7a56767955e0b562676be8454edc0
+  LANE_M_ARTIFACT_ID: '8980035702'
+  LANE_M_OFFICIAL_DIGEST: sha256:5ef84212e549515db48dbf13f68804b80064ff3dc31122b4c57632b3d1c37f73
+  LANE_M_EXTERNAL_RECEIPT_SHA256: fcca5edc10a7308882c32b1670feef49a989bb2b71077f779aafa146bdc1c061
+  LANE_M_BUNDLE_SHA256: 50dfa10eba129873a95185fe3283a12ce2330d626bdd7ecac6f397e85a87c855
+  LANE_M_SHA: 7605d800f363e32bced6a637794b722ed611f656
+  COSIGN_VERSION: 3.0.6
+  COSIGN_SHA256: c956e5dfcac53d52bcf058360d579472f0c1d2d9b69f55209e256fe7783f4c74
+  OIDC_ISSUER: https://token.actions.githubusercontent.com
+  LANE_E_PRIOR_CERT_ID: https://github.com/cristh99/notebooks/.github/workflows/data-science-v17-lane-e-canonical-oidc.yml@refs/heads/agent/data-science-v17-lane-e-oidc-signature-v1
+  LANE_E_ATTACHMENT_CERT_ID: https://github.com/cristh99/notebooks/.github/workflows/data-science-v17-lane-e-exact-receipt-oidc.yml@refs/heads/agent/data-science-v17-lane-e-oidc-signature-v1
+  LANE_M_CERT_ID: https://github.com/cristh99/notebooks/.github/workflows/data-science-v17-lane-m-oidc.yml@refs/heads/agent/data-science-v17-lane-m-oidc-signature-v1
+  COMBINED_CERT_ID: https://github.com/cristh99/notebooks/.github/workflows/data-science-v18-terminal-combined-replay-v2.yml@refs/heads/agent/data-science-v18-terminal-combined-replay-v1
+
+jobs:
+  replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Reconstruct once and verify 48 tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = cristh99/notebooks
+          test "$GITHUB_REF" = refs/heads/agent/data-science-v18-terminal-combined-replay-v1
+          mkdir -p "$EVIDENCE" "$RUNNER_TEMP/runtime"
+          cat "$COMPONENT"/transport/part_*.b64 | tr -d '\r\n\t ' | base64 --decode > "$RUNNER_TEMP/capsule.zip"
+          printf '%s  %s\n' "$CAPSULE_SHA256" "$RUNNER_TEMP/capsule.zip" | sha256sum -c -
+          python3 - "$RUNNER_TEMP/capsule.zip" "$RUNNER_TEMP/runtime" <<'PY'
+          from pathlib import Path, PurePosixPath
+          from zipfile import ZipFile
+          import sys
+          archive,out=Path(sys.argv[1]),Path(sys.argv[2])
+          expected={'COMBINED_RESULT.json','COMBINER_CONTRACT.json','FREEZE.json','LANE_E_CANONICAL_RECEIPT.json','LANE_E_CANONICAL_SUBJECT.json','LANE_E_EXACT_RECEIPT_ATTACHMENT_ENVELOPE.json','LANE_E_TERMINAL_EXTERNAL_RECEIPT.json','LANE_M_CANONICAL_RECEIPT.json','LANE_M_SIGNATURE_SUBJECT.json','LANE_M_TERMINAL_EXTERNAL_RECEIPT.json','LOCAL_RESULT.json','PACKAGE_MANIFEST.json','README.md','RELATIONSHIP_TERMINAL.json','SOURCE_NATIVE_EVENTS.jsonl','combine.py','test_combine.py','verify.py'}
+          with ZipFile(archive) as z:
+              names=z.namelist()
+              if len(names)!=len(set(names)) or set(names)!=expected: raise SystemExit(sorted(set(names)^expected))
+              if any(PurePosixPath(n).is_absolute() or '..' in PurePosixPath(n).parts or len(PurePosixPath(n).parts)!=1 for n in names): raise SystemExit('unsafe ZIP member')
+              z.extractall(out)
+          PY
+          python3 "$RUNNER_TEMP/runtime/verify.py" --output "$EVIDENCE/local-receipt.json" | tee "$EVIDENCE/local-verification.log"
+          cmp "$RUNNER_TEMP/runtime/LOCAL_RESULT.json" "$EVIDENCE/local-receipt.json"
+          printf '%s  %s\n' "$COMBINED_RESULT_SHA256" "$RUNNER_TEMP/runtime/COMBINED_RESULT.json" | sha256sum -c -
+          printf '%s  %s\n' "$SOURCE_EVENTS_SHA256" "$RUNNER_TEMP/runtime/SOURCE_NATIVE_EVENTS.jsonl" | sha256sum -c -
+          printf '%s  %s\n' "$RELATIONSHIP_SHA256" "$RUNNER_TEMP/runtime/RELATIONSHIP_TERMINAL.json" | sha256sum -c -
+          printf '%s  %s\n' "$LOCAL_RESULT_SHA256" "$EVIDENCE/local-receipt.json" | sha256sum -c -
+          cp "$RUNNER_TEMP/runtime/COMBINED_RESULT.json" "$EVIDENCE/"
+          cp "$RUNNER_TEMP/runtime/SOURCE_NATIVE_EVENTS.jsonl" "$EVIDENCE/"
+          cp "$RUNNER_TEMP/runtime/RELATIONSHIP_TERMINAL.json" "$EVIDENCE/"
+
+      - name: Resolve and pin terminal artifact contents
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/lane-e-raw" "$RUNNER_TEMP/lane-m-raw" "$RUNNER_TEMP/lane-e" "$RUNNER_TEMP/lane-m"
+          fetch_artifact() {
+            name="$1" id="$2" expected_digest="$3" out="$4"
+            meta="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$id")"
+            actual="$(printf '%s' "$meta" | python3 -c 'import json,sys; print(json.load(sys.stdin)["digest"])')"
+            test "$actual" = "$expected_digest"
+            printf '%s\n' "$meta" > "$EVIDENCE/$name-artifact-metadata.json"
+            curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$id/zip" -o "$EVIDENCE/$name-download.zip"
+            unzip -q "$EVIDENCE/$name-download.zip" -d "$out"
+          }
+          fetch_artifact lane-e "$LANE_E_ARTIFACT_ID" "$LANE_E_OFFICIAL_DIGEST" "$RUNNER_TEMP/lane-e-raw"
+          fetch_artifact lane-m "$LANE_M_ARTIFACT_ID" "$LANE_M_OFFICIAL_DIGEST" "$RUNNER_TEMP/lane-m-raw"
+          copy_unique() {
+            root="$1" name="$2" dest="$3"
+            mapfile -t hits < <(find "$root" -type f -name "$name" -print)
+            test "${#hits[@]}" -eq 1
+            cp "${hits[0]}" "$dest"
+          }
+          copy_unique "$RUNNER_TEMP/lane-e-raw" external-receipt.json "$RUNNER_TEMP/lane-e/external-receipt.json"
+          copy_unique "$RUNNER_TEMP/lane-e-raw" attachment.sigstore.json "$RUNNER_TEMP/lane-e/attachment.sigstore.json"
+          copy_unique "$RUNNER_TEMP/lane-e-raw" prior-lane-e-canonical.sigstore.json "$RUNNER_TEMP/lane-e/prior.sigstore.json"
+          copy_unique "$RUNNER_TEMP/lane-m-raw" external-receipt.json "$RUNNER_TEMP/lane-m/external-receipt.json"
+          copy_unique "$RUNNER_TEMP/lane-m-raw" lane-m.sigstore.json "$RUNNER_TEMP/lane-m/lane-m.sigstore.json"
+          printf '%s  %s\n' "$LANE_E_EXTERNAL_RECEIPT_SHA256" "$RUNNER_TEMP/lane-e/external-receipt.json" | sha256sum -c -
+          printf '%s  %s\n' "$LANE_E_ATTACHMENT_BUNDLE_SHA256" "$RUNNER_TEMP/lane-e/attachment.sigstore.json" | sha256sum -c -
+          printf '%s  %s\n' "$LANE_E_PRIOR_BUNDLE_SHA256" "$RUNNER_TEMP/lane-e/prior.sigstore.json" | sha256sum -c -
+          printf '%s  %s\n' "$LANE_M_EXTERNAL_RECEIPT_SHA256" "$RUNNER_TEMP/lane-m/external-receipt.json" | sha256sum -c -
+          printf '%s  %s\n' "$LANE_M_BUNDLE_SHA256" "$RUNNER_TEMP/lane-m/lane-m.sigstore.json" | sha256sum -c -
+          cp "$RUNNER_TEMP/lane-e/external-receipt.json" "$EVIDENCE/lane-e-external-receipt.json"
+          cp "$RUNNER_TEMP/lane-m/external-receipt.json" "$EVIDENCE/lane-m-external-receipt.json"
+
+      - name: Install Cosign and reverify terminal signatures
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" -o "$RUNNER_TEMP/cosign"
+          printf '%s  %s\n' "$COSIGN_SHA256" "$RUNNER_TEMP/cosign" | sha256sum -c -
+          chmod 0755 "$RUNNER_TEMP/cosign"
+          "$RUNNER_TEMP/cosign" version > "$EVIDENCE/cosign-version.txt"
+          "$RUNNER_TEMP/cosign" verify-blob "$RUNNER_TEMP/runtime/LANE_E_CANONICAL_SUBJECT.json" --bundle "$RUNNER_TEMP/lane-e/prior.sigstore.json" --certificate-identity "$LANE_E_PRIOR_CERT_ID" --certificate-oidc-issuer "$OIDC_ISSUER" --certificate-github-workflow-repository "$GITHUB_REPOSITORY" --certificate-github-workflow-sha "$LANE_E_PRIOR_SHA" --certificate-github-workflow-trigger push > "$EVIDENCE/lane-e-prior-reverify.log" 2>&1
+          "$RUNNER_TEMP/cosign" verify-blob "$RUNNER_TEMP/runtime/LANE_E_EXACT_RECEIPT_ATTACHMENT_ENVELOPE.json" --bundle "$RUNNER_TEMP/lane-e/attachment.sigstore.json" --certificate-identity "$LANE_E_ATTACHMENT_CERT_ID" --certificate-oidc-issuer "$OIDC_ISSUER" --certificate-github-workflow-repository "$GITHUB_REPOSITORY" --certificate-github-workflow-sha "$LANE_E_ATTACHMENT_SHA" --certificate-github-workflow-trigger push > "$EVIDENCE/lane-e-attachment-reverify.log" 2>&1
+          "$RUNNER_TEMP/cosign" verify-blob "$RUNNER_TEMP/runtime/LANE_M_SIGNATURE_SUBJECT.json" --bundle "$RUNNER_TEMP/lane-m/lane-m.sigstore.json" --certificate-identity "$LANE_M_CERT_ID" --certificate-oidc-issuer "$OIDC_ISSUER" --certificate-github-workflow-repository "$GITHUB_REPOSITORY" --certificate-github-workflow-sha "$LANE_M_SHA" --certificate-github-workflow-trigger push > "$EVIDENCE/lane-m-reverify.log" 2>&1
+          grep -Fq 'Verified OK' "$EVIDENCE/lane-e-prior-reverify.log"
+          grep -Fq 'Verified OK' "$EVIDENCE/lane-e-attachment-reverify.log"
+          grep -Fq 'Verified OK' "$EVIDENCE/lane-m-reverify.log"
+
+      - name: Sign combined result and emit receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          response="$(curl -fsSL -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sigstore")"
+          token="$(printf '%s' "$response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])')"
+          echo "::add-mask::$token"
+          "$RUNNER_TEMP/cosign" sign-blob --yes --identity-token "$token" --bundle "$EVIDENCE/combined-result.sigstore.json" "$RUNNER_TEMP/runtime/COMBINED_RESULT.json" > "$EVIDENCE/sign.log" 2>&1
+          unset token response
+          "$RUNNER_TEMP/cosign" verify-blob "$RUNNER_TEMP/runtime/COMBINED_RESULT.json" --bundle "$EVIDENCE/combined-result.sigstore.json" --certificate-identity "$COMBINED_CERT_ID" --certificate-oidc-issuer "$OIDC_ISSUER" --certificate-github-workflow-repository "$GITHUB_REPOSITORY" --certificate-github-workflow-sha "$GITHUB_SHA" --certificate-github-workflow-trigger "$GITHUB_EVENT_NAME" > "$EVIDENCE/verify.log" 2>&1
+          grep -Fq 'Verified OK' "$EVIDENCE/verify.log"
+          python3 - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          runtime=Path(os.environ['RUNNER_TEMP'])/'runtime'; evidence=Path(os.environ['EVIDENCE']); sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+          output=json.loads((runtime/'COMBINED_RESULT.json').read_text()); relation=json.loads((runtime/'RELATIONSHIP_TERMINAL.json').read_text()); local=json.loads((evidence/'local-receipt.json').read_text()); e=json.loads((evidence/'lane-e-external-receipt.json').read_text()); m=json.loads((evidence/'lane-m-external-receipt.json').read_text()); bundle_path=evidence/'combined-result.sigstore.json'; bundle=json.loads(bundle_path.read_text()); material=bundle.get('verificationMaterial',{}); entries=material.get('tlogEntries',[]); events=output['source_native_events']
+          checks={
+            'combined_hash':sha(runtime/'COMBINED_RESULT.json')==os.environ['COMBINED_RESULT_SHA256'],
+            'source_events_hash':sha(runtime/'SOURCE_NATIVE_EVENTS.jsonl')==os.environ['SOURCE_EVENTS_SHA256'],
+            'relationship_hash':sha(runtime/'RELATIONSHIP_TERMINAL.json')==os.environ['RELATIONSHIP_SHA256'],
+            'local_hash':sha(evidence/'local-receipt.json')==os.environ['LOCAL_RESULT_SHA256'],
+            'local_verdict':local['verdict']=='PASS_LANE_V_TERMINAL_COMBINED_SOURCE_NATIVE_SOFTWARE_ONLY',
+            'lane_e_terminal':e['verdict']=='PASS_LANE_E_EXACT_RECEIPT_BYTES_BOUND_TO_SIGNED_SUBJECT',
+            'lane_m_terminal':m['verdict']=='PASS_LANE_M_EXACT_RECEIPT_OIDC_SIGSTORE',
+            'lane_e_prior_reverified':'Verified OK' in (evidence/'lane-e-prior-reverify.log').read_text(),
+            'lane_e_attachment_reverified':'Verified OK' in (evidence/'lane-e-attachment-reverify.log').read_text(),
+            'lane_m_reverified':'Verified OK' in (evidence/'lane-m-reverify.log').read_text(),
+            'two_events':len(events)==2,
+            'match_official':all(x['status']=='MATCH_OFFICIAL' for x in events),
+            'contract_payment_roles':{x['event_role'] for x in events}=={'CONTRACT','PAYMENT'},
+            'no_cross_role_aggregation':output['guards']['cross_role_amount_aggregation'] is False,
+            'equal_amount_not_identity':output['guards']['equal_amount_establishes_identity'] is False,
+            'bid_count_abstained':output['operational_abstentions']['bid_count'] is None and output['operational_abstentions']['bid_count_status']=='ABSTAIN_MISSING_EXPLICIT_FIELD',
+            'sefin_document_abstained':output['operational_abstentions']['sefin_source_document_status']=='ABSTAIN_MISSING_EXPLICIT_DOCUMENT_REF',
+            'relationship_candidate':relation['status']=='CANDIDATE_REVIEW',
+            'source_native_ready':output['readiness']['source_native_stage08_input_ready'] is True,
+            'relationship_not_ready':output['readiness']['cross_source_relationship_stage08_ready'] is False,
+            'global_blocked':output['readiness']['stage08_global_unblocked'] is False,
+            'combined_bundle_media_type':str(bundle.get('mediaType','')).startswith('application/vnd.dev.sigstore.bundle.') and str(bundle.get('mediaType','')).endswith('+json'),
+            'combined_transparency_log':isinstance(entries,list) and len(entries)>=1,
+            'combined_signature_verified':'Verified OK' in (evidence/'verify.log').read_text(),
+            'production_unmodified':output['governance']['production_modified'] is False,
+            'zero_cost':output['governance']['external_cost_usd']==0.0,
+          }
+          if not all(checks.values()): raise SystemExit(checks)
+          result={'schema':'data-science-pipeline/lane-v-terminal-combined-external-replay-receipt/2','verdict':'PASS_LANE_V_TERMINAL_COMBINED_EXTERNAL_REPLAY','github_run_id':int(os.environ['GITHUB_RUN_ID']),'github_run_attempt':int(os.environ['GITHUB_RUN_ATTEMPT']),'github_sha':os.environ['GITHUB_SHA'],'github_ref':os.environ['GITHUB_REF'],'repository':os.environ['GITHUB_REPOSITORY'],'combined_result_sha256':sha(runtime/'COMBINED_RESULT.json'),'source_native_events_sha256':sha(runtime/'SOURCE_NATIVE_EVENTS.jsonl'),'relationship_terminal_sha256':sha(runtime/'RELATIONSHIP_TERMINAL.json'),'local_receipt_sha256':sha(evidence/'local-receipt.json'),'combined_sigstore_bundle_sha256':sha(bundle_path),'combined_verify_log_sha256':sha(evidence/'verify.log'),'checks':checks,'source_native_event_count':2,'source_native_status':'MATCH_OFFICIAL','cross_source_relationship_status':'CANDIDATE_REVIEW','bid_count_status':'ABSTAIN_MISSING_EXPLICIT_FIELD','sefin_source_document_status':'ABSTAIN_MISSING_EXPLICIT_DOCUMENT_REF','source_native_stage08_input_ready':True,'cross_source_relationship_stage08_ready':False,'stage08_global_unblocked':False,'external_cost_usd':0.0,'production_modified':False,'scientific_promotion_credit':0,'next_gate':'owner_adoption_of_source_native_events; relationship_requires_explicit_bid_count_and_sefin_document_or_remains_candidate_review'}
+          payload=json.dumps(result,ensure_ascii=False,sort_keys=True,separators=(',',':'))+'\n'; (evidence/'external-receipt.json').write_text(payload); (evidence/'external-receipt.sha256').write_text(hashlib.sha256(payload.encode()).hexdigest()+'  external-receipt.json\n')
+          PY
+
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-v18-terminal-combined-replay-v2
+          path: data-science-v18-terminal-combined-v2-evidence
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce terminal result
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('data-science-v18-terminal-combined-v2-evidence/external-receipt.json')
+          if not p.exists(): raise SystemExit('external receipt missing')
+          r=json.loads(p.read_text())
+          assert r['verdict']=='PASS_LANE_V_TERMINAL_COMBINED_EXTERNAL_REPLAY'
+          assert all(r['checks'].values())
+          assert r['source_native_stage08_input_ready'] is True
+          assert r['cross_source_relationship_stage08_ready'] is False
+          assert r['stage08_global_unblocked'] is False
+          print(r['verdict'])
+          PY
