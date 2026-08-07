@@ -1,0 +1,126 @@
+name: Data Science v18.1 - documentary quarantine source replay
+
+on:
+  push:
+    branches: [agent/data-science-v18-1-documentary-quarantine-source-replay-v1]
+    paths:
+      - '.github/workflows/data-science-v18-1-documentary-quarantine-source-replay.yml'
+      - 'data_science_pipeline_v18_1_documentary_quarantine_source_replay/**'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+
+concurrency:
+  group: data-science-v18-1-documentary-quarantine-source-replay
+  cancel-in-progress: true
+
+env:
+  COMPONENT: data_science_pipeline_v18_1_documentary_quarantine_source_replay
+  SOURCE_MANIFEST: data_science_pipeline_v18_1_documentary_quarantine_source_replay/SOURCE_TRANSPORT_MANIFEST.json
+  SOURCE_BUNDLE: ${{ runner.temp }}/source_bundle.zip
+  EVIDENCE: data-science-v18-1-documentary-quarantine-source-replay-evidence
+  SOURCE_MANIFEST_SHA256: 15c994ac3ff6be80672dbd97c6f8939570721fce6bb2899ff297e476c3628d4b
+  SOURCE_BUNDLE_SHA256: 8f5238b98654e8fe0821d200b55b9367108d3020adf465fe89214afbad8493ba
+  SOURCE_FREEZE_SHA256: 8f3b6faf3cb54740888048627ba99f65e6627a611f43fe3c2320c6897746fb30
+  REPLAY_SCRIPT_SHA256: 7489bc81f579d6f5910363a368ecec7ce999ca7f74ab4cfa4e323a11c370bd6f
+
+jobs:
+  replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Reconstruct exact frozen source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = cristh99/notebooks
+          test "$GITHUB_REF" = refs/heads/agent/data-science-v18-1-documentary-quarantine-source-replay-v1
+          mkdir -p "$RUNNER_TEMP/runtime" "$EVIDENCE"
+          printf '%s  %s\n' "$SOURCE_MANIFEST_SHA256" "$SOURCE_MANIFEST" | sha256sum -c -
+          python3 - "$COMPONENT" "$SOURCE_MANIFEST" "$SOURCE_BUNDLE" "$RUNNER_TEMP/runtime" <<'PY'
+          from pathlib import Path, PurePosixPath
+          from zipfile import ZipFile
+          import base64, hashlib, json, sys
+          component, manifest_path, archive, out = map(Path, sys.argv[1:])
+          raw = manifest_path.read_bytes()
+          manifest = json.loads(raw)
+          canonical = (json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(',', ':')) + '\n').encode()
+          if raw != canonical:
+              raise SystemExit('noncanonical transport manifest')
+          sha = lambda data: hashlib.sha256(data).hexdigest()
+          git_blob = lambda data: hashlib.sha1(f'blob {len(data)}\0'.encode() + data).hexdigest()
+          transport = component / 'transport'
+          actual = sorted(path.name for path in transport.glob('part_*.b64'))
+          if actual != manifest['part_order']:
+              raise SystemExit(f'part set mismatch: {actual}')
+          chunks = []
+          for name in manifest['part_order']:
+              data = (transport / name).read_bytes()
+              expected = manifest['parts'][name]
+              if len(data) != expected['bytes'] or sha(data) != expected['sha256'] or git_blob(data) != expected['git_blob_sha1']:
+                  raise SystemExit(f'part integrity failure: {name}')
+              chunks.append(data)
+          encoded = b''.join(chunks)
+          if len(encoded) != manifest['base64_characters']:
+              raise SystemExit('base64 character count mismatch')
+          decoded = base64.b64decode(encoded, validate=True)
+          if len(decoded) != manifest['decoded_bytes'] or sha(decoded) != manifest['decoded_sha256'] or git_blob(decoded) != manifest['decoded_git_blob_sha1']:
+              raise SystemExit('decoded source bundle mismatch')
+          archive.write_bytes(decoded)
+          expected_members = set(manifest['expected_members'])
+          with ZipFile(archive) as zf:
+              names = zf.namelist()
+              if len(names) != len(set(names)) or set(names) != expected_members:
+                  raise SystemExit(f'unexpected source members: {sorted(set(names) ^ expected_members)}')
+              if any(PurePosixPath(name).is_absolute() or '..' in PurePosixPath(name).parts or len(PurePosixPath(name).parts) != 1 for name in names):
+                  raise SystemExit('unsafe source member')
+              zf.extractall(out)
+          PY
+          printf '%s  %s\n' "$SOURCE_BUNDLE_SHA256" "$SOURCE_BUNDLE" | sha256sum -c -
+          printf '%s  %s\n' "$SOURCE_FREEZE_SHA256" "$RUNNER_TEMP/runtime/SOURCE_REPLAY_FREEZE.json" | sha256sum -c -
+          printf '%s  %s\n' "$REPLAY_SCRIPT_SHA256" "$RUNNER_TEMP/runtime/run_external_replay.sh" | sha256sum -c -
+          cp "$SOURCE_MANIFEST" "$EVIDENCE/"
+          chmod 0755 "$RUNNER_TEMP/runtime/run_external_replay.sh"
+
+      - name: Execute exact replay, reverify Lane E/M, and sign combined result
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash "$RUNNER_TEMP/runtime/run_external_replay.sh"
+
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: data-science-v18-1-documentary-quarantine-source-replay
+          path: data-science-v18-1-documentary-quarantine-source-replay-evidence
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce terminal result
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('data-science-v18-1-documentary-quarantine-source-replay-evidence/external-receipt.json')
+          if not path.exists():
+              raise SystemExit('external receipt missing')
+          receipt = json.loads(path.read_text())
+          assert receipt['verdict'] == 'PASS_LANE_V18_1_DOCUMENTARY_QUARANTINE_EXTERNAL_REPLAY'
+          assert all(receipt['checks'].values())
+          assert receipt['tests'] == '56/56 PASS'
+          assert receipt['source_native_stage08_input_ready'] is True
+          assert receipt['cross_source_relationship_stage08_ready'] is False
+          assert receipt['documentary_independent_receipt_bytes_present'] is False
+          assert receipt['stage08_global_unblocked'] is False
+          print(receipt['verdict'])
+          PY
