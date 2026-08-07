@@ -1,0 +1,18 @@
+{
+  "coordination_id": "COORD-2026-08-06-PARALLEL-V2",
+  "external_cost_usd": "0.00",
+  "external_real_data_evaluations": 0,
+  "implementation_sha256": "5db438e0a6c77bd7fc833a2108d08215d77cf1e1be3dd5a015fff4327b733bef",
+  "production_modified": false,
+  "public_receipt_sha256": "074129088bbc5864d5f94da142c5628c1120e821a46bdedd2c8d4821d08b2c8b",
+  "public_receipt_valid": true,
+  "receipt_sha256": "560cfb359843d3f860b37335bfc190c16f60593b0c304d98e825866f400f59a0",
+  "runner_sha256": "bdb3518ebaefd04b4cfa9e57d84a30544a65d9b1fa1c29ffa26b59c880776aca",
+  "scientific_promotion_credit": 0,
+  "source_release_sha256": "d9863f2d933a1067491300ed16184895c888665db5e0a63162e17bf1a1f395f5",
+  "stage08_unblocked": false,
+  "tests_expected": 20,
+  "tests_returncode": 0,
+  "tests_sha256": "cdb00e1ca42a7319c710586ff0969297bcc033eb174a1b01593d85f918c5b946",
+  "verdict": "PASS_EVENT_BINDING_CANARY_FAIL_CLOSED_NO_TRUST"
+}

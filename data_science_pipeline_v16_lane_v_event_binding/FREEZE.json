@@ -1,0 +1,31 @@
+{
+  "schema": "data-science-pipeline/lane-v-event-binding-freeze/1",
+  "coordination_id": "COORD-2026-08-06-PARALLEL-V2",
+  "canonical_arbiter_pr": 138,
+  "lane_e_pr": 140,
+  "lane_m_pr": 137,
+  "source_release_sha256": "d9863f2d933a1067491300ed16184895c888665db5e0a63162e17bf1a1f395f5",
+  "verdict": "PASS_EVENT_BINDING_CANARY_FAIL_CLOSED_NO_TRUST",
+  "expected_tests": 20,
+  "event_binding_receipt_sha256": "f66d02406329f7764838ef324aae88b3445651719faefbf1c207691f5c2ed912",
+  "public_receipt_sha256": "074129088bbc5864d5f94da142c5628c1120e821a46bdedd2c8d4821d08b2c8b",
+  "verification_receipt_sha256": "560cfb359843d3f860b37335bfc190c16f60593b0c304d98e825866f400f59a0",
+  "file_sha256": {
+    "protocol": "f1c667a0c749048d1e3f58cdbac6c19311cd0c49780b17c9e612d4f2b8e16787",
+    "readme": "bbc7400f13eeac30dab7d849088caa912c784450d8bb45cd259062b679bc1a73",
+    "public_receipt": "e863e1a9955c53f9efd0077d8981d96cf5e91291e5ce713a0c036654184df994",
+    "verify_output": "307adbc6bc6c5baf8c702b816cba832fa96ec0f04d055a448ff0f84922691536",
+    "implementation": "5db438e0a6c77bd7fc833a2108d08215d77cf1e1be3dd5a015fff4327b733bef",
+    "tests": "cdb00e1ca42a7319c710586ff0969297bcc033eb174a1b01593d85f918c5b946",
+    "live_runner": "bdb3518ebaefd04b4cfa9e57d84a30544a65d9b1fa1c29ffa26b59c880776aca",
+    "verifier": "6a6257b99dec32b374f27384414a4a667b003f4e6db35ee4408ab2137865b155"
+  },
+  "public_private_identity_values": false,
+  "external_trust_verified": false,
+  "external_real_data_evaluations": 0,
+  "external_cost_usd": 0.0,
+  "production_modified": false,
+  "scientific_promotion_credit": 0,
+  "merge_authorized": false,
+  "stage08_unblocked": false
+}

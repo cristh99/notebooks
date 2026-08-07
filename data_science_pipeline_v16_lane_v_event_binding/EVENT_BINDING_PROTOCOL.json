@@ -1,0 +1,30 @@
+{
+  "schema": "data-science-pipeline/lane-v-event-binding-protocol/1",
+  "coordination_id": "COORD-2026-08-06-PARALLEL-V2",
+  "stage": "07 — Resolve",
+  "lane": "Lane V — event universe and source-record binding",
+  "canonical_arbiter_pr": 138,
+  "required_lanes": ["entity_provider", "amount_date"],
+  "input_source": "one pre-existing official ONCAE structured release in MotherDuck, read-only",
+  "event_role": "CONTRACT",
+  "amount_role": "CONTRACT_VALUE",
+  "date_role": "CONTRACT_DATE",
+  "currency": "HNL",
+  "gates": [
+    "canonical receipt self-hashes",
+    "exact event-universe equality",
+    "exact per-event source-record SHA-256 equality",
+    "required-field completeness",
+    "role coherence",
+    "row-order invariance",
+    "byte-identical replay",
+    "no raw identity in public projection",
+    "fail closed when independent signed trust evidence is absent"
+  ],
+  "expected_live_terminal": "CANDIDATE_REVIEW / EXTERNAL_TRUST_EVIDENCE_MISSING",
+  "claim_limit": "interface and event-binding canary only; no resolver accuracy or scientific promotion",
+  "external_cost_usd": 0.0,
+  "production_modified": false,
+  "merge_authorized": false,
+  "stage08_unblocked": false
+}
