@@ -1,0 +1,234 @@
+name: University CS1200 PS8 real Glucose lane v1
+
+on:
+  push:
+    branches:
+      - agent/university-cs1200-ps8-glucose-v1
+  pull_request:
+    paths:
+      - '.github/workflows/university-cs1200-ps8-glucose-v1.yml'
+      - 'university_cs1200_ps8_glucose_v1/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install pinned runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check \
+            'python-sat==1.9.dev5' \
+            'numpy>=2,<3' \
+            'networkx>=3,<4' \
+            'tqdm>=4,<5'
+          python - <<'PY'
+          from pysat.solvers import Glucose3, Minisat22
+          for solver_type in (Glucose3, Minisat22):
+              solver = solver_type(bootstrap_with=[[1]])
+              assert solver.solve()
+              solver.delete()
+          print('REAL_PYSAT_SOLVERS_AVAILABLE')
+          PY
+
+      - name: Verify frozen contract and acquire official source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reports
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          lock = json.loads(Path('university_cs1200_ps8_glucose_v1/SOURCE_LOCK.json').read_text())
+          assert lock['official_repository'] == 'Harvard-CS-1200/2026-Spring'
+          assert lock['official_commit'] == '0b967fe320ecf2141a6f3b8165d3d096c99fb3ac'
+          assert lock['python_sat_version'] == '1.9.dev5'
+          assert lock['solver'] == 'Glucose3'
+          assert lock['public_test_timeout_seconds'] == 10
+          assert lock['official_experiment_timeout_seconds'] == 1
+          assert lock['parallel_workers'] == 4
+          print(json.dumps(lock, indent=2, sort_keys=True))
+          PY
+          python -m py_compile university_cs1200_ps8_glucose_v1/*.py
+
+          git clone --filter=blob:none https://github.com/Harvard-CS-1200/2026-Spring.git official-cs1200
+          git -C official-cs1200 checkout --detach 0b967fe320ecf2141a6f3b8165d3d096c99fb3ac
+          test "$(git -C official-cs1200 rev-parse HEAD)" = '0b967fe320ecf2141a6f3b8165d3d096c99fb3ac'
+          test "$(git -C official-cs1200 hash-object psets/ps8/ps8.tex)" = 'a70e1fed3d07c2d69ab1cd3fe781b757af8bd4e4'
+          test "$(git -C official-cs1200 hash-object psets/ps8/ps8.py)" = '0cfad928d4a15e42409b58e38144ddba661c0a3e'
+          test "$(git -C official-cs1200 hash-object psets/ps8/ps8_tests.py)" = 'fb9c9344eedec152e92d868a13091e3f40c14c05'
+          test "$(git -C official-cs1200 hash-object psets/ps8/ps8_experiments.py)" = 'e64bda3b02625149f62d1b558f8bd6306e49c76e'
+          test "$(git -C official-cs1200 hash-object psets/ps8/ps8_helpers.py)" = '3e46db4eb440da727364f03b66535993585ded05'
+          test "$(git -C official-cs1200 hash-object psets/ps8/le450_25a.txt)" = '5658f5fc900f94ce03bf50fe681fbdfff79a26b9'
+          test "$(git -C official-cs1200 hash-object psets/ps8/le450_25d.txt)" = '5915f470d34ab7b782da27cd17ea1d28c97bcb5c'
+          test "$(git -C official-cs1200 hash-object psets/ps8/le1000_25a.txt)" = '61fa2c1d8bad41c633f80977662cd9ba627ab86a'
+          echo "OFFICIAL_DIR=$PWD/official-cs1200/psets/ps8" >> "$GITHUB_ENV"
+          printf '%s\n' \
+            'repository=Harvard-CS-1200/2026-Spring' \
+            'commit=0b967fe320ecf2141a6f3b8165d3d096c99fb3ac' \
+            > reports/source-binding.txt
+
+      - name: Run independent scientific gate serially and in parallel
+        shell: bash
+        run: |
+          set -euo pipefail
+          python university_cs1200_ps8_glucose_v1/scientific_gate.py \
+            --workers 1 \
+            --official-dir "$OFFICIAL_DIR" \
+            --output reports/scientific-serial.json \
+            2>&1 | tee reports/scientific-serial.log
+          python university_cs1200_ps8_glucose_v1/scientific_gate.py \
+            --workers 4 \
+            --official-dir "$OFFICIAL_DIR" \
+            --output reports/scientific-parallel.json \
+            2>&1 | tee reports/scientific-parallel.log
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          left = json.loads(Path('reports/scientific-serial.json').read_text())
+          right = json.loads(Path('reports/scientific-parallel.json').read_text())
+          assert left['status'] == 'PASS_REAL_GLUCOSE_AND_DIMACS_GATE'
+          assert right['status'] == 'PASS_REAL_GLUCOSE_AND_DIMACS_GATE'
+          assert left['scientific_digest'] == right['scientific_digest']
+          assert left['glucose_minisat_parity'] is True
+          assert right['glucose_minisat_parity'] is True
+          Path('reports/scientific-parity.txt').write_text(
+              f"PARITY_PASS {left['scientific_digest']}\n"
+          )
+          PY
+
+      - name: Replay exact public tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python university_cs1200_ps8_glucose_v1/public_test_gate.py \
+            --official-dir "$OFFICIAL_DIR" \
+            --solution university_cs1200_ps8_glucose_v1/ps8_solution.py \
+            --output reports/public-tests.json \
+            --log reports/public-tests.log
+
+      - name: Replay exact official experiment grid
+        shell: bash
+        run: |
+          set -euo pipefail
+          python university_cs1200_ps8_glucose_v1/experiment_gate.py \
+            --official-dir "$OFFICIAL_DIR" \
+            --solution university_cs1200_ps8_glucose_v1/ps8_solution.py \
+            --output reports/official-experiments.json \
+            --log reports/official-experiments.log
+
+      - name: Emit proof-carrying receipt and SHA-256 ledger
+        shell: bash
+        env:
+          EVENT_SHA: ${{ github.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          reports = Path('reports')
+          serial = json.loads((reports / 'scientific-serial.json').read_text())
+          parallel = json.loads((reports / 'scientific-parallel.json').read_text())
+          public = json.loads((reports / 'public-tests.json').read_text())
+          experiment = json.loads((reports / 'official-experiments.json').read_text())
+
+          assert serial['status'] == 'PASS_REAL_GLUCOSE_AND_DIMACS_GATE'
+          assert parallel['status'] == 'PASS_REAL_GLUCOSE_AND_DIMACS_GATE'
+          assert serial['scientific_digest'] == parallel['scientific_digest']
+          assert public['status'].startswith('PASS_')
+          assert public['failed'] == 0
+          assert experiment['status'] == 'PASS_OFFICIAL_EXPERIMENT_GRID_REPLAY'
+
+          receipt = {
+              'schema': 'university-cs1200-ps8-glucose/receipt/1',
+              'status': 'PASS_SCOPED_PS8_REAL_GLUCOSE_RUNTIME_LANE',
+              'repository': 'cristh99/notebooks',
+              'event_sha': os.environ['EVENT_SHA'],
+              'head_sha': os.environ['HEAD_SHA'],
+              'official_repository': 'Harvard-CS-1200/2026-Spring',
+              'official_commit': '0b967fe320ecf2141a6f3b8165d3d096c99fb3ac',
+              'python_sat_version': '1.9.dev5',
+              'primary_solver': 'Glucose3',
+              'independent_solver': 'Minisat22',
+              'scientific_digest': serial['scientific_digest'],
+              'serial_parallel_parity': True,
+              'scientific_cases': {
+                  'exact_graphs': serial['exact_graphs'],
+                  'random_graphs': serial['random_graphs'],
+                  'exact_3d_matching_instances': serial['exact_3d_matching_instances'],
+                  'random_3d_matching_instances': serial['random_3d_matching_instances'],
+                  'negative_controls': serial['negative_controls'],
+              },
+              'dimacs': serial['dimacs'],
+              'public_tests': {
+                  'status': public['status'],
+                  'passed': public['passed'],
+                  'failed': public['failed'],
+                  'timeouts': public['timeouts'],
+                  'denominator': public['denominator'],
+                  'timeouts_removed_from_denominator': 0,
+              },
+              'official_experiment_grid': {
+                  'rows': experiment['denominator'],
+                  'timeouts_retained': experiment['timeouts_retained'],
+                  'summary': experiment['summary'],
+              },
+              'predecessor': 'PASS_SCOPED_TECHNICAL_CORE',
+              'guardrails': {
+                  'official_source_modified': False,
+                  'public_targets_removed': 0,
+                  'private_grader_claimed': False,
+                  'official_grade_claimed': False,
+                  'reflection_fabricated': False,
+                  'optional_k_matching_claimed': False,
+                  'problem_set_complete': False,
+                  'course_complete': False,
+                  'university_complete': False,
+                  'coordination_surface': 'Notion',
+                  'basic_memory_used': False,
+                  'yepcode_used_for_accepted_evidence': False,
+                  'additional_cost_usd': 0,
+              },
+              'scope_boundary': (
+                  'Real Glucose public runtime, exact public tests, official experiment grid, '
+                  'three DIMACS files, independent solver parity and bounded exact oracles; '
+                  'not a private grader, official grade, personal reflection, complete PS8, '
+                  'complete course, or complete university.'
+              ),
+          }
+          path = reports / 'receipt.json'
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          (reports / 'receipt.sha256').write_text(f'{digest}  receipt.json\n')
+          print(json.dumps(receipt, indent=2, sort_keys=True))
+          PY
+          find university_cs1200_ps8_glucose_v1 reports -type f \
+            ! -name SHA256SUMS -print0 \
+            | sort -z \
+            | xargs -0 sha256sum > reports/SHA256SUMS
+          sha256sum -c reports/SHA256SUMS
+
+      - name: Upload PS8 real-Glucose evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: university-cs1200-ps8-glucose-v1-evidence
+          path: |
+            university_cs1200_ps8_glucose_v1/
+            reports/

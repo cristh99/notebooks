@@ -1,0 +1,23 @@
+{
+  "schema": "university-cs1200-ps8/source-lock/1",
+  "official_repository": "Harvard-CS-1200/2026-Spring",
+  "official_commit": "0b967fe320ecf2141a6f3b8165d3d096c99fb3ac",
+  "official_files": {
+    "psets/ps8/ps8.tex": "a70e1fed3d07c2d69ab1cd3fe781b757af8bd4e4",
+    "psets/ps8/ps8.py": "0cfad928d4a15e42409b58e38144ddba661c0a3e",
+    "psets/ps8/ps8_tests.py": "fb9c9344eedec152e92d868a13091e3f40c14c05",
+    "psets/ps8/ps8_experiments.py": "e64bda3b02625149f62d1b558f8bd6306e49c76e",
+    "psets/ps8/ps8_helpers.py": "3e46db4eb440da727364f03b66535993585ded05",
+    "psets/ps8/le450_25a.txt": "5658f5fc900f94ce03bf50fe681fbdfff79a26b9",
+    "psets/ps8/le450_25d.txt": "5915f470d34ab7b782da27cd17ea1d28c97bcb5c",
+    "psets/ps8/le1000_25a.txt": "61fa2c1d8bad41c633f80977662cd9ba627ab86a"
+  },
+  "python_sat_version": "1.9.dev5",
+  "solver": "Glucose3",
+  "public_test_timeout_seconds": 10,
+  "official_experiment_timeout_seconds": 1,
+  "parallel_workers": 4,
+  "coordination_surface": "Notion",
+  "coordination_id": "COORD-2026-08-06-PARALLEL-V2",
+  "additional_cost_usd": 0
+}
