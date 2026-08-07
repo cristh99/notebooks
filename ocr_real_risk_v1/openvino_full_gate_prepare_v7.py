@@ -1,8 +1,9 @@
 """Authorized OpenVINO v7 physical-registry preparation.
 
 No source access occurs at import time. The only image-reading entry point
-requires a hash-bound authorization and an atomically consumed execution claim.
-It reads image bytes only: annotation text and geometry are never projected.
+requires a hash-bound authorization, an atomically consumed execution claim,
+and the exact frozen quality runtime. It reads image bytes only: annotation
+text and geometry are never projected.
 """
 from __future__ import annotations
 
@@ -31,6 +32,7 @@ from .openvino_full_gate_registry_v7 import (
     build_physical_registry,
     write_registry_bundle,
 )
+from .openvino_preexecution_gate_v7 import verify_preexecution_gate
 
 
 def _duckdb_connection() -> Any:
@@ -99,6 +101,7 @@ def prepare_registry_from_source(
     authorization = verify_bound_execution_authorization(
         authorization_path, authorization_sha256, "PREPARE_REGISTRY"
     )
+    preexecution = verify_preexecution_gate(authorization)
     claim = verify_execution_claim(
         execution_claim_path, execution_claim_sha256, authorization
     )
@@ -181,6 +184,7 @@ def prepare_registry_from_source(
                 authorization_file_sha256=authorization_sha256,
                 claim_file_sha256=execution_claim_sha256,
             ),
+            "preexecution_binding": preexecution,
             "code_bundle": current_code_bundle(),
         }
     )
