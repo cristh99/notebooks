@@ -1,0 +1,4 @@
+purpose=second_git-native-workflow-trigger
+registry_sha256=38323cd86b606b70be3f94ecc16ecb0bab91317384b1aeb28f1985116168b73e
+beacon_consumed=false
+cohort_selected=false
