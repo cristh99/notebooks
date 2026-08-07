@@ -1,0 +1,387 @@
+name: OpenVINO v7 full prior-corpus physical registry
+
+on:
+  push:
+    branches:
+      - agent/openvino-v7-smoke-16-stacked-v2
+    paths:
+      - ".openvino-prior-registry-trigger-v1"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: openvino-v7-prior-registry-v1
+  cancel-in-progress: false
+
+env:
+  PYTHONHASHSEED: "0"
+  OMP_THREAD_LIMIT: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  NUMEXPR_NUM_THREADS: "1"
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  preflight:
+    name: Zero-source adversarial preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact registry branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: "3.11"
+
+      - name: Install frozen test dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir \
+            Pillow==12.2.0 \
+            pyarrow==18.1.0
+
+      - name: Run synthetic registry and existing gate tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p preflight-evidence
+          python -m unittest -v \
+            ocr_real_risk_v1.test_openvino_prior_registry_v7 \
+            ocr_real_risk_v1.test_openvino_full_gate_v7 \
+            2>&1 | tee preflight-evidence/unittest.log
+          python -m compileall -q \
+            ocr_real_risk_v1/openvino_prior_registry_v7.py \
+            ocr_real_risk_v1/openvino_prior_registry_entry_v7.py \
+            ocr_real_risk_v1/test_openvino_prior_registry_v7.py
+          python -m ocr_real_risk_v1.openvino_prior_registry_entry_v7 \
+            print-spec --source-id textocr \
+            > preflight-evidence/textocr-spec.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          spec = json.loads(Path('preflight-evidence/textocr-spec.json').read_text())
+          assert spec['rows'] == 21778
+          assert spec['artifact_id'] == 8961886770
+          assert spec['source_sha256'] == 'f2d50b206923e4bdb70e9200e92b31bd8626acc37466bab8379fa48bb9c62823'
+          PY
+          (cd preflight-evidence && \
+            find . -type f ! -name SHA256SUMS.txt -print0 \
+              | sort -z \
+              | xargs -0 sha256sum \
+              | sed 's#  \./#  #' > SHA256SUMS.txt)
+          (cd preflight-evidence && sha256sum --check --strict SHA256SUMS.txt)
+
+      - name: Upload preflight evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: openvino-prior-registry-preflight-${{ github.sha }}
+          path: preflight-evidence/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 9
+
+  fingerprint:
+    name: Physical fingerprints — ${{ matrix.source_id }}
+    needs: preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      max-parallel: 13
+      matrix:
+        source_id:
+          - sroie-train
+          - sroie-test
+          - cord-train-0
+          - cord-train-1
+          - cord-train-2
+          - cord-train-3
+          - cord-validation
+          - cord-test
+          - wildreceipt-train-0
+          - wildreceipt-train-1
+          - wildreceipt-test
+          - textocr
+          - cocotext
+    env:
+      SOURCE_ID: ${{ matrix.source_id }}
+    steps:
+      - name: Checkout exact registry branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+
+      - name: Free standard-runner disk
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup || true
+          sudo rm -rf /var/lib/apt/lists/* || true
+          df -h
+          available_kb="$(df -Pk "$RUNNER_TEMP" | awk 'NR==2 {print $4}')"
+          test "$available_kb" -ge 10000000
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: "3.11"
+
+      - name: Install frozen image-only runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir \
+            Pillow==12.2.0 \
+            pyarrow==18.1.0
+
+      - name: Resolve frozen source and terminal-artifact spec
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m ocr_real_risk_v1.openvino_prior_registry_entry_v7 \
+            print-spec --source-id "$SOURCE_ID" > source-spec.json
+          python - <<'PY' >> "$GITHUB_ENV"
+          import json
+          spec = json.load(open('source-spec.json'))
+          for key in ('source_url', 'source_sha256', 'rows', 'artifact_id', 'artifact_sha256'):
+              print(f"{key.upper()}={spec[key]}")
+          PY
+          cat source-spec.json
+
+      - name: Recover and verify immutable terminal artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" \
+            > terminal-artifact.zip
+          echo "${ARTIFACT_SHA256}  terminal-artifact.zip" \
+            | sha256sum --check --strict
+          mkdir -p terminal-artifact
+          unzip -q terminal-artifact.zip -d terminal-artifact
+
+      - name: Download and verify exact prior-corpus source
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 8 --retry-all-errors \
+            --connect-timeout 30 --speed-limit 1024 --speed-time 300 \
+            --max-time 10800 \
+            "$SOURCE_URL" --output source.parquet
+          echo "${SOURCE_SHA256}  source.parquet" | sha256sum --check --strict
+          df -h
+
+      - name: Fingerprint every image row without annotations or OCR
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="source-fingerprint-${SOURCE_ID}"
+          python -m ocr_real_risk_v1.openvino_prior_registry_entry_v7 \
+            fingerprint-source \
+            --source-id "$SOURCE_ID" \
+            --source-file source.parquet \
+            --terminal-root terminal-artifact \
+            --output-dir "$output" \
+            > "$output/stdout.json"
+          test "$(wc -l < "$output/physical_records.jsonl")" = "$ROWS"
+          (cd "$output" && sha256sum --check --strict SHA256SUMS.txt)
+          rm -f source.parquet terminal-artifact.zip
+          rm -rf terminal-artifact
+          df -h
+
+      - name: Upload immutable source fingerprint bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: openvino-prior-source-${{ matrix.source_id }}-${{ github.sha }}
+          path: source-fingerprint-${{ matrix.source_id }}/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 9
+
+  aggregate:
+    name: Combine all five prior corpora
+    needs: fingerprint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+      artifact_digest: ${{ steps.upload.outputs.artifact-digest }}
+      registry_stable: ${{ steps.summary.outputs.registry_stable }}
+      population_rows: ${{ steps.summary.outputs.population_rows }}
+      unique_encoded: ${{ steps.summary.outputs.unique_encoded }}
+      unique_pixels: ${{ steps.summary.outputs.unique_pixels }}
+      cross_corpus_groups: ${{ steps.summary.outputs.cross_corpus_groups }}
+    steps:
+      - name: Checkout exact registry branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: "3.11"
+
+      - name: Download all thirteen source bundles
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: openvino-prior-source-*-${{ github.sha }}
+          path: prior-source-bundles
+          merge-multiple: false
+
+      - name: Build and independently replay combined registry
+        id: summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t roots < <(find prior-source-bundles -mindepth 1 -maxdepth 1 -type d | sort)
+          test "${#roots[@]}" = 13
+          python -m ocr_real_risk_v1.openvino_prior_registry_entry_v7 \
+            aggregate "${roots[@]}" \
+            --output-dir prior-registry \
+            > prior-registry/stdout.json
+          python -m ocr_real_risk_v1.openvino_prior_registry_entry_v7 \
+            verify prior-registry \
+            > prior-registry/independent-replay.json
+          (cd prior-registry && sha256sum --check --strict SHA256SUMS.txt)
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          registry = json.load(open('prior-registry/prior_registry.json'))
+          assert registry['complete'] is True
+          assert registry['population_rows'] == 38459
+          assert registry['openvino_scientific_images_opened'] == 0
+          assert registry['annotation_columns_read'] is False
+          assert registry['ocr_runs'] == 0
+          print(f"registry_stable={registry['stable_payload_sha256']}")
+          print(f"population_rows={registry['population_rows']}")
+          print(f"unique_encoded={registry['unique_encoded_sha256']}")
+          print(f"unique_pixels={registry['unique_pixel_sha256']}")
+          print(f"cross_corpus_groups={registry['cross_corpus_duplicate_groups']}")
+          PY
+
+      - name: Upload complete prior-corpus registry
+        id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: openvino-v7-prior-corpus-registry-${{ github.sha }}
+          path: prior-registry/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 9
+
+  terminal-replay:
+    name: Terminal registry replay and boundary receipt
+    needs: aggregate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact registry branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: "3.11"
+
+      - name: Recover exact combined artifact by ID and digest
+        shell: bash
+        env:
+          REGISTRY_ARTIFACT_ID: ${{ needs.aggregate.outputs.artifact_id }}
+          REGISTRY_ARTIFACT_DIGEST: ${{ needs.aggregate.outputs.artifact_digest }}
+        run: |
+          set -euo pipefail
+          gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${REGISTRY_ARTIFACT_ID}/zip" \
+            > prior-registry.zip
+          echo "${REGISTRY_ARTIFACT_DIGEST#sha256:}  prior-registry.zip" \
+            | sha256sum --check --strict
+          mkdir -p prior-registry
+          unzip -q prior-registry.zip -d prior-registry
+          (cd prior-registry && sha256sum --check --strict SHA256SUMS.txt)
+          python -m ocr_real_risk_v1.openvino_prior_registry_entry_v7 \
+            verify prior-registry > terminal-replay.json
+
+      - name: Seal terminal no-OpenVINO-outcomes receipt
+        shell: bash
+        env:
+          REGISTRY_ARTIFACT_ID: ${{ needs.aggregate.outputs.artifact_id }}
+          REGISTRY_ARTIFACT_DIGEST: ${{ needs.aggregate.outputs.artifact_digest }}
+          REGISTRY_STABLE: ${{ needs.aggregate.outputs.registry_stable }}
+          POPULATION_ROWS: ${{ needs.aggregate.outputs.population_rows }}
+          UNIQUE_ENCODED: ${{ needs.aggregate.outputs.unique_encoded }}
+          UNIQUE_PIXELS: ${{ needs.aggregate.outputs.unique_pixels }}
+          CROSS_CORPUS_GROUPS: ${{ needs.aggregate.outputs.cross_corpus_groups }}
+        run: |
+          set -euo pipefail
+          mkdir -p terminal-evidence
+          cp terminal-replay.json terminal-evidence/
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          replay = json.load(open('terminal-replay.json'))
+          assert replay['complete'] is True
+          assert replay['population_rows'] == 38459
+          assert replay['openvino_scientific_images_opened'] == 0
+          receipt = {
+              'schema': 'eaat.openvino_v7_prior_registry_terminal/1',
+              'status': 'PASS_FULL_PRIOR_CORPUS_PHYSICAL_REGISTRY',
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_sha': os.environ['GITHUB_SHA'],
+              'artifact_id': int(os.environ['REGISTRY_ARTIFACT_ID']),
+              'artifact_digest': os.environ['REGISTRY_ARTIFACT_DIGEST'],
+              'registry_stable_payload_sha256': os.environ['REGISTRY_STABLE'],
+              'population_rows': int(os.environ['POPULATION_ROWS']),
+              'unique_encoded_sha256': int(os.environ['UNIQUE_ENCODED']),
+              'unique_pixel_sha256': int(os.environ['UNIQUE_PIXELS']),
+              'cross_corpus_duplicate_groups': int(os.environ['CROSS_CORPUS_GROUPS']),
+              'corpora': ['SROIE', 'CORD', 'WildReceipt', 'TextOCR', 'COCO-Text'],
+              'source_shards': 13,
+              'full_source_hashes_verified': True,
+              'full_populations_fingerprinted': True,
+              'annotation_columns_read': False,
+              'ocr_runs': 0,
+              'candidate_inference_runs': 0,
+              'openvino_scientific_images_opened': 0,
+              'external_spend_usd': 0,
+              'automatic_production_change': False,
+              'full_openvino_execution_authorized': False,
+              'next_gate': 'ATOMIC_GITHUB_LEDGER_WORKFLOW_AND_FINAL_CHANGE_REVIEW',
+          }
+          raw = json.dumps(receipt, sort_keys=True, separators=(',', ':')).encode()
+          receipt['stable_payload_sha256'] = hashlib.sha256(raw).hexdigest()
+          Path('terminal-evidence/terminal-receipt.json').write_text(
+              json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          )
+          PY
+          (cd terminal-evidence && \
+            find . -type f ! -name SHA256SUMS.txt -print0 \
+              | sort -z \
+              | xargs -0 sha256sum \
+              | sed 's#  \./#  #' > SHA256SUMS.txt)
+          (cd terminal-evidence && sha256sum --check --strict SHA256SUMS.txt)
+
+      - name: Upload terminal replay evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: openvino-v7-prior-registry-terminal-${{ github.sha }}
+          path: terminal-evidence/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 9
