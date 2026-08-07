@@ -1,0 +1,157 @@
+name: Skill Power Canary Public Verification
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/skill-power-canary.yml"
+      - "skill_power_canary/**"
+      - "tests/test_skill_power*.py"
+      - "SKILL_POWER_CANARY.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: skill-power-canary-${{ github.repository }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONHASHSEED: "0"
+      TZ: UTC
+
+    steps:
+      - name: Check out public capsule
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12"
+
+      - name: Run independent and exhaustive tests
+        run: python -m unittest discover -s tests -p "test_skill_power*.py" -v
+
+      - name: Compile public verifier
+        run: python -m compileall -q skill_power_canary tests/test_skill_power_canary.py tests/test_skill_power_exhaustive.py
+
+      - name: Rebuild frozen canary report
+        run: |
+          python -m skill_power_canary \
+            --scenarios skill_power_canary/frozen_scenarios.json \
+            --output /tmp/generated-skill-power-report.json
+
+      - name: Require canonical deterministic replay
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          expected = json.loads(
+              Path("skill_power_canary/expected_report.json").read_text(encoding="utf-8")
+          )
+          generated = json.loads(
+              Path("/tmp/generated-skill-power-report.json").read_text(encoding="utf-8")
+          )
+          canonical = lambda value: json.dumps(
+              value,
+              sort_keys=True,
+              separators=(",", ":"),
+              ensure_ascii=False,
+              allow_nan=False,
+          )
+          if canonical(expected).encode("utf-8") != canonical(generated).encode("utf-8"):
+              raise SystemExit("Canonical deterministic replay differs")
+          print("Canonical deterministic replay PASS")
+          PY
+
+      - name: Run exhaustive finite grammar and maximum-privilege checks
+        run: |
+          python -m skill_power_canary.exhaustive \
+            --output /tmp/exhaustive-skill-power-summary.json
+
+      - name: Enforce zero-spend and finite-claim boundary
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("/tmp/generated-skill-power-report.json").read_text())
+          exhaustive = json.loads(Path("/tmp/exhaustive-skill-power-summary.json").read_text())
+          capsule = report["capsule"]
+          metrics = report["metrics"]
+          if capsule["external_spend_usd"] != 0 or exhaustive["external_spend_usd"] != 0:
+              raise SystemExit("External spend must remain zero")
+          if capsule["network_calls_by_capsule"] != 0 or exhaustive["network_calls"] != 0:
+              raise SystemExit("The verifier must not make network calls")
+          if report["outcome"] != "PASS" or exhaustive["outcome"] != "PASS":
+              raise SystemExit("Finite verification did not pass")
+          if metrics["governed_accuracy"] != "32/32":
+              raise SystemExit("Governed procedure lost a frozen scenario")
+          if metrics["baseline_accuracy"] != "8/32":
+              raise SystemExit("Frozen baseline changed")
+          if metrics["governed_false_activations"] != 0:
+              raise SystemExit("Negative-trigger regression")
+          if metrics["governed_unsafe_accepts"] != 0:
+              raise SystemExit("Unsafe acceptance regression")
+          expected_counts = {
+              "claims": 14,
+              "logic": 13825,
+              "portfolio": 285,
+              "secrets": 1024,
+              "total": 15148,
+              "maximum_privilege": 640,
+          }
+          if exhaustive["counts"] != expected_counts:
+              raise SystemExit("Exhaustive finite grammar count changed")
+          if exhaustive["mismatch_count"] != 0:
+              raise SystemExit("Exhaustive finite grammar mismatch")
+          print("Zero-spend frozen canary and exhaustive finite extension PASS")
+          PY
+
+      - name: Emit hashes and summary
+        run: |
+          sha256sum \
+            skill_power_canary/capsule.py \
+            skill_power_canary/exhaustive.py \
+            skill_power_canary/frozen_scenarios.json \
+            skill_power_canary/expected_report.json \
+            tests/test_skill_power_canary.py \
+            tests/test_skill_power_exhaustive.py
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          report = json.loads(Path("/tmp/generated-skill-power-report.json").read_text())
+          exhaustive = json.loads(Path("/tmp/exhaustive-skill-power-summary.json").read_text())
+          metrics = report["metrics"]
+          lines = [
+              "# Skill Power Canary",
+              "",
+              f"- Frozen outcome: **{report['outcome']}**",
+              f"- Frozen report digest: `{report['digest']}`",
+              f"- Scenario manifest: `{report['scenario_manifest_digest']}`",
+              f"- Governed: **{metrics['governed_accuracy']}**",
+              f"- Baseline: **{metrics['baseline_accuracy']}**",
+              f"- Canary scenarios: **{metrics['canary_count']}**",
+              f"- False activations: **{metrics['governed_false_activations']}**",
+              f"- Unsafe accepts: **{metrics['governed_unsafe_accepts']}**",
+              f"- Exhaustive outcome: **{exhaustive['outcome']}**",
+              f"- Exhaustive cases: **{exhaustive['counts']['total']}**",
+              f"- Maximum-privilege cases: **{exhaustive['counts']['maximum_privilege']}**",
+              f"- Exhaustive mismatches: **{exhaustive['mismatch_count']}**",
+              f"- Exhaustive digest: `{exhaustive['digest']}`",
+              "- External spend: **$0**",
+              "- Capsule network calls: **0**",
+              "",
+              "This PASS is limited to frozen and exhaustively enumerated finite grammars. It is not hidden real-world out-of-sample, Verified, or production evidence.",
+          ]
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines) + "\n")
+          PY
