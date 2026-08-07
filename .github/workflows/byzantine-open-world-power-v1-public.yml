@@ -1,0 +1,90 @@
+name: Byzantine Open-World Power v1 public clean-room
+
+on:
+  pull_request:
+    paths:
+      - 'byzantine_open_world_power_v1_public/**'
+      - '.github/workflows/byzantine-open-world-power-v1-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: byzantine-open-world-power-v1-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHONHASHSEED: '0'
+  EXPECTED_RECEIPT_SHA256: cf9328807097884c37a2ff0652ed4475f961212ed692c0a32320f78fab26b12e
+
+jobs:
+  clean-room-replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout public branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@8549b9f8f590ad24eab7482f36f6e1e24d34597b
+        with:
+          python-version: '3.11'
+
+      - name: Record runtimes
+        run: |
+          python --version
+          node --version
+
+      - name: Compile independent implementation
+        working-directory: byzantine_open_world_power_v1_public
+        run: python -m compileall -q byzantine_open_world_power_v1 tests
+
+      - name: Execute frozen 72-scenario matrix
+        working-directory: byzantine_open_world_power_v1_public
+        env:
+          PYTHONPATH: .
+        run: python -m byzantine_open_world_power_v1.replay
+
+      - name: Verify independently in Python and Node
+        working-directory: byzantine_open_world_power_v1_public
+        env:
+          PYTHONPATH: .
+        run: |
+          python -m byzantine_open_world_power_v1.verify
+          node byzantine_open_world_power_v1/verify.js
+
+      - name: Run adversarial and forgery tests
+        working-directory: byzantine_open_world_power_v1_public
+        env:
+          PYTHONPATH: .
+        run: python -m unittest -v tests.test_replay
+
+      - name: Bind deterministic receipt
+        working-directory: byzantine_open_world_power_v1_public
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          receipt = json.loads(Path('reports/receipt.json').read_text())
+          actual = receipt['sha256']
+          expected = os.environ['EXPECTED_RECEIPT_SHA256']
+          if actual != expected:
+              raise SystemExit(f'receipt mismatch: {actual} != {expected}')
+          print(json.dumps({'status': 'PASS', 'receipt_sha256': actual}, sort_keys=True))
+          PY
+
+      - name: Upload public replay evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: byzantine-open-world-power-v1-public-evidence
+          path: |
+            byzantine_open_world_power_v1_public/PUBLIC_CLEAN_ROOM_BINDING.json
+            byzantine_open_world_power_v1_public/contract.json
+            byzantine_open_world_power_v1_public/reports/
+          if-no-files-found: error
+          retention-days: 30

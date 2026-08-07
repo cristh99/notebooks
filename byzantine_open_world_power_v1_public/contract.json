@@ -1,0 +1,44 @@
+{
+  "schema": "byzantine-open-world-power-v1/public-contract/1",
+  "domains": ["research", "software", "finance", "logistics", "physical", "governance"],
+  "archetypes": [
+    "honest_distinct_root_quorum",
+    "sybil_aliases_one_root",
+    "root_equivocation",
+    "stale_signed_replay",
+    "correlated_mirror_inflation",
+    "byzantine_minority_tolerated",
+    "fault_budget_exceeds_envelope",
+    "poisoned_derivation_cascade",
+    "revocation_deterministic_recompute",
+    "evaluator_compromise",
+    "adaptive_next_source_under_dependence",
+    "indistinguishable_worlds_impossible"
+  ],
+  "expected_terminal": {
+    "honest_distinct_root_quorum": "ACCEPTED",
+    "sybil_aliases_one_root": "BLOCKED_INSUFFICIENT_ROOTS",
+    "root_equivocation": "ACCEPTED",
+    "stale_signed_replay": "ACCEPTED",
+    "correlated_mirror_inflation": "BLOCKED_INSUFFICIENT_ROOTS",
+    "byzantine_minority_tolerated": "ACCEPTED",
+    "fault_budget_exceeds_envelope": "IMPOSSIBLE_UNDER_FAULT_MODEL",
+    "poisoned_derivation_cascade": "QUARANTINED",
+    "revocation_deterministic_recompute": "REVOKED_RECOMPUTED",
+    "evaluator_compromise": "QUARANTINED",
+    "adaptive_next_source_under_dependence": "ABSTAIN",
+    "indistinguishable_worlds_impossible": "IMPOSSIBLE_UNDER_FAULT_MODEL"
+  },
+  "expected_terminal_counts": {
+    "ACCEPTED": 24,
+    "BLOCKED_INSUFFICIENT_ROOTS": 12,
+    "IMPOSSIBLE_UNDER_FAULT_MODEL": 12,
+    "QUARANTINED": 12,
+    "REVOKED_RECOMPUTED": 6,
+    "ABSTAIN": 6
+  },
+  "quorum_gate": ["n >= 3*f + 1", "q >= 2*f + 1", "q <= n", "2*q > n + f"],
+  "support": "maximum bipartite matching between distinct roots and dependency groups",
+  "scenario_count": 72,
+  "claim_boundary": "Public clean-room reproduction of a finite synthetic grammar only; no real-world Byzantine tolerance, complete semantic-deception detection, safe self-modification, utility, universal superiority, scientific priority, or global 1000/1000."
+}
