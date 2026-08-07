@@ -1,0 +1,60 @@
+name: Data Science v17 - publish SEFIN final summary to PR
+
+on:
+  push:
+    branches: [agent/data-science-lane-v-event-binding-canary-v1]
+    paths:
+      - .github/workflows/data-science-v17-sefin-final-summary-comment.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: data-science-v17-sefin-final-summary-comment
+  cancel-in-progress: true
+
+jobs:
+  publish-summary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Fetch and validate public-safe summary
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          URL='https://storage.googleapis.com/unified-cortex-282107-fuentes/data_science/sefin_primary_document_independent_verifier/v1/FINAL_VERIFIED.json'
+          curl --fail --silent --show-error --location --max-time 45 "$URL" -o /tmp/final.json
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          d=json.loads(Path('/tmp/final.json').read_text())
+          required=['schema','verdict','gate_state','remaining_gate_count','receipt_sha256','claim_limit']
+          missing=[k for k in required if k not in d]
+          if missing: raise SystemExit(f'missing fields: {missing}')
+          safe={k:d.get(k) for k in [
+            'schema','verdict','gate_state','input_qualified_candidates',
+            'independently_verified_candidates','remaining_noncompensable_gates',
+            'remaining_gate_count','stage08_evidence_ready','stage08_unblocked',
+            'relationship_state','cross_source_relationship_asserted',
+            'scientific_promotion_credit','production_modified','external_cost_usd',
+            'receipt_sha256','claim_limit'
+          ]}
+          safe['source_file_sha256']=hashlib.sha256(Path('/tmp/final.json').read_bytes()).hexdigest()
+          Path('/tmp/safe.json').write_text(json.dumps(safe,ensure_ascii=False,sort_keys=True,separators=(',',':'))+'\n')
+          body='<!-- SEFIN_FINAL_VERIFICATION_SUMMARY_V1 -->\n## SEFIN primary-document final verifier\n\n```json\n'+json.dumps(safe,ensure_ascii=False,indent=2,sort_keys=True)+'\n```\n\nThis comment is generated from the public-safe, hash-bound GCS summary. It does not expose private identities or source locators.'
+          Path('/tmp/body.txt').write_text(body)
+          PY
+          marker='<!-- SEFIN_FINAL_VERIFICATION_SUMMARY_V1 -->'
+          comments="$(gh api --paginate repos/${GITHUB_REPOSITORY}/issues/144/comments)"
+          existing="$(printf '%s' "$comments" | jq -r --arg m "$marker" '.[] | select(.body | startswith($m)) | .id' | head -n1)"
+          payload="$(jq -Rs '{body:.}' </tmp/body.txt)"
+          if [ -n "$existing" ]; then
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${existing}" --input - <<<"$payload"
+          else
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/144/comments" --input - <<<"$payload"
+          fi
