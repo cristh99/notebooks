@@ -13,6 +13,7 @@ on:
       - "ocr_real_risk_v1/openvino_full_gate_aggregate_v7.py"
       - "ocr_real_risk_v1/openvino_full_gate_v7.py"
       - "ocr_real_risk_v1/test_openvino_full_gate_v7.py"
+      - "ocr_real_risk_v1/test_openvino_execution_cas_v7.py"
       - ".github/workflows/ocr-openvino-v7-full-gate-contract.yml"
   workflow_dispatch:
 
@@ -21,7 +22,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: openvino-v7-full-gate-contract-v2
+  group: openvino-v7-full-gate-contract-v3
   cancel-in-progress: false
 
 env:
@@ -83,6 +84,7 @@ jobs:
           mkdir -p contract-evidence
           python -m unittest -v \
             ocr_real_risk_v1.test_openvino_full_gate_v7 \
+            ocr_real_risk_v1.test_openvino_execution_cas_v7 \
             2>&1 | tee contract-evidence/unittest.log
           python -m compileall -q \
             ocr_real_risk_v1/openvino_full_gate_contract_v7.py \
@@ -92,7 +94,8 @@ jobs:
             ocr_real_risk_v1/openvino_full_gate_runner_v7.py \
             ocr_real_risk_v1/openvino_full_gate_aggregate_v7.py \
             ocr_real_risk_v1/openvino_full_gate_v7.py \
-            ocr_real_risk_v1/test_openvino_full_gate_v7.py
+            ocr_real_risk_v1/test_openvino_full_gate_v7.py \
+            ocr_real_risk_v1/test_openvino_execution_cas_v7.py
           python -m ocr_real_risk_v1.openvino_full_gate_v7 \
             verify-manifest \
             --manifest-root terminal-manifest \
@@ -121,11 +124,11 @@ jobs:
           assert replay["full_gate_authorized"] is False
           log = (evidence / "unittest.log").read_text()
           match = re.search(r"Ran (\d+) tests?", log)
-          assert match and int(match.group(1)) >= 16
+          assert match and int(match.group(1)) >= 20
           tests_passed = int(match.group(1))
           assert log.rstrip().endswith("OK")
           receipt = {
-              "schema": "eaat.openvino_v7_full_gate_contract_preflight/2",
+              "schema": "eaat.openvino_v7_full_gate_contract_preflight/3",
               "status": "PASS_FAIL_CLOSED_CONTRACT_ONLY",
               "github_run_id": int(os.environ["GITHUB_RUN_ID"]),
               "github_sha": os.environ["GITHUB_SHA"],
@@ -164,6 +167,9 @@ jobs:
                   "tests_sha256": sha(
                       Path("ocr_real_risk_v1/test_openvino_full_gate_v7.py")
                   ),
+                  "cas_tests_sha256": sha(
+                      Path("ocr_real_risk_v1/test_openvino_execution_cas_v7.py")
+                  ),
                   "workflow_sha256": sha(
                       Path(
                           ".github/workflows/"
@@ -188,6 +194,9 @@ jobs:
                   "authorization_hash_scope_and_code_tested": True,
                   "atomic_one_shot_claim_transition_tested": True,
                   "second_claim_rejected": True,
+                  "pre_cas_transition_has_no_future_commit_identity": True,
+                  "post_cas_result_commit_and_blob_bound": True,
+                  "post_cas_result_must_advance_parent_and_blob": True,
               },
               "side_effects": {
                   "scientific_images_opened": 0,
