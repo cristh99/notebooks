@@ -6,6 +6,7 @@ on:
       - agent/openvino-v7-smoke-16-stacked-v2
     paths:
       - "ocr_real_risk_v1/openvino_full_gate_contract_v7.py"
+      - "ocr_real_risk_v1/openvino_full_gate_execution_v7.py"
       - "ocr_real_risk_v1/openvino_full_gate_prepare_v7.py"
       - "ocr_real_risk_v1/openvino_full_gate_registry_v7.py"
       - "ocr_real_risk_v1/openvino_full_gate_runner_v7.py"
@@ -20,7 +21,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: openvino-v7-full-gate-contract-v1
+  group: openvino-v7-full-gate-contract-v2
   cancel-in-progress: false
 
 env:
@@ -85,6 +86,7 @@ jobs:
             2>&1 | tee contract-evidence/unittest.log
           python -m compileall -q \
             ocr_real_risk_v1/openvino_full_gate_contract_v7.py \
+            ocr_real_risk_v1/openvino_full_gate_execution_v7.py \
             ocr_real_risk_v1/openvino_full_gate_prepare_v7.py \
             ocr_real_risk_v1/openvino_full_gate_registry_v7.py \
             ocr_real_risk_v1/openvino_full_gate_runner_v7.py \
@@ -104,6 +106,7 @@ jobs:
           import hashlib
           import json
           import os
+          import re
           from pathlib import Path
 
           def sha(path: Path) -> str:
@@ -117,10 +120,12 @@ jobs:
           ]
           assert replay["full_gate_authorized"] is False
           log = (evidence / "unittest.log").read_text()
-          assert "Ran 12 tests" in log
+          match = re.search(r"Ran (\d+) tests?", log)
+          assert match and int(match.group(1)) >= 16
+          tests_passed = int(match.group(1))
           assert log.rstrip().endswith("OK")
           receipt = {
-              "schema": "eaat.openvino_v7_full_gate_contract_preflight/1",
+              "schema": "eaat.openvino_v7_full_gate_contract_preflight/2",
               "status": "PASS_FAIL_CLOSED_CONTRACT_ONLY",
               "github_run_id": int(os.environ["GITHUB_RUN_ID"]),
               "github_sha": os.environ["GITHUB_SHA"],
@@ -136,34 +141,22 @@ jobs:
               ],
               "source_files": {
                   "contract_sha256": sha(
-                      Path(
-                          "ocr_real_risk_v1/"
-                          "openvino_full_gate_contract_v7.py"
-                      )
+                      Path("ocr_real_risk_v1/openvino_full_gate_contract_v7.py")
+                  ),
+                  "execution_sha256": sha(
+                      Path("ocr_real_risk_v1/openvino_full_gate_execution_v7.py")
                   ),
                   "prepare_sha256": sha(
-                      Path(
-                          "ocr_real_risk_v1/"
-                          "openvino_full_gate_prepare_v7.py"
-                      )
+                      Path("ocr_real_risk_v1/openvino_full_gate_prepare_v7.py")
                   ),
                   "registry_sha256": sha(
-                      Path(
-                          "ocr_real_risk_v1/"
-                          "openvino_full_gate_registry_v7.py"
-                      )
+                      Path("ocr_real_risk_v1/openvino_full_gate_registry_v7.py")
                   ),
                   "runner_sha256": sha(
-                      Path(
-                          "ocr_real_risk_v1/"
-                          "openvino_full_gate_runner_v7.py"
-                      )
+                      Path("ocr_real_risk_v1/openvino_full_gate_runner_v7.py")
                   ),
                   "aggregate_sha256": sha(
-                      Path(
-                          "ocr_real_risk_v1/"
-                          "openvino_full_gate_aggregate_v7.py"
-                      )
+                      Path("ocr_real_risk_v1/openvino_full_gate_aggregate_v7.py")
                   ),
                   "cli_sha256": sha(
                       Path("ocr_real_risk_v1/openvino_full_gate_v7.py")
@@ -179,17 +172,22 @@ jobs:
                   ),
               },
               "verification": {
-                  "tests_passed": 12,
+                  "tests_passed": tests_passed,
                   "terminal_manifest_replayed": True,
                   "physical_dedup_contract_tested": True,
                   "prior_overlap_exclusion_tested": True,
+                  "prior_registry_authorization_binding_tested": True,
                   "internal_pixel_duplicate_exclusion_tested": True,
                   "missing_partition_rejected": True,
                   "duplicate_partition_rejected": True,
                   "outcome_quarantine_violation_abstains": True,
                   "detector_barrier_precedes_annotations": True,
+                  "partition_bytes_streamed_not_fetchall": True,
+                  "runtime_model_code_barrier_cross_binding_tested": True,
                   "leave_one_macrofold_out_stability_tested": True,
-                  "authorization_hash_and_scope_tested": True,
+                  "authorization_hash_scope_and_code_tested": True,
+                  "atomic_one_shot_claim_transition_tested": True,
+                  "second_claim_rejected": True,
               },
               "side_effects": {
                   "scientific_images_opened": 0,
@@ -200,8 +198,8 @@ jobs:
               },
               "full_execution_authorized": False,
               "next_gate": (
-                  "INDEPENDENT_CHANGE_REVIEW_AND_PRIOR_CORPUS_"
-                  "FINGERPRINT_REGISTRY_FREEZE"
+                  "PRIOR_CORPUS_FINGERPRINT_REGISTRY_FREEZE_AND_"
+                  "ATOMIC_GITHUB_LEDGER_WORKFLOW"
               ),
           }
           raw = json.dumps(
