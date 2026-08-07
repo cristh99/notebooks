@@ -6,6 +6,7 @@ import shutil
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from .core import sha256_file
 from .exact_bounds import clopper_pearson_lower, clopper_pearson_upper
 from .openvino_full_gate_contract_v7 import (
     ABSTAIN_DEDUP_OR_INTEGRITY,
@@ -18,19 +19,29 @@ from .openvino_full_gate_contract_v7 import (
     MINIMUM_ACTIVE_AFTER_DEDUP,
     MINIMUM_COVERAGE_LOWER,
     MINIMUM_MACROFOLD_PASS_FRACTION,
+    MODEL_ARTIFACT_ID,
+    MODEL_CANDIDATE_STABLE_SHA256,
+    MODEL_SHA256,
+    MODEL_ZIP_SHA256,
     PARTITION_COUNT,
     PARTITION_REPORT_SCHEMA,
     PASS_FULL_EXTERNAL_GATE,
     SCIENTIFIC_MANIFEST_SHA256,
+    SOURCE_COMMIT,
     TARGET_ERROR_REDUCTION,
     _is_sha256,
     _read_json,
     _write_json,
     stable_payload,
-    verify_execution_authorization,
     verify_hash_manifest,
     verify_stable_payload,
     write_hash_manifest,
+)
+from .openvino_full_gate_execution_v7 import (
+    claim_binding,
+    current_code_bundle,
+    verify_bound_execution_authorization,
+    verify_execution_claim,
 )
 from .openvino_full_gate_registry_v7 import verify_registry_bundle
 
@@ -103,16 +114,54 @@ def _scaled_minimum(full_minimum: int, subset: int, full: int) -> int:
     return max(1, math.ceil(full_minimum * subset / max(full, 1)))
 
 
+def _validate_report_identity(
+    report: Mapping[str, Any],
+    *,
+    expected_code_bundle: Mapping[str, str],
+    authorization_binding: Mapping[str, Any],
+) -> None:
+    source = report.get("source_identity")
+    runtime = report.get("runtime")
+    model = report.get("model")
+    if (
+        report.get("authorization_binding") != authorization_binding
+        or report.get("code_bundle") != expected_code_bundle
+        or report.get("executor_source_sha256")
+        != expected_code_bundle[
+            "ocr_real_risk_v1/openvino_full_gate_runner_v7.py"
+        ]
+        or not isinstance(source, Mapping)
+        or source.get("source_commit") != SOURCE_COMMIT
+        or source.get("all_match_frozen_commit") is not True
+        or not isinstance(runtime, Mapping)
+        or runtime.get("strict_match") is not True
+        or not isinstance(model, Mapping)
+        or model.get("artifact_id") != MODEL_ARTIFACT_ID
+        or model.get("artifact_zip_sha256") != MODEL_ZIP_SHA256
+        or model.get("model_sha256") != MODEL_SHA256
+        or model.get("candidate_stable_payload_sha256")
+        != MODEL_CANDIDATE_STABLE_SHA256
+        or model.get("tree_count") != 500
+        or report.get("annotation_query_executed_after_detector_barrier") is not True
+        or report.get("detector_barrier_rows") != report.get("record_count")
+        or not _is_sha256(report.get("detector_barrier_sha256"))
+    ):
+        raise RuntimeError("partition frozen identity/barrier contract failed")
+
+
 def aggregate_partition_reports(
     reports: Sequence[Mapping[str, Any]],
     *,
     expected_partition_counts: Sequence[int],
     registry_stable_payload_sha256: str,
+    expected_code_bundle: Mapping[str, str],
+    authorization_binding: Mapping[str, Any],
     minimum_active: int = MINIMUM_ACTIVE_AFTER_DEDUP,
-    authorization_binding: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     if len(expected_partition_counts) != PARTITION_COUNT:
         raise RuntimeError("twelve expected partition counts are required")
+    if dict(expected_code_bundle) != current_code_bundle():
+        raise RuntimeError("aggregate code bundle differs from checked-out executor")
     by_partition: dict[int, Mapping[str, Any]] = {}
     observations: list[dict[str, Any]] = []
     for report in reports:
@@ -129,10 +178,11 @@ def aggregate_partition_reports(
             or report.get("execution_complete") is not True
         ):
             raise RuntimeError("partition report contract failed")
-        if authorization_binding is not None and report.get(
-            "authorization_binding"
-        ) != authorization_binding:
-            raise RuntimeError("partition report authorization binding drift")
+        _validate_report_identity(
+            report,
+            expected_code_bundle=expected_code_bundle,
+            authorization_binding=authorization_binding,
+        )
         partition = int(report.get("partition_id", -1))
         if not 0 <= partition < PARTITION_COUNT or partition in by_partition:
             raise RuntimeError("missing/duplicate/invalid partition report")
@@ -193,13 +243,20 @@ def aggregate_partition_reports(
         float(row.get("candidate", {}).get("verifier_wall_seconds") or 0.0)
         for row in observations
     )
+    common = {
+        "schema": AGGREGATE_SCHEMA,
+        "candidate_stable_payload_sha256": CANDIDATE_STABLE_PAYLOAD_SHA256,
+        "registry_stable_payload_sha256": registry_stable_payload_sha256,
+        "scientific_manifest_sha256": SCIENTIFIC_MANIFEST_SHA256,
+        "authorization_binding": authorization_binding,
+        "code_bundle": dict(expected_code_bundle),
+    }
     if integrity_reasons:
         return stable_payload(
             {
-                "schema": AGGREGATE_SCHEMA,
+                **common,
                 "status": ABSTAIN_DEDUP_OR_INTEGRITY,
                 "scientific_verdict": ABSTAIN_DEDUP_OR_INTEGRITY,
-                "authorization_binding": authorization_binding,
                 "integrity": {
                     "pass": False,
                     "reasons": sorted(set(integrity_reasons)),
@@ -249,13 +306,9 @@ def aggregate_partition_reports(
     status = PASS_FULL_EXTERNAL_GATE if scientific_pass else FAIL_FULL_EXTERNAL_GATE
     return stable_payload(
         {
-            "schema": AGGREGATE_SCHEMA,
+            **common,
             "status": status,
             "scientific_verdict": status,
-            "candidate_stable_payload_sha256": CANDIDATE_STABLE_PAYLOAD_SHA256,
-            "registry_stable_payload_sha256": registry_stable_payload_sha256,
-            "scientific_manifest_sha256": SCIENTIFIC_MANIFEST_SHA256,
-            "authorization_binding": authorization_binding,
             "integrity": {"pass": True, "reasons": []},
             "execution": {
                 "selected": len(observations),
@@ -312,34 +365,49 @@ def aggregate_from_files(
     report_roots: Sequence[Path],
     authorization_path: Path,
     authorization_sha256: str,
+    execution_claim_path: Path,
+    execution_claim_sha256: str,
     output_dir: Path,
 ) -> dict[str, Any]:
-    authorization = verify_execution_authorization(
+    authorization = verify_bound_execution_authorization(
         authorization_path, authorization_sha256, "AGGREGATE"
     )
+    claim = verify_execution_claim(
+        execution_claim_path, execution_claim_sha256, authorization
+    )
+    expected_binding = claim_binding(
+        authorization,
+        claim,
+        authorization_file_sha256=authorization_sha256,
+        claim_file_sha256=execution_claim_sha256,
+    )
     registry = verify_registry_bundle(registry_root)
-    authorization_binding = registry.get("authorization_binding")
+    registry_receipt = _read_json(Path(registry_root) / "registry_receipt.json")
     if (
-        not isinstance(authorization_binding, Mapping)
-        or authorization_binding.get("execution_id") != authorization["execution_id"]
-        or authorization_binding.get("authorization_nonce_sha256")
-        != authorization["authorization_nonce_sha256"]
-        or authorization_binding.get("authorization_stable_payload_sha256")
-        != authorization["stable_payload_sha256"]
+        registry.get("evaluation_authorized") is not True
+        or registry.get("authorization_binding") != expected_binding
+        or registry_receipt.get("code_bundle") != authorization["code_bundle"]
+        or registry_receipt.get("prior_registry", {}).get("stable_payload_sha256")
+        != authorization["prior_registry_stable_payload_sha256"]
     ):
-        raise RuntimeError("registry and aggregate authorization bindings differ")
+        raise RuntimeError("registry and aggregate one-shot bindings differ")
     reports: list[dict[str, Any]] = []
     for root in report_roots:
         verify_hash_manifest(
             root,
             exact_files={"partition_report.json", "detector_barrier.jsonl"},
         )
-        reports.append(_read_json(root / "partition_report.json"))
+        report = _read_json(Path(root) / "partition_report.json")
+        actual_barrier = sha256_file(Path(root) / "detector_barrier.jsonl")
+        if report.get("detector_barrier_sha256") != actual_barrier:
+            raise RuntimeError("partition report/barrier cross-hash mismatch")
+        reports.append(report)
     aggregate = aggregate_partition_reports(
         reports,
         expected_partition_counts=registry["partition_counts"],
         registry_stable_payload_sha256=registry["stable_payload_sha256"],
-        authorization_binding=authorization_binding,
+        expected_code_bundle=authorization["code_bundle"],
+        authorization_binding=expected_binding,
     )
     shutil.rmtree(output_dir, ignore_errors=True)
     output_dir.mkdir(parents=True)
