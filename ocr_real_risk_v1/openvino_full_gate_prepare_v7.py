@@ -1,8 +1,8 @@
-"""Authorized OpenVINO v7 physical-registry and partition executors.
+"""Authorized OpenVINO v7 physical-registry preparation.
 
-No source access occurs at import time.  Every image-reading entry point requires
-a hash-bound one-shot authorization.  A partition's detector barrier is persisted
-before annotation text or geometry is queried.
+No source access occurs at import time. The only image-reading entry point
+requires a hash-bound authorization and an atomically consumed execution claim.
+It reads image bytes only: annotation text and geometry are never projected.
 """
 from __future__ import annotations
 
@@ -17,8 +17,13 @@ from .openvino_full_gate_contract_v7 import (
     _read_jsonl,
     canonical_pixel_sha256,
     stable_payload,
-    verify_execution_authorization,
     verify_manifest_bundle,
+)
+from .openvino_full_gate_execution_v7 import (
+    claim_binding,
+    current_code_bundle,
+    verify_bound_execution_authorization,
+    verify_execution_claim,
 )
 from .openvino_full_gate_registry_v7 import (
     _image_id_from_path,
@@ -86,14 +91,25 @@ def prepare_registry_from_source(
     prior_registry_sha256: str,
     authorization_path: Path,
     authorization_sha256: str,
+    execution_claim_path: Path,
+    execution_claim_sha256: str,
     output_dir: Path,
 ) -> dict[str, Any]:
     """Open image bytes only; never read annotation columns or run OCR."""
-    authorization = verify_execution_authorization(
+    authorization = verify_bound_execution_authorization(
         authorization_path, authorization_sha256, "PREPARE_REGISTRY"
     )
+    claim = verify_execution_claim(
+        execution_claim_path, execution_claim_sha256, authorization
+    )
+    if prior_registry_sha256 != authorization["prior_registry_file_sha256"]:
+        raise RuntimeError("caller-selected prior registry differs from authorization")
     verify_manifest_bundle(manifest_root)
     prior = _load_prior_registry(prior_registry_path, prior_registry_sha256)
+    if prior.get("stable_payload_sha256") != authorization[
+        "prior_registry_stable_payload_sha256"
+    ]:
+        raise RuntimeError("prior registry stable payload differs from authorization")
     scientific = _read_jsonl(Path(manifest_root) / "scientific_manifest.jsonl")
     connection = _duckdb_connection()
     _insert_manifest_table(connection, scientific)
@@ -159,16 +175,13 @@ def prepare_registry_from_source(
                 for key, value in registry.items()
                 if key != "stable_payload_sha256"
             },
-            "authorization_binding": {
-                "execution_id": authorization["execution_id"],
-                "authorization_nonce_sha256": authorization[
-                    "authorization_nonce_sha256"
-                ],
-                "authorization_stable_payload_sha256": authorization[
-                    "stable_payload_sha256"
-                ],
-                "authorization_file_sha256": authorization_sha256,
-            },
+            "authorization_binding": claim_binding(
+                authorization,
+                claim,
+                authorization_file_sha256=authorization_sha256,
+                claim_file_sha256=execution_claim_sha256,
+            ),
+            "code_bundle": current_code_bundle(),
         }
     )
     write_registry_bundle(registry, output_dir)
