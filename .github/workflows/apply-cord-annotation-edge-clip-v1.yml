@@ -73,6 +73,7 @@ jobs:
       - name: Commit only tested implementation changes
         run: |
           set -euo pipefail
+          git restore .github/workflows/ocr-openvino-v7-full-gate-contract.yml
           git rm -f \
             scripts/apply_openvino_review_fixes_v1.py \
             .openvino-review-fixes-trigger-v1
@@ -86,8 +87,7 @@ jobs:
             ocr_real_risk_v1/test_openvino_prior_registry_v7.py \
             ocr_real_risk_v1/test_openvino_prior_loader_v7.py \
             ocr_real_risk_v1/test_openvino_full_gate_v7.py \
-            ocr_real_risk_v1/test_openvino_execution_cas_v7.py \
-            .github/workflows/ocr-openvino-v7-full-gate-contract.yml
+            ocr_real_risk_v1/test_openvino_execution_cas_v7.py
           git diff --cached --check
           git commit -m 'Close OpenVINO authorization and prior-registry review blockers'
           git push origin "HEAD:${GITHUB_REF_NAME}"
