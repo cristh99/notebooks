@@ -1,0 +1,198 @@
+name: Public corrected unknown changepoint verification
+
+on:
+  push:
+    branches:
+      - agent/inference-power-compiler-v2-public-ci
+    paths:
+      - 'inference_power_compiler_v2/verify_unknown_changepoint_public.py'
+      - 'inference_power_compiler_v2/unknown_change_public_key.pem'
+      - 'inference_power_compiler_v2/unknown_change_manifest_*'
+      - 'UnknownChangePointPublic.lean'
+      - '.github/workflows/unknown-changepoint-public.yml'
+  pull_request:
+    paths:
+      - 'inference_power_compiler_v2/verify_unknown_changepoint_public.py'
+      - 'inference_power_compiler_v2/unknown_change_public_key.pem'
+      - 'inference_power_compiler_v2/unknown_change_manifest_*'
+      - 'UnknownChangePointPublic.lean'
+      - '.github/workflows/unknown-changepoint-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-unknown-changepoint-public:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+
+      - name: Execute independent finite reconstruction
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            inference_power_compiler_v2/verify_unknown_changepoint_public.py
+          python inference_power_compiler_v2/verify_unknown_changepoint_public.py \
+            | tee unknown-changepoint-public.log
+          test -s inference_power_compiler_v2/UNKNOWN_CHANGEPOINT_PUBLIC_CERTIFICATE.json
+          test -s inference_power_compiler_v2/UNKNOWN_CHANGEPOINT_PUBLIC_REPORT.json
+          sha256sum \
+            inference_power_compiler_v2/UNKNOWN_CHANGEPOINT_PUBLIC_CERTIFICATE.json \
+            inference_power_compiler_v2/UNKNOWN_CHANGEPOINT_PUBLIC_REPORT.json \
+            > /tmp/public-before.sha256
+          python inference_power_compiler_v2/verify_unknown_changepoint_public.py \
+            > /tmp/public-rebuild.log
+          sha256sum \
+            inference_power_compiler_v2/UNKNOWN_CHANGEPOINT_PUBLIC_CERTIFICATE.json \
+            inference_power_compiler_v2/UNKNOWN_CHANGEPOINT_PUBLIC_REPORT.json \
+            > /tmp/public-after.sha256
+          cmp /tmp/public-before.sha256 /tmp/public-after.sha256
+
+      - name: Audit exact semantic outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('inference_power_compiler_v2/UNKNOWN_CHANGEPOINT_PUBLIC_REPORT.json').read_text())
+          assert report['detection']['candidate'] == 'R1'
+          assert report['detection']['breakpoint'] == 'b6'
+          assert report['detection']['detection_batch'] == 'b7'
+          assert report['detection']['alpha'] == [1, 12800]
+          assert report['selection_sequence'] == ['global'] * 6 + ['R1'] * 5
+          assert report['no_change']['detection'] is None
+          assert report['alternative_change']['candidate'] == 'R2'
+          assert report['score_count'] == 704
+          assert report['resources']['change_detection_evaluations'] == 38016
+          assert report['resources']['adaptive_monitoring_evaluations'] == 104959
+          assert report['resources']['baseline_monitoring_evaluations'] == 230912
+          assert report['resources']['signature_verifications'] == 1
+          assert report['resources']['former_total_evaluations'] == 289408
+          assert report['resources']['total_evaluations'] == 373888
+          assert report['former_cap']['status'] == 'UNKNOWN_RESOURCE_LIMIT'
+          assert report['correct_cap']['status'] == 'SOLVED'
+          assert report['adaptive_final']['width'] == [62873, 262144]
+          assert report['baseline_final']['width'] == [69995, 262144]
+          assert report['relative_width_reduction'] == [7122, 69995]
+          assert report['truth_included_at_every_time'] is True
+          assert len(report['negative_controls']) == 10
+          PY
+
+      - name: Install pinned Lean
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -sSf \
+            https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          "$HOME/.elan/bin/elan" toolchain install leanprover/lean4:v4.33.0-rc1
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Compile public formal boundary without axioms
+        shell: bash
+        run: |
+          set -euo pipefail
+          elan run leanprover/lean4:v4.33.0-rc1 lean \
+            -o UnknownChangePointPublic.olean UnknownChangePointPublic.lean \
+            2>&1 | tee unknown-changepoint-public-lean.log
+          test -s UnknownChangePointPublic.olean
+          if grep -Eq 'sorryAx|depends on axioms:' unknown-changepoint-public-lean.log; then
+            echo 'Unexpected Lean axiom dependency' >&2
+            exit 1
+          fi
+
+      - name: Build public verification receipt
+        shell: bash
+        env:
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PUBLIC_EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          files = {
+              'public_report': Path('inference_power_compiler_v2/UNKNOWN_CHANGEPOINT_PUBLIC_REPORT.json'),
+              'public_certificate': Path('inference_power_compiler_v2/UNKNOWN_CHANGEPOINT_PUBLIC_CERTIFICATE.json'),
+              'public_verifier': Path('inference_power_compiler_v2/verify_unknown_changepoint_public.py'),
+              'public_key': Path('inference_power_compiler_v2/unknown_change_public_key.pem'),
+              'manifest_r0': Path('inference_power_compiler_v2/unknown_change_manifest_r0.json'),
+              'manifest_r1': Path('inference_power_compiler_v2/unknown_change_manifest_r1.json'),
+              'manifest_r2': Path('inference_power_compiler_v2/unknown_change_manifest_r2.json'),
+              'manifest_late': Path('inference_power_compiler_v2/unknown_change_manifest_late.json'),
+              'public_lean': Path('UnknownChangePointPublic.lean'),
+          }
+          receipt = {
+              'schema': 'unknown-changepoint-public-verification-receipt/2',
+              'repository': 'cristh99/notebooks',
+              'head': os.environ['PUBLIC_HEAD_SHA'],
+              'event_sha': os.environ['PUBLIC_EVENT_SHA'],
+              'comparison_target': {
+                  'repository': 'cristh99/my_first_repository',
+                  'pull_request': 83,
+                  'head': 'c2d1f0ce1b6a94c56ce12412fcf1c19ad7ae0dff',
+              },
+              'sha256': {
+                  name: hashlib.sha256(path.read_bytes()).hexdigest()
+                  for name, path in files.items()
+              },
+              'independent_reconstruction': 'PASS',
+              'signed_external_manifests': 'PASS',
+              'row_merkle_reconstruction': 'PASS',
+              'cluster_atomicity': 'PASS',
+              'unknown_breakpoint_detection': 'PASS',
+              'hierarchical_alpha_wealth': 'PASS',
+              'predictable_selection_and_retirement': 'PASS',
+              'no_change_false_alarm_control': 'PASS',
+              'alternative_regime_selection': 'PASS',
+              'truth_anytime_inclusion': 'PASS',
+              'former_resource_cap_rejected': 'PASS',
+              'correct_resource_cap_solved': 'PASS',
+              'correct_total_evaluations': 373888,
+              'negative_controls': 10,
+              'semantic_replay': 'PASS',
+              'deterministic_rebuild': 'PASS',
+              'certificate_tamper_rejection': 'PASS',
+              'semantic_forgery_rejection': 'PASS',
+              'lean': 'PASS',
+              'sorryAx': 'ABSENT',
+              'axiom_dependencies': 'ABSENT',
+          }
+          path = Path('inference_power_compiler_v2/UNKNOWN_CHANGEPOINT_PUBLIC_RECEIPT.json')
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path('inference_power_compiler_v2/UNKNOWN_CHANGEPOINT_PUBLIC_RECEIPT.sha256').write_text(
+              f'{digest}  UNKNOWN_CHANGEPOINT_PUBLIC_RECEIPT.json\n'
+          )
+          print(path.read_text())
+          print(digest)
+          PY
+
+      - name: Upload public evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: unknown-changepoint-public-evidence
+          path: |
+            inference_power_compiler_v2/UNKNOWN_CHANGEPOINT_PUBLIC_*.json
+            inference_power_compiler_v2/UNKNOWN_CHANGEPOINT_PUBLIC_RECEIPT.sha256
+            inference_power_compiler_v2/verify_unknown_changepoint_public.py
+            inference_power_compiler_v2/unknown_change_public_key.pem
+            inference_power_compiler_v2/unknown_change_manifest_*.json
+            inference_power_compiler_v2/unknown_change_manifest_*.sig.b64
+            UnknownChangePointPublic.lean
+            UnknownChangePointPublic.olean
+            unknown-changepoint-public.log
+            unknown-changepoint-public-lean.log
+          if-no-files-found: error
+          retention-days: 90

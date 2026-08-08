@@ -1,0 +1,72 @@
+name: Conditional CLT compiler public independent verification
+
+on:
+  push:
+    branches:
+      - agent/inference-power-compiler-v2-public-ci
+    paths:
+      - 'inference_power_compiler_v2/verify_conditional_clt_independent.py'
+      - 'ConditionalCLTFinite.lean'
+      - '.github/workflows/conditional-clt-public.yml'
+  pull_request:
+    paths:
+      - 'inference_power_compiler_v2/verify_conditional_clt_independent.py'
+      - 'ConditionalCLTFinite.lean'
+      - '.github/workflows/conditional-clt-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Bind private source and compile verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(grep -c 'dd8e37b81db164aceffd0912905858505287c877' inference_power_compiler_v2/verify_conditional_clt_independent.py)" = "1"
+          python -m py_compile inference_power_compiler_v2/verify_conditional_clt_independent.py
+      - name: Verify moments, Berry-Esseen, Lindeberg and coverage independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd inference_power_compiler_v2
+          python verify_conditional_clt_independent.py | tee ../conditional-clt-public.log
+          test -s CONDITIONAL_CLT_PUBLIC_RECEIPT.json
+      - name: Install pinned Lean
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+          "$HOME/.elan/bin/elan" toolchain install leanprover/lean4:v4.33.0-rc1
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Compile Lean boundary without sorryAx
+        shell: bash
+        run: |
+          set -euo pipefail
+          elan run leanprover/lean4:v4.33.0-rc1 lean -o ConditionalCLTFinite.olean ConditionalCLTFinite.lean 2>&1 | tee conditional-clt-public-lean.log
+          test -s ConditionalCLTFinite.olean
+          if grep -q 'sorryAx' conditional-clt-public-lean.log; then
+            echo 'Lean output contains sorryAx' >&2
+            exit 1
+          fi
+      - name: Upload proof-carrying evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: conditional-clt-public-evidence
+          path: |
+            inference_power_compiler_v2/CONDITIONAL_CLT_PUBLIC_RECEIPT.json
+            inference_power_compiler_v2/verify_conditional_clt_independent.py
+            ConditionalCLTFinite.lean
+            ConditionalCLTFinite.olean
+            conditional-clt-public.log
+            conditional-clt-public-lean.log
+          if-no-files-found: error
+          retention-days: 30

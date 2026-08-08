@@ -1,0 +1,162 @@
+name: Predictable betting — public independent verification
+
+on:
+  push:
+    branches:
+      - agent/inference-power-compiler-v2-public-ci
+    paths:
+      - 'inference_power_compiler_v2/verify_predictable_betting_public.py'
+      - 'PredictableBettingPublic.lean'
+      - '.github/workflows/predictable-betting-public.yml'
+  pull_request:
+    paths:
+      - 'inference_power_compiler_v2/verify_predictable_betting_public.py'
+      - 'PredictableBettingPublic.lean'
+      - '.github/workflows/predictable-betting-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-predictable-betting-public:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+
+      - name: Bind private sources and compile verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          verifier=inference_power_compiler_v2/verify_predictable_betting_public.py
+          test "$(grep -c '1e0258c681ba03c772a194df3fef70f3ecfdb32d' "$verifier")" = "1"
+          test "$(grep -c 'c76648c417e8e333517d1952ced6ff4eb1bc4d2e' "$verifier")" = "1"
+          test "$(grep -c '387e9afa4ecb33e173166be733059eb1c62fbfd9' "$verifier")" = "1"
+          test "$(grep -c 'b2e775f47df72396a309f5e2c69bdeaecd7f5cb1' "$verifier")" = "1"
+          test "$(grep -c '31f9296ec66bf3a45d0c6e6a76368e89a6cb6ca1' "$verifier")" = "1"
+          python -m py_compile "$verifier"
+
+      - name: Execute independent predictable betting verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          python inference_power_compiler_v2/verify_predictable_betting_public.py \
+            | tee predictable-betting-public.log
+          test -s inference_power_compiler_v2/PREDICTABLE_BETTING_PUBLIC_CERTIFICATE.json
+          test -s inference_power_compiler_v2/PREDICTABLE_BETTING_PUBLIC_REPORT.json
+          sha256sum inference_power_compiler_v2/PREDICTABLE_BETTING_PUBLIC_*.json \
+            > /tmp/predictable-betting-public-before.sha256
+          python inference_power_compiler_v2/verify_predictable_betting_public.py \
+            > /tmp/predictable-betting-public-rebuild.log
+          sha256sum inference_power_compiler_v2/PREDICTABLE_BETTING_PUBLIC_*.json \
+            > /tmp/predictable-betting-public-after.sha256
+          cmp \
+            /tmp/predictable-betting-public-before.sha256 \
+            /tmp/predictable-betting-public-after.sha256
+
+      - name: Install pinned Lean
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -sSf \
+            https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          "$HOME/.elan/bin/elan" toolchain install leanprover/lean4:v4.33.0-rc1
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Compile public formal boundary without axioms
+        shell: bash
+        run: |
+          set -euo pipefail
+          elan run leanprover/lean4:v4.33.0-rc1 lean \
+            -o PredictableBettingPublic.olean \
+            PredictableBettingPublic.lean \
+            2>&1 | tee predictable-betting-public-lean.log
+          test -s PredictableBettingPublic.olean
+          if grep -q 'sorryAx' predictable-betting-public-lean.log; then
+            echo 'Unexpected sorryAx' >&2
+            exit 1
+          fi
+          if grep -q 'depends on axioms:' predictable-betting-public-lean.log; then
+            echo 'Unexpected axiom dependency' >&2
+            exit 1
+          fi
+
+      - name: Build public verification receipt
+        shell: bash
+        env:
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PUBLIC_EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          report = Path('inference_power_compiler_v2/PREDICTABLE_BETTING_PUBLIC_REPORT.json')
+          certificate = Path('inference_power_compiler_v2/PREDICTABLE_BETTING_PUBLIC_CERTIFICATE.json')
+          verifier = Path('inference_power_compiler_v2/verify_predictable_betting_public.py')
+          lean = Path('PredictableBettingPublic.lean')
+          receipt = {
+              'schema': 'predictable-betting-public-verification-receipt/1',
+              'repository': 'cristh99/notebooks',
+              'head': os.environ['PUBLIC_HEAD_SHA'],
+              'event_sha': os.environ['PUBLIC_EVENT_SHA'],
+              'private_repository': 'cristh99/my_first_repository',
+              'private_pull_request': 68,
+              'private_head': '48fd366d60c21b210a75c71ceffb222aa05467f8',
+              'private_blobs': {
+                  'compiler': '1e0258c681ba03c772a194df3fef70f3ecfdb32d',
+                  'runner': 'c76648c417e8e333517d1952ced6ff4eb1bc4d2e',
+                  'tests': '387e9afa4ecb33e173166be733059eb1c62fbfd9',
+                  'lean': 'b2e775f47df72396a309f5e2c69bdeaecd7f5cb1',
+                  'workflow': '31f9296ec66bf3a45d0c6e6a76368e89a6cb6ca1',
+              },
+              'report_sha256': hashlib.sha256(report.read_bytes()).hexdigest(),
+              'certificate_sha256': hashlib.sha256(certificate.read_bytes()).hexdigest(),
+              'verifier_sha256': hashlib.sha256(verifier.read_bytes()).hexdigest(),
+              'lean_source_sha256': hashlib.sha256(lean.read_bytes()).hexdigest(),
+              'predictability': 'PASS',
+              'factor_nonnegativity': 'PASS',
+              'posterior_factor_identity': 'PASS',
+              'expert_regret_lower_bound': 'PASS',
+              'iid_null_crossing': 'PASS',
+              'finite_power_dominance': 'PASS',
+              'global_dominance_obstruction': 'PASS',
+              'negative_controls': 'PASS',
+              'semantic_replay': 'PASS',
+              'deterministic_rebuild': 'PASS',
+              'lean': 'PASS',
+              'axioms': 'ABSENT',
+          }
+          path = Path('inference_power_compiler_v2/PREDICTABLE_BETTING_PUBLIC_RECEIPT.json')
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path('inference_power_compiler_v2/PREDICTABLE_BETTING_PUBLIC_RECEIPT.sha256').write_text(
+              f'{digest}  PREDICTABLE_BETTING_PUBLIC_RECEIPT.json\n'
+          )
+          print(path.read_text())
+          print(digest)
+          PY
+
+      - name: Upload public predictable betting evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: predictable-betting-public-evidence
+          path: |
+            inference_power_compiler_v2/PREDICTABLE_BETTING_PUBLIC_*.json
+            inference_power_compiler_v2/PREDICTABLE_BETTING_PUBLIC_RECEIPT.sha256
+            inference_power_compiler_v2/verify_predictable_betting_public.py
+            PredictableBettingPublic.lean
+            PredictableBettingPublic.olean
+            predictable-betting-public.log
+            predictable-betting-public-lean.log
+          if-no-files-found: error
+          retention-days: 90

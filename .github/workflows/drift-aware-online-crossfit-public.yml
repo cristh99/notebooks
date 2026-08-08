@@ -1,0 +1,178 @@
+name: Public drift-aware online cross-fit verification
+
+on:
+  push:
+    branches:
+      - agent/inference-power-compiler-v2-public-ci
+    paths:
+      - 'inference_power_compiler_v2/verify_drift_aware_online_crossfit_public.py'
+      - 'DriftAwareOnlineCrossFitPublic.lean'
+      - '.github/workflows/drift-aware-online-crossfit-public.yml'
+  pull_request:
+    paths:
+      - 'inference_power_compiler_v2/verify_drift_aware_online_crossfit_public.py'
+      - 'DriftAwareOnlineCrossFitPublic.lean'
+      - '.github/workflows/drift-aware-online-crossfit-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-drift-aware-online-crossfit-public:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+
+      - name: Bind private sources and compile verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          verifier=inference_power_compiler_v2/verify_drift_aware_online_crossfit_public.py
+          for bound in \
+            c3905d5328a6e6f5e83af8c0596ae156600d54a4 \
+            3de813e42f1cd4c9fd3c4e3c562a654537de4dfd \
+            599266941eba32a268132a671192e077a17f7f63 \
+            63cd429bb28f625faa8ba4452c856aa601712648 \
+            72433508961fea500aa3fc61242176baba03da56 \
+            2e468ba40d1fa5cb51776f0fec5ceb0c2a390e17 \
+            11f59404860db7f2570c4b766d27e814622188ce
+          do
+            test "$(grep -c "$bound" "$verifier")" = "1"
+          done
+          python -m py_compile "$verifier"
+
+      - name: Execute independent drift-aware online replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          python inference_power_compiler_v2/verify_drift_aware_online_crossfit_public.py \
+            | tee drift-aware-online-crossfit-public.log
+          test -s inference_power_compiler_v2/DRIFT_AWARE_ONLINE_PUBLIC_CERTIFICATE.json
+          test -s inference_power_compiler_v2/DRIFT_AWARE_ONLINE_PUBLIC_REPORT.json
+          sha256sum inference_power_compiler_v2/DRIFT_AWARE_ONLINE_PUBLIC_*.json \
+            > /tmp/drift-aware-online-public-before.sha256
+          python inference_power_compiler_v2/verify_drift_aware_online_crossfit_public.py \
+            > /tmp/drift-aware-online-public-rebuild.log
+          sha256sum inference_power_compiler_v2/DRIFT_AWARE_ONLINE_PUBLIC_*.json \
+            > /tmp/drift-aware-online-public-after.sha256
+          cmp \
+            /tmp/drift-aware-online-public-before.sha256 \
+            /tmp/drift-aware-online-public-after.sha256
+
+      - name: Install pinned Lean
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -sSf \
+            https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          "$HOME/.elan/bin/elan" toolchain install leanprover/lean4:v4.33.0-rc1
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Compile public formal boundary without axioms
+        shell: bash
+        run: |
+          set -euo pipefail
+          elan run leanprover/lean4:v4.33.0-rc1 lean \
+            -o DriftAwareOnlineCrossFitPublic.olean \
+            DriftAwareOnlineCrossFitPublic.lean \
+            2>&1 | tee drift-aware-online-crossfit-public-lean.log
+          test -s DriftAwareOnlineCrossFitPublic.olean
+          if grep -q 'sorryAx' drift-aware-online-crossfit-public-lean.log; then
+            echo 'Unexpected sorryAx' >&2
+            exit 1
+          fi
+          if grep -q 'depends on axioms:' drift-aware-online-crossfit-public-lean.log; then
+            echo 'Unexpected Lean axiom dependency' >&2
+            exit 1
+          fi
+
+      - name: Build public verification receipt
+        shell: bash
+        env:
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PUBLIC_EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          files = {
+              'report': Path('inference_power_compiler_v2/DRIFT_AWARE_ONLINE_PUBLIC_REPORT.json'),
+              'certificate': Path('inference_power_compiler_v2/DRIFT_AWARE_ONLINE_PUBLIC_CERTIFICATE.json'),
+              'verifier': Path('inference_power_compiler_v2/verify_drift_aware_online_crossfit_public.py'),
+              'lean': Path('DriftAwareOnlineCrossFitPublic.lean'),
+          }
+          receipt = {
+              'schema': 'drift-aware-online-crossfit-public-verification-receipt/1',
+              'repository': 'cristh99/notebooks',
+              'head': os.environ['PUBLIC_HEAD_SHA'],
+              'event_sha': os.environ['PUBLIC_EVENT_SHA'],
+              'private_repository': 'cristh99/my_first_repository',
+              'private_pull_request': 68,
+              'private_head': 'c3905d5328a6e6f5e83af8c0596ae156600d54a4',
+              'private_blobs': {
+                  'compiler': '3de813e42f1cd4c9fd3c4e3c562a654537de4dfd',
+                  'runner': '599266941eba32a268132a671192e077a17f7f63',
+                  'tests': '63cd429bb28f625faa8ba4452c856aa601712648',
+                  'lean': '72433508961fea500aa3fc61242176baba03da56',
+                  'workflow': '2e468ba40d1fa5cb51776f0fec5ceb0c2a390e17',
+                  'crossfit_base': '11f59404860db7f2570c4b766d27e814622188ce',
+              },
+              'sha256': {
+                  name: hashlib.sha256(path.read_bytes()).hexdigest()
+                  for name, path in files.items()
+              },
+              'strict_past_training': 'PASS',
+              'strict_past_envelope_provenance': 'PASS',
+              'cluster_separation': 'PASS',
+              'pre_outcome_design_drift_guard': 'PASS',
+              'positivity': 'PASS',
+              'external_error_envelopes': 'PASS',
+              'product_rate_remainder': 'PASS',
+              'nonincreasing_remainder': 'PASS',
+              'variable_remainder_e_process': 'PASS',
+              'continuous_root_inversion': 'PASS',
+              'strict_interval_shrinkage': 'PASS',
+              'truth_anytime_inclusion': 'PASS',
+              'negative_controls': 'PASS',
+              'semantic_replay': 'PASS',
+              'deterministic_rebuild': 'PASS',
+              'certificate_tamper_rejection': 'PASS',
+              'semantic_forgery_rejection': 'PASS',
+              'lean': 'PASS',
+              'axioms': 'ABSENT',
+          }
+          path = Path('inference_power_compiler_v2/DRIFT_AWARE_ONLINE_PUBLIC_RECEIPT.json')
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path('inference_power_compiler_v2/DRIFT_AWARE_ONLINE_PUBLIC_RECEIPT.sha256').write_text(
+              f'{digest}  DRIFT_AWARE_ONLINE_PUBLIC_RECEIPT.json\n'
+          )
+          print(path.read_text())
+          print(digest)
+          PY
+
+      - name: Upload public drift-aware online evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: drift-aware-online-crossfit-public-evidence
+          path: |
+            inference_power_compiler_v2/DRIFT_AWARE_ONLINE_PUBLIC_*.json
+            inference_power_compiler_v2/DRIFT_AWARE_ONLINE_PUBLIC_RECEIPT.sha256
+            inference_power_compiler_v2/verify_drift_aware_online_crossfit_public.py
+            DriftAwareOnlineCrossFitPublic.lean
+            DriftAwareOnlineCrossFitPublic.olean
+            drift-aware-online-crossfit-public.log
+            drift-aware-online-crossfit-public-lean.log
+          if-no-files-found: error
+          retention-days: 90

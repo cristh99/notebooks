@@ -1,0 +1,198 @@
+name: Lower-bound metacompiler public verification
+
+on:
+  push:
+    branches:
+      - agent/inference-power-compiler-v2-public-ci
+    paths:
+      - 'inference_power_compiler_v2/lower_bound_metacompiler.py'
+      - 'inference_power_compiler_v2/run_lower_bound_metacompiler.py'
+      - 'inference_power_compiler_v2/lower_bound_metacompiler_certificate.wl'
+      - 'inference_power_compiler_v2/lower_bound_compiler.py'
+      - 'inference_power_compiler_v2/packing_lower_bound.py'
+      - 'inference_power_compiler_v2/fano_lower_bound.py'
+      - 'logic_power_v10_capsule/**'
+      - 'FiniteLowerBounds.lean'
+      - '.github/workflows/lower-bound-metacompiler-public.yml'
+  pull_request:
+    paths:
+      - 'inference_power_compiler_v2/lower_bound_metacompiler.py'
+      - 'inference_power_compiler_v2/run_lower_bound_metacompiler.py'
+      - 'inference_power_compiler_v2/lower_bound_metacompiler_certificate.wl'
+      - 'inference_power_compiler_v2/lower_bound_compiler.py'
+      - 'inference_power_compiler_v2/packing_lower_bound.py'
+      - 'inference_power_compiler_v2/fano_lower_bound.py'
+      - 'logic_power_v10_capsule/**'
+      - 'FiniteLowerBounds.lean'
+      - '.github/workflows/lower-bound-metacompiler-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-meta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Reconstruct hash-bound Logic Power v10 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _logic_power_v10
+          echo 'fbee850593592f701a39c4f6491c8f9a3bcfb586c1910357bdcd48f48967d5ce  logic_power_v10_capsule/parts/part_00.b64' | sha256sum -c -
+          echo '7303cffc0012f655af430d9125f6258afe3a370c69abf02afacfa8bd93709979  logic_power_v10_capsule/parts/part_01.b64' | sha256sum -c -
+          echo '9c0ebf32b4fa12be52d7c72fe879d76e542bd6f223febcdaf4fda10083a669da  logic_power_v10_capsule/parts/part_02.b64' | sha256sum -c -
+          echo '2b5b23d38a64a4cc98f2bb376a38f20fe7dda9bd36539c2446f822d98ac9296a  logic_power_v10_capsule/parts/part_03.b64' | sha256sum -c -
+          echo 'f83c70b1800617313c14f6241dc1f144f993900c5701f500c48f82485ecc58a5  logic_power_v10_capsule/parts/part_04.b64' | sha256sum -c -
+          echo 'fb8a7c4e1ae79848f5114d9ce189d570860432714ca564adfb6655d63a868718  logic_power_v10_capsule/parts/part_05_00.b64' | sha256sum -c -
+          echo '0585c5b94628c10dfc3921c472e903badd10f395f6d119fc4434d2ea7290cc86  logic_power_v10_capsule/parts/part_05_01.b64' | sha256sum -c -
+          echo '897986739715627049a30f43ecb2abcfd50aecbfa7f4f8520428ada29f98b028  logic_power_v10_capsule/parts/part_05_02.b64' | sha256sum -c -
+          cat \
+            logic_power_v10_capsule/parts/part_00.b64 \
+            logic_power_v10_capsule/parts/part_01.b64 \
+            logic_power_v10_capsule/parts/part_02.b64 \
+            logic_power_v10_capsule/parts/part_03.b64 \
+            logic_power_v10_capsule/parts/part_04.b64 \
+            logic_power_v10_capsule/parts/part_05_00.b64 \
+            logic_power_v10_capsule/parts/part_05_01.b64 \
+            logic_power_v10_capsule/parts/part_05_02.b64 \
+            > /tmp/logic-power-v10-source.b64
+          echo '3548f31fcaa9696eabb063023c905fbb04a2b3db73c96df9f9ee8bc8e0c64fc1  /tmp/logic-power-v10-source.b64' | sha256sum -c -
+          base64 -d /tmp/logic-power-v10-source.b64 > /tmp/logic-power-v10-source.tar.gz
+          echo 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31  /tmp/logic-power-v10-source.tar.gz' | sha256sum -c -
+          tar xzf /tmp/logic-power-v10-source.tar.gz -C _logic_power_v10
+          cd _logic_power_v10
+          sha256sum -c SOURCE_SHA256SUMS
+          test "$(cat PRIVATE_HEAD_SHA.txt)" = 'ba10d0edc7eb20d499d0481fda2537e782b6efb2'
+
+      - name: Stage metacompiler in verified source tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _logic_power_v10/inference_power_compiler_v2
+          cp inference_power_compiler_v2/lower_bound_compiler.py _logic_power_v10/inference_power_compiler_v2/
+          cp inference_power_compiler_v2/packing_lower_bound.py _logic_power_v10/inference_power_compiler_v2/
+          cp inference_power_compiler_v2/fano_lower_bound.py _logic_power_v10/inference_power_compiler_v2/
+          cp inference_power_compiler_v2/lower_bound_metacompiler.py _logic_power_v10/inference_power_compiler_v2/
+          cp inference_power_compiler_v2/run_lower_bound_metacompiler.py _logic_power_v10/inference_power_compiler_v2/
+          cp inference_power_compiler_v2/lower_bound_metacompiler_certificate.wl _logic_power_v10/inference_power_compiler_v2/
+          cp FiniteLowerBounds.lean _logic_power_v10/
+
+      - name: Compile exact sources
+        working-directory: _logic_power_v10
+        run: >-
+          python -m py_compile
+          logic_power_v10/__init__.py
+          logic_power_v10/active_discovery.py
+          logic_power_v10/certificate.py
+          inference_power_compiler_v2/lower_bound_compiler.py
+          inference_power_compiler_v2/packing_lower_bound.py
+          inference_power_compiler_v2/fano_lower_bound.py
+          inference_power_compiler_v2/lower_bound_metacompiler.py
+          inference_power_compiler_v2/run_lower_bound_metacompiler.py
+
+      - name: Run exact resource-aware metacompiler
+        shell: bash
+        working-directory: _logic_power_v10
+        run: |
+          set -euo pipefail
+          PYTHONPATH=. python inference_power_compiler_v2/run_lower_bound_metacompiler.py | tee lower-bound-metacompiler.log
+          sha256sum \
+            inference_power_compiler_v2/LOWER_BOUND_METACOMPILER_REPORT.json \
+            inference_power_compiler_v2/META_SMALL_CERTIFICATE.json \
+            inference_power_compiler_v2/META_LARGE_CERTIFICATE.json \
+            inference_power_compiler_v2/META_HYPERCUBE_CERTIFICATE.json \
+            inference_power_compiler_v2/META_GATE_CERTIFICATE.json \
+            > /tmp/meta-before.sha256
+          PYTHONPATH=. python inference_power_compiler_v2/run_lower_bound_metacompiler.py > /tmp/meta-rebuild.log
+          sha256sum \
+            inference_power_compiler_v2/LOWER_BOUND_METACOMPILER_REPORT.json \
+            inference_power_compiler_v2/META_SMALL_CERTIFICATE.json \
+            inference_power_compiler_v2/META_LARGE_CERTIFICATE.json \
+            inference_power_compiler_v2/META_HYPERCUBE_CERTIFICATE.json \
+            inference_power_compiler_v2/META_GATE_CERTIFICATE.json \
+            > /tmp/meta-after.sha256
+          cmp /tmp/meta-before.sha256 /tmp/meta-after.sha256
+
+      - name: Install pinned Lean
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+          "$HOME/.elan/bin/elan" toolchain install leanprover/lean4:v4.33.0-rc1
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Compile formal selection boundary
+        shell: bash
+        working-directory: _logic_power_v10
+        run: |
+          set -euo pipefail
+          elan run leanprover/lean4:v4.33.0-rc1 lean -o FiniteLowerBounds.olean FiniteLowerBounds.lean 2>&1 | tee meta-finite-lower-bounds-lean.log
+          test -s FiniteLowerBounds.olean
+          if grep -q 'sorryAx' meta-finite-lower-bounds-lean.log; then
+            echo 'Unexpected sorryAx'
+            exit 1
+          fi
+
+      - name: Build public receipt
+        shell: bash
+        working-directory: _logic_power_v10
+        env:
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          report = json.loads(Path('inference_power_compiler_v2/LOWER_BOUND_METACOMPILER_REPORT.json').read_text())
+          receipt = {
+              'schema': 'inference-power-compiler/lower-bound-metacompiler-public-receipt/1',
+              'repository': 'cristh99/notebooks',
+              'public_head': os.environ['PUBLIC_HEAD_SHA'],
+              'private_repository': 'cristh99/my_first_repository',
+              'private_pull_request': 68,
+              'logic_power_v10_head': Path('PRIVATE_HEAD_SHA.txt').read_text().strip(),
+              'logic_power_v10_source_archive_sha256': 'ad2c363afb3fe20aa093565f278c690d423611e8270e9ad9b1491dbbdf218c31',
+              'report': report,
+              'python_exact': 'PASS',
+              'deterministic_rebuild': 'PASS',
+              'lean': 'PASS',
+              'sorryAx': False,
+              'independent_wolfram_recorded': 'PASS',
+          }
+          path = Path('inference_power_compiler_v2/LOWER_BOUND_METACOMPILER_PUBLIC_RECEIPT.json')
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path('inference_power_compiler_v2/LOWER_BOUND_METACOMPILER_PUBLIC_RECEIPT.sha256').write_text(
+              f'{digest}  LOWER_BOUND_METACOMPILER_PUBLIC_RECEIPT.json\n'
+          )
+          print(digest)
+          PY
+
+      - name: Upload metacompiler evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lower-bound-metacompiler-public-evidence
+          path: |
+            _logic_power_v10/inference_power_compiler_v2/LOWER_BOUND_METACOMPILER*.json
+            _logic_power_v10/inference_power_compiler_v2/META_*.json
+            _logic_power_v10/inference_power_compiler_v2/LOWER_BOUND_METACOMPILER_PUBLIC_RECEIPT.sha256
+            _logic_power_v10/inference_power_compiler_v2/lower_bound_metacompiler.py
+            _logic_power_v10/inference_power_compiler_v2/run_lower_bound_metacompiler.py
+            _logic_power_v10/inference_power_compiler_v2/lower_bound_metacompiler_certificate.wl
+            _logic_power_v10/FiniteLowerBounds.lean
+            _logic_power_v10/FiniteLowerBounds.olean
+            _logic_power_v10/lower-bound-metacompiler.log
+            _logic_power_v10/meta-finite-lower-bounds-lean.log
+            _logic_power_v10/SOURCE_SHA256SUMS
+            _logic_power_v10/PRIVATE_HEAD_SHA.txt
+          if-no-files-found: error
+          retention-days: 30

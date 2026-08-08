@@ -1,0 +1,163 @@
+name: Semiparametric cross-fit anytime — public verification
+
+on:
+  push:
+    branches:
+      - agent/inference-power-compiler-v2-public-ci
+    paths:
+      - 'inference_power_compiler_v2/verify_semiparametric_anytime_public.py'
+      - 'SemiparametricAnytimePublic.lean'
+      - '.github/workflows/semiparametric-anytime-public.yml'
+  pull_request:
+    paths:
+      - 'inference_power_compiler_v2/verify_semiparametric_anytime_public.py'
+      - 'SemiparametricAnytimePublic.lean'
+      - '.github/workflows/semiparametric-anytime-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-semiparametric-anytime-public:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+
+      - name: Bind private sources and compile verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          verifier=inference_power_compiler_v2/verify_semiparametric_anytime_public.py
+          test "$(grep -c 'd2dcdea953608d50337060d54ac667d41e7fb351' "$verifier")" = "1"
+          test "$(grep -c '1288d570f03978d74496cd8fd793336fb8ae7e92' "$verifier")" = "1"
+          test "$(grep -c '28061e15ff7a8081772f460ef6553226ac12f235' "$verifier")" = "1"
+          test "$(grep -c '50b5ec5dde709cd93957c465a52d75c9897b2cc8' "$verifier")" = "1"
+          test "$(grep -c 'b1f5d4673aedc332755e1b866d1f3656f1621fb4' "$verifier")" = "1"
+          python -m py_compile "$verifier"
+
+      - name: Execute independent AIPW anytime replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          python inference_power_compiler_v2/verify_semiparametric_anytime_public.py \
+            | tee semiparametric-anytime-public.log
+          test -s inference_power_compiler_v2/SEMIPARAMETRIC_ANYTIME_PUBLIC_CERTIFICATE.json
+          test -s inference_power_compiler_v2/SEMIPARAMETRIC_ANYTIME_PUBLIC_REPORT.json
+          sha256sum inference_power_compiler_v2/SEMIPARAMETRIC_ANYTIME_PUBLIC_*.json \
+            > /tmp/semiparametric-anytime-public-before.sha256
+          python inference_power_compiler_v2/verify_semiparametric_anytime_public.py \
+            > /tmp/semiparametric-anytime-public-rebuild.log
+          sha256sum inference_power_compiler_v2/SEMIPARAMETRIC_ANYTIME_PUBLIC_*.json \
+            > /tmp/semiparametric-anytime-public-after.sha256
+          cmp \
+            /tmp/semiparametric-anytime-public-before.sha256 \
+            /tmp/semiparametric-anytime-public-after.sha256
+
+      - name: Install pinned Lean
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -sSf \
+            https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          "$HOME/.elan/bin/elan" toolchain install leanprover/lean4:v4.33.0-rc1
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Compile public formal boundary without axioms
+        shell: bash
+        run: |
+          set -euo pipefail
+          elan run leanprover/lean4:v4.33.0-rc1 lean \
+            -o SemiparametricAnytimePublic.olean \
+            SemiparametricAnytimePublic.lean \
+            2>&1 | tee semiparametric-anytime-public-lean.log
+          test -s SemiparametricAnytimePublic.olean
+          if grep -q 'sorryAx' semiparametric-anytime-public-lean.log; then
+            echo 'Unexpected sorryAx' >&2
+            exit 1
+          fi
+          if grep -q 'depends on axioms:' semiparametric-anytime-public-lean.log; then
+            echo 'Unexpected axiom dependency' >&2
+            exit 1
+          fi
+
+      - name: Build public verification receipt
+        shell: bash
+        env:
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PUBLIC_EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          report = Path('inference_power_compiler_v2/SEMIPARAMETRIC_ANYTIME_PUBLIC_REPORT.json')
+          certificate = Path('inference_power_compiler_v2/SEMIPARAMETRIC_ANYTIME_PUBLIC_CERTIFICATE.json')
+          verifier = Path('inference_power_compiler_v2/verify_semiparametric_anytime_public.py')
+          lean = Path('SemiparametricAnytimePublic.lean')
+          receipt = {
+              'schema': 'semiparametric-anytime-public-verification-receipt/1',
+              'repository': 'cristh99/notebooks',
+              'head': os.environ['PUBLIC_HEAD_SHA'],
+              'event_sha': os.environ['PUBLIC_EVENT_SHA'],
+              'private_repository': 'cristh99/my_first_repository',
+              'private_pull_request': 68,
+              'private_head': 'a4aba3a0b42b2e59fd9bfcf2a3f8f5a3e3e3449f',
+              'private_blobs': {
+                  'compiler': 'd2dcdea953608d50337060d54ac667d41e7fb351',
+                  'runner': '1288d570f03978d74496cd8fd793336fb8ae7e92',
+                  'tests': '28061e15ff7a8081772f460ef6553226ac12f235',
+                  'lean': '50b5ec5dde709cd93957c465a52d75c9897b2cc8',
+                  'workflow': 'b1f5d4673aedc332755e1b866d1f3656f1621fb4',
+              },
+              'report_sha256': hashlib.sha256(report.read_bytes()).hexdigest(),
+              'certificate_sha256': hashlib.sha256(certificate.read_bytes()).hexdigest(),
+              'verifier_sha256': hashlib.sha256(verifier.read_bytes()).hexdigest(),
+              'lean_source_sha256': hashlib.sha256(lean.read_bytes()).hexdigest(),
+              'out_of_fold_provenance': 'PASS',
+              'positivity': 'PASS',
+              'score_boundedness': 'PASS',
+              'second_order_remainder': 'PASS',
+              'conditional_score_bound': 'PASS',
+              'predictable_experts': 'PASS',
+              'factor_nonnegativity': 'PASS',
+              'strict_control_shrinkage': 'PASS',
+              'negative_controls': 'PASS',
+              'semantic_replay': 'PASS',
+              'deterministic_rebuild': 'PASS',
+              'lean': 'PASS',
+              'axioms': 'ABSENT',
+          }
+          path = Path('inference_power_compiler_v2/SEMIPARAMETRIC_ANYTIME_PUBLIC_RECEIPT.json')
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path('inference_power_compiler_v2/SEMIPARAMETRIC_ANYTIME_PUBLIC_RECEIPT.sha256').write_text(
+              f'{digest}  SEMIPARAMETRIC_ANYTIME_PUBLIC_RECEIPT.json\n'
+          )
+          print(path.read_text())
+          print(digest)
+          PY
+
+      - name: Upload public semiparametric anytime evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: semiparametric-anytime-public-evidence
+          path: |
+            inference_power_compiler_v2/SEMIPARAMETRIC_ANYTIME_PUBLIC_*.json
+            inference_power_compiler_v2/SEMIPARAMETRIC_ANYTIME_PUBLIC_RECEIPT.sha256
+            inference_power_compiler_v2/verify_semiparametric_anytime_public.py
+            SemiparametricAnytimePublic.lean
+            SemiparametricAnytimePublic.olean
+            semiparametric-anytime-public.log
+            semiparametric-anytime-public-lean.log
+          if-no-files-found: error
+          retention-days: 90

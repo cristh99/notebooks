@@ -1,0 +1,16 @@
+{
+  "gates": {"all_exact_values":"PASS","all_semantic_replays":"PASS","phase_transition_reached":true,"tampered_certificate":"REJECTED:payload-hash"},
+  "grid": [
+    {"certificate_sha256":"07f745326683a27ed1b61623c6405db5684c67d854449c80901ad256d967dbcb","epsilon":[0,1],"expected_formula_value":[1,10],"least_favorable_prior":{"h0_high":[0,1],"h0_low":[9,10],"h1_high":[0,1],"h1_low":[1,10]},"minimax_value":[1,10],"p0_high":[1,10],"p1_low":[9,10],"replay":"PASS"},
+    {"certificate_sha256":"c54764d54853ca159af3e075781077aa091581b7522b3f6275fa747a0a9d7be9","epsilon":[1,9],"expected_formula_value":[1,5],"least_favorable_prior":{"h0_high":[4,5],"h0_low":[0,1],"h1_high":[0,1],"h1_low":[1,5]},"minimax_value":[1,5],"p0_high":[1,5],"p1_low":[4,5],"replay":"PASS"},
+    {"certificate_sha256":"e6990529d8ce397e8e7be62edc86667d1c025f64b3c8cc1e8e45719a29f52875","epsilon":[1,5],"expected_formula_value":[7,25],"least_favorable_prior":{"h0_high":[18,25],"h0_low":[0,1],"h1_high":[0,1],"h1_low":[7,25]},"minimax_value":[7,25],"p0_high":[7,25],"p1_low":[18,25],"replay":"PASS"},
+    {"certificate_sha256":"d6b67c86406089cfe50391d2c8a471764769eb6ba16a0707a28d2582493518cd","epsilon":[2,9],"expected_formula_value":[3,10],"least_favorable_prior":{"h0_high":[7,10],"h0_low":[0,1],"h1_high":[0,1],"h1_low":[3,10]},"minimax_value":[3,10],"p0_high":[3,10],"p1_low":[7,10],"replay":"PASS"},
+    {"certificate_sha256":"d67d16145185c58a082673a82abdc47fffb8e24e185360cb6d3f77465fceb00d","epsilon":[1,3],"expected_formula_value":[2,5],"least_favorable_prior":{"h0_high":[3,5],"h0_low":[0,1],"h1_high":[0,1],"h1_low":[2,5]},"minimax_value":[2,5],"p0_high":[2,5],"p1_low":[3,5],"replay":"PASS"},
+    {"certificate_sha256":"7ddaa9fda0b67590f398af7fe1048e724d42c4ae97da02970bd782a48d374c42","epsilon":[4,9],"expected_formula_value":[1,2],"least_favorable_prior":{"h0_high":[1,2],"h0_low":[0,1],"h1_high":[0,1],"h1_low":[1,2]},"minimax_value":[1,2],"p0_high":[1,2],"p1_low":[1,2],"replay":"PASS"}
+  ],
+  "independent_wolfram": {"equalizer_identity":true,"risk_formula":"(1+9 epsilon)/10","threshold":[4,9]},
+  "nominal": {"p0":[1,10],"p1":[9,10]},
+  "schema": "inference-power-compiler/robust-contamination-phase-transition/1",
+  "sha256": "e330831d68e261c6e44291e2e618a974ee6b29b76c14ec7f76a5014f9015e3fa",
+  "theorem": {"a_one_tenth_threshold":[4,9],"interpretation":"At epsilon=4/9 the adversarial Bernoulli intervals touch at 1/2, two opposite classes share one observable law, and minimax risk reaches 1/2.","overlap_threshold_formula":"epsilon*=(1-2a)/(2(1-a))","risk_formula":"R*(epsilon)=a+epsilon(1-a) while contamination intervals remain separated"}
+}

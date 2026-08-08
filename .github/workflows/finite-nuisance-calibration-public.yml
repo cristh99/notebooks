@@ -1,0 +1,205 @@
+name: Public finite nuisance calibration verification
+
+on:
+  push:
+    branches:
+      - agent/inference-power-compiler-v2-public-ci
+    paths:
+      - 'inference_power_compiler_v2/verify_finite_nuisance_calibration_public.py'
+      - 'FiniteNuisanceCalibrationPublic.lean'
+      - '.github/workflows/finite-nuisance-calibration-public.yml'
+  pull_request:
+    paths:
+      - 'inference_power_compiler_v2/verify_finite_nuisance_calibration_public.py'
+      - 'FiniteNuisanceCalibrationPublic.lean'
+      - '.github/workflows/finite-nuisance-calibration-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-finite-nuisance-calibration-public:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+
+      - name: Bind immutable private source snapshot by Git object IDs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          binding = {
+              'schema': 'finite-nuisance-calibration/private-binding/1',
+              'repository': 'cristh99/my_first_repository',
+              'branch': 'agent/inference-power-compiler-v2-logic-power-v10',
+              'head': '3ce7c59a8929bf580e1cedc6df478ea51f9830ff',
+              'binding_mode': 'immutable-git-object-ids',
+              'files': {
+                  'compiler': {
+                      'path': 'inference_power_compiler_v2/finite_nuisance_calibration_compiler.py',
+                      'git_blob_sha1': '11bd8fc90b47841438a8d8d4237dd2dcd77bbe85',
+                  },
+                  'runner': {
+                      'path': 'inference_power_compiler_v2/run_finite_nuisance_calibration_compiler.py',
+                      'git_blob_sha1': 'e95feddf30bdb512692882aa5d6da551106d15dc',
+                  },
+                  'tests': {
+                      'path': 'inference_power_compiler_v2/test_finite_nuisance_calibration_compiler.py',
+                      'git_blob_sha1': '9b65d73092b2dd55305c064f585823eaf115ab31',
+                  },
+                  'lean': {
+                      'path': 'FiniteNuisanceCalibration.lean',
+                      'git_blob_sha1': 'c7fe74bf5bada2ca9d5d52284e450a29d7e620aa',
+                  },
+                  'workflow': {
+                      'path': '.github/workflows/finite-nuisance-calibration-compiler.yml',
+                      'git_blob_sha1': '259c63415d9348fbfa17b7d80aea8f53f5234cc9',
+                  },
+                  'online_base': {
+                      'path': 'inference_power_compiler_v2/drift_aware_online_crossfit_compiler.py',
+                      'git_blob_sha1': '3de813e42f1cd4c9fd3c4e3c562a654537de4dfd',
+                  },
+                  'hardening_base': {
+                      'path': 'inference_power_compiler_v2/drift_aware_online_crossfit_hardening.py',
+                      'git_blob_sha1': '7e04055f573f92e54275668981c936a54d771db6',
+                  },
+              },
+          }
+          path = Path('/tmp/private-nuisance-calibration-binding.json')
+          path.write_text(json.dumps(binding, indent=2, sort_keys=True) + '\n')
+          Path('inference_power_compiler_v2/FINITE_NUISANCE_CALIBRATION_PRIVATE_BINDING.json').write_text(
+              path.read_text()
+          )
+          print(path.read_text())
+          PY
+
+      - name: Compile and execute independent calibration verifier
+        shell: bash
+        env:
+          PRIVATE_BINDING_PATH: /tmp/private-nuisance-calibration-binding.json
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            inference_power_compiler_v2/verify_drift_aware_online_crossfit_public.py \
+            inference_power_compiler_v2/verify_finite_nuisance_calibration_public.py
+          python inference_power_compiler_v2/verify_finite_nuisance_calibration_public.py \
+            | tee finite-nuisance-calibration-public.log
+          test -s inference_power_compiler_v2/FINITE_NUISANCE_CALIBRATION_PUBLIC_CERTIFICATE.json
+          test -s inference_power_compiler_v2/FINITE_NUISANCE_CALIBRATION_PUBLIC_REPORT.json
+          sha256sum inference_power_compiler_v2/FINITE_NUISANCE_CALIBRATION_PUBLIC_*.json \
+            > /tmp/calibration-public-before.sha256
+          python inference_power_compiler_v2/verify_finite_nuisance_calibration_public.py \
+            > /tmp/calibration-public-rebuild.log
+          sha256sum inference_power_compiler_v2/FINITE_NUISANCE_CALIBRATION_PUBLIC_*.json \
+            > /tmp/calibration-public-after.sha256
+          cmp /tmp/calibration-public-before.sha256 /tmp/calibration-public-after.sha256
+
+      - name: Install pinned Lean
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -sSf \
+            https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          "$HOME/.elan/bin/elan" toolchain install leanprover/lean4:v4.33.0-rc1
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Compile public calibration boundary without axioms
+        shell: bash
+        run: |
+          set -euo pipefail
+          elan run leanprover/lean4:v4.33.0-rc1 lean \
+            -o FiniteNuisanceCalibrationPublic.olean \
+            FiniteNuisanceCalibrationPublic.lean \
+            2>&1 | tee finite-nuisance-calibration-public-lean.log
+          test -s FiniteNuisanceCalibrationPublic.olean
+          if grep -q 'sorryAx' finite-nuisance-calibration-public-lean.log; then
+            echo 'Unexpected sorryAx' >&2
+            exit 1
+          fi
+          if grep -q 'depends on axioms:' finite-nuisance-calibration-public-lean.log; then
+            echo 'Unexpected axiom dependency' >&2
+            exit 1
+          fi
+
+      - name: Build public calibration receipt
+        shell: bash
+        env:
+          PUBLIC_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PUBLIC_EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          files = {
+              'report': Path('inference_power_compiler_v2/FINITE_NUISANCE_CALIBRATION_PUBLIC_REPORT.json'),
+              'certificate': Path('inference_power_compiler_v2/FINITE_NUISANCE_CALIBRATION_PUBLIC_CERTIFICATE.json'),
+              'verifier': Path('inference_power_compiler_v2/verify_finite_nuisance_calibration_public.py'),
+              'lean': Path('FiniteNuisanceCalibrationPublic.lean'),
+              'private_binding': Path('inference_power_compiler_v2/FINITE_NUISANCE_CALIBRATION_PRIVATE_BINDING.json'),
+          }
+          private_binding = json.loads(files['private_binding'].read_text())
+          receipt = {
+              'schema': 'finite-nuisance-calibration-public-verification-receipt/2',
+              'repository': 'cristh99/notebooks',
+              'head': os.environ['PUBLIC_HEAD_SHA'],
+              'event_sha': os.environ['PUBLIC_EVENT_SHA'],
+              'private_binding': private_binding,
+              'sha256': {
+                  name: hashlib.sha256(path.read_bytes()).hexdigest()
+                  for name, path in files.items()
+              },
+              'independent_prior_batch_reconstruction': 'PASS',
+              'rational_hoeffding_certificate': 'PASS',
+              'simultaneous_union_bound': 'PASS',
+              'automatic_envelope_generation': 'PASS',
+              'generated_product_rate': 'PASS',
+              'generated_remainder_nonincreasing': 'PASS',
+              'alpha_split': 'PASS',
+              'truth_anytime_inclusion': 'PASS',
+              'negative_controls': 'PASS',
+              'semantic_replay': 'PASS',
+              'deterministic_rebuild': 'PASS',
+              'certificate_tamper_rejection': 'PASS',
+              'semantic_forgery_rejection': 'PASS',
+              'lean': 'PASS',
+              'axioms': 'ABSENT',
+          }
+          path = Path('inference_power_compiler_v2/FINITE_NUISANCE_CALIBRATION_PUBLIC_RECEIPT.json')
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path('inference_power_compiler_v2/FINITE_NUISANCE_CALIBRATION_PUBLIC_RECEIPT.sha256').write_text(
+              f'{digest}  FINITE_NUISANCE_CALIBRATION_PUBLIC_RECEIPT.json\n'
+          )
+          print(path.read_text())
+          print(digest)
+          PY
+
+      - name: Upload public calibration evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: finite-nuisance-calibration-public-evidence
+          path: |
+            inference_power_compiler_v2/FINITE_NUISANCE_CALIBRATION_PUBLIC_*.json
+            inference_power_compiler_v2/FINITE_NUISANCE_CALIBRATION_PRIVATE_BINDING.json
+            inference_power_compiler_v2/FINITE_NUISANCE_CALIBRATION_PUBLIC_RECEIPT.sha256
+            inference_power_compiler_v2/verify_finite_nuisance_calibration_public.py
+            FiniteNuisanceCalibrationPublic.lean
+            FiniteNuisanceCalibrationPublic.olean
+            finite-nuisance-calibration-public.log
+            finite-nuisance-calibration-public-lean.log
+          if-no-files-found: error
+          retention-days: 90

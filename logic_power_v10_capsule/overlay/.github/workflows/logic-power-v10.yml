@@ -1,0 +1,45 @@
+name: Logic Power v10 — proof-carrying active discovery
+
+on:
+  push:
+    branches:
+      - agent/logic-power-v10-active-experiment
+  pull_request:
+    paths:
+      - 'logic_power_v10/**'
+      - 'tla_v10/**'
+      - 'ActiveDiscoveryFinite.lean'
+      - 'README_v10.md'
+      - '.github/workflows/logic-power-v10.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Execute Logic Power v10 gates
+        shell: bash
+        run: bash logic_power_v10/ci_v10.sh
+      - name: Upload Logic Power v10 evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: logic-power-v10-evidence
+          path: |
+            reports/audit_v10.json
+            reports/logic_power_v10.json
+            reports/logic_power_v10.canonical.json
+            reports/rebuild_before_v10.sha256
+            reports/rebuild_after_v10.sha256
+            reports/sany_active_discovery_v10.log
+            reports/tlc_active_discovery_exact_v10.log
+            reports/tlc_active_discovery_impossible_v10.log
+            reports/active-discovery-lean-v10.log
+            reports/source_manifest_v10.sha256
+            reports/logic-power-v10-evidence.tar.gz
+            reports/logic-power-v10-evidence.sha256
+            certificates/logic_power_v10_exact.json
+            certificates/logic_power_v10_impossible.json

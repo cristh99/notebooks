@@ -1,0 +1,94 @@
+name: Exact cross-fit interval compiler public independent verification
+
+on:
+  push:
+    branches:
+      - agent/inference-power-compiler-v2-public-ci
+    paths:
+      - 'inference_power_compiler_v2/verify_exact_interval_independent.py'
+      - 'ExactIntervalPublic.lean'
+      - '.github/workflows/exact-interval-public.yml'
+  pull_request:
+    paths:
+      - 'inference_power_compiler_v2/verify_exact_interval_independent.py'
+      - 'ExactIntervalPublic.lean'
+      - '.github/workflows/exact-interval-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+
+      - name: Bind private source and compile verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(grep -c 'f4a1b3b0c70ed120ed5b1b832b8a996c4c8c6f85' inference_power_compiler_v2/verify_exact_interval_independent.py)" = "1"
+          test "$(grep -c 'ddde9c875d3abf564a531f9db4179ccde504b836' inference_power_compiler_v2/verify_exact_interval_independent.py)" = "1"
+          python -m py_compile inference_power_compiler_v2/verify_exact_interval_independent.py
+
+      - name: Execute exact independent convolution and interval replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          python inference_power_compiler_v2/verify_exact_interval_independent.py \
+            | tee exact-interval-public.log
+          test -s inference_power_compiler_v2/EXACT_INTERVAL_PUBLIC_RECEIPT.json
+          sha256sum inference_power_compiler_v2/EXACT_INTERVAL_PUBLIC_RECEIPT.json \
+            > /tmp/exact-interval-before.sha256
+          python inference_power_compiler_v2/verify_exact_interval_independent.py \
+            > /tmp/exact-interval-rebuild.log
+          sha256sum inference_power_compiler_v2/EXACT_INTERVAL_PUBLIC_RECEIPT.json \
+            > /tmp/exact-interval-after.sha256
+          cmp /tmp/exact-interval-before.sha256 /tmp/exact-interval-after.sha256
+
+      - name: Install pinned Lean
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -sSf \
+            https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          "$HOME/.elan/bin/elan" toolchain install leanprover/lean4:v4.33.0-rc1
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Compile public formal boundary without axioms
+        shell: bash
+        run: |
+          set -euo pipefail
+          elan run leanprover/lean4:v4.33.0-rc1 lean \
+            -o ExactIntervalPublic.olean ExactIntervalPublic.lean \
+            2>&1 | tee exact-interval-public-lean.log
+          test -s ExactIntervalPublic.olean
+          if grep -q 'sorryAx' exact-interval-public-lean.log; then
+            echo 'Lean output contains sorryAx' >&2
+            exit 1
+          fi
+          if grep -q 'depends on axioms:' exact-interval-public-lean.log; then
+            echo 'Lean output contains an axiom dependency' >&2
+            exit 1
+          fi
+
+      - name: Upload proof-carrying interval evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: exact-crossfit-interval-public-evidence
+          path: |
+            inference_power_compiler_v2/EXACT_INTERVAL_PUBLIC_RECEIPT.json
+            inference_power_compiler_v2/verify_exact_interval_independent.py
+            ExactIntervalPublic.lean
+            ExactIntervalPublic.olean
+            exact-interval-public.log
+            exact-interval-public-lean.log
+          if-no-files-found: error
+          retention-days: 90

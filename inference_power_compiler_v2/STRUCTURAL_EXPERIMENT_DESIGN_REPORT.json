@@ -1,0 +1,63 @@
+{
+  "adaptive_design": {
+    "adaptive_expected_cost": [
+      53,
+      10
+    ],
+    "adaptive_root": "screen_branch",
+    "adaptive_worst_cost": [
+      8,
+      1
+    ],
+    "expected_cost_reduction": [
+      57,
+      110
+    ],
+    "expected_cost_reduction_percent": 51.8181818182,
+    "fixed_basis": [
+      "resolve_left",
+      "resolve_right"
+    ],
+    "fixed_cost": [
+      11,
+      1
+    ],
+    "worst_cost_reduction": [
+      3,
+      11
+    ]
+  },
+  "causal_identification": {
+    "interventional_status": "SOLVED",
+    "minimal_cost": [
+      3,
+      1
+    ],
+    "minimal_interventional_basis": [
+      "intervene_A_0"
+    ],
+    "observational_obstruction": [
+      "confounded_no_effect",
+      "direct_positive_effect"
+    ],
+    "observational_status": "IMPOSSIBLE",
+    "theorem": "The observational law alone cannot identify the causal effect in the two-world family, while either declared intervention separates the worlds exactly."
+  },
+  "certificates": {
+    "adaptive_sha256": "ec34f4ed1041a289725c4479edc4e968b06483bdb82a66a79a23ed838660dac7",
+    "all_semantic_replays": "PASS",
+    "causal_sha256": "1a320ed2618b2c2b42b7ab8b93ac6babdd2f80604f95965ebfc6df48043f7785",
+    "observational_impossibility_sha256": "3b056983d3a313eae1290d2ac13e9ad300d367ad6de34f13d5768dc3a0b57c89",
+    "tampered_certificate": "REJECTED:payload-hash"
+  },
+  "logic_power_v10_source": {
+    "active_discovery_blob": "b1bd56290b3119517817f6f414edb35f9a426cd1",
+    "branch": "agent/logic-power-v10-active-experiment",
+    "certificate_blob": "a9c1dd87506df3ec4bff4b0ad86398ab8a49cb5e",
+    "head": "ba10d0edc7eb20d499d0481fda2537e782b6efb2",
+    "pr": 53
+  },
+  "schema": "inference-power-compiler/structural-experiment-design-report/1",
+  "scope": "finite hidden worlds, binary target property, finite candidate experiments with exact rational observable laws; the oracle returns a law signature, so this is structural identifiability and design rather than finite-sample estimation",
+  "sha256": "e44fcd2b4f69c3a91e55364baf2138d1eb397bc054c8be1c4fece156ce11185c"
+}
