@@ -1,0 +1,4 @@
+private_repository=cristh99/my_first_repository
+private_branch=agent/finance-power-v1-logic-v10
+private_base_head_before_public_mirror=af186b2f16ffb19416f3e1b39c569cdaf48bf4c9
+logic_power_v10_head=ba10d0edc7eb20d499d0481fda2537e782b6efb2

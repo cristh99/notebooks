@@ -1,0 +1,1 @@
+Trigger: authoritative PR finalizer installed; execute complete capsule once more.

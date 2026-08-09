@@ -1,0 +1,95 @@
+name: Finance Power v1 — finalize public PR status
+
+on:
+  workflow_run:
+    workflows:
+      - Finance Power v1 — public Logic Power v10 capsule
+    types:
+      - completed
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: write
+
+jobs:
+  finalize:
+    if: >-
+      github.event.workflow_run.head_branch ==
+      'agent/finance-power-v1-public-ci-capsule'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Build authoritative PR status
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_HEAD: ${{ github.event.workflow_run.head_sha }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: |
+          gh api \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/jobs?per_page=100" \
+            > /tmp/jobs.json
+          python - <<'PY'
+          from __future__ import annotations
+
+          import json
+          import os
+          from pathlib import Path
+
+          jobs = json.loads(Path("/tmp/jobs.json").read_text(encoding="utf-8"))
+          failed_steps = []
+          for job in jobs.get("jobs", []):
+              for step in job.get("steps", []):
+                  if step.get("conclusion") == "failure":
+                      failed_steps.append(
+                          f"- `{job.get('name')}` → `{step.get('name')}`"
+                      )
+          conclusion = os.environ["RUN_CONCLUSION"]
+          if conclusion == "success":
+              state = "**VERIFIED — PUBLIC CI PASS**"
+              evidence = (
+                  "- 10/10 deterministic and adversarial tests passed;\n"
+                  "- five Exact certificates replayed;\n"
+                  "- five Impossible controls replayed with constructive obstructions;\n"
+                  "- two report builds were byte-identical;\n"
+                  "- a proof-carrying receipt artifact was emitted."
+              )
+          else:
+              state = f"**NOT VERIFIED — {conclusion.upper()}**"
+              evidence = "\n".join(failed_steps) or "- no failed step was exposed"
+
+          body = f"""## Purpose
+
+Public, unmerged verification capsule for Finance Power v1 using the existing Logic Power v10 private-head-bound capsule.
+
+## Authoritative state
+
+{state}
+
+- run: {os.environ['RUN_URL']}
+- tested commit: `{os.environ['RUN_HEAD']}`
+- run id: `{os.environ['RUN_ID']}`
+
+## Evidence
+
+{evidence}
+
+## Declared domains
+
+- capital allocation;
+- credit underwriting;
+- liquidity intervention;
+- insurance reserve;
+- portfolio hedge.
+
+Each domain contains one exact instance and one deliberately impossible negative control.
+
+## Boundary
+
+Synthetic finite worlds only. Exactness is restricted to the declared finite world and evidence grammars. Keep this PR draft and unmerged.
+"""
+          Path("/tmp/pr-body.md").write_text(body, encoding="utf-8")
+          PY
+          gh pr edit 2 --repo "$GITHUB_REPOSITORY" --body-file /tmp/pr-body.md

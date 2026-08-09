@@ -1,0 +1,1 @@
+Trigger: execute the complete public Finance Power v1 verification capsule after receipt publication was installed.

@@ -1,0 +1,89 @@
+name: Finance Power v1 — publish failure diagnostics
+
+on:
+  workflow_run:
+    workflows:
+      - Finance Power v1 — public Logic Power v10 capsule
+    types:
+      - completed
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish-failure:
+    if: >-
+      github.event.workflow_run.conclusion != 'success' &&
+      github.event.workflow_run.head_branch ==
+      'agent/finance-power-v1-public-ci-capsule'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out failed head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Fetch structured job diagnostics
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_HEAD: ${{ github.event.workflow_run.head_sha }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: |
+          mkdir -p ci_receipts
+          gh api \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/jobs?per_page=100" \
+            > /tmp/jobs.json
+          python - <<'PY'
+          from __future__ import annotations
+
+          import json
+          import os
+          from pathlib import Path
+
+          jobs = json.loads(Path("/tmp/jobs.json").read_text(encoding="utf-8"))
+          compact_jobs = []
+          for job in jobs.get("jobs", []):
+              compact_jobs.append(
+                  {
+                      "id": job.get("id"),
+                      "name": job.get("name"),
+                      "status": job.get("status"),
+                      "conclusion": job.get("conclusion"),
+                      "steps": [
+                          {
+                              "number": step.get("number"),
+                              "name": step.get("name"),
+                              "status": step.get("status"),
+                              "conclusion": step.get("conclusion"),
+                          }
+                          for step in job.get("steps", [])
+                      ],
+                  }
+              )
+          marker = {
+              "schema": "finance-power-v1/published-failure/1",
+              "failed_head": os.environ["RUN_HEAD"],
+              "failed_run": int(os.environ["RUN_ID"]),
+              "failed_url": os.environ["RUN_URL"],
+              "conclusion": os.environ["RUN_CONCLUSION"],
+              "jobs": compact_jobs,
+          }
+          Path(
+              "ci_receipts/finance-power-v1-public-failure.json"
+          ).write_text(
+              json.dumps(marker, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ci_receipts/finance-power-v1-public-failure.json
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "ci: publish Finance Power v1 failure diagnostics"
+          git push origin HEAD:agent/finance-power-v1-public-ci-capsule
