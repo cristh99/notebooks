@@ -1,0 +1,7 @@
+{
+  "schema": "C04_SYNTH_v1",
+  "seed": 20260810,
+  "n_per_fixture": 64,
+  "train_per_fixture": 48,
+  "measurement_noise_fraction_sd": 0.02
+}
