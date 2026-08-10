@@ -1,0 +1,55 @@
+{
+  "config_sha256": "f7dd921b52393b6d5818966f24773a21350de036c293458436ca70338c5d5d76",
+  "data_sha256": "4c767aeb05f23eef20e5dcf33726b599a0b2a88090ca61e38e069b88928cd147",
+  "limits": {
+    "causal_claim": false,
+    "clinical_use": false,
+    "external_validation": false,
+    "sex_category_not_causal": true,
+    "synthetic_only": true
+  },
+  "models": {
+    "common_fick": {
+      "bias": -1.50170102665339,
+      "calibration_ratio_mean_pred_over_obs": 0.9975202423723559,
+      "mae": 9.724837204152017,
+      "n": 64,
+      "rmse": 16.777114562232697,
+      "test_95pct_residual_coverage": 0.921875,
+      "train_residual_sd": 16.063520036276724
+    },
+    "fick_plus_sex_residual": {
+      "bias": -1.5017010266533517,
+      "mae": 9.62747982798942,
+      "n": 64,
+      "rmse": 16.80246775515747
+    },
+    "size_only": {
+      "bias": -21.27859408599534,
+      "mae": 448.3545935741825,
+      "n": 64,
+      "rmse": 554.2552786512927
+    }
+  },
+  "rows": 256,
+  "scenarios": [
+    "baseline",
+    "high_flow",
+    "low_binding_capacity",
+    "low_oxygen_partial_pressure"
+  ],
+  "schema": "C04_RECEIPT_v1",
+  "sensitivity_fractional_mean": {
+    "Hb_minus5": -0.048630772288192,
+    "Hb_plus5": 0.048630772288192056,
+    "Q_minus5": -0.050000000000000044,
+    "Q_plus5": 0.050000000000000044
+  },
+  "sex_residual_bias_ml_min": {
+    "F": -0.09297274739921384,
+    "M": 0.6630707789098794
+  },
+  "size_only_beta_ml_min_per_kg": 11.979427439574904,
+  "test_rows": 64,
+  "train_rows": 192
+}
