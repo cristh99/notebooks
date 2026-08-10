@@ -1,0 +1,44 @@
+name: Life Health C04 Synthetic Repro
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/life-health-c04
+    paths:
+      - life_health_c04/**
+      - .github/workflows/life-health-c04.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: life-health-c04-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reproduce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Reproduce synthetic C04 artifact
+        working-directory: life_health_c04
+        run: |
+          set -euo pipefail
+          python3 generator.py --config config.json --out output/c04_synthetic.csv
+          python3 tests.py
+          python3 run.py --config config.json --data output/c04_synthetic.csv --receipt output/receipt.json
+          python3 verify_expected.py
+          node replica.mjs output/c04_synthetic.csv
+          sha256sum generator.py run.py tests.py replica.mjs config.json requirements.lock README.md PROVENANCE.md expected_receipt.json
+      - name: Boundary check
+        run: |
+          echo 'Synthetic-only; no clinical dataset; no causal or clinical claim.'
+          echo 'Additional configured spend: USD 0.'
