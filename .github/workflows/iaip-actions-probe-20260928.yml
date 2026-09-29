@@ -1,0 +1,48 @@
+name: IAIP GitHub-hosted runner probe
+
+on:
+  push:
+    branches:
+      - experiment/iaip-actions-probe-20260928
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe IAIP direct download
+        shell: bash
+        run: |
+          set -u
+          portal_id="1992741"
+          encoded_id="MTk5Mjc0MQ=="
+
+          echo -e "host\thttp_code\tcontent_type\tsize_bytes\tmagic\tsha256"
+
+          for host in portalunico.iaip.gob.hn api.iaip.gob.hn; do
+            url="https://${host}/ver_archivo/${encoded_id}"
+            headers="$(mktemp)"
+            body="$(mktemp)"
+
+            code="$(curl               --silent --show-error --location --compressed               --connect-timeout 15 --max-time 90               --user-agent 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'               --header 'Accept: application/pdf,text/html;q=0.9,*/*;q=0.8'               --header 'Accept-Language: es-HN,es;q=0.9,en;q=0.7'               --dump-header "$headers"               --output "$body"               --write-out '%{http_code}'               "$url" || true)"
+
+            ctype="$(awk 'BEGIN{IGNORECASE=1} /^content-type:/ {gsub("\\r",""); sub(/^[^:]+:[[:space:]]*/, ""); v=$0} END{print v}' "$headers")"
+            size="$(stat -c '%s' "$body" 2>/dev/null || echo 0)"
+            magic="$(head -c 5 "$body" 2>/dev/null | tr '\n\r\t' ' ' || true)"
+            sha=""
+
+            if [ "$code" = "200" ] && [ "$magic" = "%PDF-" ]; then
+              sha="$(sha256sum "$body" | awk '{print $1}')"
+              echo "SUCCESS ${host}: IAIP-${portal_id} is a real PDF"
+            else
+              echo "BLOCKED_OR_NOT_PDF ${host}"
+            fi
+
+            echo -e "${host}\t${code}\t${ctype}\t${size}\t${magic}\t${sha}"
+            echo "--- selected response headers: ${host} ---"
+            grep -Ei '^(HTTP/|content-type:|content-length:|server:|cf-ray:|cf-mitigated:|location:)' "$headers" || true
+            rm -f "$headers" "$body"
+          done
