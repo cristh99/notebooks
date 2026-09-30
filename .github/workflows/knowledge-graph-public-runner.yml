@@ -79,6 +79,7 @@ jobs:
             echo "available=false" >> "$GITHUB_OUTPUT"
             echo "Status: BLOCKED_NO_SECRET." >> "$GITHUB_STEP_SUMMARY"
             echo "Create the repository secret NOTION_GRAPH_TOKEN to activate daily sync." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
           fi
       - name: Checkout
         if: steps.auth.outputs.available == 'true'
